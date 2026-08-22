@@ -1,0 +1,452 @@
+# Reference: Supabase for Elixir/Phoenix
+
+Everything learned about Supabase relevant to building `one_playlist` on it, and to
+Jason's goal of knowing Supabase deeply before starting there.
+
+> **Meta-fact worth keeping in mind:** Supabase Realtime is itself written in **Elixir with
+> the Phoenix Framework** (`github.com/supabase/realtime`, Apache 2.0). It listens to
+> Postgres logical replication (via `cainophile` / `pgoutput_decoder`), serializes changes to
+> JSON, and fans them out over Phoenix Channels. Supavisor, the connection pooler, is also
+> Elixir. Reading those two repos is the highest-leverage Supabase-and-Elixir study available.
+
+---
+
+## 1. The platform in one paragraph
+
+Supabase is a managed Postgres with a set of services bolted onto the same database:
+**PostgREST** (auto REST API over your schema), **Auth** (GoTrue — users, OAuth, JWTs),
+**Storage** (S3-backed object store with RLS), **Realtime** (Broadcast / Presence / Postgres
+Changes), **Edge Functions** (Deno), and a set of Postgres extensions surfaced as products —
+**Queues** (pgmq), **Cron** (pg_cron), **Vault** (encrypted secrets), **Vector** (pgvector),
+**Wrappers** (FDWs). The unifying idea is that **authorization lives in the database** as Row
+Level Security policies, and every client — browser, edge function, or Phoenix app — is just
+a Postgres role.
+
+For a Phoenix app the important consequence is: you have a choice between *going through
+Supabase's HTTP APIs* (PostgREST/Auth/Storage) and *talking to the Postgres directly with
+Ecto*. Both are legitimate, and this project should deliberately use both so as to learn both.
+
+---
+
+## 2. Connecting Postgres from Ecto
+
+Four connection paths:
+
+| Method | Host | Port | Best for | IP |
+| --- | --- | --- | --- | --- |
+| **Direct** | `db.<ref>.supabase.co` | 5432 | persistent servers, migrations, `pg_dump` | IPv6 (IPv4 add-on) |
+| **Supavisor session mode** | `aws-<region>.pooler.supabase.com` | 5432 | persistent backends on IPv4-only networks | IPv4 |
+| **Supavisor transaction mode** | `aws-<region>.pooler.supabase.com` | 6543 | serverless / edge, many transient connections | IPv4 |
+| **Dedicated pooler (PgBouncer)** | `db.<ref>.supabase.co` | 6543 | high-perf paid tier, co-located | IPv6 (IPv4 add-on) |
+
+- A Phoenix app is a **persistent server** → prefer **direct connection**, or **Supavisor
+  session mode** if the host is IPv4-only. Fly.io is IPv6-capable; most CI is not.
+- **Transaction mode does not support (Postgres-level) prepared statements.** With Ecto that
+  means `prepare: :unnamed`. Supavisor has added support for parsing/broadcasting named
+  prepared statements, but the safe configuration on transaction mode remains
+  `prepare: :unnamed`. Session mode supports them normally.
+- Username format differs: direct is `postgres`; pooler is `postgres.<project-ref>`.
+- The IPv4 add-on **swaps** the AAAA record for an A record — it is not dual-stack.
+- Always use SSL.
+
+Working Ecto shape:
+
+```elixir
+# config/runtime.exs
+config :one_playlist, OnePlaylist.Repo,
+  url: System.fetch_env!("DATABASE_URL"),
+  ssl: true,
+  pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+  # add `prepare: :unnamed` if and only if using the transaction pooler (:6543)
+```
+
+Ecto migrations run fine against the direct connection. Two schema-management styles are
+possible; **pick one and be consistent**:
+- Ecto migrations only (Supabase is "just Postgres"), with RLS policies written as raw SQL
+  inside migrations via `execute/2`.
+- Supabase CLI migrations (`supabase migration new`, `supabase db diff|push|reset`) as the
+  source of truth, with Ecto in `:read`-schema mode.
+
+Reserved Supabase schemas you must not clobber: `auth`, `storage`, `realtime`, `extensions`,
+`graphql`, `vault`, `cron`, `pgmq`, `supabase_functions`. Your tables go in `public` (or your
+own schema exposed to PostgREST).
+
+---
+
+## 3. API keys and Postgres roles
+
+Supabase is migrating from JWT-format keys to prefixed keys. Both work during the transition;
+the new ones become standard by end of 2026.
+
+| Key | Unauthenticated request → role | Authenticated request → role |
+| --- | --- | --- |
+| **Publishable** `sb_publishable_...` (was `anon`) | `anon` | `authenticated` |
+| **Secret** `sb_secret_...` (was `service_role`) | `service_role` (**bypasses RLS**) | `service_role` |
+
+- The Phoenix backend uses the **secret key**. Never ship it to a browser. New-format secret
+  keys additionally reject browser requests via User-Agent matching and can be rotated/deleted
+  individually.
+- Publishable keys are safe to expose; RLS is what protects the data behind them.
+
+---
+
+## 4. Auth (GoTrue)
+
+### JWTs
+
+`<header>.<payload>.<signature>`. Claims that matter: `iss`, `exp`, `sub` (user id),
+`role` (**the Postgres role RLS policies run as**), `aud`, `email`, `app_metadata`,
+`user_metadata`.
+
+- **Asymmetric signing keys (ES256 / RS256) are the modern default and what you should use.**
+  Public keys are published at
+  `https://<ref>.supabase.co/auth/v1/.well-known/jwks.json` (10-minute cache), so a Phoenix
+  backend can verify a token **locally** with no network round-trip and no shared secret.
+- Legacy HS256 shared-secret projects cannot verify locally with equivalent safety; verification
+  means calling `GET /auth/v1/user` with the JWT. Avoid.
+- In Elixir, verify with `joken` (+ `JOSE`) or `jose` directly against the JWKS, caching the
+  keys and honouring `kid`.
+
+### Provider (OAuth) tokens — **the single most important constraint for this project**
+
+When a user signs in with Spotify (or Google/YouTube etc.) via Supabase Auth, the session
+contains `provider_token` and `provider_refresh_token`.
+
+- **Supabase does not store them.** They appear once in the session response and are gone.
+- **Supabase does not refresh them.** Renewing a Spotify access token with the Spotify refresh
+  token is entirely your application's job.
+- Supabase uses PKCE between *your app → Supabase Auth*, but the *Supabase Auth → Spotify* leg
+  uses the plain Auth Code flow. This has historically made provider-token refresh awkward,
+  especially for SPAs/mobile; a server-side app is the well-behaved case.
+
+**Therefore:** `one_playlist` must capture `provider_token` / `provider_refresh_token` at
+sign-in and persist them itself, encrypted, with its own refresh scheduler. See
+[Vault](#8-vault--encrypted-secrets) and the "provider connections" note in `CLAUDE.md`.
+
+### Spotify provider setup
+
+1. Create an app at `developer.spotify.com/dashboard`.
+2. Redirect URI: `https://<ref>.supabase.co/auth/v1/callback`
+   (local: `http://localhost:54321/auth/v1/callback`).
+3. Supabase Dashboard → Authentication → Providers → Spotify → client id + secret.
+4. Request scopes at sign-in time (`playlist-read-private`, `playlist-modify-public`,
+   `playlist-modify-private`, `user-library-read`, `user-library-modify`,
+   `user-follow-read`, `user-follow-modify`, `user-top-read`).
+
+### Elixir integration
+
+`supabase_auth` (v1.0.0, part of the Potion SDK) ships Plug and LiveView integrations:
+
+```elixir
+defmodule OnePlaylistWeb.Auth do
+  use Supabase.Auth.Plug,
+    endpoint: OnePlaylistWeb.Endpoint,
+    signed_in_path: "/app",
+    not_authenticated_path: "/login"
+end
+
+defmodule OnePlaylistWeb.LiveAuth do
+  use Supabase.Auth.LiveView,
+    endpoint: OnePlaylistWeb.Endpoint,
+    signed_in_path: "/app",
+    not_authenticated_path: "/login"
+end
+```
+
+Router pipelines get `:require_authenticated_user` / `:redirect_if_user_is_authenticated`;
+LiveViews get `on_mount` callbacks putting `socket.assigns.current_user`.
+
+Supported methods: email+password, phone+password, magic link / OTP, OAuth, SSO, anonymous,
+MFA.
+
+**Design decision to make deliberately:** Supabase Auth vs `mix phx.gen.auth`. Supabase Auth
+is the right call *for this project* because (a) it gives us Spotify/Google OAuth for free,
+(b) it is what Jason wants to learn, and (c) `auth.uid()` is what makes RLS work. The cost is
+that Phoenix's `current_scope` conventions (see `AGENTS.md`) must be adapted rather than
+generated.
+
+---
+
+## 5. Row Level Security
+
+The heart of Supabase. Two sequential checks: **grants** (may this role do this at all?) then
+**policies** (which rows?). A missing grant fails with `42501` before any policy runs, and
+adding a policy does not remove a grant.
+
+```sql
+alter table public.playlists enable row level security;
+
+revoke all on table public.playlists from anon, authenticated;
+grant select, insert, update, delete on table public.playlists to authenticated;
+
+create policy "owner can read" on public.playlists
+  for select to authenticated
+  using ( (select auth.uid()) = user_id );
+
+create policy "owner can insert" on public.playlists
+  for insert to authenticated
+  with check ( (select auth.uid()) = user_id );
+
+create policy "owner can update" on public.playlists
+  for update to authenticated
+  using ( (select auth.uid()) = user_id )
+  with check ( (select auth.uid()) = user_id );
+```
+
+Rules and gotchas:
+
+- `USING` filters existing rows (SELECT/UPDATE/DELETE); `WITH CHECK` validates new/resulting
+  rows (INSERT/UPDATE). An UPDATE also needs a SELECT policy.
+- **Always name the role with `TO`.** Without it the policy is evaluated for every role.
+- `auth.uid()` returns `NULL` for unauthenticated requests, so `auth.uid() = user_id` fails
+  *silently* rather than erroring. Prefer explicit null checks where it matters.
+- `auth.jwt()` gives the whole token. **`raw_app_meta_data` is user-immutable and safe for
+  authorization; `raw_user_meta_data` is user-writable and is not.**
+- **Performance:** wrap auth functions in a subselect — `(select auth.uid()) = user_id` — so
+  Postgres hoists it into an `initPlan` and evaluates it once per statement rather than per
+  row. And **index every column a policy filters on**.
+- Views: Postgres 15+ `create view ... with (security_invoker = true)` so the view respects
+  the underlying table's policies.
+- Bypass: the secret key / `service_role`, or a role with `bypassrls`. Server-side only.
+- **Test policies with pgTAP** (`supabase test new`, `supabase test db`), switching roles with
+  `set local role` and identity with `set local request.jwt.claim.sub`. A wrong policy fails
+  quietly, which is exactly the failure mode that needs tests.
+
+Because our Phoenix backend connects as the Postgres owner via Ecto, **RLS does not protect
+us from our own bugs by default**. Two options, and this is a real architectural decision:
+1. Connect Ecto as a role subject to RLS and set the request JWT claims per checkout
+   (`set_config('request.jwt.claims', ...)`) — genuinely defence-in-depth, more machinery.
+2. Enforce scoping in Elixir (Phoenix `current_scope` conventions) and keep RLS as protection
+   for anything that reaches Postgres through PostgREST/Realtime/Storage.
+
+Option 2 is the pragmatic default; option 1 is the better *learning* exercise. Consider doing
+1 for the tables that Realtime/Storage also touch.
+
+---
+
+## 6. Realtime
+
+Three products over one WebSocket:
+
+- **Broadcast** — ephemeral low-latency client↔client messages. Also **Broadcast from the
+  Database**: a trigger calls `realtime.broadcast_changes()` / `realtime.send()` to push a
+  message on a topic. This is the scalable modern replacement for Postgres Changes.
+- **Presence** — synchronized shared state (who's online, who's viewing a transfer).
+- **Postgres Changes** — logical-replication-driven insert/update/delete events. Simpler, but
+  authorization is evaluated per-subscriber and it scales worse than broadcast-from-database.
+
+### Authorization
+
+- A `realtime.messages` table in the `realtime` schema is the RLS surface. On channel join,
+  Realtime runs a query against it and **rolls back** — no messages are stored.
+- Policies check `realtime.topic()` (the channel topic the client is joining) and the
+  `extension` column (`'broadcast'` / `'presence'`).
+- **Private channels:** disable "Allow public access" in Realtime Settings and set
+  `private: true` client-side.
+- Policies are **cached for the life of the connection**. Clients must send a fresh JWT via
+  the `access_token` message; a client whose JWT expires without renewal is disconnected. Keep
+  JWT lifetimes short.
+
+### For this project
+
+Phoenix already has its own PubSub and LiveView, so in-app live updates should use those —
+there is no reason to round-trip through Supabase Realtime for our own UI. Realtime earns its
+place for:
+- multi-device / multi-tab sync of transfer progress,
+- anything a future non-Phoenix client (mobile, browser extension) would consume,
+- and as a deliberate learning exercise: connect Phoenix *as a Realtime client* via
+  `supabase_realtime`, and read `supabase/realtime` to see how a Phoenix app is built at scale.
+
+---
+
+## 7. Queues (pgmq)
+
+Postgres-native durable message queue with guaranteed delivery and exactly-once semantics
+within a **visibility timeout** window.
+
+- Enable the `pgmq` extension; queues live in the `pgmq` schema.
+- Core operations (via the `pgmq` SQL functions, surfaced by Supabase as
+  `pgmq_public.*` for API access): create queue, `send` / `send_batch`, `read` (with vt),
+  `pop`, `archive`, `delete`.
+- Queue variants: standard, **unlogged** (faster, not crash-safe), **partitioned** (needs
+  `pg_partman`).
+- Access control via API permissions + RLS on the queue tables.
+- Dashboard has queue creation/monitoring UI.
+
+**For this project:** a transfer job is a natural queue payload. The alternative is **Oban**
+(pure Elixir, Postgres-backed, mature, with cron/uniqueness/retries/telemetry and a good
+Phoenix story). Recommendation: use **Oban** for the real work queue and use **Supabase
+Queues** for at least one deliberate learning slice (e.g. a webhook-ingest queue), because
+Oban is the better tool and Supabase Queues is the better lesson. Do not run both for the same
+workload.
+
+---
+
+## 8. Vault — encrypted secrets
+
+- A table of metadata plus an encrypted text column, using `pgsodium` for **AEAD**
+  (encrypted *and* signed).
+- Supabase pre-generates a per-database **root key stored outside SQL**, accessible only to
+  libsodium inside the Postgres server. Only a key **ID** is stored in the database, so
+  secrets are encrypted at rest *and in database dumps*.
+- Explicitly recommended for "API keys, access tokens, and other secrets from external
+  services that you need to access within your database."
+- `pgsodium` itself is pending deprecation as a directly-used extension; use Vault's interface.
+
+**This is the natural home for Spotify/Apple/Google provider refresh tokens** — with the
+caveat that if the Phoenix app is the only consumer, `cloak_ecto` (application-side envelope
+encryption) keeps the plaintext out of Postgres entirely and is more idiomatic Elixir. Decide
+explicitly; do not do both.
+
+---
+
+## 9. Storage
+
+- **Buckets** (public or private) containing **objects**; RLS policies on `storage.objects`
+  give fine-grained control.
+- Signed URLs for time-limited access to private objects.
+- **TUS resumable uploads**; **S3-compatible protocol** with dedicated access keys (so any S3
+  client, including `ex_aws_s3`, works).
+- Global CDN (285+ cities) and on-the-fly **image transformations** (resize/compress).
+- Newer bucket types: **Analytics buckets** (Apache Iceberg) and **Vector buckets**.
+
+**For this project:** playlist cover art (uploaded and generated), CSV/M3U/XSPF/JSON exports
+that users download, and transfer reports.
+
+---
+
+## 10. Cron (pg_cron)
+
+- `cron` schema with `cron.job` and `cron.job_run_details`.
+- Schedules SQL, database functions, or **HTTP requests via `pg_net`** (which is how you
+  invoke an Edge Function on a schedule).
+- Granularity from every second to once a year.
+- Supabase guidance: **≤ 8 concurrent jobs, ≤ 10 minutes per job.**
+- Manage via SQL (`cron.schedule` / `cron.unschedule`) or the Dashboard Integrations UI.
+
+For scheduled playlist **sync** (the paid-tier feature in Soundiiz/TuneMyMusic), Oban Cron in
+the Phoenix app is the better fit — it can hold OAuth refresh logic and rate-limited API calls.
+Use `pg_cron` for database housekeeping (archiving old jobs, refreshing materialized views).
+
+---
+
+## 11. Edge Functions
+
+- **Deno** / TypeScript. `supabase functions serve` locally, `supabase functions deploy`.
+- Globally distributed; **cold starts are real** — design for short-lived, idempotent work.
+- Secrets via project secrets → environment variables.
+- The edge gateway validates Supabase JWTs and applies rate limits before your code runs;
+  functions can also verify internally.
+- Treat Postgres as a remote pooled service from a function (transaction-mode pooler).
+
+**For this project, Edge Functions are mostly the wrong tool** — a Phoenix app already has a
+better place for every long-running or stateful task. Use them for exactly what they are good
+at, and as a learning exercise: OAuth callback shims, webhook receivers that must respond in
+milliseconds, or anything that must run at the edge close to the user.
+
+---
+
+## 12. Vector / pgvector
+
+- `vector` extension; `vector(n)` and **`halfvec(n)`** (16-bit floats — needed for >2000
+  dimensions; HNSW supports up to 4000 halfvec dimensions; pgvector 0.7+ stores up to 16,000).
+- **HNSW** is the recommended index (performance + robustness to changing data);
+  IVFFlat is the alternative.
+
+```sql
+create table track_embeddings (id bigint primary key, embedding halfvec(1536));
+create index on track_embeddings using hnsw (embedding halfvec_cosine_ops);
+-- query with the matching operator: <=> for cosine
+```
+
+- Supabase also offers **automatic embeddings** (a pgmq + pg_cron + pg_net pipeline that
+  keeps an embedding column in sync with a text column).
+
+**For this project:** semantic track matching as a *fallback* after ISRC and fuzzy-text
+matching fail, and "playlists like this one" / AI playlist generation (a headline Soundiiz
+feature).
+
+---
+
+## 13. Local development
+
+```
+brew install supabase/tap/supabase     # needs a Docker-compatible runtime
+supabase init                          # creates supabase/ + config.toml
+supabase start                         # boots the whole stack in Docker
+supabase stop                          # halts without deleting data
+```
+
+Default local ports:
+
+| Service | Port |
+| --- | --- |
+| API gateway (REST, GraphQL, Edge Functions, Realtime) | 54321 |
+| Postgres | 54322 |
+| Studio | 54323 |
+| Mailpit (SMTP capture) | 54324 |
+
+Other commands worth knowing: `supabase link --project-ref <ref>`, `supabase db pull`,
+`supabase db diff`, `supabase db push`, `supabase db reset` (re-applies migrations + `seed.sql`),
+`supabase migration new <name>`, `supabase functions serve|deploy`, `supabase test new|db`
+(pgTAP), `supabase gen types`.
+
+Disable telemetry with `supabase telemetry disable` / `SUPABASE_TELEMETRY_DISABLED=1`.
+
+The local stack is the right target for the test suite — it gives real RLS, real Auth, and
+real Realtime without touching a hosted project.
+
+---
+
+## 14. The Elixir SDK (Supabase Potion)
+
+Community-maintained monorepo: `github.com/supabase-community/supabase-ex`.
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `supabase_potion` | ~> 1.0 | base SDK / `Supabase.Client` |
+| `supabase_auth` | ~> 1.0 (was `supabase_gotrue`) | Auth + Plug + LiveView integration |
+| `supabase_postgrest` | ~> 1.0 | PostgREST query builder |
+| `supabase_storage` | ~> 0.4 | Storage |
+| `supabase_realtime` | ~> 0.1 | Realtime client |
+| `supabase_functions` | ~> 0.1 | Edge Function invocation |
+
+Module-based client (recommended):
+
+```elixir
+defmodule OnePlaylist.Supabase do
+  use Supabase.Client, otp_app: :one_playlist
+end
+
+# config/runtime.exs
+config :one_playlist, OnePlaylist.Supabase,
+  base_url: System.fetch_env!("SUPABASE_URL"),
+  api_key: System.fetch_env!("SUPABASE_SECRET_KEY"),
+  db: [schema: "public"],
+  auth: [flow_type: :pkce],
+  global: [headers: %{}]
+```
+
+One-off client: `Supabase.init_client(url, key, opts)`.
+
+HTTP layer is configurable via `:http_client`, `:finch_name`, `:finch_pool`. Note the SDK uses
+**Finch**, while Phoenix 1.8 ships **Req** (which is itself Finch-based) — `AGENTS.md` says to
+use Req for our own HTTP calls. Both can coexist; keep provider HTTP calls on Req and let the
+SDK use its own Finch pool.
+
+Older/abandoned alternatives you may encounter in search results: `treebee/supabase-elixir`,
+`jehrhardt/supabase-elixir`. Prefer the `supabase-community` monorepo.
+
+---
+
+## 15. Study list (for the "learn Supabase before starting there" goal)
+
+1. `github.com/supabase/realtime` — a large production Elixir/Phoenix app. Read the channel
+   authorization path and the replication pipeline.
+2. `github.com/supabase/supavisor` — Elixir multi-tenant Postgres pooler.
+3. `github.com/supabase/auth` (GoTrue, Go) — how the JWT/session/provider-token model actually
+   works, including the PKCE-vs-provider-refresh-token issue that bites this project.
+4. `github.com/supabase/storage` and `postgrest/postgrest`.
+5. Supabase blog posts on Supavisor 1.0, Realtime Multiplayer GA, Vault, and Automatic
+   Embeddings.
+6. pgTAP-based RLS testing — the practice Supabase itself recommends and that most users skip.

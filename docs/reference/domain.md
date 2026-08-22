@@ -1,0 +1,208 @@
+# Reference: The Playlist-Transfer Domain
+
+Competitive landscape (Soundiiz, TuneMyMusic, and the rest), the technical core of the
+problem (track matching), and the hard constraints imposed by the music platforms' APIs.
+
+---
+
+## 1. What the incumbents do
+
+### Soundiiz — the feature leader
+
+Tiers (as of 2026): **Free** $0 · **Premium** $39/yr ($5/mo) · **Creator** $75/yr ($9.50/mo).
+
+| Feature | Free | Premium | Creator |
+| --- | --- | --- | --- |
+| Playlist transfer | one at a time, **≤ 200 tracks** | unlimited | unlimited |
+| Batch operations | — | ✓ | ✓ |
+| Albums / artists / liked-tracks transfer | — | ✓ | ✓ |
+| **Sync slots** (auto-sync pairs) | 1 | 20 | 50 (purchasable) |
+| Export formats | — | CSV, TXT, XSPF, JSON, XML, URL | same |
+| AI playlist generation | ≤ 20 / 24 h | ≤ 20 / 24 h | ≤ 20 / 24 h |
+| Smartlinks analytics | — | standard | advanced + subdomain, no attribution |
+| Priority support | — | ✓ | ✓ |
+
+Capabilities:
+- **Transfer** playlists, albums, artists, and liked/saved tracks between ~45 services.
+- **Auto-sync**: keep a playlist mirrored across two platforms on a daily / weekly / monthly
+  schedule. This is the retention feature; the sync-slot count is the pricing lever.
+- **Import/export**: M3U, XSPF, iTunes XML, CSV, plain text, and web URLs in; CSV, TXT, XSPF,
+  JSON, XML out.
+- **Playlist tools**: sort, merge, split into parts, shuffle, clone, dedupe, create.
+- **AI generation** of playlists / album lists / artist lists.
+- **Smartlinks** — a curator-facing promotional landing page for a release or playlist.
+- Long tail of platforms is a genuine moat: Plex, Jellyfin, Emby, Navidrome, Subsonic,
+  Bandcamp, Beatport, SoundCloud, Pandora — plus per-platform read/write capability matrices.
+
+### TuneMyMusic — the simpler, cheaper one
+
+- ~20+ platforms, entirely browser-based, no install.
+- **Free: 500 songs per transfer.** Paid removes the cap.
+- Paid unlocks **auto-sync** (mirrors changes, up to 20 times/day), AI playlist creation,
+  cloud backups, and universal share links.
+- Pricing around $5.50/mo monthly or ~$2/mo billed annually — materially cheaper than Soundiiz.
+
+### The rest of the field
+
+FreeYourMusic (desktop/mobile apps, one-time purchase option), PlaylistGo, Tunarc, Tuneferry,
+Paradify, MusicAPI.com (a B2B "universal music API" — worth studying as a competitor *and* as
+a possible dependency).
+
+### Where the differentiation is
+
+Both leaders converge on the same feature set, which tells you where the real competition is:
+
+1. **Match quality.** The loudest, most common complaint about every one of these tools is
+   wrong matches — a karaoke version, a cover, a live take, the wrong "feat." credit, or a
+   silent drop. Tools advertising ISRC-based matching claim ~97–99.2% match rates against
+   text-only matching. **This is the product.**
+2. **Transparency about what didn't transfer.** A per-track report with the reason, and a
+   manual "pick the right one" resolution UI, is worth more than another platform integration.
+3. **Sync reliability.** Auto-sync is the subscription hook; it lives or dies on OAuth token
+   refresh, rate-limit discipline, and idempotency — exactly what `external_service` is for.
+4. **The long tail of platforms**, especially self-hosted (Plex/Jellyfin/Navidrome/Subsonic),
+   where the incumbents' coverage is thin and the users are technical and vocal.
+
+---
+
+## 2. The technical core: track matching
+
+The whole problem reduces to: *given a track on service A, find the same recording on
+service B.*
+
+### Matching ladder (best to worst)
+
+1. **ISRC** (International Standard Recording Code) — globally unique per *recording*. Spotify
+   and Apple Music both expose it on tracks; Tidal and Deezer do too. An ISRC match is an
+   exact-recording match, not a guess. This should be the first pass, always.
+2. **UPC / EAN** at the album level, then position within the album — recovers tracks whose
+   ISRC is missing or differs across territorial releases.
+3. **Normalized text match**: artist + title + album, after normalization (case-fold, strip
+   diacritics, strip `(Remastered 2011)` / `(Deluxe Edition)` / `- Live` suffixes, normalize
+   `feat.` / `ft.` / `&` / `and`, unify Unicode dashes and quotes).
+4. **Duration proximity** as a tiebreaker (±2–3 s) — the single cheapest signal for rejecting
+   covers, edits, and karaoke versions.
+5. **Fuzzy string similarity** (Jaro-Winkler / token-set ratio) with a confidence threshold.
+6. **Semantic / embedding similarity** (pgvector) as a last resort.
+
+### Failure modes to design for explicitly
+
+- Same recording, different ISRC per territory or per re-release.
+- Regional licensing: the track exists but is unavailable in the user's market.
+- Remasters, deluxe editions, radio edits, explicit vs clean.
+- Live albums and compilations where the recording genuinely differs.
+- Classical and jazz, where "artist" is ambiguous (composer vs performer vs ensemble).
+- Local files, podcasts, and user uploads that simply have no counterpart.
+- Duplicate candidates that all match — pick deterministically and record why.
+
+### Design implications
+
+- **Never silently drop a track.** Every unmatched track gets a typed Errata error carrying
+  the source metadata, the candidates considered, and the confidence — surfaced in a report
+  and resolvable by hand.
+- Model match confidence as a first-class value (`:exact_isrc`, `:exact_upc`, `:high`,
+  `:medium`, `:low`, `:none`), let the user set a threshold, and let them review the middle.
+- Cache resolutions: `(source_service, source_id) → (dest_service, dest_id, confidence)` is
+  reusable across every user and is the asset that compounds. Consider MusicBrainz as a
+  cross-service identity spine.
+- Idempotency matters more than throughput: a retried "add tracks" call must not duplicate.
+  Snapshot the destination, diff, and add only what's missing.
+
+---
+
+## 3. Platform API constraints (the real gating factor)
+
+> **Read this before promising any user-facing scope.** The APIs, not the code, are what
+> makes this product hard to ship to real users.
+
+### Spotify — severe
+
+- **New apps start in Development Mode: at most 5 authenticated users, each manually
+  allowlisted, and the app owner must have Spotify Premium.**
+- **Extended Quota Mode, as of May 2025, requires: an organization (not an individual), legal
+  business registration, an actively launched service, and ≥ 250,000 monthly active users.**
+  Review takes up to six weeks.
+- Rate limits are computed over a rolling **30-second window** and vary by mode; exceeding
+  them returns `429` with a `Retry-After` header that must be honoured (values can be large).
+  A few endpoints (e.g. playlist image upload) have their own separate limits.
+- Consequence: **`one_playlist` cannot be a public Spotify-backed service.** It can be a
+  personal/small-group tool (≤ 5 allowlisted users), and any "real users" ambition must either
+  route through a partner with extended quota, or lead with non-Spotify platforms.
+
+### YouTube Music (via YouTube Data API v3) — severe
+
+- Default quota: **10,000 units/day per Google Cloud project**, resetting at midnight Pacific.
+- `playlistItems.insert` costs **50 units** → **~200 track adds per day, total, across all
+  users.** `search.list` costs 100 units, so text-search-based matching is even worse.
+- Quota increases require a Google audit.
+- Consequence: YouTube Music support is only viable with aggressive caching, ISRC-free
+  matching strategies that avoid `search.list`, and per-user Google Cloud projects (or an
+  approved quota increase).
+
+### Apple Music (MusicKit) — moderate
+
+- Requires an **Apple Developer Program** membership ($99/yr) and a MusicKit private key
+  (`.p8`), from which you mint a **developer token** (an ES256 JWT, max 6 months).
+- A **Music User Token** (`music-user-token` header) is additionally required for anything
+  touching a user's library, and is obtained through MusicKit JS (web) or MusicKit on Apple
+  platforms — i.e. a browser-side step you cannot do purely server-side.
+- Catalog endpoints (`/v1/catalog/*`) are server-cached and rarely rate-limited; **library
+  endpoints (`/v1/me/library/*`) are per-user and are the ones that hit limits.**
+- Adding to a *library playlist* is supported; capabilities are narrower than Spotify's.
+
+### Tidal — good
+
+- Unified JSON:API at `openapi.tidal.com/v2`: catalog, search, recommendations, playlists,
+  user collections, playback manifests.
+- Full playlist CRUD including reorder, items, cover art, owners — with `playlists.read` /
+  `playlists.write` scopes.
+- Currently the friendliest major platform for a small developer.
+
+### Deezer — effectively closed
+
+- The public API has been disabled for new registrations: **new tokens cannot be obtained**,
+  though existing tokens still work. The JavaScript and native SDKs are deprecated/unmaintained.
+- Treat as read-only-at-best and not a launch platform.
+
+### Amazon Music — closed beta
+
+- Web API is in closed beta; access requires contacting an Amazon Business Development rep.
+- Explicitly designed to support playlist transfer between services, so it is the right target
+  *if* access can be obtained.
+
+### Self-hosted / open platforms — the strategic opening
+
+Plex, Jellyfin, Emby, Navidrome, Subsonic/OpenSubsonic all have open, documented, unlimited
+APIs and no gatekeeping. Combined with file import/export (M3U, XSPF, CSV, iTunes XML) and
+MusicBrainz for identity, these are the platforms where a new entrant can ship a genuinely
+better product *today* with no quota negotiation.
+
+### Cross-cutting
+
+- **OAuth token lifecycle is the operational core**: store refresh tokens encrypted, refresh
+  proactively before expiry, handle revocation, and never log them.
+- Every platform needs its own `external_service` module with its own breaker, rate limit,
+  concurrency limit, and retry policy — the numbers differ by an order of magnitude between
+  Spotify and YouTube.
+- Honour `Retry-After` explicitly. `external_service`'s exponential backoff is the right
+  default, but a `429` carrying an explicit delay should drive the wait directly.
+- Terms of service: most platforms forbid using their API to facilitate migration *away* from
+  them, or to build a competing service. Read them before publishing.
+
+---
+
+## 4. Product shape implied by all of the above
+
+A defensible `one_playlist` v1:
+
+1. **Match quality as the headline feature** — ISRC-first, a visible confidence score, a
+   complete report of what didn't transfer and why, and a manual resolution UI. This is where
+   every incumbent is weakest.
+2. **Start with the platforms that will actually let you in**: Tidal, self-hosted
+   (Plex/Jellyfin/Navidrome/Subsonic), and file import/export. Spotify and Apple Music as
+   allowlisted/personal-tier integrations from day one, with a documented path to broader
+   access.
+3. **Sync as the subscription hook**, built on Oban Cron + `external_service`, with per-pair
+   sync slots mirroring the incumbents' pricing shape.
+4. **Transparency and correctness as the brand.** Every transfer produces a durable,
+   inspectable, shareable report.
