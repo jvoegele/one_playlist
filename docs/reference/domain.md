@@ -207,6 +207,38 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
 - Pagination is `links.next` (a path plus `page[cursor]`) with the cursor also in
   `links.meta.nextCursor`. Pages were 20 items.
 
+**Verified against a real account, 2026-08-22** (the matching engine's requirements):
+
+| Request | Result |
+| --- | --- |
+| `/tracks?filter[isrc]={isrc}&include=artists,albums` | **200** — the ISRC rung as a direct lookup |
+| `/searchResults/{query}` (5 variants tried) | 400 `INVALID_RESOURCE_ID` — see below |
+
+- **`filter[isrc]` is the whole first rung of the ladder**, in one request, with exact results
+  and no text scoring. It is cheaper *and* better than search, and it should be the first thing
+  looked for on any new provider.
+- **Expect several results per ISRC.** `GBAYE0601477` returned two entries; across a 60-track
+  sample, 40 tracks resolved to more than one candidate and one resolved to twenty. The same
+  recording appears on a single, an album and any number of compilations, each its own
+  catalogue entry. Ambiguity is the normal case, not the exotic one — a matcher that takes the
+  first result is wrong most of the time it matters.
+- **Text search needs the `search.read` scope, and says so misleadingly.** Without it, every
+  search shape returns `400 INVALID_RESOURCE_ID` — indistinguishable from a malformed query, and
+  never mentioning scopes. Five variants were tried before the granted-scope list explained it.
+  `search.read` has since been added to the requested set; connections authorized before that
+  must be reconnected.
+- **Track attributes** are `accessType, availability, copyright, createdAt, duration, explicit,
+  externalLinks, isrc, mediaTags, popularity, spotlighted, title, version`. Two matter for
+  matching: `version` carries `"Remastered 2015"` as a structured field rather than in the
+  title, and `popularity` is a deterministic tiebreaker between otherwise identical candidates.
+- **Album attributes** include `barcodeId` (the UPC/EAN), available for free when albums are
+  already included. TIDAL reports it zero-padded to 13 digits (`"00602547670052"`) where other
+  catalogues print 12 — so barcodes must have leading zeros stripped before comparison.
+- **The track's position within its album is not available** from the track resource or from
+  the `albums` relationship, which carries only `{id, type}`. Rung 2 of the ladder — UPC plus
+  position — therefore cannot fire for TIDAL sources without an extra request per album against
+  `/albums/{id}/relationships/items`.
+
 **Rate limits are not published.** Community reports put 429s as common on catalog reads and
 rare on playlist operations. With no documented quota the only safe posture is to stay well
 under whatever it is — hence the deliberately conservative 8 calls/second in

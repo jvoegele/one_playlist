@@ -24,8 +24,11 @@ defmodule OnePlaylist.Providers.Tidal do
   use Errata
 
   alias OnePlaylist.Music.Playlist
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers
+  alias OnePlaylist.Providers.Adapter
   alias OnePlaylist.Providers.Connection
+  alias OnePlaylist.Providers.ConnectionUnusable
   alias OnePlaylist.Providers.Tidal.Client
   alias OnePlaylist.Providers.Tidal.Mapper
   alias OnePlaylist.Providers.Tidal.OAuth
@@ -71,6 +74,49 @@ defmodule OnePlaylist.Providers.Tidal do
        )}
     end
   end
+
+  @impl true
+  def search_tracks(%Connection{} = connection, %Track{} = track, opts \\ []) do
+    with {:ok, connection} <- Providers.ensure_fresh(connection) do
+      connection
+      |> candidates(track, call_opts(connection, opts))
+      |> limit_to(Adapter.limit(opts))
+    end
+  end
+
+  # ISRC first, always. It is one request, the results are exact, and it does
+  # not need a scope this connection may not have.
+  defp candidates(connection, %Track{isrc: isrc}, opts) when is_binary(isrc) do
+    Client.tracks_by_isrc(connection.access_token, isrc, opts)
+  end
+
+  defp candidates(connection, _track, _opts) do
+    # Text search is not implemented, and this says so rather than guessing.
+    #
+    # TIDAL's search endpoint needs the `search.read` scope, which was added to
+    # the requested set only after this connection was authorized. Without it
+    # every search shape tried returns `400 INVALID_RESOURCE_ID` — identical to
+    # a malformed query — so the endpoint's real request and response shapes
+    # cannot be established from here. Verified across five variants on
+    # 2026-08-22.
+    #
+    # Building against a guessed shape would be worse than not building it: the
+    # failure would be a wrong match rather than a missing feature. Reconnecting
+    # grants the scope, after which this can be written against something
+    # observed instead of assumed.
+    {:error,
+     Errata.create(ConnectionUnusable,
+       reason: :insufficient_scope,
+       context: %{
+         provider: :tidal,
+         required_scope: "search.read",
+         granted_scopes: connection.scopes
+       }
+     )}
+  end
+
+  defp limit_to({:ok, tracks}, limit), do: {:ok, Enum.take(tracks, limit)}
+  defp limit_to({:error, error}, _limit), do: {:error, error}
 
   defp call_opts(connection, opts), do: Keyword.put_new(opts, :country, connection.country)
 end

@@ -1,0 +1,5361 @@
+[
+  {
+    "candidates": [
+      {
+        "album": "Abbey Road (Remastered)",
+        "album_upc": "00602547670342",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 259,
+        "explicit": false,
+        "isrc": "GBAYE0601690",
+        "popularity": 0.867948977061018,
+        "provider_id": "55130631",
+        "title": "Come Together",
+        "version": "Remastered 2009"
+      },
+      {
+        "album": "Discover More Classic Rock",
+        "album_upc": "00602435116709",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 260,
+        "explicit": false,
+        "isrc": "GBAYE0601690",
+        "popularity": 0.5890235964486669,
+        "provider_id": "151380691",
+        "title": "Come Together",
+        "version": "Remastered 2009"
+      },
+      {
+        "album": "The Beatles 1967 - 1970 (Remastered)",
+        "album_upc": "00602547670274",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 260,
+        "explicit": false,
+        "isrc": "GBAYE0601690",
+        "popularity": 0.678582694711428,
+        "provider_id": "55163383",
+        "title": "Come Together",
+        "version": "Remastered 2009"
+      }
+    ],
+    "source": {
+      "album": "Abbey Road (Remastered)",
+      "album_upc": "00602547670342",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 259,
+      "explicit": false,
+      "isrc": "GBAYE0601690",
+      "popularity": 0.867948977061018,
+      "provider_id": "55130631",
+      "title": "Come Together",
+      "version": "Remastered 2009"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "The Beatles 1967 - 1970 (Remastered)",
+        "album_upc": "00602547670274",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 184,
+        "explicit": false,
+        "isrc": "GBAYE0601691",
+        "popularity": 0.647272798747108,
+        "provider_id": "55163384",
+        "title": "Something",
+        "version": "Remastered 2009"
+      },
+      {
+        "album": "Abbey Road (Remastered)",
+        "album_upc": "00602547670342",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 182,
+        "explicit": false,
+        "isrc": "GBAYE0601691",
+        "popularity": 0.8023639837832661,
+        "provider_id": "55130632",
+        "title": "Something",
+        "version": "Remastered 2009"
+      }
+    ],
+    "source": {
+      "album": "Abbey Road (Remastered)",
+      "album_upc": "00602547670342",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 182,
+      "explicit": false,
+      "isrc": "GBAYE0601691",
+      "popularity": 0.8023639837832661,
+      "provider_id": "55130632",
+      "title": "Something",
+      "version": "Remastered 2009"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Abbey Road (Remastered)",
+        "album_upc": "00602547670342",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 185,
+        "explicit": false,
+        "isrc": "GBAYE0601696",
+        "popularity": 0.8888363214936221,
+        "provider_id": "55130637",
+        "title": "Here Comes The Sun",
+        "version": "Remastered 2009"
+      },
+      {
+        "album": "The Beatles 1967 - 1970 (Remastered)",
+        "album_upc": "00602547670274",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 187,
+        "explicit": false,
+        "isrc": "GBAYE0601696",
+        "popularity": 0.5973130884872755,
+        "provider_id": "55163382",
+        "title": "Here Comes The Sun",
+        "version": "Remastered 2009"
+      }
+    ],
+    "source": {
+      "album": "Abbey Road (Remastered)",
+      "album_upc": "00602547670342",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 185,
+      "explicit": false,
+      "isrc": "GBAYE0601696",
+      "popularity": 0.8888363214936221,
+      "provider_id": "55130637",
+      "title": "Here Comes The Sun",
+      "version": "Remastered 2009"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Abbey Road (Remastered)",
+        "album_upc": "00602547670342",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 91,
+        "explicit": false,
+        "isrc": "GBAYE0601703",
+        "popularity": 0.7686357501799637,
+        "provider_id": "55130644",
+        "title": "Golden Slumbers",
+        "version": "Remastered 2009"
+      }
+    ],
+    "source": {
+      "album": "Abbey Road (Remastered)",
+      "album_upc": "00602547670342",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 91,
+      "explicit": false,
+      "isrc": "GBAYE0601703",
+      "popularity": 0.7686357501799637,
+      "provider_id": "55130644",
+      "title": "Golden Slumbers",
+      "version": "Remastered 2009"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Abbey Road (Remastered)",
+        "album_upc": "00602547670342",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 96,
+        "explicit": false,
+        "isrc": "GBAYE0601704",
+        "popularity": 0.7531376749080292,
+        "provider_id": "55130645",
+        "title": "Carry That Weight",
+        "version": "Remastered 2009"
+      }
+    ],
+    "source": {
+      "album": "Abbey Road (Remastered)",
+      "album_upc": "00602547670342",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 96,
+      "explicit": false,
+      "isrc": "GBAYE0601704",
+      "popularity": 0.7531376749080292,
+      "provider_id": "55130645",
+      "title": "Carry That Weight",
+      "version": "Remastered 2009"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Abbey Road (Remastered)",
+        "album_upc": "00602547670342",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 141,
+        "explicit": false,
+        "isrc": "GBAYE0601705",
+        "popularity": 0.7319258141624898,
+        "provider_id": "55130646",
+        "title": "The End",
+        "version": "Remastered 2009"
+      }
+    ],
+    "source": {
+      "album": "Abbey Road (Remastered)",
+      "album_upc": "00602547670342",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 141,
+      "explicit": false,
+      "isrc": "GBAYE0601705",
+      "popularity": 0.7319258141624898,
+      "provider_id": "55130646",
+      "title": "The End",
+      "version": "Remastered 2009"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Ten Redux",
+        "album_upc": "886444135559",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 540,
+        "explicit": false,
+        "isrc": "USSM10805339",
+        "popularity": 0.5164644793932986,
+        "provider_id": "21801927",
+        "title": "Release",
+        "version": "Brendan O'Brien Mix"
+      }
+    ],
+    "source": {
+      "album": "Ten Redux",
+      "album_upc": "886444135559",
+      "artists": [
+        "Pearl Jam"
+      ],
+      "duration_seconds": 540,
+      "explicit": false,
+      "isrc": "USSM10805339",
+      "popularity": 0.5164644793932986,
+      "provider_id": "21801927",
+      "title": "Release",
+      "version": "Brendan O'Brien Mix"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Vs.",
+        "album_upc": "884977925173",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 283,
+        "explicit": true,
+        "isrc": "USSM11100219",
+        "popularity": 0.7193994911978944,
+        "provider_id": "6099423",
+        "title": "Rearviewmirror",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Vs.",
+      "album_upc": "884977925173",
+      "artists": [
+        "Pearl Jam"
+      ],
+      "duration_seconds": 283,
+      "explicit": true,
+      "isrc": "USSM11100219",
+      "popularity": 0.7193994911978944,
+      "provider_id": "6099423",
+      "title": "Rearviewmirror",
+      "version": "Remastered"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Vitalogy",
+        "album_upc": "884977925180",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 278,
+        "explicit": true,
+        "isrc": "USSM11100234",
+        "popularity": 0.723569989801043,
+        "provider_id": "6099439",
+        "title": "Corduroy",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Vitalogy",
+      "album_upc": "884977925180",
+      "artists": [
+        "Pearl Jam"
+      ],
+      "duration_seconds": 278,
+      "explicit": true,
+      "isrc": "USSM11100234",
+      "popularity": 0.723569989801043,
+      "provider_id": "6099439",
+      "title": "Corduroy",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "No Code",
+        "album_upc": "074646750025",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 346,
+        "explicit": false,
+        "isrc": "USSM19601760",
+        "popularity": 0.6307155090339074,
+        "provider_id": "543133",
+        "title": "Present Tense",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "No Code",
+      "album_upc": "074646750025",
+      "artists": [
+        "Pearl Jam"
+      ],
+      "duration_seconds": 346,
+      "explicit": false,
+      "isrc": "USSM19601760",
+      "popularity": 0.6307155090339074,
+      "provider_id": "543133",
+      "title": "Present Tense",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Given To Fly",
+        "album_upc": "886444179140",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 241,
+        "explicit": true,
+        "isrc": "USSM19703249",
+        "popularity": 0.3658697580489595,
+        "provider_id": "21878084",
+        "title": "Given to Fly",
+        "version": null
+      },
+      {
+        "album": "rearviewmirror (greatest hits 1991-2003)",
+        "album_upc": "196873427706",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 241,
+        "explicit": true,
+        "isrc": "USSM19703249",
+        "popularity": 0.39002391855634927,
+        "provider_id": "448059852",
+        "title": "Given to Fly",
+        "version": null
+      },
+      {
+        "album": "Yield",
+        "album_upc": "884977736045",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 241,
+        "explicit": true,
+        "isrc": "USSM19703249",
+        "popularity": 0.6888648836752542,
+        "provider_id": "4917696",
+        "title": "Given to Fly",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Given To Fly",
+      "album_upc": "886444179140",
+      "artists": [
+        "Pearl Jam"
+      ],
+      "duration_seconds": 241,
+      "explicit": true,
+      "isrc": "USSM19703249",
+      "popularity": 0.3658697580489595,
+      "provider_id": "21878084",
+      "title": "Given to Fly",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Riot Act",
+        "album_upc": "696998682528",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 216,
+        "explicit": false,
+        "isrc": "USSM10211351",
+        "popularity": 0.6340577110733208,
+        "provider_id": "21839610",
+        "title": "I Am Mine",
+        "version": null
+      },
+      {
+        "album": "rearviewmirror (greatest hits 1991-2003)",
+        "album_upc": "196873427706",
+        "artists": [
+          "Pearl Jam"
+        ],
+        "duration_seconds": 215,
+        "explicit": false,
+        "isrc": "USSM10211351",
+        "popularity": 0.37016322522401124,
+        "provider_id": "448059857",
+        "title": "I Am Mine",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Riot Act",
+      "album_upc": "696998682528",
+      "artists": [
+        "Pearl Jam"
+      ],
+      "duration_seconds": 216,
+      "explicit": false,
+      "isrc": "USSM10211351",
+      "popularity": 0.6340577110733208,
+      "provider_id": "21839610",
+      "title": "I Am Mine",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Crosstalk - The Best Of",
+        "album_upc": "5099751241829",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 166,
+        "explicit": false,
+        "isrc": "DESK90390301",
+        "popularity": 0.34537743381398356,
+        "provider_id": "269569914",
+        "title": "Hey Grandma",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Crosstalk - The Best Of",
+      "album_upc": "5099751241829",
+      "artists": [
+        "Moby Grape"
+      ],
+      "duration_seconds": 166,
+      "explicit": false,
+      "isrc": "DESK90390301",
+      "popularity": 0.34537743381398356,
+      "provider_id": "269569914",
+      "title": "Hey Grandma",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "THE VERY BEST OF MOBY GRAPE             VINTAGE",
+        "album_upc": "5099748395825",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 119,
+        "explicit": false,
+        "isrc": "USSM19906402",
+        "popularity": 0.30830901861190796,
+        "provider_id": "3378007",
+        "title": "Mr. Blues",
+        "version": null
+      },
+      {
+        "album": "Listen My Friends! The Best Of Moby Grape",
+        "album_upc": "886970596329",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 118,
+        "explicit": false,
+        "isrc": "USSM19906402",
+        "popularity": 0.44010820702064574,
+        "provider_id": "2847634",
+        "title": "Mr. Blues",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Listen My Friends! The Best Of Moby Grape",
+      "album_upc": "886970596329",
+      "artists": [
+        "Moby Grape"
+      ],
+      "duration_seconds": 118,
+      "explicit": false,
+      "isrc": "USSM19906402",
+      "popularity": 0.44010820702064574,
+      "provider_id": "2847634",
+      "title": "Mr. Blues",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Crosstalk - The Best Of",
+        "album_upc": "5099751241829",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 116,
+        "explicit": false,
+        "isrc": "DESK90390302",
+        "popularity": 0.3383358923256305,
+        "provider_id": "269569915",
+        "title": "Fall on You",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Crosstalk - The Best Of",
+      "album_upc": "5099751241829",
+      "artists": [
+        "Moby Grape"
+      ],
+      "duration_seconds": 116,
+      "explicit": false,
+      "isrc": "DESK90390302",
+      "popularity": 0.3383358923256305,
+      "provider_id": "269569915",
+      "title": "Fall on You",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Woodstock Generation",
+        "album_upc": "884977317121",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 139,
+        "explicit": false,
+        "isrc": "USSM19906404",
+        "popularity": 0.2571413218975067,
+        "provider_id": "3051527",
+        "title": "8:05 (Album Version)",
+        "version": "Album Version"
+      },
+      {
+        "album": "Pure... Psychedelic Rock",
+        "album_upc": "886443900127",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 139,
+        "explicit": false,
+        "isrc": "USSM19906404",
+        "popularity": 0.2620198753358691,
+        "provider_id": "19356356",
+        "title": "8:05",
+        "version": null
+      },
+      {
+        "album": "Moby Grape (with Bonus Tracks)",
+        "album_upc": "888880293732",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 140,
+        "explicit": false,
+        "isrc": "USSM19906404",
+        "popularity": 0.6067386380640822,
+        "provider_id": "1995586",
+        "title": "8:05",
+        "version": null
+      },
+      {
+        "album": "THE VERY BEST OF MOBY GRAPE             VINTAGE",
+        "album_upc": "5099748395825",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 151,
+        "explicit": false,
+        "isrc": "USSM19906404",
+        "popularity": 0.047751889104119524,
+        "provider_id": "3378009",
+        "title": "8:05",
+        "version": null
+      },
+      {
+        "album": "Listen My Friends! The Best Of Moby Grape",
+        "album_upc": "886970596329",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 139,
+        "explicit": false,
+        "isrc": "USSM19906404",
+        "popularity": 0.4229696453967536,
+        "provider_id": "2847635",
+        "title": "8:05",
+        "version": null
+      },
+      {
+        "album": "Crosstalk: The Best Of Moby Grape",
+        "album_upc": "5099751241829",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 140,
+        "explicit": false,
+        "isrc": "USSM19906404",
+        "popularity": 0.08548045350673983,
+        "provider_id": "4990979",
+        "title": "8:05",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Moby Grape (with Bonus Tracks)",
+      "album_upc": "888880293732",
+      "artists": [
+        "Moby Grape"
+      ],
+      "duration_seconds": 140,
+      "explicit": false,
+      "isrc": "USSM19906404",
+      "popularity": 0.6067386380640822,
+      "provider_id": "1995586",
+      "title": "8:05",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Crosstalk - The Best Of",
+        "album_upc": "5099751241829",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 137,
+        "explicit": false,
+        "isrc": "DESK90390304",
+        "popularity": 0.31597893071802036,
+        "provider_id": "269569917",
+        "title": "Come in the Morning",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Crosstalk - The Best Of",
+      "album_upc": "5099751241829",
+      "artists": [
+        "Moby Grape"
+      ],
+      "duration_seconds": 137,
+      "explicit": false,
+      "isrc": "DESK90390304",
+      "popularity": 0.31597893071802036,
+      "provider_id": "269569917",
+      "title": "Come in the Morning",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Crosstalk - The Best Of",
+        "album_upc": "5099751241829",
+        "artists": [
+          "Moby Grape"
+        ],
+        "duration_seconds": 165,
+        "explicit": false,
+        "isrc": "DESK90390305",
+        "popularity": 0.36268344435927324,
+        "provider_id": "269569918",
+        "title": "Omaha",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Crosstalk - The Best Of",
+      "album_upc": "5099751241829",
+      "artists": [
+        "Moby Grape"
+      ],
+      "duration_seconds": 165,
+      "explicit": false,
+      "isrc": "DESK90390305",
+      "popularity": 0.36268344435927324,
+      "provider_id": "269569918",
+      "title": "Omaha",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Essential",
+        "album_upc": "00724358221251",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.10758831611937865,
+        "provider_id": "155969",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Fat Man Sings",
+        "album_upc": "00077779890255",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.10755707092617457,
+        "provider_id": "1502791",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Dinner Party Songs",
+        "album_upc": "5099963608656",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 143,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.08548045350673983,
+        "provider_id": "16307163",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Complete Imperial Singles",
+        "album_upc": "00602435835969",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 140,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.2676115084902061,
+        "provider_id": "172837798",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Best Golden Oldies Album In The World...Ever!",
+        "album_upc": "00199957800549",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.046050071691613195,
+        "provider_id": "518842433",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Fat Man",
+        "album_upc": "00724385232657",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 142,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.14970062968676556,
+        "provider_id": "1481344",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Ultimate Rock 'N' Roll Hits",
+        "album_upc": "5099964033754",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 143,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.09441446512937546,
+        "provider_id": "38716229",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Iconic songs from the 50s",
+        "album_upc": "00602488241069",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.06714964967364175,
+        "provider_id": "468990022",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "12 Monkeys",
+        "album_upc": "00008811139223",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 139,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.39567320232183656,
+        "provider_id": "36058111",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Old But Gold 50's",
+        "album_upc": "00602507237646",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.20282353303939357,
+        "provider_id": "141003159",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "All Blues Hits",
+        "album_upc": "00602458422191",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.32764747719782755,
+        "provider_id": "311519303",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Fat Man Sings",
+        "album_upc": "00724352677757",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.0698363183522318,
+        "provider_id": "1430681",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "We Sing The Blues/New Orleans Our Home Town",
+        "album_upc": "0094638439950",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 143,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.2702119858104046,
+        "provider_id": "140567",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "The Collection",
+        "album_upc": "00724357144452",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.12325694213222048,
+        "provider_id": "10837825",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Les Pionniers Du Rock'n'roll, Vol. 1",
+        "album_upc": "191018655655",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 141,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.06979392233278359,
+        "provider_id": "74712414",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Las 50 Mejores Canciones De Los 50 Y 60 Vol. 2",
+        "album_upc": "00600753760437",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 141,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.046306122094392776,
+        "provider_id": "78798305",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Got The Blues",
+        "album_upc": "00600753795309",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 143,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.04775244033888596,
+        "provider_id": "89384821",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Best 50s Songs",
+        "album_upc": "00602438261864",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 144,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.17717673726432187,
+        "provider_id": "186509438",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+        "album_upc": "00602557024036",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 143,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.6921069347278758,
+        "provider_id": "63432908",
+        "title": "Blueberry Hill",
+        "version": null
+      },
+      {
+        "album": "Original Hits - 50s",
+        "album_upc": "5099962916257",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 143,
+        "explicit": false,
+        "isrc": "USEM38700119",
+        "popularity": 0.04774022675336992,
+        "provider_id": "61975043",
+        "title": "Blueberry Hill",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+      "album_upc": "00602557024036",
+      "artists": [
+        "Fats Domino"
+      ],
+      "duration_seconds": 143,
+      "explicit": false,
+      "isrc": "USEM38700119",
+      "popularity": 0.6921069347278758,
+      "provider_id": "63432908",
+      "title": "Blueberry Hill",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+        "album_upc": "00602557024036",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 110,
+        "explicit": false,
+        "isrc": "USCA20804310",
+        "popularity": 0.33371481437346706,
+        "provider_id": "63432909",
+        "title": "Honey Chile",
+        "version": null
+      },
+      {
+        "album": "The Complete Imperial Singles",
+        "album_upc": "00602435835969",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 108,
+        "explicit": false,
+        "isrc": "USCA20804310",
+        "popularity": 0.24470457419597116,
+        "provider_id": "172837799",
+        "title": "Honey Chile",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+      "album_upc": "00602557024036",
+      "artists": [
+        "Fats Domino"
+      ],
+      "duration_seconds": 110,
+      "explicit": false,
+      "isrc": "USCA20804310",
+      "popularity": 0.33371481437346706,
+      "provider_id": "63432909",
+      "title": "Honey Chile",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+        "album_upc": "00602557024036",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 124,
+        "explicit": false,
+        "isrc": "USCA25600190",
+        "popularity": 0.3465948163346011,
+        "provider_id": "63432906",
+        "title": "What's The Reason I'm Not Pleasing You",
+        "version": null
+      },
+      {
+        "album": "The Complete Imperial Singles",
+        "album_upc": "00602435835969",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 128,
+        "explicit": false,
+        "isrc": "USCA25600190",
+        "popularity": 0.2374398270826077,
+        "provider_id": "172837801",
+        "title": "What's The Reason I'm Not Pleasing You",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+      "album_upc": "00602557024036",
+      "artists": [
+        "Fats Domino"
+      ],
+      "duration_seconds": 124,
+      "explicit": false,
+      "isrc": "USCA25600190",
+      "popularity": 0.3465948163346011,
+      "provider_id": "63432906",
+      "title": "What's The Reason I'm Not Pleasing You",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Original Jamaican Sound System Heroes",
+        "album_upc": "00094633380653",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 139,
+        "explicit": false,
+        "isrc": "USEM30100731",
+        "popularity": 0.04775244033888596,
+        "provider_id": "2458011",
+        "title": "Blue Monday (2002 Digital Remaster)",
+        "version": null
+      },
+      {
+        "album": "Greatest Hits: Walking To New Orleans",
+        "album_upc": "05099950235155",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 140,
+        "explicit": false,
+        "isrc": "USEM30100731",
+        "popularity": 0.5699515247057636,
+        "provider_id": "2888363",
+        "title": "Blue Monday",
+        "version": "Remastered 2002"
+      },
+      {
+        "album": "The Best Of Fats Domino",
+        "album_upc": "00724359649757",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 140,
+        "explicit": false,
+        "isrc": "USEM30100731",
+        "popularity": 0.12325754077779064,
+        "provider_id": "2881467",
+        "title": "Blue Monday",
+        "version": "Remastered 2002"
+      },
+      {
+        "album": "All Time Greats",
+        "album_upc": "00600753885642",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 138,
+        "explicit": false,
+        "isrc": "USEM30100731",
+        "popularity": 0.11167412251234055,
+        "provider_id": "122254053",
+        "title": "Blue Monday",
+        "version": "Remastered 2002"
+      },
+      {
+        "album": "The Fats Domino Jukebox: 20 Greatest Hits The Way You Originally Heard Them",
+        "album_upc": "00724353760052",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 141,
+        "explicit": false,
+        "isrc": "USEM30100731",
+        "popularity": 0.38331799840116143,
+        "provider_id": "1399538",
+        "title": "Blue Monday",
+        "version": "Remastered 2002"
+      }
+    ],
+    "source": {
+      "album": "Greatest Hits: Walking To New Orleans",
+      "album_upc": "05099950235155",
+      "artists": [
+        "Fats Domino"
+      ],
+      "duration_seconds": 140,
+      "explicit": false,
+      "isrc": "USEM30100731",
+      "popularity": 0.5699515247057636,
+      "provider_id": "2888363",
+      "title": "Blue Monday",
+      "version": "Remastered 2002"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+        "album_upc": "00602557024036",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 130,
+        "explicit": false,
+        "isrc": "USEM39100225",
+        "popularity": 0.33436906086746837,
+        "provider_id": "63432902",
+        "title": "So Long",
+        "version": null
+      },
+      {
+        "album": "Essential",
+        "album_upc": "00724358221251",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USEM39100225",
+        "popularity": 0.11595021133564311,
+        "provider_id": "155975",
+        "title": "So Long",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+      "album_upc": "00602557024036",
+      "artists": [
+        "Fats Domino"
+      ],
+      "duration_seconds": 130,
+      "explicit": false,
+      "isrc": "USEM39100225",
+      "popularity": 0.33436906086746837,
+      "provider_id": "63432902",
+      "title": "So Long",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+        "album_upc": "00602557024036",
+        "artists": [
+          "Fats Domino"
+        ],
+        "duration_seconds": 124,
+        "explicit": false,
+        "isrc": "USCA20804314",
+        "popularity": 0.3077175232108421,
+        "provider_id": "63432944",
+        "title": "La La",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "They Call Me The Fat Man (The Legendary Imperial Recordings)",
+      "album_upc": "00602557024036",
+      "artists": [
+        "Fats Domino"
+      ],
+      "duration_seconds": 124,
+      "explicit": false,
+      "isrc": "USCA20804314",
+      "popularity": 0.3077175232108421,
+      "provider_id": "63432944",
+      "title": "La La",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "100 Greatest Summer Songs",
+        "album_upc": "5059460397217",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.13945859670639038,
+        "provider_id": "435657892",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "The Very Best Of Aretha Franklin - The 60's",
+        "album_upc": "603497983773",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 145,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.5384499525715337,
+        "provider_id": "1845294",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "30 Greatest Hits",
+        "album_upc": "603497983827",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 147,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.7585466419879275,
+        "provider_id": "1847846",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Apéro Chill",
+        "album_upc": "5059460203631",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.11598295169342278,
+        "provider_id": "296116859",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Oldies Classics",
+        "album_upc": "5059460396289",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.04636077582836151,
+        "provider_id": "431940045",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "PRIDE es todos los días",
+        "album_upc": "5059460522831",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.0,
+        "provider_id": "531930203",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "60s Top Tracks",
+        "album_upc": "5059460449374",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.08548130958094682,
+        "provider_id": "470365384",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Soul Lovers",
+        "album_upc": "5059460353800",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.046041519688561,
+        "provider_id": "402640880",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Beggin' - Hits from 67",
+        "album_upc": "842474119556",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.1552287325740798,
+        "provider_id": "109151014",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Girls Guide",
+        "album_upc": "5059460281660",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.0674026757478714,
+        "provider_id": "355540067",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Country Music for the Road 2024",
+        "album_upc": "5059460308343",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.0,
+        "provider_id": "367310348",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Summer Chart Hits",
+        "album_upc": "5059460302440",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.06983532856141304,
+        "provider_id": "363548345",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Inizio Settimana 2024",
+        "album_upc": "5059460343238",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.046362124383449554,
+        "provider_id": "393580423",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Sunshine Soul",
+        "album_upc": "5059460463462",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.10969991436496766,
+        "provider_id": "489660176",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Just Good Music - Saturday Blend",
+        "album_upc": "5059460465633",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.07444073287757146,
+        "provider_id": "492862049",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Happy Sunny Day",
+        "album_upc": "5059460400115",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.0,
+        "provider_id": "434134651",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Classics by Women",
+        "album_upc": "5059460276833",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.2075393930451637,
+        "provider_id": "350273335",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Happy: 100 Songs",
+        "album_upc": "5059460204904",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.18196298878512374,
+        "provider_id": "298067236",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Friday Energy",
+        "album_upc": "5059460379763",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.04775130972032233,
+        "provider_id": "422495888",
+        "title": "Respect",
+        "version": null
+      },
+      {
+        "album": "Girl Power Hits",
+        "album_upc": "5059460319202",
+        "artists": [
+          "Aretha Franklin"
+        ],
+        "duration_seconds": 148,
+        "explicit": false,
+        "isrc": "USAT20801240",
+        "popularity": 0.10211670047713114,
+        "provider_id": "375942190",
+        "title": "Respect",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "I Never Loved a Man the Way I Love You",
+      "album_upc": "603497983759",
+      "artists": [
+        "Aretha Franklin"
+      ],
+      "duration_seconds": 148,
+      "explicit": false,
+      "isrc": "USAT20801240",
+      "popularity": 0.7771631290858063,
+      "provider_id": "1845262",
+      "title": "Respect",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Do The Right Thing (Original Motion Picture Soundtrack)",
+        "album_upc": "00602537816590",
+        "artists": [
+          "Public Enemy"
+        ],
+        "duration_seconds": 323,
+        "explicit": true,
+        "isrc": "USDJ20110629",
+        "popularity": 0.5634258252672557,
+        "provider_id": "28308894",
+        "title": "Fight The Power",
+        "version": "From \"Do The Right Thing\" Soundtrack"
+      },
+      {
+        "album": "90's Hip Hop",
+        "album_upc": "00602507427825",
+        "artists": [
+          "Public Enemy"
+        ],
+        "duration_seconds": 325,
+        "explicit": true,
+        "isrc": "USDJ20110629",
+        "popularity": 0.5188730053384969,
+        "provider_id": "146956715",
+        "title": "Fight The Power",
+        "version": "From \"Do The Right Thing\" Soundtrack"
+      },
+      {
+        "album": "Fight The Power: The Collection",
+        "album_upc": "00600753629345",
+        "artists": [
+          "Public Enemy"
+        ],
+        "duration_seconds": 325,
+        "explicit": true,
+        "isrc": "USDJ20110629",
+        "popularity": 0.09765862196326772,
+        "provider_id": "50096482",
+        "title": "Fight The Power",
+        "version": "From \"Do The Right Thing\""
+      },
+      {
+        "album": "Fear Of A Black Planet (Deluxe Edition)",
+        "album_upc": "00602547045966",
+        "artists": [
+          "Public Enemy"
+        ],
+        "duration_seconds": 324,
+        "explicit": true,
+        "isrc": "USDJ20110629",
+        "popularity": 0.49212750634995917,
+        "provider_id": "37710595",
+        "title": "Fight The Power",
+        "version": "From \"Do The Right Thing\" Soundtrack"
+      },
+      {
+        "album": "It Takes A Nation Of Millions To Hold Us Back (Deluxe Edition)",
+        "album_upc": "00602547045751",
+        "artists": [
+          "Public Enemy"
+        ],
+        "duration_seconds": 323,
+        "explicit": true,
+        "isrc": "USDJ20110629",
+        "popularity": 0.8116068276874984,
+        "provider_id": "37944972",
+        "title": "Fight The Power",
+        "version": "From \"Do The Right Thing\" Soundtrack"
+      },
+      {
+        "album": "Conscious Hip Hop",
+        "album_upc": "00602507345655",
+        "artists": [
+          "Public Enemy"
+        ],
+        "duration_seconds": 325,
+        "explicit": true,
+        "isrc": "USDJ20110629",
+        "popularity": 0.18238718685656563,
+        "provider_id": "144184527",
+        "title": "Fight The Power",
+        "version": "From \"Do The Right Thing\" Soundtrack"
+      }
+    ],
+    "source": {
+      "album": "It Takes A Nation Of Millions To Hold Us Back (Deluxe Edition)",
+      "album_upc": "00602547045751",
+      "artists": [
+        "Public Enemy"
+      ],
+      "duration_seconds": 323,
+      "explicit": true,
+      "isrc": "USDJ20110629",
+      "popularity": 0.8116068276874984,
+      "provider_id": "37944972",
+      "title": "Fight The Power",
+      "version": "From \"Do The Right Thing\" Soundtrack"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Class of 1964",
+        "album_upc": "00602438802258",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.37487700266655827,
+        "provider_id": "203947986",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "R&B relajante para bebés",
+        "album_upc": "00602478798139",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.1295856717854442,
+        "provider_id": "450181951",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Black History Month: Classroom Edition",
+        "album_upc": "00199957475013",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.03670679763788634,
+        "provider_id": "498106676",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Soul Classics",
+        "album_upc": "00199957800686",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.06453795252903391,
+        "provider_id": "518846174",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Old But Gold",
+        "album_upc": "00602458955262",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.40862876309075113,
+        "provider_id": "334294014",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "A Change Is Gonna Come",
+        "album_upc": "00018771021025",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 191,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.7908093616956172,
+        "provider_id": "5693538",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Legenden des Soul - Sam Cooke",
+        "album_upc": "00600753520642",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.4018432275466312,
+        "provider_id": "29557853",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Thanksgiving Dinner 2025",
+        "album_upc": "00602475104698",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.046362124383449554,
+        "provider_id": "391947424",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "New Year's Resolutions 2024",
+        "album_upc": "00199957764131",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.0,
+        "provider_id": "518130308",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Rainy Days",
+        "album_upc": "00602475264743",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.0976172446450133,
+        "provider_id": "388276014",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Portrait Of A Legend",
+        "album_upc": "00602498724187",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 192,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.19908147247590252,
+        "provider_id": "1866232",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Black History Month: Songs For Kids",
+        "album_upc": "00199957502351",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.10501147600756539,
+        "provider_id": "498913820",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Too Late To Call",
+        "album_upc": "085494100139",
+        "artists": [
+          "The Parting"
+        ],
+        "duration_seconds": 159,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.09329092225613732,
+        "provider_id": "392615809",
+        "title": "A Change is Gonna Come",
+        "version": null
+      },
+      {
+        "album": "Soulful Inspiration",
+        "album_upc": "00602438585762",
+        "artists": [
+          "Sam Cooke"
+        ],
+        "duration_seconds": 190,
+        "explicit": false,
+        "isrc": "USA176420220",
+        "popularity": 0.36717738395267274,
+        "provider_id": "189789613",
+        "title": "A Change Is Gonna Come",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Ain't That Good News",
+      "album_upc": "00018771989929",
+      "artists": [
+        "Sam Cooke"
+      ],
+      "duration_seconds": 191,
+      "explicit": false,
+      "isrc": "USA176420220",
+      "popularity": 0.6592764544942571,
+      "provider_id": "12199180",
+      "title": "A Change Is Gonna Come",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Classic Rock BBQ",
+        "album_upc": "196871959391",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.21656361599461066,
+        "provider_id": "353004495",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "BBQ Classics",
+        "album_upc": "196871959377",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.08663834174780924,
+        "provider_id": "353458350",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "The Best Feel Good Hits In The Galaxy",
+        "album_upc": "196871241366",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 368,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.15530915538469603,
+        "provider_id": "303309478",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Summer Throwback",
+        "album_upc": "886449272198",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 370,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.41777656406735175,
+        "provider_id": "183669965",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "L'été au calme : Chill 2022 hits",
+        "album_upc": "196589259929",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 370,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.04773469335158876,
+        "provider_id": "236162860",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Best Summer Hits",
+        "album_upc": "886449265695",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 368,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.15369043808901303,
+        "provider_id": "182567636",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Pub Songs",
+        "album_upc": "886448200987",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 370,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.532017743642821,
+        "provider_id": "129129157",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Highway 61 Revisited",
+        "album_upc": "827969239926",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 372,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.8436412403970627,
+        "provider_id": "11343638",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Summer Serenity Songs",
+        "album_upc": "196871993210",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.06986935240747066,
+        "provider_id": "355640527",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "American Spirit",
+        "album_upc": "196872078244",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.10168068878854039,
+        "provider_id": "360985830",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Badlands: Feel Good Summer Hits",
+        "album_upc": "196871241335",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 370,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.1385608301692135,
+        "provider_id": "303321869",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Vintage Summer Hits",
+        "album_upc": "196871959506",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.026174988920770956,
+        "provider_id": "353349180",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Mixing Up The Medicine / A Retrospective",
+        "album_upc": "196871460781",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 368,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.3571536480090144,
+        "provider_id": "321672716",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Patriotic Hits / American Songs",
+        "album_upc": "196871048774",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 372,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.2731237208014857,
+        "provider_id": "295228672",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "This Is The Day: Feel Good Summer Hits",
+        "album_upc": "196871241373",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 368,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.14161173501766883,
+        "provider_id": "303329775",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Wimp præsenterer 50 Essentielle med Bob Dylan",
+        "album_upc": "886445030679",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 370,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.047751889104119524,
+        "provider_id": "39881960",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Freedom Feels",
+        "album_upc": "196872078282",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.06981078247491411,
+        "provider_id": "360984962",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "Throwback Summer Hits",
+        "album_upc": "886449284061",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 370,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.15369043808901303,
+        "provider_id": "185056951",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "70s 80s 90s Summer Roadtrip",
+        "album_upc": "196871959339",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 369,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.1522269236705664,
+        "provider_id": "353004797",
+        "title": "Like a Rolling Stone",
+        "version": null
+      },
+      {
+        "album": "All Time Best - Reclam Musik Edition 3",
+        "album_upc": "884977917529",
+        "artists": [
+          "Bob Dylan"
+        ],
+        "duration_seconds": 368,
+        "explicit": false,
+        "isrc": "USSM19922509",
+        "popularity": 0.06983600207530515,
+        "provider_id": "11947475",
+        "title": "Like a Rolling Stone",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Highway 61 Revisited",
+      "album_upc": "827969239926",
+      "artists": [
+        "Bob Dylan"
+      ],
+      "duration_seconds": 372,
+      "explicit": false,
+      "isrc": "USSM19922509",
+      "popularity": 0.8436412403970627,
+      "provider_id": "11343638",
+      "title": "Like a Rolling Stone",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Nevermind (Remastered 2021)",
+        "album_upc": "00602438970858",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 300,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.6087414531210186,
+        "provider_id": "203938226",
+        "title": "Smells Like Teen Spirit",
+        "version": "Remastered 2021"
+      },
+      {
+        "album": "Nevermind (Deluxe Edition)",
+        "album_upc": "00602527809045",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.707216178874085,
+        "provider_id": "7772083",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nevermind (30th Anniversary Super Deluxe)",
+        "album_upc": "00602438967988",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.17315381193815826,
+        "provider_id": "203939673",
+        "title": "Smells Like Teen Spirit",
+        "version": "Remastered"
+      },
+      {
+        "album": "Nevermind (Deluxe Edition)",
+        "album_upc": "00602547866950",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.22545220171604224,
+        "provider_id": "58208167",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Smells Like Teen Spirit / In Bloom / On A Plain / Lithium / Breed",
+        "album_upc": "00602445002184",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.04776104120955933,
+        "provider_id": "203623379",
+        "title": "Smells Like Teen Spirit",
+        "version": "Remastered 2021"
+      },
+      {
+        "album": "Nevermind (Super Deluxe Edition)",
+        "album_upc": "00602547866912",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.12959046603801627,
+        "provider_id": "58208014",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nirvana (International Version)",
+        "album_upc": "00606949352325",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.30939892071782915,
+        "provider_id": "570853",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nirvana",
+        "album_upc": "00602567924166",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.5956881139335604,
+        "provider_id": "92239131",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nevermind (Remastered)",
+        "album_upc": "00602527856865",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.40136269802507724,
+        "provider_id": "7886994",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nevermind (Remastered)",
+        "album_upc": "00602547866967",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.0698363183522318,
+        "provider_id": "58468163",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nevermind (30th Anniversary Super Deluxe)",
+        "album_upc": "00602438888900",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.6151301995779629,
+        "provider_id": "203937588",
+        "title": "Smells Like Teen Spirit",
+        "version": "Remastered 2021"
+      },
+      {
+        "album": "Nevermind",
+        "album_upc": "00602537498659",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.8997641890671554,
+        "provider_id": "77610757",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Smells Like Teen Spirit / In Bloom / On A Plain / Lithium / Breed",
+        "album_upc": "00602445002139",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.38749235496060797,
+        "provider_id": "203607702",
+        "title": "Smells Like Teen Spirit",
+        "version": "Remastered 2021"
+      },
+      {
+        "album": "Nevermind (Remastered 2021)",
+        "album_upc": "00602438970872",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 300,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.23651807010173798,
+        "provider_id": "203946843",
+        "title": "Smells Like Teen Spirit",
+        "version": "Remastered 2021"
+      },
+      {
+        "album": "Nevermind (Super Deluxe Edition)",
+        "album_upc": "00602527829463",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.6819758650578851,
+        "provider_id": "7772126",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nevermind (Remastered)",
+        "album_upc": "00602547866981",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 301,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.2198406308889389,
+        "provider_id": "77622013",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      },
+      {
+        "album": "Nevermind (Remastered)",
+        "album_upc": "00602527805641",
+        "artists": [
+          "Nirvana"
+        ],
+        "duration_seconds": 302,
+        "explicit": false,
+        "isrc": "USGF19942501",
+        "popularity": 0.8531040291106988,
+        "provider_id": "7772058",
+        "title": "Smells Like Teen Spirit",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Nevermind",
+      "album_upc": "00602537498659",
+      "artists": [
+        "Nirvana"
+      ],
+      "duration_seconds": 301,
+      "explicit": false,
+      "isrc": "USGF19942501",
+      "popularity": 0.8997641890671554,
+      "provider_id": "77610757",
+      "title": "Smells Like Teen Spirit",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Self Isolation Vibes",
+        "album_upc": "00602507203627",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.08548045350673983,
+        "provider_id": "139780843",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Románticas en inglés 70 80 y 90",
+        "album_upc": "00602438139217",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.12819508235432703,
+        "provider_id": "178866508",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "70s Mix",
+        "album_upc": "00600406843210",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.3779258470407143,
+        "provider_id": "111233557",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Soul Collected",
+        "album_upc": "00602455490209",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.24508871457325457,
+        "provider_id": "284681460",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Motown The Musical: 40 Classic Songs That Inspired the Musical!",
+        "album_upc": "00600753672211",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 235,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.18072025395450925,
+        "provider_id": "57984889",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "5 Great Songs For HD (Pop / Soul Edition)",
+        "album_upc": "00600753567531",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 235,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.0,
+        "provider_id": "198879957",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Best Of 98.1 CHFI - 20th Century Masters",
+        "album_upc": "00600753033838",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 234,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.2659928500652313,
+        "provider_id": "36740647",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "70s Hits",
+        "album_upc": "00602507253769",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.36892849276034523,
+        "provider_id": "141417385",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "The Ultimate Collection",
+        "album_upc": "00600753707098",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.24138092973150355,
+        "provider_id": "63448522",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Favorites",
+        "album_upc": "00602517750159",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.5602760315162911,
+        "provider_id": "3558103",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Motown Summer",
+        "album_upc": "00600406853271",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.6512743205711587,
+        "provider_id": "126177209",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Hitsville: The Making Of Motown (Original Motion Picture Soundtrack / Deluxe)",
+        "album_upc": "00602508163913",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 234,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.20200200122813142,
+        "provider_id": "115153748",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Korean Golden POPs #1",
+        "album_upc": "00600753504291",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 235,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.0,
+        "provider_id": "36372671",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Baladas Románticas en Inglés",
+        "album_upc": "00602438262175",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.16192807257175446,
+        "provider_id": "181995284",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "20th Century Masters: The Millennium Collection: The Best Of Marvin Gaye, Vol 2: The 70's",
+        "album_upc": "00602567827047",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 234,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.36527374097102056,
+        "provider_id": "93539805",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Classic - The Universal Masters Collection",
+        "album_upc": "00602567834458",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 232,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.28770777233500316,
+        "provider_id": "94443520",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Love & Freedom",
+        "album_upc": "00881061071518",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.04773640224781361,
+        "provider_id": "530453299",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Funked!: Volume 1 1970 - 1973",
+        "album_upc": "00731452495426",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 228,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.27533197056640724,
+        "provider_id": "13040038",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "รวมเพลงสากลยุค 60s-80s",
+        "album_upc": "00199957982665",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.04606425283904232,
+        "provider_id": "521875175",
+        "title": "What's Going On",
+        "version": null
+      },
+      {
+        "album": "Motown 50",
+        "album_upc": "00600753132548",
+        "artists": [
+          "Marvin Gaye"
+        ],
+        "duration_seconds": 233,
+        "explicit": false,
+        "isrc": "USMO17100041",
+        "popularity": 0.14713507875018617,
+        "provider_id": "169316945",
+        "title": "What's Going On",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "What's Going On",
+      "album_upc": "00602537809899",
+      "artists": [
+        "Marvin Gaye"
+      ],
+      "duration_seconds": 233,
+      "explicit": false,
+      "isrc": "USMO17100041",
+      "popularity": 0.8512473985589739,
+      "provider_id": "77632886",
+      "title": "What's Going On",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Miserere (Live)",
+        "album_upc": "00602507222574",
+        "artists": [
+          "Bono",
+          "Luciano Pavarotti",
+          "Zucchero"
+        ],
+        "duration_seconds": 246,
+        "explicit": false,
+        "isrc": "GBBBC2000142",
+        "popularity": 0.3593654927630425,
+        "provider_id": "140544935",
+        "title": "Miserere",
+        "version": "Live"
+      }
+    ],
+    "source": {
+      "album": "Miserere (Live)",
+      "album_upc": "00602507222574",
+      "artists": [
+        "Bono",
+        "Luciano Pavarotti",
+        "Zucchero"
+      ],
+      "duration_seconds": 246,
+      "explicit": false,
+      "isrc": "GBBBC2000142",
+      "popularity": 0.3593654927630425,
+      "provider_id": "140544935",
+      "title": "Miserere",
+      "version": "Live"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Grew Up In The 70s",
+        "album_upc": "5059460380967",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.047725764682494023,
+        "provider_id": "422990635",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "70 from the 70's",
+        "album_upc": "5059460018693",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.4499228466682535,
+        "provider_id": "135325282",
+        "title": "Anarchy In the U.K.",
+        "version": null
+      },
+      {
+        "album": "70's Rock Classics",
+        "album_upc": "5059460060142",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.16587438336262697,
+        "provider_id": "164717082",
+        "title": "Anarchy In the U.K.",
+        "version": null
+      },
+      {
+        "album": "Sounds of Revolution",
+        "album_upc": "5059460256163",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.04776249257609938,
+        "provider_id": "332861451",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "100 Hits 1970's",
+        "album_upc": "5059460375888",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.0,
+        "provider_id": "420404616",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "Marquee Moon - 70's Alternative",
+        "album_upc": "5059460165472",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.08344873040914536,
+        "provider_id": "260712061",
+        "title": "Anarchy In the U.K.",
+        "version": null
+      },
+      {
+        "album": "Rock from the 70s",
+        "album_upc": "5059460459731",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.23122563934078463,
+        "provider_id": "476799487",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "Marquee Moon - 70's Alternative",
+        "album_upc": "5059460249905",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.04635532945394516,
+        "provider_id": "331337377",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "British 70's Rock Anthems",
+        "album_upc": "5059460005204",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.0,
+        "provider_id": "127769268",
+        "title": "Anarchy In the U.K.",
+        "version": null
+      },
+      {
+        "album": "70's Alternative",
+        "album_upc": "5059460110274",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.1321594881258285,
+        "provider_id": "208639374",
+        "title": "Anarchy In the U.K.",
+        "version": null
+      },
+      {
+        "album": "70s Collection",
+        "album_upc": "5059460455504",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.0,
+        "provider_id": "471798053",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "Biggest 70s Hits",
+        "album_upc": "5059460397286",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.0,
+        "provider_id": "432649261",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "Never Mind The Bollocks, Here's The Sex Pistols",
+        "album_upc": "603497987481",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.7397458421048323,
+        "provider_id": "34454493",
+        "title": "Anarchy in the U.K.",
+        "version": null
+      },
+      {
+        "album": "70's Gold",
+        "album_upc": "5059460008465",
+        "artists": [
+          "Sex Pistols"
+        ],
+        "duration_seconds": 212,
+        "explicit": false,
+        "isrc": "USWB17700044",
+        "popularity": 0.09763009280606925,
+        "provider_id": "131701421",
+        "title": "Anarchy In the U.K.",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Never Mind The Bollocks, Here's The Sex Pistols",
+      "album_upc": "603497987481",
+      "artists": [
+        "Sex Pistols"
+      ],
+      "duration_seconds": 212,
+      "explicit": false,
+      "isrc": "USWB17700044",
+      "popularity": 0.7397458421048323,
+      "provider_id": "34454493",
+      "title": "Anarchy in the U.K.",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Yeezus",
+        "album_upc": "00602537439263",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 188,
+        "explicit": true,
+        "isrc": "USUM71307719",
+        "popularity": 0.8747433445084677,
+        "provider_id": "20753859",
+        "title": "Black Skinhead",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Yeezus",
+      "album_upc": "00602537439263",
+      "artists": [
+        "Kanye West"
+      ],
+      "duration_seconds": 188,
+      "explicit": true,
+      "isrc": "USUM71307719",
+      "popularity": 0.8747433445084677,
+      "provider_id": "20753859",
+      "title": "Black Skinhead",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Winter Nights by The Circle Sessions",
+        "album_upc": "00602455080264",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.2718027591599799,
+        "provider_id": "270205334",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Melodías para un día lluvioso",
+        "album_upc": "00602455929327",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.18422537301449024,
+        "provider_id": "298695664",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Superventas 2020",
+        "album_upc": "00600753907047",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 244,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.11908232420682907,
+        "provider_id": "131719793",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Bored Billie",
+        "album_upc": "00602438991204",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.12325754077779064,
+        "provider_id": "199387236",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Gråtmusik",
+        "album_upc": "00602455881816",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.10361972451210022,
+        "provider_id": "296524970",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "but i knew you",
+        "album_upc": "00602455034052",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.0724254927302976,
+        "provider_id": "265601322",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Winterstimmung",
+        "album_upc": "00602448989444",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.026365876403372263,
+        "provider_id": "265608081",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Cozy Sunday Morning",
+        "album_upc": "00602438766659",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.04775244033888596,
+        "provider_id": "199144142",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Anxiety Relief",
+        "album_upc": "00602448194633",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.06983532856141304,
+        "provider_id": "235035037",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "songs to cry to by The Circle Session",
+        "album_upc": "00602458507850",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.1673434650541115,
+        "provider_id": "314739995",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Giving you all you want and more",
+        "album_upc": "00602438991105",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.1888278954814882,
+        "provider_id": "199666669",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Chillax Hits",
+        "album_upc": "00602438734566",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.12325694213222048,
+        "provider_id": "193827589",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "The Best Alternative Tunes",
+        "album_upc": "00602448551986",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.10755707092617457,
+        "provider_id": "249385676",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "everything i wanted",
+        "album_upc": "00602508508479",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.808217662356313,
+        "provider_id": "122477618",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Mercury is in Retrograde",
+        "album_upc": "00602445586356",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.0477523140440735,
+        "provider_id": "216086877",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Celebrating Women 2023",
+        "album_upc": "00602455269492",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.08550488067777191,
+        "provider_id": "274869536",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Sad Summer Songs 2022",
+        "album_upc": "00602445895823",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.13014196180422988,
+        "provider_id": "225718773",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Kids Hits 2022",
+        "album_upc": "00602445326440",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.5480321483868557,
+        "provider_id": "207424860",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "everything i wanted",
+        "album_upc": "00602508508462",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.8384648089303146,
+        "provider_id": "122258938",
+        "title": "everything i wanted",
+        "version": null
+      },
+      {
+        "album": "Garden Party 2021",
+        "album_upc": "00602438654444",
+        "artists": [
+          "Billie Eilish"
+        ],
+        "duration_seconds": 245,
+        "explicit": false,
+        "isrc": "USUM71922577",
+        "popularity": 0.04777611016642599,
+        "provider_id": "192239440",
+        "title": "everything i wanted",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "everything i wanted",
+      "album_upc": "00602508508479",
+      "artists": [
+        "Billie Eilish"
+      ],
+      "duration_seconds": 245,
+      "explicit": false,
+      "isrc": "USUM71922577",
+      "popularity": 0.808217662356313,
+      "provider_id": "122477618",
+      "title": "everything i wanted",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Best of Bowie",
+        "album_upc": "0724354190155",
+        "artists": [
+          "David Bowie"
+        ],
+        "duration_seconds": 223,
+        "explicit": false,
+        "isrc": "USJT19900030",
+        "popularity": 0.31668680498524987,
+        "provider_id": "1439544",
+        "title": "Life on Mars? (1999 Remaster)",
+        "version": null
+      },
+      {
+        "album": "Best of Bowie",
+        "album_upc": "5054197598272",
+        "artists": [
+          "David Bowie"
+        ],
+        "duration_seconds": 223,
+        "explicit": false,
+        "isrc": "USJT19900030",
+        "popularity": 0.5903243083965285,
+        "provider_id": "279562670",
+        "title": "Life on Mars? (1999 Remaster)",
+        "version": null
+      },
+      {
+        "album": "Best Of Bowie ((Extended Version))",
+        "album_upc": "0724354191855",
+        "artists": [
+          "David Bowie"
+        ],
+        "duration_seconds": 229,
+        "explicit": false,
+        "isrc": "USJT19900030",
+        "popularity": 0.33148907389529336,
+        "provider_id": "1439627",
+        "title": "Life On Mars? (1999 - Remaster)",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "iSelect",
+      "album_upc": "5099923664050",
+      "artists": [
+        "David Bowie"
+      ],
+      "duration_seconds": 223,
+      "explicit": false,
+      "isrc": "USJT19900030",
+      "popularity": 0.15984060066038136,
+      "provider_id": "2870888",
+      "title": "Life on Mars? (1999 Remaster)",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "1 (Remastered)",
+        "album_upc": "00602547673503",
+        "artists": [
+          "The Beatles"
+        ],
+        "duration_seconds": 146,
+        "explicit": false,
+        "isrc": "GBUM71505904",
+        "popularity": 0.8160665201054672,
+        "provider_id": "55130600",
+        "title": "I Want To Hold Your Hand",
+        "version": "Remastered 2015"
+      }
+    ],
+    "source": {
+      "album": "1 (Remastered)",
+      "album_upc": "00602547673503",
+      "artists": [
+        "The Beatles"
+      ],
+      "duration_seconds": 146,
+      "explicit": false,
+      "isrc": "GBUM71505904",
+      "popularity": 0.8160665201054672,
+      "provider_id": "55130600",
+      "title": "I Want To Hold Your Hand",
+      "version": "Remastered 2015"
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Sun Records 65th Anniversary: Born From The Blues",
+        "album_upc": "715187947269",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 117,
+        "explicit": false,
+        "isrc": "USRC10400265",
+        "popularity": 0.17194278131482024,
+        "provider_id": "80072225",
+        "title": "That's All Right",
+        "version": null
+      },
+      {
+        "album": "Sun Records 60th Anniversary",
+        "album_upc": "715187925922",
+        "artists": [
+          "Elvis Presley",
+          "Scotty & Bill"
+        ],
+        "duration_seconds": 117,
+        "explicit": false,
+        "isrc": "USRC10400265",
+        "popularity": 0.45500451618464505,
+        "provider_id": "71519187",
+        "title": "That's All Right Mama",
+        "version": null
+      },
+      {
+        "album": "Sun Records Greatest Hits",
+        "album_upc": "715180702964",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 117,
+        "explicit": false,
+        "isrc": "USRC10400265",
+        "popularity": 0.3203820522346381,
+        "provider_id": "74456426",
+        "title": "That's All Right",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Sun Records 60th Anniversary",
+      "album_upc": "715187925922",
+      "artists": [
+        "Elvis Presley",
+        "Scotty & Bill"
+      ],
+      "duration_seconds": 117,
+      "explicit": false,
+      "isrc": "USRC10400265",
+      "popularity": 0.45500451618464505,
+      "provider_id": "71519187",
+      "title": "That's All Right Mama",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "MEMPHIS",
+        "album_upc": "196872133806",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 127,
+        "explicit": false,
+        "isrc": "USRC15403925",
+        "popularity": 0.4087149707673913,
+        "provider_id": "379285562",
+        "title": "Blue Moon of Kentucky",
+        "version": null
+      },
+      {
+        "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+        "album_upc": "886446421612",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 127,
+        "explicit": false,
+        "isrc": "USRC15403925",
+        "popularity": 0.5239918692195911,
+        "provider_id": "74368726",
+        "title": "Blue Moon of Kentucky",
+        "version": null
+      },
+      {
+        "album": "Sun Records Greatest Hits",
+        "album_upc": "715180702964",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 125,
+        "explicit": false,
+        "isrc": "USRC15403925",
+        "popularity": 0.3582806437996805,
+        "provider_id": "74456430",
+        "title": "Blue Moon Of Kentucky",
+        "version": null
+      },
+      {
+        "album": "Sunrise",
+        "album_upc": "078636767529",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 123,
+        "explicit": false,
+        "isrc": "USRC15403925",
+        "popularity": 0.4315626766145439,
+        "provider_id": "515269",
+        "title": "Blue Moon of Kentucky",
+        "version": null
+      },
+      {
+        "album": "Elvis Presley: The Searcher (The Original Soundtrack) [Deluxe]",
+        "album_upc": "886446953656",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 123,
+        "explicit": false,
+        "isrc": "USRC15403925",
+        "popularity": 0.422564810502225,
+        "provider_id": "84790732",
+        "title": "Blue Moon of Kentucky",
+        "version": null
+      },
+      {
+        "album": "Sun Records' Greatest Hits",
+        "album_upc": "00015047800889",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 126,
+        "explicit": false,
+        "isrc": "USRC15403925",
+        "popularity": 0.09486372825752257,
+        "provider_id": "498930143",
+        "title": "Blue Moon of Kentucky",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+      "album_upc": "886446421612",
+      "artists": [
+        "Elvis Presley"
+      ],
+      "duration_seconds": 127,
+      "explicit": false,
+      "isrc": "USRC15403925",
+      "popularity": 0.5239918692195911,
+      "provider_id": "74368726",
+      "title": "Blue Moon of Kentucky",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "For LP Fans Only",
+        "album_upc": "886444095334",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 150,
+        "explicit": false,
+        "isrc": "USRC15408067",
+        "popularity": 0.4482527383343496,
+        "provider_id": "21277612",
+        "title": "I Don't Care If the Sun Don't Shine",
+        "version": null
+      },
+      {
+        "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+        "album_upc": "886446421612",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 152,
+        "explicit": false,
+        "isrc": "USRC15408067",
+        "popularity": 0.4320282509121277,
+        "provider_id": "74368730",
+        "title": "I Don't Care If the Sun Don't Shine",
+        "version": null
+      },
+      {
+        "album": "Sunrise",
+        "album_upc": "078636767529",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 147,
+        "explicit": false,
+        "isrc": "USRC15408067",
+        "popularity": 0.36814638762995694,
+        "provider_id": "515262",
+        "title": "I Don't Care If the Sun Don't Shine",
+        "version": null
+      },
+      {
+        "album": "MEMPHIS",
+        "album_upc": "196872133806",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 152,
+        "explicit": false,
+        "isrc": "USRC15408067",
+        "popularity": 0.34476807953512406,
+        "provider_id": "379285563",
+        "title": "I Don't Care If the Sun Don't Shine",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+      "album_upc": "886446421612",
+      "artists": [
+        "Elvis Presley"
+      ],
+      "duration_seconds": 152,
+      "explicit": false,
+      "isrc": "USRC15408067",
+      "popularity": 0.4320282509121277,
+      "provider_id": "74368730",
+      "title": "I Don't Care If the Sun Don't Shine",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Humo presenteert: Meer Dan Het Beste Van Elvis Presley",
+        "album_upc": "000000000000",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 134,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.04598349209606872,
+        "provider_id": "508718",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "Sunrise",
+        "album_upc": "078636767529",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 133,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.4682124096174342,
+        "provider_id": "515270",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "Bossa Nova Baby: The Ultimate Elvis Presley Party Album",
+        "album_upc": "886444614641",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.30602654814720154,
+        "provider_id": "29904619",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "Bossa Nova Baby: The Ultimate Elvis Presley Party Album",
+        "album_upc": "886444614627",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.29950809751971946,
+        "provider_id": "33890623",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "MEMPHIS",
+        "album_upc": "196872133806",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 135,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.3690050774318108,
+        "provider_id": "379285564",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "Platinum - A Life In Music",
+        "album_upc": "078636746920",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.4134218826789553,
+        "provider_id": "515062",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+        "album_upc": "886446421612",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 135,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.4557317946079656,
+        "provider_id": "74368732",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      },
+      {
+        "album": "Elvis Presley: The Searcher (The Original Soundtrack) [Deluxe]",
+        "album_upc": "886446953656",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USRC15405582",
+        "popularity": 0.31753395719280986,
+        "provider_id": "84790736",
+        "title": "Good Rockin' Tonight",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Sunrise",
+      "album_upc": "078636767529",
+      "artists": [
+        "Elvis Presley"
+      ],
+      "duration_seconds": 133,
+      "explicit": false,
+      "isrc": "USRC15405582",
+      "popularity": 0.4682124096174342,
+      "provider_id": "515270",
+      "title": "Good Rockin' Tonight",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Humo presenteert: Meer Dan Het Beste Van Elvis Presley",
+        "album_upc": "000000000000",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 158,
+        "explicit": false,
+        "isrc": "USRC15408068",
+        "popularity": 0.0,
+        "provider_id": "508738",
+        "title": "Milkcow Blues Boogie",
+        "version": null
+      },
+      {
+        "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+        "album_upc": "886446421612",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 159,
+        "explicit": false,
+        "isrc": "USRC15408068",
+        "popularity": 0.4597203724380483,
+        "provider_id": "74368733",
+        "title": "Milkcow Blues Boogie",
+        "version": null
+      },
+      {
+        "album": "MEMPHIS",
+        "album_upc": "196872133806",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 159,
+        "explicit": false,
+        "isrc": "USRC15408068",
+        "popularity": 0.33683668710864445,
+        "provider_id": "379285565",
+        "title": "Milkcow Blues Boogie",
+        "version": null
+      },
+      {
+        "album": "Sunrise",
+        "album_upc": "078636767529",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 158,
+        "explicit": false,
+        "isrc": "USRC15408068",
+        "popularity": 0.3714442800735675,
+        "provider_id": "515263",
+        "title": "Milkcow Blues Boogie",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+      "album_upc": "886446421612",
+      "artists": [
+        "Elvis Presley"
+      ],
+      "duration_seconds": 159,
+      "explicit": false,
+      "isrc": "USRC15408068",
+      "popularity": 0.4597203724380483,
+      "provider_id": "74368733",
+      "title": "Milkcow Blues Boogie",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Sunrise",
+        "album_upc": "078636767529",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USRC15408069",
+        "popularity": 0.34361558388301466,
+        "provider_id": "515271",
+        "title": "You're a Heartbreaker",
+        "version": null
+      },
+      {
+        "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+        "album_upc": "886446421612",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 133,
+        "explicit": false,
+        "isrc": "USRC15408069",
+        "popularity": 0.4319601366263931,
+        "provider_id": "74368734",
+        "title": "You're a Heartbreaker",
+        "version": null
+      },
+      {
+        "album": "For LP Fans Only",
+        "album_upc": "886444095334",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 133,
+        "explicit": false,
+        "isrc": "USRC15408069",
+        "popularity": 0.41640314449104154,
+        "provider_id": "21277611",
+        "title": "You're a Heartbreaker",
+        "version": null
+      },
+      {
+        "album": "Humo presenteert: Meer Dan Het Beste Van Elvis Presley",
+        "album_upc": "000000000000",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 132,
+        "explicit": false,
+        "isrc": "USRC15408069",
+        "popularity": 0.0,
+        "provider_id": "508766",
+        "title": "You're A Heartbreaker",
+        "version": null
+      },
+      {
+        "album": "MEMPHIS",
+        "album_upc": "196872133806",
+        "artists": [
+          "Elvis Presley"
+        ],
+        "duration_seconds": 133,
+        "explicit": false,
+        "isrc": "USRC15408069",
+        "popularity": 0.3265579567881712,
+        "provider_id": "379285566",
+        "title": "You're a Heartbreaker",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "A Boy From Tupelo: The Complete 1953-1955 Recordings",
+      "album_upc": "886446421612",
+      "artists": [
+        "Elvis Presley"
+      ],
+      "duration_seconds": 133,
+      "explicit": false,
+      "isrc": "USRC15408069",
+      "popularity": 0.4319601366263931,
+      "provider_id": "74368734",
+      "title": "You're a Heartbreaker",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "To Know Him Is to Love Him / Don't You Worry My Little Pet",
+        "album_upc": "693532205151",
+        "artists": [
+          "The Teddy Bears"
+        ],
+        "duration_seconds": 145,
+        "explicit": false,
+        "isrc": "USDEI1571976",
+        "popularity": 0.571678713916236,
+        "provider_id": "50867002",
+        "title": "To Know Him Is to Love Him",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "To Know Him Is to Love Him / Don't You Worry My Little Pet",
+      "album_upc": "693532205151",
+      "artists": [
+        "The Teddy Bears"
+      ],
+      "duration_seconds": 145,
+      "explicit": false,
+      "isrc": "USDEI1571976",
+      "popularity": 0.571678713916236,
+      "provider_id": "50867002",
+      "title": "To Know Him Is to Love Him",
+      "version": null
+    }
+  },
+  {
+    "candidates": [],
+    "source": {
+      "album": "Años 60: Pop",
+      "album_upc": "190374605847",
+      "artists": [
+        "Ray Peterson"
+      ],
+      "duration_seconds": 161,
+      "explicit": false,
+      "isrc": "QMDA71595116",
+      "popularity": 0.01728939864189378,
+      "provider_id": "59253884",
+      "title": "Corrine Corrina",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Legado musical",
+        "album_upc": "5059460243545",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.08325460501490257,
+        "provider_id": "322972037",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "60's Flashback",
+        "album_upc": "5059460410916",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.04577602140827804,
+        "provider_id": "442349985",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Original 60's",
+        "album_upc": "5059460018464",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.23813452788804032,
+        "provider_id": "133149689",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Songs About New York",
+        "album_upc": "5059460427808",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.06422758541951071,
+        "provider_id": "452723200",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Hits 60s",
+        "album_upc": "5059460115347",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.08272154629230499,
+        "provider_id": "223643548",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "60's ラブ・ソング",
+        "album_upc": "5059460424272",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.04775746505394776,
+        "provider_id": "451216319",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Soul Men",
+        "album_upc": "084247965681",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.2525286890196463,
+        "provider_id": "72448962",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Just One Look: Uptown R&B Classics",
+        "album_upc": "5059460055728",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.0,
+        "provider_id": "162399865",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Atlantic Top 60: R&B Grooves",
+        "album_upc": "603497993628",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.48526284793207547,
+        "provider_id": "1222030",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Turntable Hits",
+        "album_upc": "842474103531",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.20149290552988208,
+        "provider_id": "100212820",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Cinco de Mayo Party 2023",
+        "album_upc": "5059460196766",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.06983600207530515,
+        "provider_id": "290195455",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "60s music greatest hits",
+        "album_upc": "5059460323964",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.04777294834745001,
+        "provider_id": "379371012",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "60-tal",
+        "album_upc": "842474159620",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.09442710131406784,
+        "provider_id": "84813268",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "The Complete ATCO and Atlantic Albums",
+        "album_upc": "842474115282",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.2522158637327916,
+        "provider_id": "105916454",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Fiesta improvisada",
+        "album_upc": "5059460331891",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.0,
+        "provider_id": "386395277",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Can't Take My Eyes off You - 60's Love",
+        "album_upc": "5059460155824",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.06983600207530515,
+        "provider_id": "249913440",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Peda con amigos",
+        "album_upc": "5059460331907",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.10177892609129272,
+        "provider_id": "386384612",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Día de los muertos 2024",
+        "album_upc": "5059460323643",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.0,
+        "provider_id": "378528122",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Turntable Hits",
+        "album_upc": "842474168455",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.17441754043102264,
+        "provider_id": "86895193",
+        "title": "Spanish Harlem",
+        "version": null
+      },
+      {
+        "album": "Play 60s Music",
+        "album_upc": "5059460018815",
+        "artists": [
+          "Ben E. King"
+        ],
+        "duration_seconds": 174,
+        "explicit": false,
+        "isrc": "USAT20202648",
+        "popularity": 0.04774022675336992,
+        "provider_id": "135881541",
+        "title": "Spanish Harlem",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Spanish Harlem",
+      "album_upc": "081227625566",
+      "artists": [
+        "Ben E. King"
+      ],
+      "duration_seconds": 174,
+      "explicit": false,
+      "isrc": "USAT20202648",
+      "popularity": 0.596348148616268,
+      "provider_id": "207871",
+      "title": "Spanish Harlem",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Pretty Little Angel Eyes - The Best Of",
+        "album_upc": "885686827079",
+        "artists": [
+          "Curtis Lee"
+        ],
+        "duration_seconds": 165,
+        "explicit": false,
+        "isrc": "USA371282599",
+        "popularity": 0.6148186029132395,
+        "provider_id": "6786818",
+        "title": "Pretty Little Angel Eyes",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Pretty Little Angel Eyes - The Best Of",
+      "album_upc": "885686827079",
+      "artists": [
+        "Curtis Lee"
+      ],
+      "duration_seconds": 165,
+      "explicit": false,
+      "isrc": "USA371282599",
+      "popularity": 0.6148186029132395,
+      "provider_id": "6786818",
+      "title": "Pretty Little Angel Eyes",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "A Groovy Kind Of Love - Best of Gene Pitney",
+        "album_upc": "881969621457",
+        "artists": [
+          "Gene Pitney"
+        ],
+        "duration_seconds": 169,
+        "explicit": false,
+        "isrc": "DEBL61016571",
+        "popularity": 0.4773722628151618,
+        "provider_id": "15741563",
+        "title": "Every Breath I Take",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "A Groovy Kind Of Love - Best of Gene Pitney",
+      "album_upc": "881969621457",
+      "artists": [
+        "Gene Pitney"
+      ],
+      "duration_seconds": 169,
+      "explicit": false,
+      "isrc": "DEBL61016571",
+      "popularity": 0.4773722628151618,
+      "provider_id": "15741563",
+      "title": "Every Breath I Take",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "A Doo Wop Valentine - Original Romantic Harmonies",
+        "album_upc": "894232241122",
+        "artists": [
+          "The Paris Sisters"
+        ],
+        "duration_seconds": 123,
+        "explicit": false,
+        "isrc": "USGZ21352518",
+        "popularity": 0.4396963462548175,
+        "provider_id": "26129692",
+        "title": "I Love How You Love Me",
+        "version": null
+      },
+      {
+        "album": "I Love How You Love Me / All Through the Night (Digital 45)",
+        "album_upc": "894232139924",
+        "artists": [
+          "The Paris Sisters"
+        ],
+        "duration_seconds": 123,
+        "explicit": false,
+        "isrc": "USGZ21352518",
+        "popularity": 0.47211489533150347,
+        "provider_id": "23570452",
+        "title": "I Love How You Love Me",
+        "version": null
+      },
+      {
+        "album": "Pop, Rock & Doo Wop - Sounds from the Golden Age Vol. 1",
+        "album_upc": "894232245021",
+        "artists": [
+          "The Paris Sisters"
+        ],
+        "duration_seconds": 123,
+        "explicit": false,
+        "isrc": "USGZ21352518",
+        "popularity": 0.31899847994901226,
+        "provider_id": "29835976",
+        "title": "I Love How You Love Me",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "I Love How You Love Me / All Through the Night (Digital 45)",
+      "album_upc": "894232139924",
+      "artists": [
+        "The Paris Sisters"
+      ],
+      "duration_seconds": 123,
+      "explicit": false,
+      "isrc": "USGZ21352518",
+      "popularity": 0.47211489533150347,
+      "provider_id": "23570452",
+      "title": "I Love How You Love Me",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "My Beautiful Dark Twisted Fantasy",
+        "album_upc": "00602527474465",
+        "artists": [
+          "Kanye West",
+          "Pusha T"
+        ],
+        "duration_seconds": 548,
+        "explicit": true,
+        "isrc": "USUM71027402",
+        "popularity": 0.9003110696954751,
+        "provider_id": "4875690",
+        "title": "Runaway",
+        "version": null
+      },
+      {
+        "album": "My Beautiful Dark Twisted Fantasy (Deluxe Edition (Explicit))",
+        "album_upc": "00602527584492",
+        "artists": [
+          "Kanye West",
+          "Pusha T"
+        ],
+        "duration_seconds": 548,
+        "explicit": true,
+        "isrc": "USUM71027402",
+        "popularity": 0.526409839268544,
+        "provider_id": "98713000",
+        "title": "Runaway",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "My Beautiful Dark Twisted Fantasy",
+      "album_upc": "00602527474465",
+      "artists": [
+        "Kanye West",
+        "Pusha T"
+      ],
+      "duration_seconds": 548,
+      "explicit": true,
+      "isrc": "USUM71027402",
+      "popularity": 0.9003110696954751,
+      "provider_id": "4875690",
+      "title": "Runaway",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Ultimate R&B 2009",
+        "album_upc": "00600753143018",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 240,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.1129871957127783,
+        "provider_id": "36352575",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Flashing Lights",
+        "album_upc": "00602517682511",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 238,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.14529729767954452,
+        "provider_id": "5153713",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Hip Hop The 2008 Collection",
+        "album_upc": "00602517884779",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 239,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.04775068108296516,
+        "provider_id": "35357373",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Ultimate R&B 2008 (Double Album)",
+        "album_upc": "00600753124963",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 239,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.20043855755749582,
+        "provider_id": "2069894",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Discover More Hip Hop",
+        "album_upc": "00602435116723",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 238,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.7004289165013182,
+        "provider_id": "151380791",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Hip Hop: The Collection 2008",
+        "album_upc": "00600753078211",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 239,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.27495791872771036,
+        "provider_id": "4872972",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Power Hits 3",
+        "album_upc": "00600753141687",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 238,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.1514960676431656,
+        "provider_id": "36852138",
+        "title": "Flashing Lights",
+        "version": null
+      },
+      {
+        "album": "Graduation",
+        "album_upc": "00602577027864",
+        "artists": [
+          "Kanye West",
+          "Dwele"
+        ],
+        "duration_seconds": 238,
+        "explicit": true,
+        "isrc": "USUM70749095",
+        "popularity": 0.8895586240747155,
+        "provider_id": "103805732",
+        "title": "Flashing Lights",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Graduation",
+      "album_upc": "00602577027888",
+      "artists": [
+        "Kanye West"
+      ],
+      "duration_seconds": 238,
+      "explicit": true,
+      "isrc": "USUM70749095",
+      "popularity": 0.2545087479321126,
+      "provider_id": "103382475",
+      "title": "Flashing Lights",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "The College Dropout",
+        "album_upc": "00602567922186",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 194,
+        "explicit": true,
+        "isrc": "USDJ20400014",
+        "popularity": 0.8710057150188587,
+        "provider_id": "92099364",
+        "title": "Jesus Walks",
+        "version": null
+      },
+      {
+        "album": "Jesus Walks",
+        "album_upc": "00602498639641",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 200,
+        "explicit": true,
+        "isrc": "USDJ20400014",
+        "popularity": 0.18077331491389745,
+        "provider_id": "34724065",
+        "title": "Jesus Walks",
+        "version": null
+      },
+      {
+        "album": "Touch The Sky",
+        "album_upc": "00602498521144",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 194,
+        "explicit": true,
+        "isrc": "USDJ20400014",
+        "popularity": 0.09763009280606925,
+        "provider_id": "34717578",
+        "title": "Jesus Walks",
+        "version": null
+      },
+      {
+        "album": "Def Jam 25: DJ Bring That Back",
+        "album_upc": "00602527267111",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 199,
+        "explicit": true,
+        "isrc": "USDJ20400014",
+        "popularity": 0.46628982254063883,
+        "provider_id": "35942329",
+        "title": "Jesus Walks",
+        "version": null
+      },
+      {
+        "album": "Hip Hop-The Collection 4",
+        "album_upc": "00602498378199",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 194,
+        "explicit": true,
+        "isrc": "USDJ20400014",
+        "popularity": 0.1296706571228261,
+        "provider_id": "109773432",
+        "title": "Jesus Walks",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "The College Dropout",
+      "album_upc": "00602567922186",
+      "artists": [
+        "Kanye West"
+      ],
+      "duration_seconds": 194,
+      "explicit": true,
+      "isrc": "USDJ20400014",
+      "popularity": 0.8710057150188587,
+      "provider_id": "92099364",
+      "title": "Jesus Walks",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Yeezus",
+        "album_upc": "00602537439263",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 360,
+        "explicit": true,
+        "isrc": "USUM71307498",
+        "popularity": 0.8541739633755981,
+        "provider_id": "20753864",
+        "title": "Blood On The Leaves",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Yeezus",
+      "album_upc": "00602537439263",
+      "artists": [
+        "Kanye West"
+      ],
+      "duration_seconds": 360,
+      "explicit": true,
+      "isrc": "USUM71307498",
+      "popularity": 0.8541739633755981,
+      "provider_id": "20753864",
+      "title": "Blood On The Leaves",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Late Registration",
+        "album_upc": "00602498824016",
+        "artists": [
+          "Kanye West",
+          "Jamie Foxx"
+        ],
+        "duration_seconds": 208,
+        "explicit": true,
+        "isrc": "USUM70500143",
+        "popularity": 0.9299010921555847,
+        "provider_id": "593851",
+        "title": "Gold Digger",
+        "version": null
+      },
+      {
+        "album": "Late Registration",
+        "album_upc": "00602498851531",
+        "artists": [
+          "Kanye West",
+          "Jamie Foxx"
+        ],
+        "duration_seconds": 208,
+        "explicit": true,
+        "isrc": "USUM70500143",
+        "popularity": 0.29469776302144973,
+        "provider_id": "34739754",
+        "title": "Gold Digger",
+        "version": null
+      },
+      {
+        "album": "Gold Digger",
+        "album_upc": "00602498856994",
+        "artists": [
+          "Kanye West",
+          "Jamie Foxx"
+        ],
+        "duration_seconds": 209,
+        "explicit": true,
+        "isrc": "USUM70500143",
+        "popularity": 0.19148877273884113,
+        "provider_id": "34740097",
+        "title": "Gold Digger",
+        "version": null
+      },
+      {
+        "album": "Gold Digger",
+        "album_upc": "00602498856949",
+        "artists": [
+          "Kanye West",
+          "Jamie Foxx"
+        ],
+        "duration_seconds": 209,
+        "explicit": true,
+        "isrc": "USUM70500143",
+        "popularity": 0.18745341435030385,
+        "provider_id": "34740041",
+        "title": "Gold Digger",
+        "version": null
+      },
+      {
+        "album": "Def Jam 25, Vol. 7: THE # 1's (Can't Live Without My Radio) Pt. 2 (Explicit Version)",
+        "album_upc": "00602527062037",
+        "artists": [
+          "Kanye West",
+          "Jamie Foxx"
+        ],
+        "duration_seconds": 208,
+        "explicit": true,
+        "isrc": "USUM70500143",
+        "popularity": 0.2677868886372301,
+        "provider_id": "2583456",
+        "title": "Gold Digger",
+        "version": null
+      },
+      {
+        "album": "Love Lockdown (Essential 5 EP)",
+        "album_upc": "00602517938984",
+        "artists": [
+          "Kanye West",
+          "Jamie Foxx"
+        ],
+        "duration_seconds": 209,
+        "explicit": true,
+        "isrc": "USUM70500143",
+        "popularity": 0.1574927644407815,
+        "provider_id": "13041187",
+        "title": "Gold Digger",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "Late Registration",
+      "album_upc": "00602498824016",
+      "artists": [
+        "Kanye West",
+        "Jamie Foxx"
+      ],
+      "duration_seconds": 208,
+      "explicit": true,
+      "isrc": "USUM70500143",
+      "popularity": 0.9299010921555847,
+      "provider_id": "593851",
+      "title": "Gold Digger",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "The College Dropout",
+        "album_upc": "00602567922186",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 221,
+        "explicit": true,
+        "isrc": "USDJ20400086",
+        "popularity": 0.8874775169200364,
+        "provider_id": "92099376",
+        "title": "Through The Wire",
+        "version": null
+      },
+      {
+        "album": "Def Jam 25: Vol. 5 - The Hit Men ((Explicit))",
+        "album_upc": "00602527017396",
+        "artists": [
+          "Kanye West"
+        ],
+        "duration_seconds": 221,
+        "explicit": true,
+        "isrc": "USDJ20400086",
+        "popularity": 0.5094501881924673,
+        "provider_id": "2488741",
+        "title": "Through The Wire",
+        "version": null
+      }
+    ],
+    "source": {
+      "album": "The College Dropout",
+      "album_upc": "00602567922186",
+      "artists": [
+        "Kanye West"
+      ],
+      "duration_seconds": 221,
+      "explicit": true,
+      "isrc": "USDJ20400086",
+      "popularity": 0.8874775169200364,
+      "provider_id": "92099376",
+      "title": "Through The Wire",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Definitely Maybe (30th Anniversary)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 322,
+        "explicit": false,
+        "isrc": "GBQCP1400009",
+        "popularity": 0.18075557576641332,
+        "provider_id": "380788596",
+        "title": "Rock 'n' Roll Star",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (Deluxe Edition Remastered)",
+        "album_upc": "5051961070118",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 323,
+        "explicit": false,
+        "isrc": "GBQCP1400009",
+        "popularity": 0.6138568451913352,
+        "provider_id": "144505621",
+        "title": "Rock 'n' Roll Star",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary Deluxe Edition)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 323,
+        "explicit": false,
+        "isrc": "GBQCP1400009",
+        "popularity": 0.4669872777368353,
+        "provider_id": "360915523",
+        "title": "Rock 'n' Roll Star",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Definitely Maybe (Remastered) [Deluxe Edition]",
+      "album_upc": "5051961070118",
+      "artists": [
+        "Oasis"
+      ],
+      "duration_seconds": 322,
+      "explicit": false,
+      "isrc": "GBQCP1400009",
+      "popularity": 0.14565851053673357,
+      "provider_id": "28911622",
+      "title": "Rock ‘n’ Roll Star (Remastered)",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Definitely Maybe (30th Anniversary)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 308,
+        "explicit": false,
+        "isrc": "GBQCP1400010",
+        "popularity": 0.06699078670062644,
+        "provider_id": "380788597",
+        "title": "Shakermaker",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary Deluxe Edition)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 308,
+        "explicit": false,
+        "isrc": "GBQCP1400010",
+        "popularity": 0.4374938716445326,
+        "provider_id": "360915524",
+        "title": "Shakermaker",
+        "version": "Remastered"
+      },
+      {
+        "album": "Time Flies... 1994-2009 (Remastered)",
+        "album_upc": "5051961150100",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 311,
+        "explicit": false,
+        "isrc": "GBQCP1400010",
+        "popularity": 0.3035451279294514,
+        "provider_id": "436235184",
+        "title": "Shakermaker",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (Deluxe Edition Remastered)",
+        "album_upc": "5051961070118",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 308,
+        "explicit": false,
+        "isrc": "GBQCP1400010",
+        "popularity": 0.5402263090932725,
+        "provider_id": "144505622",
+        "title": "Shakermaker",
+        "version": "Remastered"
+      },
+      {
+        "album": "Time Flies… (1994 - 2009) (Remastered)",
+        "album_upc": "5051961150100",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 311,
+        "explicit": false,
+        "isrc": "GBQCP1400010",
+        "popularity": 0.2720175321803007,
+        "provider_id": "432839578",
+        "title": "Shakermaker",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Definitely Maybe (Remastered) [Deluxe Edition]",
+      "album_upc": "5051961070118",
+      "artists": [
+        "Oasis"
+      ],
+      "duration_seconds": 308,
+      "explicit": false,
+      "isrc": "GBQCP1400010",
+      "popularity": 0.1330565718709344,
+      "provider_id": "28911623",
+      "title": "Shakermaker (Remastered)",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Time Flies... 1994-2009 (Remastered)",
+        "album_upc": "5051961150100",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 279,
+        "explicit": false,
+        "isrc": "GBQCP1400011",
+        "popularity": 0.43983161402826465,
+        "provider_id": "436235173",
+        "title": "Live Forever",
+        "version": "Remastered"
+      },
+      {
+        "album": "Time Flies… (1994 - 2009) (Remastered)",
+        "album_upc": "5051961150100",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 279,
+        "explicit": false,
+        "isrc": "GBQCP1400011",
+        "popularity": 0.33519467755671206,
+        "provider_id": "432839569",
+        "title": "Live Forever",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (Deluxe Edition Remastered)",
+        "album_upc": "5051961070118",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 277,
+        "explicit": false,
+        "isrc": "GBQCP1400011",
+        "popularity": 0.6765004904253595,
+        "provider_id": "144505623",
+        "title": "Live Forever",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 277,
+        "explicit": false,
+        "isrc": "GBQCP1400011",
+        "popularity": 0.17937199249333308,
+        "provider_id": "380788598",
+        "title": "Live Forever",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary Deluxe Edition)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 277,
+        "explicit": false,
+        "isrc": "GBQCP1400011",
+        "popularity": 0.4789929792942688,
+        "provider_id": "360915525",
+        "title": "Live Forever",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Definitely Maybe (Remastered) [Deluxe Edition]",
+      "album_upc": "5051961070118",
+      "artists": [
+        "Oasis"
+      ],
+      "duration_seconds": 276,
+      "explicit": false,
+      "isrc": "GBQCP1400011",
+      "popularity": 0.18434005343271162,
+      "provider_id": "28911624",
+      "title": "Live Forever (Remastered)",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Definitely Maybe (Deluxe Edition Remastered)",
+        "album_upc": "5051961070118",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 268,
+        "explicit": false,
+        "isrc": "GBQCP1400012",
+        "popularity": 0.5537995225666383,
+        "provider_id": "144505624",
+        "title": "Up In The Sky",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 268,
+        "explicit": false,
+        "isrc": "GBQCP1400012",
+        "popularity": 0.06981684417280466,
+        "provider_id": "380788599",
+        "title": "Up in the Sky",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary Deluxe Edition)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 268,
+        "explicit": false,
+        "isrc": "GBQCP1400012",
+        "popularity": 0.42204729004733943,
+        "provider_id": "360915526",
+        "title": "Up In The Sky",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Definitely Maybe (Remastered) [Deluxe Edition]",
+      "album_upc": "5051961070118",
+      "artists": [
+        "Oasis"
+      ],
+      "duration_seconds": 267,
+      "explicit": false,
+      "isrc": "GBQCP1400012",
+      "popularity": 0.13011313946948616,
+      "provider_id": "28911625",
+      "title": "Up In The Sky (Remastered)",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Definitely Maybe (30th Anniversary)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 377,
+        "explicit": false,
+        "isrc": "GBQCP1400013",
+        "popularity": 0.14055973372514916,
+        "provider_id": "380788600",
+        "title": "Columbia",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (Deluxe Edition Remastered)",
+        "album_upc": "5051961070118",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 377,
+        "explicit": false,
+        "isrc": "GBQCP1400013",
+        "popularity": 0.5862836520164519,
+        "provider_id": "144505625",
+        "title": "Columbia",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary Deluxe Edition)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 377,
+        "explicit": false,
+        "isrc": "GBQCP1400013",
+        "popularity": 0.43194417597482654,
+        "provider_id": "360915527",
+        "title": "Columbia",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Definitely Maybe (Remastered) [Deluxe Edition]",
+      "album_upc": "5051961070118",
+      "artists": [
+        "Oasis"
+      ],
+      "duration_seconds": 377,
+      "explicit": false,
+      "isrc": "GBQCP1400013",
+      "popularity": 0.13670291898118742,
+      "provider_id": "28911626",
+      "title": "Columbia (Remastered)",
+      "version": null
+    }
+  },
+  {
+    "candidates": [
+      {
+        "album": "Time Flies... 1994-2009 (Remastered)",
+        "album_upc": "5051961150100",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 285,
+        "explicit": false,
+        "isrc": "GBQCP1400014",
+        "popularity": 0.3940327333199047,
+        "provider_id": "436235171",
+        "title": "Supersonic",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 284,
+        "explicit": false,
+        "isrc": "GBQCP1400014",
+        "popularity": 0.5763486745816633,
+        "provider_id": "380788601",
+        "title": "Supersonic",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (Deluxe Edition Remastered)",
+        "album_upc": "5051961070118",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 284,
+        "explicit": false,
+        "isrc": "GBQCP1400014",
+        "popularity": 0.7225061028838768,
+        "provider_id": "144505626",
+        "title": "Supersonic",
+        "version": "Remastered"
+      },
+      {
+        "album": "Definitely Maybe (30th Anniversary Deluxe Edition)",
+        "album_upc": "5051961125108",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 284,
+        "explicit": false,
+        "isrc": "GBQCP1400014",
+        "popularity": 0.4787494839903174,
+        "provider_id": "360915528",
+        "title": "Supersonic",
+        "version": "Remastered"
+      },
+      {
+        "album": "Time Flies… (1994 - 2009) (Remastered)",
+        "album_upc": "5051961150100",
+        "artists": [
+          "Oasis"
+        ],
+        "duration_seconds": 285,
+        "explicit": false,
+        "isrc": "GBQCP1400014",
+        "popularity": 0.30765435099601746,
+        "provider_id": "432839567",
+        "title": "Supersonic",
+        "version": "Remastered"
+      }
+    ],
+    "source": {
+      "album": "Definitely Maybe (Remastered) [Deluxe Edition]",
+      "album_upc": "5051961070118",
+      "artists": [
+        "Oasis"
+      ],
+      "duration_seconds": 283,
+      "explicit": false,
+      "isrc": "GBQCP1400014",
+      "popularity": 0.1829843774472692,
+      "provider_id": "28911627",
+      "title": "Supersonic (Remastered)",
+      "version": null
+    }
+  }
+]

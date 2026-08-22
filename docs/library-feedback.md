@@ -224,18 +224,13 @@ since it already argues from documentation visibility.
 diagnosability, and it is worth reading the correction below before spending time on it.
 
 I originally recorded this as "the multi-label `@post` form works under `Bond.Behaviour` but
-not under `use Bond`". **That was wrong**, and the retraction is the useful part. Verified with
-three isolated modules:
+not under `use Bond`". **That was wrong** — and so was the retraction, which tested only one of
+the two macros and concluded the forms were consistent everywhere. See the entry below for the
+real difference, which runs the other way.
 
-| Form | `use Bond` |
-| --- | --- |
-| `@post whenever(pat <- result), a: ..., b: ...` (prefix, multi-label) | compiles |
-| `@post whenever(pat <- result), a: ...` (prefix, single label) | compiles |
-| `@post whenever(pat <- result, a: ..., b: ...)` (all-inside) | compiles |
-
-The forms are consistent. My failing module simply had no `use Bond` in it — I had added
-`use Errata` and assumed the annotations were live — so `@post` fell through to `Kernel.@` and I
-attributed a missing-`use` error to a form difference.
+My failing module simply had no `use Bond` in it — I had added `use Errata` and assumed the
+annotations were live — so `@post` fell through to `Kernel.@` and I attributed a missing-`use`
+error to a form difference.
 
 The real, much smaller observation is that **none of the failure modes name Bond**, which is
 what let me misdiagnose it. Without `use Bond`:
@@ -255,6 +250,92 @@ real assertions reference parameters, so the exposure is small.
 `@pre`/`@post` produce `undefined variable` or `expected 0 or 1 argument`, check that the module
 has `use Bond`" — would cost nothing and is where someone would look. A Credo check would also
 fit, if Bond ever ships one.
+
+## `bond` — inherited-contract coverage is aggregated under one arbitrary implementation
+
+**Found:** 2026-08-22, adding a fourth implementation of `OnePlaylist.Matching.Strategy`.
+
+`Bond.Coverage` reports a contract inherited from a `Bond.Behaviour` under a **single**
+implementing module, and which one it picks depends on test ordering. The same two test files,
+run with three different seeds:
+
+```
+--- run 1 ---            --- run 2 ---                     --- run 3 ---
+  …Strategy.Isrc           …StrategyTest.Misnamed            …Strategy.Isrc
+    score/2                  strategy/0                        strategy/0
+    strategy/0             …StrategyTest.Overconfident       …StrategyTest.Overconfident
+                             score/2                           score/2
+```
+
+Six modules implement that behaviour here. At most two ever appear, the counts are the totals
+across all six, and no row belongs to the module it names.
+
+Two consequences, the second worse than the first:
+
+  * **Per-implementation coverage is invisible.** "Does the TIDAL adapter's inherited
+    `usable` postcondition ever actually run?" is unanswerable from this table, and that is
+    the question the table exists to answer. It matters most for exactly the case inherited
+    contracts are for — many implementations, contract written once.
+  * **A `✓` can be earned by a different module than the one it is printed against.** In run 1,
+    `Strategy.Isrc / score/2` shows a failure that came from `StrategyTest.Overconfident`. Read
+    literally, that says a correct rung violated its contract. The whole value of the coverage
+    table is that `⚠ never failed` is trustworthy, and this makes the `✓` untrustworthy in the
+    other direction.
+
+**Suggested fix:** key coverage entries on the module the contract was *evaluated in* rather
+than the one that registered the assertion. Failing that, printing the defining module
+(`OnePlaylist.Matching.Strategy`) would at least be consistently true, and an aggregate row is
+more useful than a misattributed one.
+
+This is separate from the ETS-table issue recorded above, and survives it: the counts are
+correct in total, only the attribution is wrong.
+
+## `bond` — the all-inside `whenever`/`where` form is rejected on `Bond.Behaviour` callbacks
+
+**Found:** 2026-08-22, declaring a contract on `OnePlaylist.Matching.Strategy.score/2`.
+
+`guides/public-api.md` documents the all-inside form as an alias of the prefix form, and says
+so specifically for inherited contracts:
+
+> **All-inside form** — `where(pattern = source, <assertions>)` […] Also accepted in the `@`
+> annotations as an alias of the prefix form.
+>
+> `@post` accepts both forms […] as do `@invariant`, the `Bond.Server` `@state_invariant` /
+> `@transition_invariant`, and inherited contracts (`Bond.Behaviour` callbacks and
+> `Bond.Protocol` functions).
+
+It is not accepted on `Bond.Behaviour` callbacks. Four isolated modules, differing only in the
+macro and the form:
+
+| Form | `use Bond` | `use Bond.Behaviour` |
+| --- | --- | --- |
+| `@post whenever(pat <- result), ok: …` (prefix) | compiles | compiles |
+| `@post whenever(pat <- result, ok: …)` (all-inside) | compiles | **CompileError** |
+
+```
+Bond: `whenever` may only appear at the start of a contract, not inside a larger expression.
+
+    whenever({a, _b} <- result, ok: a >= 0)
+```
+
+The diagnostic is the one written for a genuinely nested binding form — it suggests `match?/2`,
+splitting into two assertions, or a private predicate — so it reads as "you wrote this in the
+wrong place" rather than "this macro does not support this form here". That is what made it
+cost time: the form *was* at the start of the contract, and the advice does not apply.
+
+The stack trace points at the cause. `Bond.Compiler.InheritedContracts.stash_assertion/7` calls
+`Bond.Compiler.Assertion.new/5`, which runs `reject_nested_binding_form!/2` over the whole
+annotation body. On the `use Bond` path the prefix and all-inside forms are both unwrapped
+before that check runs; on the inherited-contract path the all-inside form reaches the check
+still wrapped, and its own `whenever` is then found by the prewalk and rejected as nested.
+
+**Suggested fix:** unwrap the all-inside form in `stash_assertion/7` the way the `use Bond`
+path does, before `reject_nested_binding_form!/2` sees it. Failing that, the check could ignore
+a `whenever`/`where` node that *is* the root of the expression it is walking, which would make
+the two paths agree without either needing to know about the other.
+
+This is the third-party half of the entry above: that one was my error, this one is real, and
+they are easy to confuse because both surface as "the form matters". Worth resolving together.
 
 ## `bond` — purging contracts orphans `import Bond.Predicates`
 

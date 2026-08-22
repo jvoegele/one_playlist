@@ -21,6 +21,18 @@ defmodule OnePlaylist.Music.Track do
       karaoke versions, which often match on title and artist alone.
     * `isrc` being `nil` is expected and normal: local files, podcasts, and
       some regional catalogue entries have none.
+    * `album_upc`, `track_number`, `volume_number` — rung 2 of the ladder, which
+      recovers tracks whose ISRC differs across territorial releases. Note that
+      a UPC alone is not a match: it identifies a *release*, so it only becomes
+      one in combination with a position within that release.
+    * `version` — the provider's own subtitle for a recording, such as
+      `"Remastered 2015"` or `"Live"`. Worth a field of its own rather than
+      folding into `title`, because it is the difference between two recordings
+      that are otherwise identical in every matchable field, and reading it from
+      a structured field beats parsing it back out of a title.
+    * `popularity` — not a matching signal. It breaks ties deterministically
+      when two candidates are otherwise indistinguishable, which happens on the
+      very first live ISRC lookup: one ISRC, two catalogue entries.
 
   `provider` and `provider_id` identify where this came from, so a match can be
   cached as "this recording is that id over there" rather than re-derived.
@@ -35,8 +47,13 @@ defmodule OnePlaylist.Music.Track do
     :isrc,
     :title,
     :album,
+    :album_upc,
+    :track_number,
+    :volume_number,
+    :version,
     :duration_seconds,
     :explicit,
+    :popularity,
     artists: []
   ]
 
@@ -46,8 +63,13 @@ defmodule OnePlaylist.Music.Track do
           isrc: String.t() | nil,
           title: String.t() | nil,
           album: String.t() | nil,
+          album_upc: String.t() | nil,
+          track_number: pos_integer() | nil,
+          volume_number: pos_integer() | nil,
+          version: String.t() | nil,
           duration_seconds: non_neg_integer() | nil,
           explicit: boolean() | nil,
+          popularity: number() | nil,
           artists: [String.t()]
         }
 

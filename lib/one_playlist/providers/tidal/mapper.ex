@@ -77,16 +77,26 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
 
   def track(%{"id" => id} = resource, index) do
     attributes = resource["attributes"] || %{}
+    album = related_resource(resource, "albums", index)
 
     %Track{
       provider: @provider,
       provider_id: id,
       isrc: attributes["isrc"],
       title: attributes["title"],
-      album: related_name(resource, "albums", index),
+      version: blank_to_nil(attributes["version"]),
+      album: get_in(album, ["attributes", "title"]),
+      # TIDAL exposes the release barcode on the album resource, so this costs
+      # nothing extra when albums are already included — but it does *not*
+      # expose the track's position within that album on the track resource or
+      # on the relationship, so `track_number` stays nil here. Rung 2 of the
+      # ladder therefore does not fire for TIDAL sources; the barcode is still
+      # worth carrying, because it corroborates a text match strongly.
+      album_upc: blank_to_nil(get_in(album, ["attributes", "barcodeId"])),
       artists: related_names(resource, "artists", index),
       duration_seconds: Track.parse_iso8601_duration(attributes["duration"]),
-      explicit: attributes["explicit"]
+      explicit: attributes["explicit"],
+      popularity: attributes["popularity"]
     }
   end
 
@@ -125,6 +135,30 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   end
 
   @doc """
+  Maps a document whose `data` holds track resources directly.
+
+  The other shape. `tracks_from_items_page/1` handles a playlist's items, where
+  `data` is a list of *identifiers* and the resources live in `included`; this
+  handles a catalogue query such as `filter[isrc]`, where `data` is the
+  resources themselves and `included` only supplies their artists and albums.
+
+  Getting these two the wrong way round yields an empty list rather than an
+  error — which is why both carry the same conservation postconditions.
+  """
+  @post no_tracks_invented: forall(track <- result, track.provider_id in item_ids(document))
+  @post never_more_than_requested: length(result) <= length(item_ids(document))
+  @spec tracks_from_data(map()) :: [Track.t()]
+  def tracks_from_data(document) do
+    index = index_included(document)
+
+    document
+    |> Map.get("data", [])
+    |> List.wrap()
+    |> Enum.filter(&is_map_key(&1, "id"))
+    |> Enum.map(&track(&1, index))
+  end
+
+  @doc """
   The ids in a document's `data` member, in order.
 
   Public because `tracks_from_items_page/1` names it in a postcondition, and an
@@ -148,8 +182,11 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
     end)
   end
 
-  defp related_name(resource, relationship, index) do
-    resource |> related_names(relationship, index) |> List.first()
+  defp related_resource(resource, relationship, index) do
+    resource
+    |> get_in(["relationships", relationship, "data"])
+    |> List.wrap()
+    |> Enum.find_value(fn ref -> Map.get(index, {ref["type"], ref["id"]}) end)
   end
 
   # TIDAL lists several external links per resource, one per platform. The

@@ -178,6 +178,33 @@ The general rule, from Bond's guide: for state shared across processes, assert o
 implementation can guarantee under interleaving. Weak guarantees are the only honest ones, and a
 strong assertion elsewhere is better than an unsound one here.
 
+### 0c. Legitimate duplicates — assert multiset equality, not uniqueness
+
+`match_all/2`'s ledger law was first written as a count plus a uniqueness check:
+
+```elixir
+# WRONG — a playlist may contain the same track twice
+@post every_track_accounted_for: Report.total(result) == length(pairs)
+@post no_track_reported_twice: length(Enum.uniq(source_ids(result))) == length(pairs)
+```
+
+It fired on the first smoke test, against correct code, because the input genuinely repeated a
+track. Uniqueness was never the law — it was a proxy for "nothing was duplicated *by the
+implementation*", and the two come apart the moment the input has duplicates of its own.
+
+```elixir
+@post every_track_accounted_for_exactly_once:
+        Enum.sort(source_ids(result)) == Enum.sort(source_ids(pairs))
+```
+
+Comparing the two multisets is **sound and strictly stronger**: it rejects a drop, a
+duplication and a substitution, and it replaced both assertions rather than joining them.
+Mutation-verified by returning `unmatched: []`.
+
+The general lesson: when tempted to assert that a collection has no duplicates, ask whether
+duplicates are illegal *in the domain* or merely unexpected in the examples to hand. If the
+input may contain them, compare against the input instead of appealing to uniqueness.
+
 ### 1. Conservation — nothing invented, nothing lost
 
 ```elixir
@@ -232,6 +259,32 @@ matching engine. **The property test passed over this bug** because it only asse
 
 ---
 
+## What a contract cannot catch
+
+A bound cannot see a value that is wrong but in range.
+
+`Similarity.weighted_mean/1` carries `in_unit_interval`. Mutating it to divide by the declared
+total weight rather than the weight actually used — the realistic bug, and the one the comment
+above it names — produces scores that are *too low* and still perfectly within `0.0..1.0`. The
+contract did not fire, correctly. Four example-based tests did, including
+`"an absent signal costs its weight too, not just its value"`.
+
+The reverse also happened here: `veto_respected` and `ordered_best_first` catch mutations that
+every example-based test survived, because the tests asserted "a match was returned" and the
+match still was.
+
+So the division of labour is not stylistic:
+
+| | Catches |
+| --- | --- |
+| Contracts | Structural violations — wrong element, wrong count, out of range, relationship broken |
+| Example tests | Wrong values that are structurally fine |
+| Property tests | Laws needing two runs to see: determinism, order-independence, monotonicity |
+
+When a mutation survives, the question is which of the three is missing — and
+`docs/reference/contracts.md` has now been wrong about that twice by assuming it was the
+contract.
+
 ## Mechanics learned the hard way
 
 | Thing | What actually happens |
@@ -239,7 +292,8 @@ matching engine. **The property test passed over this bug** because it only asse
 | `~>` vs `implies?/2` | `~>` is a **macro** and short-circuits; `implies?/2` is a function and evaluates both sides. Use `~>` whenever the consequent is partial. |
 | `~>` in a function body | Needs `import Bond.Predicates, only: [~>: 2]`. Scope it — `\|\|\|` is exclusive-or despite reading as "or". |
 | Multi-clause functions | Every clause must use the same top-level parameter names. Prefix unused ones with `_` but keep the name. |
-| `@post` with several labels | Both forms work everywhere. Prefix — `@post whenever(pat <- result), a: ..., b: ...` — and all-inside — `@post whenever(pat <- result, a: ..., b: ...)` — compile identically under `use Bond` and `Bond.Behaviour`. Verified after wrongly documenting otherwise. |
+| `@post` with several labels | **Use the prefix form** — `@post whenever(pat <- result), a: ..., b: ...` — everywhere. It is the only one that works in both places. The all-inside form `@post whenever(pat <- result, a: ..., b: ...)` compiles under `use Bond` but is a `CompileError` on a `Bond.Behaviour` callback, with a diagnostic about nesting that does not apply. See `docs/library-feedback.md`. |
+| `whenever`'s first argument | Must be a binding form — `pat <- source`. A plain boolean is not one: `whenever(is_float(result), ok: ...)` is rejected. For "assert only when this holds", the operator is what you want: `@post ok: is_float(result) ~> (result >= 0.0)`. |
 | `@pre`/`@post` behaving strangely | **Check the module has `use Bond`.** Without it the annotations fall through to `Kernel.@` and the diagnostics never mention Bond: an assertion referencing parameters fails with `undefined variable "x"`, a multi-label one with `expected 0 or 1 argument for @post, got: 2`, and a parameter-free one merely warns `module attribute @post was set but never used` while enforcing nothing. This is the first thing to check, not the last. |
 | Preconditions calling helpers | The helper must be **public** (Bond warns otherwise, citing Meyer) *and* documented — `@doc false` passes Bond's check while defeating its stated rationale. |
 | `@apply_contract` + behaviours | Mutually exclusive on the same function, except for result-only contracts. Adapters inherit from `Providers.Adapter`, so `defcontract` is largely unavailable there. |

@@ -94,6 +94,34 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   end
 
   @doc """
+  Catalogue tracks carrying a given ISRC.
+
+  One request, exact results, and the cheapest way to answer the matching
+  engine's question — no text search, no scoring, no guessing. Verified live on
+  2026-08-22 against `GET /v2/tracks?filter[isrc]=…`.
+
+  Expect **more than one**. That first live call returned two catalogue entries
+  for `GBAYE0601477`, which is normal: the same recording appears on a single,
+  an album and any number of compilations, each its own catalogue entry with
+  its own id. They are all correct answers, which is why this returns candidates
+  and `OnePlaylist.Matching` chooses between them rather than this function
+  taking the first.
+
+  `include=artists,albums` is what makes those candidates comparable: without
+  it the artist names and the album barcode — the fields the text and UPC rungs
+  need — are absent, and a candidate that cannot be scored is not a candidate.
+  """
+  @spec tracks_by_isrc(String.t(), String.t(), keyword()) ::
+          {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
+  def tracks_by_isrc(access_token, isrc, opts \\ []) do
+    params = [{"filter[isrc]", isrc}, {"include", "artists,albums"}] ++ country_param(opts)
+
+    with {:ok, document} <- get(access_token, "/tracks", params) do
+      {:ok, Mapper.tracks_from_data(document)}
+    end
+  end
+
+  @doc """
   Every playlist the user has, as a lazy `Stream`.
 
   Lazy because a large library is many round trips and the caller may only want

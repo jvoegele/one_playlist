@@ -19,7 +19,6 @@ defmodule OnePlaylist.Providers.Adapter do
       browser via MusicKit JS. One OAuth provider is not enough to know which
       parts of that are universal.
     * **Writes** — creating playlists, adding tracks. Not built yet for anyone.
-    * **Search** — the matching engine will need it and will define its shape.
 
   Adding a callback later is cheap. Removing one that turned out to encode
   TIDAL's assumptions is not.
@@ -50,6 +49,8 @@ defmodule OnePlaylist.Providers.Adapter do
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Connection
+
+  @default_search_limit 10
 
   @typedoc "A fresh token set from the provider."
   @type tokens :: %{
@@ -102,6 +103,54 @@ defmodule OnePlaylist.Providers.Adapter do
               playlist :: String.t() | Playlist.t(),
               opts :: keyword()
             ) :: {:ok, Enumerable.t()} | {:error, Exception.t()}
+
+  @doc """
+  Candidate matches for `track` on this provider, for the matching engine.
+
+  Returns candidates, not answers. Deciding which one — if any — is the same
+  recording is `OnePlaylist.Matching`'s job, and keeping that decision out of
+  the adapters is what stops each provider growing its own private notion of
+  what "close enough" means.
+
+  ## Options
+
+    * `:limit` — the most candidates to return. Defaults to `limit/1`.
+
+  Implementations should use the cheapest lookup that can answer. Where a
+  provider offers an ISRC filter, that is one request returning exact
+  candidates, and it is both cheaper and better than a text search.
+  """
+  # Searching for a track with neither an identifier nor a title cannot return
+  # anything useful, and the cost of finding that out is a request against a
+  # provider quota — 100 units of a 10,000/day budget on YouTube. Preconditions
+  # stay enabled in production precisely so a caller's bug is named at the
+  # boundary instead of quietly spending someone's daily allowance.
+  @pre searchable: OnePlaylist.Matching.searchable?(track)
+  @post whenever({:ok, candidates} <- result),
+    # An adapter that labelled results with another provider's name would poison
+    # every match cached from them — the resolution cache keys on
+    # `(provider, provider_id)`, so the damage outlives the request that caused
+    # it and reappears for every other user.
+    all_from_this_provider: forall(candidate <- candidates, candidate.provider == provider()),
+    # A provider that ignores the limit hands the matching engine thousands of
+    # candidates to score. Nothing fails; a transfer just gets slower per track
+    # until it looks like a hang.
+    never_more_than_requested: length(candidates) <= OnePlaylist.Providers.Adapter.limit(opts)
+  @callback search_tracks(connection :: Connection.t(), track :: Track.t(), opts :: keyword()) ::
+              {:ok, [Track.t()]} | {:error, Exception.t()}
+
+  @doc """
+  How many candidates a search should return, from `opts`.
+
+  Public because `search_tracks/3` names it in a postcondition, and an
+  assertion rendered into the documentation should reference something a reader
+  can look up.
+
+  The default is deliberately small. Candidates past the first handful are
+  almost never the answer, and every one of them is scored against the source.
+  """
+  @spec limit(keyword()) :: pos_integer()
+  def limit(opts), do: Keyword.get(opts, :limit, @default_search_limit)
 
   @doc false
   # Silences "unused alias" while keeping the aliases meaningful in the specs

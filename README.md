@@ -14,8 +14,9 @@ That problem is why this project exists, and it shapes everything below.
 
 > **Status: early.** Reading a TIDAL library works end to end against the live
 > API — OAuth with PKCE, encrypted token storage, automatic refresh, playlists
-> and tracks with ISRCs. There is no matching engine, no write path and no UI
-> yet. 128 tests, 27 contracts.
+> and tracks with ISRCs. The matching engine is built and measured against a
+> corpus captured from a real library. There is no write path and no UI yet.
+> 236 tests, 49 contracts.
 
 ---
 
@@ -26,13 +27,54 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 27 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 49 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |
 
 The backend is [Supabase](https://supabase.com) — Postgres with RLS, Auth,
 Storage, Realtime, Queues and pgvector — used as natively as the workload allows.
+
+---
+
+## The matching engine
+
+Given a track on one service, find the same recording on another. Strategies are
+tried in order of how much their evidence is worth, and the first rung to
+produce any opinion wins:
+
+| Rung | Evidence | Score |
+| --- | --- | --- |
+| ISRC | Recording identifier | `1.0` |
+| UPC + position | Release barcode and track position | `1.0` |
+| Text | Exact after normalization | `0.80`–`0.98` |
+| Fuzzy | Jaro-Winkler and token overlap | `0.0`–`0.79` |
+
+Text can never reach `1.0`, however perfectly it matches, because two different
+recordings can carry identical metadata. Reserving certainty for identifiers is
+what keeps a confidence score meaning something.
+
+**The rule that earns its keep is the veto.** "Hey Jude" and "Hey Jude (Karaoke
+Version)" share a title, an artist and a duration — every text signal agrees,
+and it is the wrong track. So version markers are parsed rather than stripped,
+and split in two: `:live`, `:karaoke`, `:instrumental`, `:acoustic`, `:remix`,
+`:demo` and `:cover` disqualify a candidate outright, while `:remaster`,
+`:radio_edit` and `:extended` only cost confidence — services label those
+inconsistently, so vetoing them would reject more true matches than it caught
+false ones.
+
+Nothing is ever silently dropped. An unmatched track becomes a typed error
+carrying the source, how many candidates were considered, how close the best one
+came, and what it needed to beat — so "found and refused as a different
+recording" reads differently from "not found", which is most of what makes a
+transfer report worth reading.
+
+It is measured against `test/support/fixtures/tidal_isrc_corpus.json`, captured
+from a real library: 60 tracks and the 304 catalogue entries TIDAL returns for
+their ISRCs. That corpus is where the design assumption came from — **40 of the
+60 resolve to more than one candidate, and one resolves to twenty.** Ambiguity
+is the normal case, so ties are broken deterministically and the count of
+equally-good candidates is recorded on the match.
 
 ---
 
