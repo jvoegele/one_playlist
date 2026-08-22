@@ -38,8 +38,9 @@ Verified against Elixir 1.20.3 / OTP 29: all four compile and interoperate. `ext
 pulls `:fuse` (an Erlang/rebar3 package) from Hex. Note `ExternalService.start/2` returns a
 bare `:ok`, not `{:ok, _}`.
 
-Dogfooding includes **reporting friction back**. If an API is awkward, note it — that feedback
-is a deliverable of this project, not a distraction from it.
+Dogfooding includes **reporting friction back**. If an API is awkward, note it in
+`docs/library-feedback.md` — that feedback is a deliverable of this project, not a distraction
+from it.
 
 Deep reference: **`docs/reference/jv-libraries.md`**. The libraries' own `guides/` directories
 are authoritative and worth reading directly.
@@ -143,3 +144,4 @@ better code.
 | `docs/reference/jv-libraries.md` | Deep reference for `external_service`, `errata`, `bond`, `wait_for_it` |
 | `docs/reference/supabase.md` | Supabase platform reference oriented to Elixir/Phoenix |
 | `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits |
+| `docs/library-feedback.md` | Running log of friction found while dogfooding the four libraries |
