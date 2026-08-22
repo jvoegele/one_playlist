@@ -277,6 +277,25 @@ defmodule OnePlaylist.TransfersTest do
     end
   end
 
+  describe "a retry after a failure" do
+    test "clears the error the failed attempt left behind", %{user: user} do
+      _state = provider_state()
+      transfer = transfer_for(user)
+
+      {:ok, failed} = Transfers.record_failure(transfer, "the call was throttled")
+      assert failed.status == :failed
+      assert failed.last_error
+
+      assert {:ok, completed} = Runner.run(failed)
+
+      assert completed.status == :completed
+
+      refute completed.last_error,
+             "a completed transfer showing the error a retry fixed is a report " <>
+               "that contradicts itself"
+    end
+  end
+
   describe "resuming" do
     test "a transfer that died after creating its playlist reuses it", %{user: user} do
       state = provider_state()

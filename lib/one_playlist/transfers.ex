@@ -19,7 +19,43 @@ defmodule OnePlaylist.Transfers do
   alias OnePlaylist.Transfers.TransferItem
   alias OnePlaylist.Transfers.TransferWorker
 
+  require Logger
   require WaitForIt
+
+  @topic "transfers"
+
+  @doc """
+  Subscribes the caller to a transfer's progress.
+
+  The transfer runs in an Oban worker, in a different process and potentially on
+  a different node, so a LiveView showing it cannot observe the run directly.
+  Every state change is broadcast instead.
+
+  This is the push half of the pair `await/2` is the pull half of: a LiveView
+  wants to be told, a script wants to block.
+  """
+  @spec subscribe(Ecto.UUID.t()) :: :ok | {:error, term()}
+  def subscribe(transfer_id),
+    do: Phoenix.PubSub.subscribe(OnePlaylist.PubSub, "#{@topic}:#{transfer_id}")
+
+  # A failed broadcast is not a failed transfer: the run has already been
+  # persisted, and every watcher can still read it. Matched rather than
+  # discarded so the difference between "handled" and "ignored" is visible.
+  defp broadcast(%Transfer{} = transfer) do
+    case Phoenix.PubSub.broadcast(
+           OnePlaylist.PubSub,
+           "#{@topic}:#{transfer.id}",
+           {:transfer_updated, transfer}
+         ) do
+      :ok ->
+        transfer
+
+      {:error, reason} ->
+        Logger.warning("transfer #{transfer.id} progress not broadcast: #{inspect(reason)}")
+
+        transfer
+    end
+  end
 
   @doc """
   Creates a transfer and queues it, atomically.
@@ -156,6 +192,10 @@ defmodule OnePlaylist.Transfers do
     transfer
     |> Transfer.progress_changeset(Map.put_new(attrs, :status, transfer.status))
     |> Repo.update()
+    |> tap(fn
+      {:ok, updated} -> broadcast(updated)
+      {:error, _changeset} -> :ok
+    end)
   end
 
   @doc """
@@ -194,6 +234,12 @@ defmodule OnePlaylist.Transfers do
       :transfer,
       Transfer.progress_changeset(transfer, %{
         status: :completed,
+        # Cleared, because a successful run supersedes whatever the last failed
+        # attempt said. Without this a retried transfer renders as `completed`
+        # *and* shows the error that the retry fixed — a report that contradicts
+        # itself, which is the failure mode this application is organised
+        # against. Found by looking at the screen.
+        last_error: nil,
         total_tracks: counted.total_tracks,
         matched_count: counted.matched_count,
         added_count: counted.added_count,
@@ -203,7 +249,7 @@ defmodule OnePlaylist.Transfers do
     )
     |> Repo.transaction()
     |> case do
-      {:ok, %{transfer: updated}} -> {:ok, updated}
+      {:ok, %{transfer: updated}} -> {:ok, broadcast(updated)}
       {:error, _step, reason, _changes} -> {:error, reason}
     end
   end

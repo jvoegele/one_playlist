@@ -27,6 +27,19 @@ defmodule OnePlaylistWeb.Router do
     get "/", PageController, :home
   end
 
+  # Transfers need a signed-in user for the same reason connecting a service
+  # does: a transfer belongs to somebody, and its report is their data.
+  scope "/", OnePlaylistWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :authenticated,
+      on_mount: [{OnePlaylistWeb.UserAuth, :require_authenticated}] do
+      live "/transfers", TransferLive.Index, :index
+      live "/transfers/new", TransferLive.New, :new
+      live "/transfers/:id", TransferLive.Show, :show
+    end
+  end
+
   scope "/auth", OnePlaylistWeb do
     # Connecting a music service acts on behalf of a specific user, so these
     # require a signed-in one. The callback included: an unauthenticated

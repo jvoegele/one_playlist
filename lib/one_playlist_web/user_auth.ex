@@ -57,8 +57,43 @@ defmodule OnePlaylistWeb.UserAuth do
     renew_session(conn)
   end
 
-  @doc "The signed-in user's id, or `nil`."
+  @doc """
+  The signed-in user's id, or `nil`.
+  """
   def current_user_id(conn), do: conn.assigns[:current_user_id]
+
+  @doc """
+  `on_mount` hook: the LiveView counterpart of the two plugs above.
+
+  `:mount_current_user` assigns the id and nothing else; `:require_authenticated`
+  additionally halts the mount. Both also assign `:current_scope`, which is what
+  `OnePlaylistWeb.Layouts.app/1` expects — this application carries a bare user
+  id where Phoenix 1.8's generators carry a scope struct, so the shim lives here
+  rather than in every template.
+  """
+  def on_mount(:mount_current_user, _params, session, socket),
+    do: {:cont, assign_current_user(socket, session)}
+
+  def on_mount(:require_authenticated, _params, session, socket) do
+    socket = assign_current_user(socket, session)
+
+    if socket.assigns.current_user_id do
+      {:cont, socket}
+    else
+      {:halt,
+       socket
+       |> Phoenix.LiveView.put_flash(:error, "You must be signed in to do that.")
+       |> Phoenix.LiveView.redirect(to: "/")}
+    end
+  end
+
+  defp assign_current_user(socket, session) do
+    user_id = session[@session_key]
+
+    socket
+    |> Phoenix.Component.assign(:current_user_id, user_id)
+    |> Phoenix.Component.assign(:current_scope, user_id && %{user: %{id: user_id}})
+  end
 
   # Dropping the whole session on privilege change is the cheap defence against
   # session fixation: anything an attacker planted before sign-in is discarded.

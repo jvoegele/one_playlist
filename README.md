@@ -17,8 +17,10 @@ That problem is why this project exists, and it shapes everything below.
 > and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
 > and by text, and is measured against a corpus captured from a real library.
 > Transfers run end to end on an Oban pipeline that is idempotent, resumable
-> and reports on every track. There is no UI yet.
-> 341 tests, 75 contracts.
+> and reports on every track, with LiveView screens to start one and watch it.
+> Verified against a real TIDAL account: 8 of 8 matched by ISRC, order and
+> ISRCs identical, and a second run added nothing.
+> 351 tests, 75 contracts.
 
 ---
 
