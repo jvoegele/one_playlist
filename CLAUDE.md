@@ -122,6 +122,43 @@ better code.
 
 ---
 
+## Local development
+
+Toolchain is pinned in `.tool-versions` (asdf): **Erlang 29.0.5 / Elixir 1.20.3-otp-29**.
+
+The **Supabase CLI is installed globally via Homebrew** (`brew install supabase/tap/supabase`),
+currently **2.115.0**. It is not pinned in `.tool-versions` — the only asdf plugin for it is
+third-party. If `config.toml` ever fails to parse, check the CLI version first; the schema is
+tied to it.
+
+```sh
+supabase start     # boots the stack in Docker (12 containers)
+supabase status    # prints URLs and local keys — never commit these, just re-run this
+supabase stop      # halts without deleting data
+supabase db reset  # re-applies migrations + supabase/seed.sql
+```
+
+| Service | URL |
+| --- | --- |
+| API gateway (REST, GraphQL, Functions, Realtime) | `http://127.0.0.1:54321` |
+| Postgres (**17.6**) | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
+| Studio | `http://127.0.0.1:54323` |
+| Mailpit (captures all outbound mail) | `http://127.0.0.1:54324` |
+
+Notes:
+
+- **Port 54322, not 5432.** Jason has a separate local Postgres on 5432; the two coexist and
+  the Supabase one is what this project targets.
+- Local keys are printed by `supabase status`. The `ANON_KEY`/`SERVICE_ROLE_KEY` JWTs are the
+  well-known public Supabase demo keys — worthless, but keep the habit of not committing them.
+- `auth.site_url` is set to `http://localhost:4000` (Phoenix), not the CLI's default of
+  `:3000`, with `/auth/callback` in `additional_redirect_urls`.
+- Extensions confirmed available in the local image: `vector` 0.8.2, `pgmq` 1.5.1, `pg_cron`
+  1.6.4, `pg_net` 0.20.4, `pgtap` 1.3.3, `pgsodium` 3.1.8. `supabase_vault`, `pgcrypto`,
+  `uuid-ossp` and `pg_stat_statements` are installed already.
+- Docker Desktop's VM disk is 60 GB and *not* the same as host free space. If image pulls fail
+  with "no space left on device", check `docker system df` — that is the real limit.
+
 ## Working agreements
 
 - Run `mix precommit` when a change is complete and fix everything it reports.
