@@ -370,7 +370,10 @@ defmodule OnePlaylist.Providers do
     end
   end
 
-  @adapters %{tidal: OnePlaylist.Providers.Tidal}
+  @adapters %{
+    tidal: OnePlaylist.Providers.Tidal,
+    navidrome: OnePlaylist.Providers.Navidrome
+  }
 
   @doc """
   The `OnePlaylist.Providers.Adapter` implementation for a provider.

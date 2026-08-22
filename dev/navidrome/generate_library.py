@@ -129,7 +129,13 @@ def main() -> int:
         return 1
 
     if args.clean and MUSIC.exists():
-        shutil.rmtree(MUSIC)
+        # Empties the directory rather than removing it, and that distinction is
+        # load-bearing on macOS. `music/` is a Docker bind mount; deleting it
+        # leaves the container holding the old, now-unlinked inode, so a
+        # recreated directory is **invisible from inside** and every scan finds
+        # zero files in about 20ms. Recovering needs a container restart.
+        for child in MUSIC.iterdir():
+            shutil.rmtree(child) if child.is_dir() else child.unlink()
 
     rows = json.loads(CORPUS.read_text())
     tracks = [row["source"] for row in rows][: args.limit]

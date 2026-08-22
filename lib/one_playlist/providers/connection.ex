@@ -53,6 +53,16 @@ defmodule OnePlaylist.Providers.Connection do
     # as `countryCode` and return different catalogue availability without it.
     field :country, :string
 
+    # Where a self-hosted provider lives. `nil` for every hosted service, whose
+    # base URL is a constant in config — a TIDAL connection carrying one would
+    # be a bug rather than a customisation.
+    field :server_url, :string
+
+    # The secret presented on every call. For an OAuth provider that is a bearer
+    # token with an expiry beside it; for Subsonic it is the account **password**,
+    # which never expires and has no refresh token — see `needs_refresh?/3`,
+    # which answers `false` for a nil expiry precisely so that case needs no
+    # special handling anywhere else.
     field :access_token, Encrypted.Binary, redact: true
     field :refresh_token, Encrypted.Binary, redact: true
     field :access_token_expires_at, :utc_datetime_usec
@@ -72,7 +82,7 @@ defmodule OnePlaylist.Providers.Connection do
   def providers, do: @providers
 
   @required ~w(user_id provider provider_user_id)a
-  @optional ~w(display_name country access_token refresh_token access_token_expires_at
+  @optional ~w(display_name country server_url access_token refresh_token access_token_expires_at
                scopes status last_refreshed_at last_error consecutive_failures)a
 
   @doc """

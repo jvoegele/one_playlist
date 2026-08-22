@@ -76,6 +76,15 @@ config :one_playlist, :tidal_service_opts,
   concurrency: [limit: 1_000],
   retry: [max_attempts: 3, backoff: :linear, base: 0]
 
+config :one_playlist, :subsonic_service_opts,
+  circuit_breaker: [tolerate: :infinity],
+  concurrency: [limit: 1_000],
+  retry: [max_attempts: 3, backoff: :linear, base: 0]
+
+# Route every Subsonic request through Req.Test rather than a real server.
+config :one_playlist, OnePlaylist.Providers.Navidrome,
+  req_options: [plug: {Req.Test, OnePlaylist.Providers.Navidrome}]
+
 # Route every TIDAL request through Req.Test rather than the network.
 config :one_playlist, OnePlaylist.Providers.Tidal,
   req_options: [plug: {Req.Test, OnePlaylist.Providers.Tidal}],

@@ -25,6 +25,10 @@ defmodule OnePlaylist.Application do
       # wrong for one of them. See Tidal.WriteService.
       {OnePlaylist.Providers.Tidal.WriteService,
        Application.get_env(:one_playlist, :tidal_service_opts, [])},
+      # A user's own server, so this one is sized to protect us from it rather
+      # than it from us. See Subsonic.Service.
+      {OnePlaylist.Providers.Subsonic.Service,
+       Application.get_env(:one_playlist, :subsonic_service_opts, [])},
       # L1 of the catalogue cache and the coordinator that stops concurrent
       # misses on one key becoming N provider calls. Both must precede anything
       # that serves a request; neither is load-bearing if absent.

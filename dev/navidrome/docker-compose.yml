@@ -21,6 +21,11 @@
 #
 # The music directory is generated and gitignored; see generate_library.py for
 # why the audio is synthetic and the metadata is real.
+#
+# Do not delete `music/` itself while the container is running. It is a bind
+# mount, and on macOS removing the mount root leaves the container holding the
+# old inode — scans then find zero files, quickly and silently, until the
+# container is restarted. `generate_library.py --clean` empties it instead.
 
 services:
   navidrome:

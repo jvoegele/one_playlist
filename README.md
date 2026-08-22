@@ -18,9 +18,10 @@ That problem is why this project exists, and it shapes everything below.
 > and by text, and is measured against a corpus captured from a real library.
 > Transfers run end to end on an Oban pipeline that is idempotent, resumable
 > and reports on every track, with LiveView screens to start one and watch it.
-> Verified against a real TIDAL account: 8 of 8 matched by ISRC, order and
-> ISRCs identical, and a second run added nothing.
-> 353 tests, 75 contracts.
+> Two providers: TIDAL, and any Subsonic server (Navidrome). Verified against a
+> real TIDAL account and a real Navidrome — 8 of 8 within TIDAL, and a genuine
+> cross-provider transfer whose report matched what actually landed.
+> 373 tests, 78 contracts.
 
 ---
 
@@ -31,7 +32,7 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 75 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 78 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |

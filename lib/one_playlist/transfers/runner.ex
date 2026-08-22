@@ -41,11 +41,13 @@ defmodule OnePlaylist.Transfers.Runner do
   """
 
   use Bond
+  use Errata
 
   alias OnePlaylist.Matching
   alias OnePlaylist.Providers
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
+  alias OnePlaylist.Transfers.WriteNotConfirmed
 
   # Large enough that a long playlist is a handful of calls, small enough that
   # one rejected batch does not cost the whole transfer a retry.
@@ -96,6 +98,14 @@ defmodule OnePlaylist.Transfers.Runner do
            write_missing(
              resolutions,
              MapSet.new(present),
+             destination_adapter,
+             destination_connection,
+             destination
+           ),
+         :ok <-
+           confirm_written(
+             resolutions,
+             added,
              destination_adapter,
              destination_connection,
              destination
@@ -217,6 +227,48 @@ defmodule OnePlaylist.Transfers.Runner do
       :ok -> {:ok, MapSet.new(to_write, fn {position, _track} -> position end)}
       {:error, _reason} = error -> error
     end
+  end
+
+  # Re-reads the destination and checks the writes landed.
+  #
+  # An `add_tracks/4` implementation can only report what it was *given* — TIDAL
+  # answers an append with an empty 200, Subsonic with `ok`, and neither says
+  # what was stored. So "added 6" means "asked for 6 and was not refused", and
+  # the gap between that and "6 are there" is precisely the failure this
+  # application exists to prevent. One extra request closes it.
+  #
+  # Deliberately **not** a `@post`. The destination is shared state a user can
+  # edit while a transfer runs, so an assertion that every written track is
+  # still present would accuse correct code the moment somebody deleted one by
+  # hand — `docs/reference/contracts.md` shape 0b, the same reason
+  # `disconnect/2`'s row-count law lives in a test. A check that returns an
+  # error can be retried; a contract that raises cannot.
+  defp confirm_written(resolutions, added_positions, adapter, connection, destination) do
+    expected =
+      for {position, _source, {:ok, match}} <- resolutions,
+          MapSet.member?(added_positions, position),
+          do: match.track.provider_id
+
+    if expected == [] do
+      :ok
+    else
+      with {:ok, present} <- adapter.playlist_track_ids(connection, destination) do
+        report_missing(Enum.reject(expected, &(&1 in present)), expected, destination)
+      end
+    end
+  end
+
+  defp report_missing([], _expected, _destination), do: :ok
+
+  defp report_missing(missing, expected, destination) do
+    {:error,
+     Errata.create(WriteNotConfirmed,
+       context: %{
+         missing: missing,
+         expected: length(expected),
+         destination_playlist_id: destination
+       }
+     )}
   end
 
   defp finish(transfer, tracks, resolutions, added_positions) do

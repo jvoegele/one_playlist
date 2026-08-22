@@ -251,6 +251,46 @@ real assertions reference parameters, so the exposure is small.
 has `use Bond`" — would cost nothing and is where someone would look. A Credo check would also
 fit, if Bond ever ships one.
 
+## `external_service` — a second Req trap worth a line in the guides
+
+**Found:** 2026-08-22, building the Subsonic adapter. **Not a bug in
+`external_service`**, and filed here for the same reason the Req-retries entry above is: the
+library's own guides use Req in their examples, so a reader following them inherits its
+defaults.
+
+`Req.Steps.put_params/2` merges parameters with `List.keystore/4`, which **replaces** a
+parameter of the same name:
+
+```elixir
+# lib/req/steps.ex
+new_params
+|> Enum.reduce(old_params, fn {name, value}, acc ->
+  name = to_string(name)
+  List.keystore(acc, name, 0, {name, value})
+end)
+|> URI.encode_query()
+```
+
+That is defensible for the common case, and fatal for an API whose vocabulary for a collection
+is the repeated parameter. Subsonic's is: `songId=a&songId=b`, `songIdToAdd=…`. A six-track
+append went out as a **one-track** append — the last one — and every layer reported success:
+
+  * the server answered `{"status": "ok"}`, because it had done what it was asked;
+  * the adapter reported six added, because `add_tracks/4` can only count what it was *given*;
+  * the transfer reported six matched and six added, because it believed the adapter.
+
+Five tracks vanished with no error anywhere, which is precisely the failure this application
+exists to prevent. The fix is one line — build the query with `URI.encode_query/1`, which
+encodes a list rather than merging one, and pass it in the URL instead of through `:params`.
+
+**Suggested fix:** a sentence beside the existing Req note in `guides/circuit-breakers.md`.
+Something like: *"Req's `:params` replaces same-named parameters. If your service expresses
+collections as repeated query parameters — Subsonic, some SOAP-ish APIs, `filter[]=` styles —
+build the query string yourself, or the extra values are dropped silently."*
+
+Worth pairing with the retries note because they have the same shape: a Req default that is
+reasonable in isolation, invisible from inside `call/1`, and wrong for the wrapped service.
+
 ## `bond` — `@invariant` cannot be used on an `Ecto.Schema` module
 
 **Found:** 2026-08-22, putting the transfer ledger law on `OnePlaylist.Transfers.Transfer`.
