@@ -45,6 +45,35 @@ Worth checking whether `call_async`/`call_async_stream` want the same treatment.
 library's own `.formatter.exs` also carries a commented-out `line_length: 100` — presumably
 intended to be enabled, since `wait_for_it` sets exactly that.
 
+## `bond` — contracted multi-clause functions need consistent parameter names
+
+**Found:** 2026-08-22, writing `OnePlaylist.Providers.Connection.needs_refresh?/3`.
+
+Attaching `@pre`/`@post` to a multi-clause function where the ignored parameters were named
+`_skew` in two clauses and `skew_seconds` in a third is a compile error. Renaming the ignored
+ones to `_skew_seconds` fixed it. Note the leading underscore is *not* what mattered — `_now`
+versus `now` was accepted — only the name after it.
+
+**This is recorded as a positive, not a complaint.** The diagnostic was among the best I have
+seen from an Elixir library: it named the function, the disagreeing position, printed the
+per-clause names side by side, said exactly what to change, suggested `~>` for the
+shape-dependent case, and stated that per-clause contracts may come later with an invitation to
+open an issue if the restriction bites.
+
+```
+** (CompileError) Bond requires consistent top-level parameter names across all clauses of
+   needs_refresh?/3 when contracts are attached. Position 2 disagrees: :_skew, :skew_seconds.
+
+Per-clause top-level names:
+  clause 1: _, _now, _skew
+  ...
+```
+
+**Suggested fix:** none needed. The one thing that might help is a sentence in the
+`writing-contracts` guide, since the restriction is discoverable only by hitting it —
+something like "a contracted function's clauses must agree on top-level parameter names;
+prefix unused ones with `_` but keep the name."
+
 ## `errata` — no `:export` block in `.formatter.exs`
 
 **Found:** 2026-08-22, same pass.

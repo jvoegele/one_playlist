@@ -9,6 +9,9 @@ defmodule OnePlaylist.Application do
   def start(_type, _args) do
     children = [
       OnePlaylistWeb.Telemetry,
+      # Must precede the Repo: encrypted Ecto types resolve their cipher through
+      # the vault, so it has to be up before any query can load or dump a field.
+      OnePlaylist.Vault,
       OnePlaylist.Repo,
       {DNSCluster, query: Application.get_env(:one_playlist, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: OnePlaylist.PubSub},

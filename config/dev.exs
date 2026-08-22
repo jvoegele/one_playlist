@@ -90,3 +90,10 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Encryption key for OnePlaylist.Vault.
+#
+# This key is committed on purpose: it protects nothing, and a checkout should
+# work without setup. It must never be used outside dev/test — config/runtime.exs
+# requires ONE_PLAYLIST_VAULT_KEY from the environment in prod.
+config :one_playlist, OnePlaylist.Vault, key: "b8sLzK5ycelvlNomefBIAX7zKj12kvD3ostieeVVwY0="

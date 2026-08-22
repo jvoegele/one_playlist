@@ -66,6 +66,28 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Keys whose values Errata replaces with "[REDACTED]" wherever it serializes an
+# error context — logs, telemetry metadata, JSON responses. Redaction is
+# recursive and matches atom and binary keys alike, so this also covers a
+# "provider_token" buried inside a captured params map.
+#
+# This is a floor, not the whole story: an error context should not be handed a
+# token in the first place. It is here because the cost of being wrong once is a
+# user's music account.
+config :errata,
+  redact: [
+    :access_token,
+    :refresh_token,
+    :provider_token,
+    :provider_refresh_token,
+    :client_secret,
+    :password,
+    :secret,
+    :token,
+    :api_key,
+    :authorization
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

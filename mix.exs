@@ -74,6 +74,10 @@ defmodule OnePlaylist.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
 
+      # Application-side encryption for third-party OAuth tokens, so plaintext
+      # never reaches Postgres. See docs/reference/supabase.md.
+      {:cloak_ecto, "~> 1.3"},
+
       # First-party libraries, depended on by path so that improvements can flow
       # in both directions while this project dogfoods them. See CLAUDE.md.
       # `:errata` is overridden because `:external_service` also requires it from Hex.

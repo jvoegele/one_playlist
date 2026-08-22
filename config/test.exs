@@ -55,3 +55,7 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Encryption key for OnePlaylist.Vault. See the note in config/dev.exs — this is
+# a throwaway key, deliberately committed so the suite runs without setup.
+config :one_playlist, OnePlaylist.Vault, key: "b8sLzK5ycelvlNomefBIAX7zKj12kvD3ostieeVVwY0="

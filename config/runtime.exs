@@ -41,6 +41,19 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
+  # Encryption key for OnePlaylist.Vault. Deliberately has no default: a
+  # production boot must fail loudly rather than quietly fall back to the
+  # throwaway key committed for dev and test.
+  config :one_playlist, OnePlaylist.Vault,
+    key:
+      System.get_env("ONE_PLAYLIST_VAULT_KEY") ||
+        raise("""
+        environment variable ONE_PLAYLIST_VAULT_KEY is missing.
+        It encrypts users' third-party OAuth tokens. Generate one with:
+
+            mix one_playlist.gen.vault_key
+        """)
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
