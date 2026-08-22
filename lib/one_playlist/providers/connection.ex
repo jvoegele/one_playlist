@@ -41,6 +41,9 @@ defmodule OnePlaylist.Providers.Connection do
     field :provider, Ecto.Enum, values: @providers
     field :provider_user_id, :string
     field :display_name, :string
+    # The provider's idea of the account's country. Most TIDAL endpoints take it
+    # as `countryCode` and return different catalogue availability without it.
+    field :country, :string
 
     field :access_token, Encrypted.Binary, redact: true
     field :refresh_token, Encrypted.Binary, redact: true
@@ -61,7 +64,7 @@ defmodule OnePlaylist.Providers.Connection do
   def providers, do: @providers
 
   @required ~w(user_id provider provider_user_id)a
-  @optional ~w(display_name access_token refresh_token access_token_expires_at
+  @optional ~w(display_name country access_token refresh_token access_token_expires_at
                scopes status last_refreshed_at last_error consecutive_failures)a
 
   @doc """

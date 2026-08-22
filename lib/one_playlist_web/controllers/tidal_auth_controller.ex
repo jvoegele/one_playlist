@@ -113,6 +113,10 @@ defmodule OnePlaylistWeb.TidalAuthController do
     Providers.connect(current_user_id(conn), :tidal, %{
       provider_user_id: to_string(user["id"]),
       display_name: display_name(user),
+      # Captured now because most TIDAL endpoints take it as `countryCode`, and
+      # fetching it later would mean a round trip to /users/me before every
+      # other round trip.
+      country: get_in(user, ["attributes", "country"]),
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       access_token_expires_at: tokens.expires_at,

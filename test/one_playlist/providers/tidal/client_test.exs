@@ -123,13 +123,21 @@ defmodule OnePlaylist.Providers.Tidal.ClientTest do
   end
 
   describe "stream_playlists/3" do
-    test "targets the numeric user id, since TIDAL rejects `me` on this path" do
+    test "filters by owner, which returns full resources rather than identifiers" do
       Req.Test.stub(Tidal, fn conn ->
-        assert conn.request_path == "/v2/userCollections/67373615/relationships/playlists"
+        conn = Plug.Conn.fetch_query_params(conn)
+
+        # Not /userCollections/{id}/relationships/playlists: that returns bare
+        # identifiers, costing one extra request per playlist just to learn its
+        # name. It is also a different set — it includes followed playlists.
+        assert conn.request_path == "/v2/playlists"
+        assert get_in(conn.query_params, ["filter", "r.owners.id"]) == "67373615"
+        assert conn.query_params["countryCode"] == "US"
+
         Req.Test.json(conn, %{"data" => [], "links" => %{}})
       end)
 
-      assert Client.stream_playlists("at", "67373615") |> Enum.to_list() == []
+      assert Client.stream_playlists("at", "67373615", country: "US") |> Enum.to_list() == []
     end
 
     test "follows the cursor across pages and stops at the end" do

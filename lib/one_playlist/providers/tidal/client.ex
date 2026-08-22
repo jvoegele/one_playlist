@@ -19,6 +19,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
 
   alias OnePlaylist.Providers.Tidal
   alias OnePlaylist.Providers.Tidal.APIError
+  alias OnePlaylist.Providers.Tidal.Mapper
   alias OnePlaylist.Providers.Tidal.Service
 
   use Errata
@@ -40,34 +41,56 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   end
 
   @doc """
-  A page of a user's own playlists.
+  A page of the playlists a user owns.
 
   `tidal_user_id` is TIDAL's numeric account id — the `provider_user_id` on the
-  connection, and the `id` from `current_user/1`.
+  connection, and the `id` from `current_user/1`. It is required rather than
+  defaulted to `me`, because **TIDAL accepts `me` only on `/users/me`**.
 
-  It is required rather than defaulted to `me` because **TIDAL does not accept
-  `me` on this path**. Verified against the live API on 2026-08-22:
+  Uses `filter[r.owners.id]` rather than
+  `/userCollections/{id}/relationships/playlists`. Both return 200; they differ
+  in what comes back, and the difference decides how many requests a library
+  listing costs. Verified live on 2026-08-22:
 
-      /userCollections/67373615/relationships/playlists  → 200
-      /userCollections/me/relationships/playlists        → 404 NOT_FOUND
+  | Endpoint | Returns |
+  | --- | --- |
+  | `/userCollections/{id}/relationships/playlists` | identifiers only — `{id, type, meta.addedAt}` |
+  | `/playlists?filter[r.owners.id]={id}` | **full resources**, with `name`, `numberOfItems`, timestamps |
 
-  Returns the raw JSON:API page — `data` plus whatever `links.next` TIDAL
-  supplies — rather than a list, so the caller can page without this module
-  deciding how much to fetch. `stream_playlists/3` is the convenience over it.
+  The relationships form would need a follow-up request per playlist just to
+  learn its name: 216 requests instead of 11 for the test account.
+
+  They also differ in *scope*, which matters more than the request count: the
+  collection is everything in the user's library including playlists they merely
+  follow, while this filter is only what they own. Transferring someone else's
+  followed playlist is a separate feature, and a separate call.
   """
   @spec list_playlists(String.t(), String.t(), keyword()) ::
           {:ok, map()} | {:error, Errata.error()}
   def list_playlists(access_token, tidal_user_id, opts \\ []) do
     params =
-      opts
-      |> Keyword.take([:cursor, :limit])
-      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-      |> Enum.map(fn
-        {:cursor, v} -> {"page[cursor]", v}
-        {:limit, v} -> {"page[limit]", v}
-      end)
+      [{"filter[r.owners.id]", tidal_user_id}] ++
+        country_param(opts) ++ page_params(opts)
 
-    get(access_token, "/userCollections/#{tidal_user_id}/relationships/playlists", params)
+    get(access_token, "/playlists", params)
+  end
+
+  @doc """
+  A page of a playlist's items, with the track resources included.
+
+  `include=items.artists,items.albums` is what makes this one request instead of
+  three: without it the items come back as bare identifiers, and artist names —
+  which the matching engine needs when ISRC is absent — would each cost their
+  own round trip.
+  """
+  @spec list_playlist_items(String.t(), String.t(), keyword()) ::
+          {:ok, map()} | {:error, Errata.error()}
+  def list_playlist_items(access_token, playlist_id, opts \\ []) do
+    params =
+      [{"include", "items.artists,items.albums"}] ++
+        country_param(opts) ++ page_params(opts)
+
+    get(access_token, "/playlists/#{playlist_id}/relationships/items", params)
   end
 
   @doc """
@@ -83,6 +106,32 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   """
   @spec stream_playlists(String.t(), String.t(), keyword()) :: Enumerable.t()
   def stream_playlists(access_token, tidal_user_id, opts \\ []) do
+    paginate(opts, fn page_opts ->
+      list_playlists(access_token, tidal_user_id, page_opts)
+    end)
+  end
+
+  @doc """
+  Every track in a playlist, in playlist order, as `OnePlaylist.Music.Track`.
+
+  Lazy for the same reason `stream_playlists/3` is, and more urgently: the test
+  account has a playlist with 2,030 items, which is 102 requests. A caller that
+  wants the first ten should pay for one.
+  """
+  @spec stream_playlist_tracks(String.t(), String.t(), keyword()) :: Enumerable.t()
+  def stream_playlist_tracks(access_token, playlist_id, opts \\ []) do
+    opts
+    |> Keyword.put(:map_page, &Mapper.tracks_from_items_page/1)
+    |> paginate(fn page_opts ->
+      list_playlist_items(access_token, playlist_id, page_opts)
+    end)
+  end
+
+  # One pagination loop for every cursor-paged endpoint. `fetch` returns the raw
+  # page; the caller decides what a page's items are.
+  defp paginate(opts, fetch) do
+    {mapper, opts} = Keyword.pop(opts, :map_page, & &1["data"])
+
     Stream.resource(
       fn -> {:start, nil} end,
       fn
@@ -90,18 +139,35 @@ defmodule OnePlaylist.Providers.Tidal.Client do
           {:halt, nil}
 
         {_previous, cursor} = acc ->
-          opts = if cursor, do: Keyword.put(opts, :cursor, cursor), else: opts
+          page_opts = if cursor, do: Keyword.put(opts, :cursor, cursor), else: opts
 
-          case list_playlists(access_token, tidal_user_id, opts) do
-            {:ok, %{"data" => data} = page} ->
-              {data, advance(acc, next_cursor(page))}
-
-            {:error, error} ->
-              raise error
+          case fetch.(page_opts) do
+            {:ok, page} -> {List.wrap(mapper.(page)), advance(acc, next_cursor(page))}
+            {:error, error} -> raise error
           end
       end,
       fn _ -> :ok end
     )
+  end
+
+  defp page_params(opts) do
+    opts
+    |> Keyword.take([:cursor, :limit])
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.map(fn
+      {:cursor, value} -> {"page[cursor]", value}
+      {:limit, value} -> {"page[limit]", value}
+    end)
+  end
+
+  # Most TIDAL endpoints return different catalogue availability per country,
+  # and some refuse without it. The value belongs to the connected account, so
+  # callers pass it down from the connection rather than guessing.
+  defp country_param(opts) do
+    case Keyword.get(opts, :country) do
+      nil -> []
+      country -> [{"countryCode", country}]
+    end
   end
 
   # Termination is decided by the remote service, which is a poor place to leave

@@ -136,6 +136,7 @@ defmodule OnePlaylist.Providers do
          [
            :provider_user_id,
            :display_name,
+           :country,
            :access_token,
            :refresh_token,
            :access_token_expires_at,
