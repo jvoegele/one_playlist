@@ -42,29 +42,33 @@ defmodule OnePlaylistWeb.DevAuthController do
   end
 
   # Written straight into auth.users because Supabase Auth owns that table and
-  # we have no sign-up flow yet. `on conflict do nothing` plus a select makes it
-  # idempotent, so repeated dev sign-ins reuse one user and one set of provider
-  # connections.
+  # we have no sign-up flow yet. Look up first, insert if absent, so repeated
+  # dev sign-ins reuse one user and one set of provider connections.
+  #
+  # Not `on conflict (email)`: auth.users has no plain unique constraint on
+  # email. Supabase's is `users_email_partial_key`, unique only
+  # `where (is_sso_user = false)`, and ON CONFLICT cannot target a partial index
+  # without repeating its predicate. Two statements are clearer than that, and
+  # the race they leave open does not exist for one developer clicking a link.
   defp dev_user_id do
-    %{rows: [[id]]} =
-      SQL.query!(
-        Repo,
-        """
-        with inserted as (
-          insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
-          values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000',
-                  'authenticated', 'authenticated', $1, now(), now())
-          on conflict (email) do nothing
-          returning id
-        )
-        select id from inserted
-        union all
-        select id from auth.users where email = $1
-        limit 1
-        """,
-        [@dev_email]
-      )
+    case SQL.query!(Repo, "select id from auth.users where email = $1 limit 1", [@dev_email]) do
+      %{rows: [[id]]} ->
+        Ecto.UUID.load!(id)
 
-    Ecto.UUID.load!(id)
+      %{rows: []} ->
+        %{rows: [[id]]} =
+          SQL.query!(
+            Repo,
+            """
+            insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+            values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000',
+                    'authenticated', 'authenticated', $1, now(), now())
+            returning id
+            """,
+            [@dev_email]
+          )
+
+        Ecto.UUID.load!(id)
+    end
   end
 end
