@@ -122,6 +122,48 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   end
 
   @doc """
+  Catalogue tracks matching a free-text query, in TIDAL's relevance order.
+
+  For tracks with no ISRC, which is the only reason to prefer this over
+  `tracks_by_isrc/3`.
+
+  ## The request shape, and the one that looks right and is not
+
+  `searchResults` is a **collection with a filter**, not a resource addressed by
+  the query:
+
+  | Request | Result |
+  | --- | --- |
+  | `/searchResults?filter[query]=hey+jude` | **200** |
+  | `/searchResults/hey%20jude` | 400 `INVALID_RESOURCE_ID` |
+
+  The second reads like the obvious JSON:API form and is what the path in the
+  response's own pagination links looks like — but that path takes the **opaque
+  search id** from `data[0].id`, not the query text. Eight request variants
+  were tried against the live service before the filter form was found, and
+  every one of them returned the same `INVALID_RESOURCE_ID`, which says nothing
+  about which part was wrong.
+
+  `include=tracks.artists,tracks.albums` is not optional in practice. Without
+  the nested part the included tracks arrive with **no relationships at all** —
+  verified — so they have no artist names and no album barcode, and a candidate
+  that cannot be scored on text is no use to the one caller this exists for.
+  """
+  @spec search_tracks(String.t(), String.t(), keyword()) ::
+          {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
+  def search_tracks(access_token, query, opts \\ []) do
+    params =
+      [
+        {"filter[query]", query},
+        {"include", "tracks.artists,tracks.albums"}
+      ] ++ country_param(opts) ++ page_params(opts)
+
+    with {:ok, document} <- get(access_token, "/searchResults", params) do
+      {:ok, Mapper.tracks_from_search(document)}
+    end
+  end
+
+  @doc """
   Every playlist the user has, as a lazy `Stream`.
 
   Lazy because a large library is many round trips and the caller may only want

@@ -103,10 +103,9 @@ config :one_playlist, OnePlaylist.Providers.Tidal,
   #
   # `search.read` is what the matching engine needs to find candidates for a
   # track with no ISRC. A connection authorized before this was added does not
-  # have it, and TIDAL reports its absence as `INVALID_RESOURCE_ID` on the
-  # search endpoint rather than as a 403 — so the symptom does not name the
-  # cause. `OnePlaylist.Providers.Tidal.Client.search_tracks/3` checks the
-  # granted scopes and says so plainly instead.
+  # have it, so `OnePlaylist.Providers.Tidal.search_tracks/3` checks the granted
+  # scopes and returns a typed error naming the scope — TIDAL's own refusals on
+  # that endpoint do not mention scopes at all.
   scopes:
     ~w(user.read collection.read collection.write playlists.read playlists.write search.read),
   # Overridden by TIDAL_REDIRECT_URI, and must match a redirect URI registered

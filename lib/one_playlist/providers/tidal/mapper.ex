@@ -159,6 +159,57 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   end
 
   @doc """
+  Maps a search document to tracks, in the relevance order TIDAL returned.
+
+  A third document shape, and the most indirect of the three. `data` holds a
+  single `searchResults` resource whose id is an opaque search token; the
+  tracks it found are identified by
+  `data[0].relationships.tracks.data` and their resources are in `included`.
+
+  Relevance order comes from that relationship and is worth preserving even
+  though the matching engine scores every candidate: it is TIDAL's opinion,
+  it is the order a `:limit` truncates against, and it is a sensible last
+  tiebreaker between candidates this application cannot otherwise separate.
+  """
+  @post no_tracks_invented:
+          forall(track <- result, track.provider_id in search_track_ids(document))
+  @post never_more_than_found: length(result) <= length(search_track_ids(document))
+  @spec tracks_from_search(map()) :: [Track.t()]
+  def tracks_from_search(document) do
+    index = index_included(document)
+
+    document
+    |> search_track_ids()
+    |> Enum.flat_map(fn id ->
+      case Map.fetch(index, {"tracks", id}) do
+        {:ok, resource} -> [track(resource, index)]
+        :error -> []
+      end
+    end)
+  end
+
+  @doc """
+  The track ids a search document found, in relevance order.
+
+  Public because `tracks_from_search/1` names it in a postcondition, and an
+  assertion rendered into the docs should reference something a reader can look
+  up.
+  """
+  @spec search_track_ids(map()) :: [String.t()]
+  def search_track_ids(document) do
+    document
+    |> Map.get("data", [])
+    |> List.wrap()
+    |> Enum.flat_map(fn resource ->
+      resource
+      |> get_in(["relationships", "tracks", "data"])
+      |> List.wrap()
+      |> Enum.map(& &1["id"])
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  @doc """
   The ids in a document's `data` member, in order.
 
   Public because `tracks_from_items_page/1` names it in a postcondition, and an

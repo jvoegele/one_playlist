@@ -14,9 +14,10 @@ That problem is why this project exists, and it shapes everything below.
 
 > **Status: early.** Reading a TIDAL library works end to end against the live
 > API — OAuth with PKCE, encrypted token storage, automatic refresh, playlists
-> and tracks with ISRCs. The matching engine is built and measured against a
-> corpus captured from a real library. There is no write path and no UI yet.
-> 236 tests, 49 contracts.
+> and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
+> and by text, and is measured against a corpus captured from a real library.
+> There is no write path and no UI yet.
+> 249 tests, 55 contracts.
 
 ---
 
@@ -27,7 +28,7 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 49 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 55 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |
@@ -68,6 +69,11 @@ carrying the source, how many candidates were considered, how close the best one
 came, and what it needed to beat — so "found and refused as a different
 recording" reads differently from "not found", which is most of what makes a
 transfer report worth reading.
+
+Candidates come from the destination provider: an ISRC filter where one exists
+— one request, exact results — and free-text search otherwise. Run live against
+ten real tracks with their ISRCs stripped, text search plus the ladder recovered
+all ten, each resolving to the recording the discarded ISRC named.
 
 It is measured against `test/support/fixtures/tidal_isrc_corpus.json`, captured
 from a real library: 60 tracks and the 304 catalogue entries TIDAL returns for

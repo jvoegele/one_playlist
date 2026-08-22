@@ -212,7 +212,8 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
 | Request | Result |
 | --- | --- |
 | `/tracks?filter[isrc]={isrc}&include=artists,albums` | **200** — the ISRC rung as a direct lookup |
-| `/searchResults/{query}` (5 variants tried) | 400 `INVALID_RESOURCE_ID` — see below |
+| `/searchResults?filter[query]={q}&include=tracks.artists,tracks.albums` | **200** — text search |
+| `/searchResults/{query}` (8 variants tried) | 400 `INVALID_RESOURCE_ID` — see below |
 
 - **`filter[isrc]` is the whole first rung of the ladder**, in one request, with exact results
   and no text scoring. It is cheaper *and* better than search, and it should be the first thing
@@ -222,11 +223,34 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
   recording appears on a single, an album and any number of compilations, each its own
   catalogue entry. Ambiguity is the normal case, not the exotic one — a matcher that takes the
   first result is wrong most of the time it matters.
-- **Text search needs the `search.read` scope, and says so misleadingly.** Without it, every
-  search shape returns `400 INVALID_RESOURCE_ID` — indistinguishable from a malformed query, and
-  never mentioning scopes. Five variants were tried before the granted-scope list explained it.
-  `search.read` has since been added to the requested set; connections authorized before that
-  must be reconnected.
+- **Text search is a filtered collection, not a resource addressed by the query.** This cost
+  eight request variants to find, because every wrong one returns the same
+  `400 INVALID_RESOURCE_ID`, which names neither the offending parameter nor the reason.
+
+  | Request | Result |
+  | --- | --- |
+  | `/searchResults?filter[query]=hey+jude` | **200** |
+  | `/searchResults?query=hey+jude` | 400 `MISSING_REQUIRED_PARAMETER`, "At least one filter is required" |
+  | `/searchResults/hey%20jude` | 400 `INVALID_RESOURCE_ID` |
+
+  The path form is not wrong in general — it is what the response's own `links.next` uses — but
+  it takes the **opaque search id** from `data[0].id`, not the query text. That is the whole
+  explanation, and the error message points at none of it. Only the `?query=` spelling produced
+  a diagnostic that helped, and only because it was wrong in a different way.
+
+  > A hypothesis recorded here earlier — that the failures were caused by the missing
+  > `search.read` scope — was **wrong**. The scope really was missing and really is required,
+  > but granting it changed nothing: the path form still returns `INVALID_RESOURCE_ID`. Two
+  > independent problems presenting as one error code, which is what made it plausible.
+
+- **The response shape is doubly indirect.** `data` holds one `searchResults` resource whose
+  attributes are just `{query, trackingId}`; the tracks it found are identified by
+  `data[0].relationships.tracks.data`, in relevance order, and their resources are in
+  `included`.
+- **`include=tracks` alone is not enough.** The included tracks then arrive with **no
+  relationships at all**, so no artist names and no album barcode — a candidate that cannot be
+  scored on text. `include=tracks.artists,tracks.albums` is the form to use: one request
+  returned 20 tracks, 17 albums and 5 artists.
 - **Track attributes** are `accessType, availability, copyright, createdAt, duration, explicit,
   externalLinks, isrc, mediaTags, popularity, spotlighted, title, version`. Two matter for
   matching: `version` carries `"Remastered 2015"` as a structured field rather than in the

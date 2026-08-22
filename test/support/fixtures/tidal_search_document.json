@@ -1,0 +1,1992 @@
+{
+  "data": [
+    {
+      "attributes": {
+        "query": "hey jude the beatles",
+        "trackingId": "ade2964c-e320-4825-81b9-76ce8eb6b58c"
+      },
+      "id": "8XhHnFtufcizPK8aAPRGPsaIP8UJKqEcSRKklt0jsENLSWa559",
+      "relationships": {
+        "tracks": {
+          "data": [
+            {
+              "id": "55130617",
+              "type": "tracks"
+            },
+            {
+              "id": "55163373",
+              "type": "tracks"
+            },
+            {
+              "id": "61818761",
+              "type": "tracks"
+            },
+            {
+              "id": "97872102",
+              "type": "tracks"
+            },
+            {
+              "id": "218318893",
+              "type": "tracks"
+            },
+            {
+              "id": "58520692",
+              "type": "tracks"
+            },
+            {
+              "id": "327665974",
+              "type": "tracks"
+            },
+            {
+              "id": "55130785",
+              "type": "tracks"
+            },
+            {
+              "id": "55130668",
+              "type": "tracks"
+            },
+            {
+              "id": "55130774",
+              "type": "tracks"
+            },
+            {
+              "id": "174078190",
+              "type": "tracks"
+            },
+            {
+              "id": "327655859",
+              "type": "tracks"
+            },
+            {
+              "id": "97872032",
+              "type": "tracks"
+            },
+            {
+              "id": "135913425",
+              "type": "tracks"
+            },
+            {
+              "id": "327666013",
+              "type": "tracks"
+            },
+            {
+              "id": "97872091",
+              "type": "tracks"
+            },
+            {
+              "id": "31668984",
+              "type": "tracks"
+            },
+            {
+              "id": "200566659",
+              "type": "tracks"
+            },
+            {
+              "id": "47790508",
+              "type": "tracks"
+            },
+            {
+              "id": "58520616",
+              "type": "tracks"
+            }
+          ],
+          "links": {
+            "meta": {
+              "nextCursor": "3nI1Esi"
+            },
+            "next": "/searchResults/8XhHnFtufcizPK8aAPRGPsaIP8UJKqEcSRKklt0jsENLSWa559/relationships/tracks?countryCode=US&page%5Bcursor%5D=3nI1Esi",
+            "self": "/searchResults/8XhHnFtufcizPK8aAPRGPsaIP8UJKqEcSRKklt0jsENLSWa559/relationships/tracks?countryCode=US"
+          }
+        }
+      },
+      "type": "searchResults"
+    }
+  ],
+  "included": [
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "7898635620808",
+        "copyright": {
+          "text": "(C) 2020 Central Park Records [dist. Tratore]"
+        },
+        "duration": "PT38M",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/135913413",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 13,
+        "numberOfVolumes": 1,
+        "popularity": 0.19259557609745503,
+        "releaseDate": "2020-03-23",
+        "title": "The Beatles Greatest Hits",
+        "type": "ALBUM"
+      },
+      "id": "135913413",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602537738953",
+        "copyright": {
+          "text": "© 2014 Subafilms Ltd"
+        },
+        "createdAt": "2021-02-18T08:52:26Z",
+        "duration": "PT45M40S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/174078188",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 15,
+        "numberOfVolumes": 1,
+        "popularity": 0.5843375275961091,
+        "releaseDate": "1999-01-01",
+        "title": "Yellow Submarine Songtrack",
+        "type": "ALBUM"
+      },
+      "id": "174078188",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602438575954",
+        "copyright": {
+          "text": "© 2021 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2021-10-08T00:32:27Z",
+        "duration": "PT2H44M47S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/200566630",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "numberOfItems": 57,
+        "numberOfVolumes": 5,
+        "popularity": 0.6766709705373496,
+        "releaseDate": "1970-05-08",
+        "title": "Let It Be (Super Deluxe)",
+        "type": "ALBUM",
+        "version": "Super Deluxe"
+      },
+      "id": "200566630",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602445554218",
+        "copyright": {
+          "text": "© 2015 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2022-02-25T20:42:18Z",
+        "duration": "PT1H19M29S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/218318853",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "DOLBY_ATMOS"
+        ],
+        "numberOfItems": 27,
+        "numberOfVolumes": 1,
+        "popularity": 0.5759294710511808,
+        "releaseDate": "2000-11-14",
+        "title": "1",
+        "type": "ALBUM"
+      },
+      "id": "218318853",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "700261954646",
+        "copyright": {
+          "text": "2012 The Georgetown Chimes"
+        },
+        "duration": "PT57M19S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/31668976",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 20,
+        "numberOfVolumes": 1,
+        "popularity": 0.10889672697025626,
+        "releaseDate": "2012-10-25",
+        "title": "Three Stripes",
+        "type": "ALBUM"
+      },
+      "id": "31668976",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602458682199",
+        "copyright": {
+          "text": "© 2023 Calderstone Productions Limited, a Division of Universal Music Group"
+        },
+        "createdAt": "2023-11-08T01:14:09Z",
+        "duration": "PT2H14M45S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/327655831",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "numberOfItems": 37,
+        "numberOfVolumes": 2,
+        "popularity": 0.639542198410286,
+        "releaseDate": "1973-04-02",
+        "title": "The Beatles 1967 – 1970 (2023 Edition)",
+        "type": "ALBUM",
+        "version": "2023 Edition"
+      },
+      "id": "327655831",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602458682175",
+        "copyright": {
+          "text": "© 2023 Calderstone Productions Limited, a Division of Universal Music Group"
+        },
+        "createdAt": "2023-11-08T02:33:16Z",
+        "duration": "PT2H14M44S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/327665959",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "DOLBY_ATMOS"
+        ],
+        "numberOfItems": 37,
+        "numberOfVolumes": 2,
+        "popularity": 0.5819877855711034,
+        "releaseDate": "1973-04-02",
+        "title": "The Beatles 1967 – 1970 (2023 Edition)",
+        "type": "ALBUM",
+        "version": "2023 Edition"
+      },
+      "id": "327665959",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "SINGLE",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "847108020376",
+        "copyright": {
+          "text": "2011 Classic Tones"
+        },
+        "duration": "PT30S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/47790507",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 1,
+        "numberOfVolumes": 1,
+        "popularity": 0.03636311960563285,
+        "releaseDate": "2011-05-11",
+        "title": "Hey Jude - The Beatles Tribute",
+        "type": "SINGLE"
+      },
+      "id": "47790507",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547673503",
+        "copyright": {
+          "text": "© 2015 Apple Corps Ltd."
+        },
+        "createdAt": "2015-12-10T23:59:39Z",
+        "duration": "PT1H19M11S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/55130596",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 27,
+        "numberOfVolumes": 1,
+        "popularity": 0.7989397679200488,
+        "releaseDate": "2000-11-14",
+        "title": "1 (Remastered)",
+        "type": "ALBUM",
+        "version": "Remastered"
+      },
+      "id": "55130596",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547670359",
+        "copyright": {
+          "text": "© 2015 Apple Corps Ltd"
+        },
+        "createdAt": "2015-12-11T00:00:51Z",
+        "duration": "PT33M47S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/55130661",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 14,
+        "numberOfVolumes": 1,
+        "popularity": 0.7064386006948328,
+        "releaseDate": "1964-12-04",
+        "title": "Beatles For Sale (Remastered)",
+        "type": "ALBUM",
+        "version": "Remastered"
+      },
+      "id": "55130661",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547670076",
+        "copyright": {
+          "text": "© 2015 Apple Corps Ltd"
+        },
+        "createdAt": "2015-12-11T00:01:44Z",
+        "duration": "PT36M32S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/55130767",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 11,
+        "numberOfVolumes": 1,
+        "popularity": 0.7738295287589033,
+        "releaseDate": "1967-11-27",
+        "title": "Magical Mystery Tour (Remastered)",
+        "type": "ALBUM",
+        "version": "Remastered"
+      },
+      "id": "55130767",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547670328",
+        "copyright": {
+          "text": "© 2015 Apple Corps Ltd"
+        },
+        "createdAt": "2015-12-11T00:02:02Z",
+        "duration": "PT39M43S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/55130781",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 13,
+        "numberOfVolumes": 1,
+        "popularity": 0.7030094795623201,
+        "releaseDate": "1969-01-13",
+        "title": "Yellow Submarine (Remastered)",
+        "type": "ALBUM",
+        "version": "Remastered"
+      },
+      "id": "55130781",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547670274",
+        "copyright": {
+          "text": "© 2015 Apple Corps Ltd"
+        },
+        "createdAt": "2015-12-11T12:37:22Z",
+        "duration": "PT1H39M55S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/55163360",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 28,
+        "numberOfVolumes": 2,
+        "popularity": 0.6949172323452282,
+        "releaseDate": "1973-04-02",
+        "title": "The Beatles 1967 - 1970 (Remastered)",
+        "type": "ALBUM",
+        "version": "Remastered"
+      },
+      "id": "55163360",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547851185",
+        "copyright": {
+          "text": "© 1995 Apple Corps Ltd"
+        },
+        "createdAt": "2016-03-19T00:52:16Z",
+        "duration": "PT2H3M",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/58520556",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 60,
+        "numberOfVolumes": 2,
+        "popularity": 0.6243203378635489,
+        "releaseDate": "1995-11-21",
+        "title": "Anthology 1",
+        "type": "ALBUM"
+      },
+      "id": "58520556",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602547852014",
+        "copyright": {
+          "text": "© 1996 Apple Corps Ltd"
+        },
+        "createdAt": "2016-03-19T00:53:09Z",
+        "duration": "PT2H25M40S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/58520670",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 50,
+        "numberOfVolumes": 2,
+        "popularity": 0.6008010642879554,
+        "releaseDate": "1996-10-29",
+        "title": "Anthology 3",
+        "type": "ALBUM"
+      },
+      "id": "58520670",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602557015997",
+        "copyright": {
+          "text": "© 2011 Cirque Apple Creative Partnership/Apple Corps Ltd"
+        },
+        "createdAt": "2016-06-10T00:57:31Z",
+        "duration": "PT1H26M40S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/61818737",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "numberOfItems": 28,
+        "numberOfVolumes": 1,
+        "popularity": 0.6559285695779562,
+        "releaseDate": "2006-11-21",
+        "title": "Love",
+        "type": "ALBUM"
+      },
+      "id": "61818737",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "albumType": "ALBUM",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "barcodeId": "00602577097072",
+        "copyright": {
+          "text": "© 2018 Calderstone Productions Limited (a Division of Universal Music Group) / Apple Corps Limited"
+        },
+        "createdAt": "2018-11-02T07:48:10Z",
+        "duration": "PT5H27M19S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/album/97872030",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "numberOfItems": 107,
+        "numberOfVolumes": 6,
+        "popularity": 0.7623118936414065,
+        "releaseDate": "1968-11-22",
+        "title": "The Beatles (White Album / Super Deluxe)",
+        "type": "ALBUM",
+        "version": "White Album / Super Deluxe"
+      },
+      "id": "97872030",
+      "type": "albums"
+    },
+    {
+      "attributes": {
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/artist/18031",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "name": "Beatles Tribute",
+        "popularity": 0.26772159337997437
+      },
+      "id": "18031",
+      "type": "artists"
+    },
+    {
+      "attributes": {
+        "externalLinks": [
+          {
+            "href": "https://www.thebeatles.com/",
+            "meta": {
+              "type": "OFFICIAL_HOMEPAGE"
+            }
+          },
+          {
+            "href": "https://tidal.com/browse/artist/3634161",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "name": "The Beatles",
+        "ownerType": "LABEL",
+        "popularity": 0.9447451829910278
+      },
+      "id": "3634161",
+      "type": "artists"
+    },
+    {
+      "attributes": {
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/artist/4555075",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "name": "The Beatles Recovered Band",
+        "popularity": 0.3600544501687837
+      },
+      "id": "4555075",
+      "type": "artists"
+    },
+    {
+      "attributes": {
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/artist/4973081",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "name": "Classic Rock Tones",
+        "popularity": 0.2858473917010805
+      },
+      "id": "4973081",
+      "type": "artists"
+    },
+    {
+      "attributes": {
+        "externalLinks": [
+          {
+            "href": "https://facebook.com/thegeorgetownchimes",
+            "meta": {
+              "type": "FACEBOOK"
+            }
+          },
+          {
+            "href": "https://instagram.com/thegeorgetownchimes",
+            "meta": {
+              "type": "INSTAGRAM"
+            }
+          },
+          {
+            "href": "https://www.georgetownchimes.org/",
+            "meta": {
+              "type": "OFFICIAL_HOMEPAGE"
+            }
+          },
+          {
+            "href": "https://tiktok.com/@thegeorgetownchimes",
+            "meta": {
+              "type": "TIKTOK"
+            }
+          },
+          {
+            "href": "https://tidal.com/browse/artist/5783172",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "name": "The Georgetown Chimes",
+        "ownerType": "MIXED",
+        "popularity": 0.14622953534126282
+      },
+      "id": "5783172",
+      "type": "artists"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "(P) 2020 Central Park Records [dist. Tratore]"
+        },
+        "createdAt": "2020-03-31T02:46:49Z",
+        "duration": "PT3M48S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/135913425",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "BXCPT2000066",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.26255661046808304,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": null
+      },
+      "id": "135913425",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "135913413",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/135913425/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "18031",
+              "type": "artists"
+            },
+            {
+              "id": "4555075",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/135913425/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 1999 Calderstone Productions Limited (a division of Universal Music Group) / Apple Corps Ltd."
+        },
+        "createdAt": "2021-02-18T08:52:26Z",
+        "duration": "PT3M12S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/174078190",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE9901218",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.5531205727533466,
+        "spotlighted": false,
+        "title": "Hey Bulldog",
+        "version": null
+      },
+      "id": "174078190",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "174078188",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/174078190/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/174078190/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2021 Calderstone Productions Limited (a division of Universal Music Group) / Apple Corps Limited"
+        },
+        "createdAt": "2021-10-08T00:32:27Z",
+        "duration": "PT3M29S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/200566659",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM72006926",
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "popularity": 0.5980482936849422,
+        "spotlighted": false,
+        "title": "Don’t Let Me Down",
+        "version": "First Rooftop Performance"
+      },
+      "id": "200566659",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "200566630",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/200566659/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/200566659/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2015 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2022-02-25T20:42:18Z",
+        "duration": "PT7M10S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/218318893",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM72200657",
+        "mediaTags": [
+          "DOLBY_ATMOS"
+        ],
+        "popularity": 0.5545238141928978,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": "2015 Mix"
+      },
+      "id": "218318893",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "218318853",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/218318893/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/218318893/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "2012 The Georgetown Chimes"
+        },
+        "createdAt": "2014-06-23T14:30:27Z",
+        "duration": "PT6M19S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/31668984",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "USHM91236236",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.2856085893283503,
+        "spotlighted": false,
+        "title": "A Beatles Medley: All You Need Is Love / Blackbird / All My Loving / Here Comes the Sun / Hey Jude",
+        "version": null
+      },
+      "id": "31668984",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "31668976",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/31668984/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "5783172",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/31668984/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2023 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2023-11-08T01:14:09Z",
+        "duration": "PT3M12S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/327655859",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM72306587",
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "popularity": 0.505212288944213,
+        "spotlighted": false,
+        "title": "Hey Bulldog",
+        "version": "2023 Mix"
+      },
+      "id": "327655859",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "327655831",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/327655859/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/327655859/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2015 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2023-11-08T02:33:16Z",
+        "duration": "PT7M11S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/327665974",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM72200657",
+        "mediaTags": [
+          "DOLBY_ATMOS"
+        ],
+        "popularity": 0.4389174026510501,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": "2015 Mix"
+      },
+      "id": "327665974",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "327665959",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/327665974/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/327665974/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2023 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2023-11-08T02:33:16Z",
+        "duration": "PT3M12S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/327666013",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM72309969",
+        "mediaTags": [
+          "DOLBY_ATMOS"
+        ],
+        "popularity": 0.49024205818122035,
+        "spotlighted": false,
+        "title": "Hey Bulldog",
+        "version": "2023 Mix"
+      },
+      "id": "327666013",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "327665959",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/327666013/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/327666013/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "2011 Classic Tones"
+        },
+        "createdAt": "2015-06-27T10:27:07Z",
+        "duration": "PT30S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/47790508",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBMTQ1000086",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.24442748363003214,
+        "spotlighted": false,
+        "title": "Hey Jude - The Beatles Tribute",
+        "version": null
+      },
+      "id": "47790508",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "47790507",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/47790508/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "4973081",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/47790508/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2015 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-10T23:59:39Z",
+        "duration": "PT7M6S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130617",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM71505902",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.8445772276093525,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": "Remastered 2015"
+      },
+      "id": "55130617",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "55130596",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130617/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130617/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:00:51Z",
+        "duration": "PT2M38S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130668",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601457",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6505815557313431,
+        "spotlighted": false,
+        "title": "Kansas City / Hey-Hey-Hey-Hey",
+        "version": "Medley / Remastered 2009"
+      },
+      "id": "55130668",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "55130661",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130668/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130668/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:44Z",
+        "duration": "PT3M29S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130774",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601639",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7492546626933758,
+        "spotlighted": false,
+        "title": "Hello, Goodbye",
+        "version": "Remastered 2009"
+      },
+      "id": "55130774",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "55130767",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130774/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130774/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:02:02Z",
+        "duration": "PT3M11S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130785",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601680",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7112103620923729,
+        "spotlighted": false,
+        "title": "Hey Bulldog",
+        "version": "Remastered 2009"
+      },
+      "id": "55130785",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "55130781",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130785/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130785/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T12:37:22Z",
+        "duration": "PT7M11S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55163373",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0900596",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7140225339692053,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": "Remastered 2009"
+      },
+      "id": "55163373",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "55163360",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55163373/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55163373/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 1995 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2016-03-19T00:52:16Z",
+        "duration": "PT2M48S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/58520616",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE1100476",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.4724580460864904,
+        "spotlighted": false,
+        "title": "Kansas City / Hey-Hey-Hey-Hey!",
+        "version": "Take 2"
+      },
+      "id": "58520616",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "58520556",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/58520616/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/58520616/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 1996 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2016-03-19T00:53:09Z",
+        "duration": "PT4M21S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/58520692",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE1100522",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.5080564177965644,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": "Take 2"
+      },
+      "id": "58520692",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "58520670",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/58520692/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/58520692/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2006 Calderstone Productions Limited (a division of Universal Music Group) / Apple Corps Ltd."
+        },
+        "createdAt": "2016-06-10T00:57:31Z",
+        "duration": "PT3M58S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/61818761",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601566",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6859865551569783,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": null
+      },
+      "id": "61818761",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "61818737",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/61818761/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/61818761/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2018 Calderstone Productions Limited (a Division of Universal Music Group) / Apple Corps Limited"
+        },
+        "createdAt": "2018-11-02T07:48:10Z",
+        "duration": "PT3M55S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/97872032",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM71802703",
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "popularity": 0.6791543343586588,
+        "spotlighted": false,
+        "title": "Dear Prudence",
+        "version": "2018 Mix"
+      },
+      "id": "97872032",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "97872030",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/97872032/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/97872032/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2018 Calderstone Productions Limited (a Division of Universal Music Group) / Apple Corps Limited"
+        },
+        "createdAt": "2018-11-02T07:48:11Z",
+        "duration": "PT2M43S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/97872091",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM71802763",
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "popularity": 0.5387431980081576,
+        "spotlighted": false,
+        "title": "Everybody's Got Something To Hide Except Me And My Monkey",
+        "version": "Unnumbered Rehearsal"
+      },
+      "id": "97872091",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "97872030",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/97872091/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/97872091/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2018 Calderstone Productions Limited (a Division of Universal Music Group) / Apple Corps Limited"
+        },
+        "createdAt": "2018-11-02T07:48:11Z",
+        "duration": "PT6M44S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/97872102",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBUM71802773",
+        "mediaTags": [
+          "HIRES_LOSSLESS",
+          "LOSSLESS"
+        ],
+        "popularity": 0.5846405122335856,
+        "spotlighted": false,
+        "title": "Hey Jude",
+        "version": "Take 1"
+      },
+      "id": "97872102",
+      "relationships": {
+        "albums": {
+          "data": [
+            {
+              "id": "97872030",
+              "type": "albums"
+            }
+          ],
+          "links": {
+            "self": "/tracks/97872102/relationships/albums?countryCode=US"
+          }
+        },
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/97872102/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    }
+  ],
+  "links": {
+    "self": "/searchResults?filter%5Bquery%5D=hey+jude+the+beatles&include=tracks.albums%2Ctracks.artists&countryCode=US"
+  }
+}

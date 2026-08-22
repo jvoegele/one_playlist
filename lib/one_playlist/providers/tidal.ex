@@ -90,29 +90,38 @@ defmodule OnePlaylist.Providers.Tidal do
     Client.tracks_by_isrc(connection.access_token, isrc, opts)
   end
 
-  defp candidates(connection, _track, _opts) do
-    # Text search is not implemented, and this says so rather than guessing.
-    #
-    # TIDAL's search endpoint needs the `search.read` scope, which was added to
-    # the requested set only after this connection was authorized. Without it
-    # every search shape tried returns `400 INVALID_RESOURCE_ID` — identical to
-    # a malformed query — so the endpoint's real request and response shapes
-    # cannot be established from here. Verified across five variants on
-    # 2026-08-22.
-    #
-    # Building against a guessed shape would be worse than not building it: the
-    # failure would be a wrong match rather than a missing feature. Reconnecting
-    # grants the scope, after which this can be written against something
-    # observed instead of assumed.
-    {:error,
-     Errata.create(ConnectionUnusable,
-       reason: :insufficient_scope,
-       context: %{
-         provider: :tidal,
-         required_scope: "search.read",
-         granted_scopes: connection.scopes
-       }
-     )}
+  # No ISRC, so fall back to text. Needs the `search.read` scope, which a
+  # connection authorized before it was requested will not have — checked here
+  # because TIDAL reports its absence as `400 INVALID_RESOURCE_ID`, which names
+  # neither scopes nor the parameter it is really complaining about.
+  defp candidates(connection, %Track{} = track, opts) do
+    if "search.read" in (connection.scopes || []) do
+      Client.search_tracks(connection.access_token, search_query(track), opts)
+    else
+      {:error,
+       Errata.create(ConnectionUnusable,
+         reason: :insufficient_scope,
+         context: %{
+           provider: :tidal,
+           required_scope: "search.read",
+           granted_scopes: connection.scopes
+         }
+       )}
+    end
+  end
+
+  # Title and artists, as a person would type it.
+  #
+  # Deliberately the raw title rather than the normalized one: normalization
+  # exists to compare two strings that already describe the same recording, and
+  # stripping `(Live)` here would ask TIDAL for the studio version and then
+  # reject everything it sent back. The matching engine applies its own rules
+  # to whatever comes back.
+  defp search_query(%Track{} = track) do
+    [track.title | track.artists]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.join(" ")
+    |> String.trim()
   end
 
   defp limit_to({:ok, tracks}, limit), do: {:ok, Enum.take(tracks, limit)}
