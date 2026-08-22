@@ -46,11 +46,24 @@ nothing looked identical to clearing correctly. The contract was fine; the suite
 the case where it mattered. **A surviving mutation means one of the two is missing, and it is
 not always the contract.**
 
-This has now happened twice, which makes it a pattern rather than an anecdote — and in both
-cases the gap was *test data*, not test logic. `artists_are_names` survived removing the filter
-it guards, because every fixture happened to give every artist a name. The tests exercised the
-function thoroughly and the shape that mattered never occurred. When a mutation survives, look
-first at whether your fixtures contain the case the contract describes.
+This has now happened three times, which makes it a pattern rather than an anecdote — and in
+every case the gap was *test data*, not test logic. `artists_are_names` survived removing the
+filter it guards, because every fixture happened to give every artist a name. The tests
+exercised the function thoroughly and the shape that mattered never occurred. When a mutation
+survives, look first at whether your fixtures contain the case the contract describes.
+
+The third is the sharpest, because the test *looked* like it was about exactly the right thing.
+`tracks_from_album_items/2` reads each track's position from `meta.trackNumber` rather than
+counting list order, and a test named "a gap in `included` does not shift the positions after
+it" asserted the consequence. Rewriting the implementation to count by index left that test
+green — because on the captured album, `trackNumber` happens to equal the list position for all
+fourteen items. **A real fixture is not automatically a discriminating one.** The case where the
+two disagree is a multi-volume release, where disc 2 restarts at track 1; adding four synthetic
+items covering that killed the mutation.
+
+The lesson generalises: when a test's name states a distinction, check that the fixture actually
+*exhibits* the distinction. Capturing real data protects against imagined shapes, not against
+unexercised ones.
 
 ### The vacuity trap in property tests
 

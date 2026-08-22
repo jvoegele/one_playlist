@@ -17,7 +17,7 @@ That problem is why this project exists, and it shapes everything below.
 > and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
 > and by text, and is measured against a corpus captured from a real library.
 > There is no write path and no UI yet.
-> 249 tests, 55 contracts.
+> 266 tests, 58 contracts.
 
 ---
 
@@ -28,7 +28,7 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 55 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 58 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |
@@ -47,7 +47,7 @@ produce any opinion wins:
 | Rung | Evidence | Score |
 | --- | --- | --- |
 | ISRC | Recording identifier | `1.0` |
-| UPC + position | Release barcode and track position | `1.0` |
+| UPC + position | Release barcode and track position, duration corroborating | `1.0` |
 | Text | Exact after normalization | `0.80`–`0.98` |
 | Fuzzy | Jaro-Winkler and token overlap | `0.0`–`0.79` |
 
@@ -70,8 +70,17 @@ came, and what it needed to beat — so "found and refused as a different
 recording" reads differently from "not found", which is most of what makes a
 transfer report worth reading.
 
-Candidates come from the destination provider: an ISRC filter where one exists
-— one request, exact results — and free-text search otherwise. Run live against
+Candidates come from the destination provider by the cheapest route that can
+answer: an ISRC filter where one exists (one request, exact), a barcode plus
+position lookup where the source knows both (two requests, exact), and
+free-text search otherwise.
+
+Rung 2 is the one place an identifier alone is not trusted. Two services can
+list different items under one barcode — a bonus track on one edition, not the
+other — and then position 7 is a different recording on each. Unguarded that is
+a wrong answer at score `1.0`, which is worse than a near miss because `1.0`
+goes through unreviewed. So a disagreeing duration withdraws the exact claim and
+the candidate falls through to be scored on its merits. Run live against
 ten real tracks with their ISRCs stripped, text search plus the ladder recovered
 all ten, each resolving to the recording the discarded ISRC named.
 

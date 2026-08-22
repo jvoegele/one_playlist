@@ -259,9 +259,41 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
   already included. TIDAL reports it zero-padded to 13 digits (`"00602547670052"`) where other
   catalogues print 12 — so barcodes must have leading zeros stripped before comparison.
 - **The track's position within its album is not available** from the track resource or from
-  the `albums` relationship, which carries only `{id, type}`. Rung 2 of the ladder — UPC plus
-  position — therefore cannot fire for TIDAL sources without an extra request per album against
-  `/albums/{id}/relationships/items`.
+  the `albums` relationship, which carries only `{id, type}`. It comes from a separate request,
+  and the next two facts are what make rung 2 workable anyway.
+
+- **Albums are findable by barcode.** `GET /v2/albums?filter[barcodeId]={upc}` returns the
+  release. That turns a UPC from a mere corroborating signal into a **lookup**: given a source
+  that knows its barcode and its position — which Spotify and Apple Music both supply natively
+  — the destination track is two requests away and the answer is exact rather than scored.
+
+  Not every barcode resolves. One album in an eight-track live sample reported a `barcodeId`
+  that `filter[barcodeId]` then did not find, so the path must fall back to text search rather
+  than treat a miss as an absence.
+
+- **Album items carry explicit positions.** `GET /v2/albums/{id}/relationships/items` returns
+  each item with `meta: {trackNumber, volumeNumber}`.
+
+  > This is the difference between rung 2 being sound and being dangerous. The positions are
+  > **given**, not inferred from list order — and inferring them would be wrong, because a
+  > track unavailable in the account's country is listed while its resource is withheld,
+  > exactly as on playlists. Counting by index would renumber every track after such a gap, and
+  > a multi-volume release would renumber wholesale, since disc 2 restarts at track 1. Rung 2
+  > would then match at score `1.0` — above any review threshold — to the wrong recording.
+
+  `include=items.artists` costs nothing extra and makes the results scoreable on text too, so a
+  candidate rung 2 declines is not wasted.
+
+- **A barcode's album id is worth caching and never expires.** A barcode identifies a release
+  permanently, so the mapping cannot become wrong — only incomplete, which a cache miss
+  handles. It is also identical for every user, which makes it the compounding asset described
+  above rather than per-user state. Tracks cluster into albums (38 distinct albums across the
+  60-track corpus; 5 across an 8-track live sample), so caching removes most of the lookups.
+
+  Worth being explicit, because the instinct is to reach for concurrency instead: running these
+  requests in parallel reduces wall-clock while spending **exactly the same quota**, and the
+  circuit breaker is shared across all users, so bursting catalogue reads degrades TIDAL for
+  everyone. Fewer requests is the lever; faster requests is not.
 
 **Rate limits are not published.** Community reports put 429s as common on catalog reads and
 rare on playlist operations. With no documented quota the only safe posture is to stay well

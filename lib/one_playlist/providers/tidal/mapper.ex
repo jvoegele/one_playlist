@@ -189,6 +189,66 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   end
 
   @doc """
+  Maps an album's item list to tracks, carrying each one's position.
+
+  The only place `track_number` and `volume_number` get populated for TIDAL,
+  and the reason rung 2 of the matching ladder can fire at all.
+
+  Positions come from `meta` on each item — `%{"trackNumber" => 1,
+  "volumeNumber" => 1}` — and **not** from the item's index in the list. That
+  distinction is load-bearing rather than stylistic: a track unavailable in the
+  account's country is listed but its resource is not returned, exactly as on
+  playlists. Counting positions by index would shift every track after such a
+  gap by one, and rung 2 would then match confidently, at score 1.0, to the
+  wrong recording — the worst failure this product has, produced by an
+  optimisation that looks equivalent.
+
+  `album_upc` is passed in rather than read from the document, because the
+  caller reached this album *by* its barcode and including the album resource
+  again would be a second copy of something already known.
+  """
+  @post no_tracks_invented: forall(track <- result, track.provider_id in album_item_ids(document))
+  @post never_more_than_listed: length(result) <= length(album_item_ids(document))
+  @post positions_are_populated: forall(track <- result, is_integer(track.track_number))
+  @spec tracks_from_album_items(map(), String.t() | nil) :: [Track.t()]
+  def tracks_from_album_items(document, album_upc \\ nil) do
+    index = index_included(document)
+
+    document
+    |> Map.get("data", [])
+    |> List.wrap()
+    |> Enum.flat_map(fn item ->
+      with {:ok, resource} <- Map.fetch(index, {item["type"], item["id"]}),
+           number when is_integer(number) <- get_in(item, ["meta", "trackNumber"]) do
+        [
+          %{
+            track(resource, index)
+            | track_number: number,
+              volume_number: get_in(item, ["meta", "volumeNumber"]) || 1,
+              album_upc: album_upc
+          }
+        ]
+      else
+        _unresolvable_or_unnumbered -> []
+      end
+    end)
+  end
+
+  @doc """
+  The item ids an album lists, in order.
+
+  Public because `tracks_from_album_items/2` names it in a postcondition.
+  """
+  @spec album_item_ids(map()) :: [String.t()]
+  def album_item_ids(document) do
+    document
+    |> Map.get("data", [])
+    |> List.wrap()
+    |> Enum.map(& &1["id"])
+    |> Enum.reject(&is_nil/1)
+  end
+
+  @doc """
   The track ids a search document found, in relevance order.
 
   Public because `tracks_from_search/1` names it in a postcondition, and an

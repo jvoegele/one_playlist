@@ -122,6 +122,50 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   end
 
   @doc """
+  The album carrying a barcode, or `nil`.
+
+  Verified live on 2026-08-22: `GET /v2/albums?filter[barcodeId]=…` returns the
+  release. Barcodes are normalized before use because TIDAL reports them
+  zero-padded to 13 digits where other catalogues print 12 — see
+  `OnePlaylist.Matching.Signals.normalize_barcode/1`.
+
+  Returns the album's id only. Nothing else about the album is wanted: the
+  caller has the barcode already, and what it actually needs is the item list.
+  """
+  @spec album_by_barcode(String.t(), String.t(), keyword()) ::
+          {:ok, String.t() | nil} | {:error, Errata.error()}
+  def album_by_barcode(access_token, barcode, opts \\ []) do
+    params = [{"filter[barcodeId]", barcode}] ++ country_param(opts)
+
+    with {:ok, %{"data" => data}} <- get(access_token, "/albums", params) do
+      {:ok, data |> List.wrap() |> List.first() |> then(& &1["id"])}
+    end
+  end
+
+  @doc """
+  An album's tracks, each carrying its position within the release.
+
+  The only TIDAL call that yields `track_number` and `volume_number`, and so
+  the only way rung 2 of the matching ladder can fire. Positions arrive as
+  `meta` on each item rather than as attributes on the track, which is why this
+  is a separate request from everything else.
+
+  `include=items.artists` costs nothing extra and makes the results scoreable
+  on text as well, so a candidate rejected by rung 2 is not wasted.
+  """
+  @spec album_items(String.t(), String.t(), keyword()) ::
+          {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
+  def album_items(access_token, album_id, opts \\ []) do
+    params =
+      [{"include", "items.artists"}] ++ country_param(opts) ++ page_params(opts)
+
+    with {:ok, document} <-
+           get(access_token, "/albums/#{album_id}/relationships/items", params) do
+      {:ok, Mapper.tracks_from_album_items(document, Keyword.get(opts, :barcode))}
+    end
+  end
+
+  @doc """
   Catalogue tracks matching a free-text query, in TIDAL's relevance order.
 
   For tracks with no ISRC, which is the only reason to prefer this over

@@ -1,0 +1,802 @@
+{
+  "data": [
+    {
+      "id": "55130682",
+      "meta": {
+        "itemCursor": "IrRHktAbeXLG",
+        "trackNumber": 1,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130683",
+      "meta": {
+        "itemCursor": "IrRHktAbeXPO",
+        "trackNumber": 2,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130684",
+      "meta": {
+        "itemCursor": "IrRHktAbeXTW",
+        "trackNumber": 3,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130685",
+      "meta": {
+        "itemCursor": "IrRHktAbeXXe",
+        "trackNumber": 4,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130686",
+      "meta": {
+        "itemCursor": "IrRHktAbeXbm",
+        "trackNumber": 5,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130687",
+      "meta": {
+        "itemCursor": "IrRHktAbeXfu",
+        "trackNumber": 6,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130688",
+      "meta": {
+        "itemCursor": "IrRHktAbeXk2",
+        "trackNumber": 7,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130689",
+      "meta": {
+        "itemCursor": "IrRHktAbeXoA",
+        "trackNumber": 8,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130690",
+      "meta": {
+        "itemCursor": "IrRHktAbeoG2",
+        "trackNumber": 9,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130691",
+      "meta": {
+        "itemCursor": "IrRHktAbeoKA",
+        "trackNumber": 10,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130692",
+      "meta": {
+        "itemCursor": "IrRHktAbeoOI",
+        "trackNumber": 11,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130693",
+      "meta": {
+        "itemCursor": "IrRHktAbeoSQ",
+        "trackNumber": 12,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130694",
+      "meta": {
+        "itemCursor": "IrRHktAbeoWY",
+        "trackNumber": 13,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    },
+    {
+      "id": "55130695",
+      "meta": {
+        "itemCursor": "IrRHktAbeoag",
+        "trackNumber": 14,
+        "volumeNumber": 1
+      },
+      "type": "tracks"
+    }
+  ],
+  "included": [
+    {
+      "attributes": {
+        "externalLinks": [
+          {
+            "href": "https://www.thebeatles.com/",
+            "meta": {
+              "type": "OFFICIAL_HOMEPAGE"
+            }
+          },
+          {
+            "href": "https://tidal.com/browse/artist/3634161",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "name": "The Beatles",
+        "ownerType": "LABEL",
+        "popularity": 0.9447451829910278
+      },
+      "id": "3634161",
+      "type": "artists"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M20S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130682",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601465",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.8109821573464774,
+        "spotlighted": false,
+        "title": "Help!",
+        "version": "Remastered 2009"
+      },
+      "id": "55130682",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130682/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M35S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130683",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601466",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6902178949426946,
+        "spotlighted": false,
+        "title": "The Night Before",
+        "version": "Remastered 2009"
+      },
+      "id": "55130683",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130683/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M9S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130684",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601467",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7536433324166613,
+        "spotlighted": false,
+        "title": "You've Got To Hide Your Love Away",
+        "version": "Remastered 2009"
+      },
+      "id": "55130684",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130684/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M29S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130685",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601468",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6821855629952429,
+        "spotlighted": false,
+        "title": "I Need You",
+        "version": "Remastered 2009"
+      },
+      "id": "55130685",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130685/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M5S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130686",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601469",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6691067816921734,
+        "spotlighted": false,
+        "title": "Another Girl",
+        "version": "Remastered 2009"
+      },
+      "id": "55130686",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130686/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M19S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130687",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601470",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7061615353900053,
+        "spotlighted": false,
+        "title": "You're Going To Lose That Girl",
+        "version": "Remastered 2009"
+      },
+      "id": "55130687",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130687/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT3M10S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130688",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601471",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7685242473522731,
+        "spotlighted": false,
+        "title": "Ticket To Ride",
+        "version": "Remastered 2009"
+      },
+      "id": "55130688",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130688/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M30S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130689",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601472",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6701841472029652,
+        "spotlighted": false,
+        "title": "Act Naturally",
+        "version": "Remastered 2009"
+      },
+      "id": "55130689",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130689/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT1M56S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130690",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601473",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6764867642348872,
+        "spotlighted": false,
+        "title": "It's Only Love",
+        "version": "Remastered 2009"
+      },
+      "id": "55130690",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130690/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M37S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130691",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601474",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6686080573614351,
+        "spotlighted": false,
+        "title": "You Like Me Too Much",
+        "version": "Remastered 2009"
+      },
+      "id": "55130691",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130691/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M38S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130692",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601475",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6553404213041412,
+        "spotlighted": false,
+        "title": "Tell Me What You See",
+        "version": "Remastered 2009"
+      },
+      "id": "55130692",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130692/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M5S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130693",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601476",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.7255756313217901,
+        "spotlighted": false,
+        "title": "I've Just Seen A Face",
+        "version": "Remastered 2009"
+      },
+      "id": "55130693",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130693/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M6S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130694",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601477",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.838275257633313,
+        "spotlighted": false,
+        "title": "Yesterday",
+        "version": "Remastered 2009"
+      },
+      "id": "55130694",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130694/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    },
+    {
+      "attributes": {
+        "accessType": "PUBLIC",
+        "availability": [
+          "STREAM",
+          "DJ"
+        ],
+        "copyright": {
+          "text": "℗ 2009 Calderstone Productions Limited (a division of Universal Music Group)"
+        },
+        "createdAt": "2015-12-11T00:01:10Z",
+        "duration": "PT2M57S",
+        "explicit": false,
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/55130695",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "isrc": "GBAYE0601478",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.6657489182315063,
+        "spotlighted": false,
+        "title": "Dizzy Miss Lizzy",
+        "version": "Remastered 2009"
+      },
+      "id": "55130695",
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3634161",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/55130695/relationships/artists?countryCode=US"
+          }
+        }
+      },
+      "type": "tracks"
+    }
+  ],
+  "links": {
+    "self": "/albums/55130681/relationships/items?include=items.artists&countryCode=US"
+  }
+}

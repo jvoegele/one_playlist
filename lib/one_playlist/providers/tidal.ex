@@ -23,12 +23,14 @@ defmodule OnePlaylist.Providers.Tidal do
   use Bond, behaviours: [OnePlaylist.Providers.Adapter]
   use Errata
 
+  alias OnePlaylist.Matching.Signals
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Adapter
   alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.ConnectionUnusable
+  alias OnePlaylist.Providers.Tidal.AlbumCache
   alias OnePlaylist.Providers.Tidal.Client
   alias OnePlaylist.Providers.Tidal.Mapper
   alias OnePlaylist.Providers.Tidal.OAuth
@@ -90,11 +92,38 @@ defmodule OnePlaylist.Providers.Tidal do
     Client.tracks_by_isrc(connection.access_token, isrc, opts)
   end
 
-  # No ISRC, so fall back to text. Needs the `search.read` scope, which a
-  # connection authorized before it was requested will not have — checked here
-  # because TIDAL reports its absence as `400 INVALID_RESOURCE_ID`, which names
-  # neither scopes nor the parameter it is really complaining about.
-  defp candidates(connection, %Track{} = track, opts) do
+  # No ISRC, but the source knows its release and its position on it. Find the
+  # release by barcode and take the track at that position: two requests, and
+  # the answer is exact rather than scored.
+  #
+  # Sources that carry both are the ones ISRC failed on for a reason worth
+  # recovering — a recording issued with a different ISRC per territory. Spotify
+  # and Apple Music both supply barcode and track number natively, so this is
+  # the path that will carry most of the traffic once either is added.
+  #
+  # Falls back to text when the release is unknown to TIDAL or lists nothing at
+  # that position, rather than returning no candidates: a structural miss here
+  # says nothing about whether the recording exists.
+  defp candidates(
+         connection,
+         %Track{album_upc: upc, track_number: number} = track,
+         opts
+       )
+       when is_binary(upc) and is_integer(number) do
+    case by_release_position(connection, track, opts) do
+      {:ok, [_candidate | _rest] = found} -> {:ok, found}
+      _miss_or_error -> text_candidates(connection, track, opts)
+    end
+  end
+
+  defp candidates(connection, %Track{} = track, opts),
+    do: text_candidates(connection, track, opts)
+
+  # Needs the `search.read` scope, which a connection authorized before it was
+  # requested will not have — checked here because TIDAL reports its absence as
+  # `400 INVALID_RESOURCE_ID`, which names neither scopes nor the parameter it
+  # is really complaining about.
+  defp text_candidates(connection, %Track{} = track, opts) do
     if "search.read" in (connection.scopes || []) do
       Client.search_tracks(connection.access_token, search_query(track), opts)
     else
@@ -108,6 +137,28 @@ defmodule OnePlaylist.Providers.Tidal do
          }
        )}
     end
+  end
+
+  defp by_release_position(connection, %Track{} = track, opts) do
+    barcode = Signals.normalize_barcode(track.album_upc)
+    token = connection.access_token
+    lookup_opts = Keyword.put(opts, :barcode, track.album_upc)
+
+    with true <- is_binary(barcode),
+         {:ok, album_id} when is_binary(album_id) <-
+           AlbumCache.fetch(barcode, fn -> Client.album_by_barcode(token, barcode, opts) end),
+         {:ok, tracks} <- Client.album_items(token, album_id, lookup_opts) do
+      {:ok, Enum.filter(tracks, &same_position?(&1, track))}
+    else
+      # A barcode TIDAL does not carry, or a release that lists nothing at that
+      # position. Both are misses, not failures.
+      _miss -> {:ok, []}
+    end
+  end
+
+  defp same_position?(candidate, source) do
+    candidate.track_number == source.track_number and
+      (candidate.volume_number || 1) == (source.volume_number || 1)
   end
 
   # Title and artists, as a person would type it.
