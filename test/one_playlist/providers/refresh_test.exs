@@ -9,7 +9,6 @@ defmodule OnePlaylist.Providers.RefreshTest do
 
   import OnePlaylist.AuthFixtures
 
-  alias Ecto.Adapters.SQL
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.ConnectionUnusable
   alias OnePlaylist.Providers.Tidal
@@ -69,6 +68,29 @@ defmodule OnePlaylist.Providers.RefreshTest do
       {:ok, connection} = connect(user_id, expires_in: 60)
       assert {:ok, refreshed} = Providers.refresh(connection)
       assert refreshed.refresh_token == "rt-rotated"
+    end
+
+    test "a successful refresh clears an earlier failure", %{user_id: user_id} do
+      # Without this, `record_refresh/2`'s postcondition is unfalsifiable: every
+      # other test refreshes a connection that was already clean, so removing the
+      # reset changes nothing. Found by mutation testing — the contract survived
+      # deleting the very code it exists to protect.
+      {:ok, connection} = connect(user_id, expires_in: 60)
+
+      transient =
+        Errata.create(TokenRefreshFailed,
+          reason: :provider_unavailable,
+          context: %{provider: :tidal}
+        )
+
+      {:ok, failing} = Providers.record_failure(connection, transient)
+      assert failing.consecutive_failures == 1
+
+      stub_token_response(%{"access_token" => "at-fresh", "expires_in" => 3600})
+
+      assert {:ok, refreshed} = Providers.refresh(failing)
+      assert refreshed.consecutive_failures == 0
+      assert refreshed.status == :active
     end
 
     test "a dead grant marks the connection as needing re-authorization",

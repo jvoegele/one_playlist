@@ -15,6 +15,8 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   lookup once per page so resolving is not quadratic over a large playlist.
   """
 
+  use Bond
+
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
 
@@ -29,8 +31,16 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
     |> Map.new(fn resource -> {{resource["type"], resource["id"]}, resource} end)
   end
 
+  # `track_count` comes straight from the provider and is shown to the user and
+  # counted against in transfer reports. The same shape as the negative-duration
+  # bug: not a type error, nothing raises, and a report reading "-3 tracks
+  # transferred" is worse than one that fails.
   @doc "Maps a `playlists` resource to `OnePlaylist.Music.Playlist`."
+  @post sane_track_count: is_nil(result.track_count) or result.track_count >= 0
+  @post identity_preserved: result.provider_id == resource["id"]
   @spec playlist(map()) :: Playlist.t()
+  def playlist(resource)
+
   def playlist(%{"id" => id} = resource) do
     attributes = resource["attributes"] || %{}
 
@@ -39,7 +49,7 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       provider_id: id,
       name: attributes["name"],
       description: blank_to_nil(attributes["description"]),
-      track_count: attributes["numberOfItems"],
+      track_count: non_negative_count(attributes["numberOfItems"]),
       duration_seconds: Track.parse_iso8601_duration(attributes["duration"]),
       created_at: parse_datetime(attributes["createdAt"]),
       updated_at: parse_datetime(attributes["lastModifiedAt"]),
@@ -56,8 +66,16 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   videos, and dropping them silently would make a transfer report claim a
   complete transfer that lost items.
   """
+  # `artists` feeds normalized-text matching when ISRC is absent. A nil or a
+  # stray map in that list would not raise — it would be joined into a query
+  # string and quietly produce a wrong match, which is this product's worst
+  # failure mode rather than an error.
+  @post identity_preserved: result.provider_id == resource["id"]
+  @post artists_are_names: forall(artist <- result.artists, is_binary(artist))
   @spec track(map(), map()) :: Track.t()
-  def track(%{"id" => id} = resource, index \\ %{}) do
+  def track(resource, index \\ %{})
+
+  def track(%{"id" => id} = resource, index) do
     attributes = resource["attributes"] || %{}
 
     %Track{
@@ -81,6 +99,16 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   happens for a track unavailable in the account's country — the identifier is
   listed but the resource is not returned.
   """
+  # A conservation law, and the reason this is a contract rather than only a
+  # test. A transfer's report is built by counting what came out of here against
+  # what the provider said was in the playlist, so a mapper that invented,
+  # duplicated or reordered a track would produce a report that is confidently
+  # wrong — the one failure mode this product cannot afford.
+  #
+  # Stated over `data` because that is the authority on membership and order;
+  # `included` is an unordered bag of resources that happens to contain them.
+  @post no_tracks_invented: forall(track <- result, track.provider_id in item_ids(document))
+  @post never_more_than_requested: length(result) <= length(item_ids(document))
   @spec tracks_from_items_page(map()) :: [Track.t()]
   def tracks_from_items_page(document) do
     index = index_included(document)
@@ -94,6 +122,18 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
         :error -> []
       end
     end)
+  end
+
+  @doc """
+  The ids in a document's `data` member, in order.
+
+  Public because `tracks_from_items_page/1` names it in a postcondition, and an
+  assertion rendered into the docs should reference something a reader can look
+  up.
+  """
+  @spec item_ids(map()) :: [String.t()]
+  def item_ids(document) do
+    document |> Map.get("data", []) |> List.wrap() |> Enum.map(& &1["id"])
   end
 
   defp related_names(resource, relationship, index) do
@@ -132,6 +172,13 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   end
 
   defp parse_datetime(_value), do: nil
+
+  # External data, so this sanitizes rather than trusts. The postcondition above
+  # is then a law about what this module *produces*, which is the only thing it
+  # controls — a provider sending nonsense is not a programming error, and a
+  # contract that raised on it would turn their bad data into our crash.
+  defp non_negative_count(count) when is_integer(count) and count >= 0, do: count
+  defp non_negative_count(_count), do: nil
 
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(value), do: value

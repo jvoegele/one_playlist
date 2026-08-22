@@ -54,7 +54,7 @@ worth a paragraph in its guides.
 `circuit-breakers` guide uses in its examples — defaults to `retry: :safe_transient`, retrying
 408/429/5xx and transport errors **three times with its own exponential backoff**.
 
-Wrapped in `ExternalService.call/1`, that nests: each of the four configured attempts becomes
+Wrapped in `ExternalService.call/3`, that nests: each of the four configured attempts becomes
 four requests. Observed here as **12 requests where 4 were configured**, and a test suite that
 took **103 seconds instead of 0.06**, because Req slept on its own backoff (`will retry in
 980ms`, `will retry in 1841ms`) inside a service configured with `base: 0` for tests.
@@ -148,6 +148,142 @@ dropped the flag.
 something under `observability.md` or the `Errata.Error` moduledoc noting that
 `:extra_return` will flag generated accessors and is best left off. That is cheaper to read than
 to rediscover.
+
+## `bond` — `~>` and `implies?/2` differ in evaluation, and the docs say they are identical
+
+**Found:** 2026-08-22, writing a precondition helper with a partial consequent.
+
+`Bond.Predicates` documents the two forms as interchangeable — the cheatsheet says "Both
+connectives have a named form that behaves identically: `implies?(p, q)` for `~>`". For total
+operands they do. They differ in the one case an implication is most worth reaching for:
+
+```elixir
+# `~>` is a macro. Verified: returns true, right-hand side never evaluated.
+false ~> raise("boom")
+
+# `implies?/2` is a function, so both arguments are evaluated before the call.
+implies?(false, raise("boom"))   # raises
+```
+
+That matters because the reason to write `p ~> q` is usually that `q` is only *meaningful*
+when `p` holds — Bond's own `writing-sound-assertions` guide says exactly this: "`~>` is also
+the safe choice when the consequent only makes sense once the antecedent holds — it
+short-circuits instead of evaluating a consequent that would raise." So the guide has the
+right advice for `~>`, and the cheatsheet's "behaves identically" quietly contradicts it for
+`implies?/2`.
+
+Concretely, this helper is safe as written and raises if `~>` is swapped for `implies?/2`:
+
+```elixir
+(is_struct(now, DateTime) and is_struct(connection.inserted_at, DateTime)) ~>
+  (DateTime.compare(now, connection.inserted_at) != :lt)
+```
+
+The cheatsheet already distinguishes them structurally in a different section — "`~>`/`<~` are
+macros; the rest are functions" — so the information is present, just not where the equivalence
+is claimed.
+
+**Suggested fix:** qualify "behaves identically" in the cheatsheet's operator table, e.g.
+"identical for total operands; `~>` short-circuits, `implies?/2` does not". One clause, and it
+turns a trap into a documented choice.
+
+**Also worth noting:** `Bond.Predicates` can be imported into ordinary function bodies
+(`import Bond.Predicates, only: [~>: 2]`), which is not obvious from the guides — they describe
+the vocabulary as being for assertions. It reads well in a predicate written to serve a
+contract. Worth a sentence, along with a caution to scope the import: `|||` is exclusive-or
+despite reading as "or", and the guides already flag that as a trap.
+
+## `bond` — the Precondition Availability check does not consider `@doc false`
+
+**Found:** 2026-08-22, immediately after the above.
+
+Bond enforces Meyer's Precondition Availability rule and the diagnostic is excellent — it
+names the rule, cites OOSC §11.7, explains the reasoning, and lists three ways to suppress it:
+
+```
+warning: the precondition of public function `expired?/2` calls a private function
+(`created_at_respected?/2`). A precondition is an obligation on the caller, so a caller
+that cannot call `created_at_respected?/2` cannot check it before calling — and Bond
+renders the assertion into the generated docs, where `created_at_respected?/2` does not
+appear.
+```
+
+The gap is in the last clause of its own reasoning. The check tests *callability* — public
+versus private — but a **public function marked `@doc false` passes it while still not
+appearing in the generated docs**. The stated rationale is defeated exactly as described, and
+nothing warns. We shipped that for one commit before noticing.
+
+**Suggested fix:** extend the check to warn when a precondition calls a public function whose
+`@doc` is `false`, with wording along the lines of "…is public but hidden from documentation,
+so a caller reading the docs cannot discover it." The existing message needs almost no change,
+since it already argues from documentation visibility.
+
+## `bond` — a module that forgets `use Bond` fails in ways that never mention Bond
+
+**Found:** 2026-08-22. **Nothing to fix in the contract machinery** — this is purely about
+diagnosability, and it is worth reading the correction below before spending time on it.
+
+I originally recorded this as "the multi-label `@post` form works under `Bond.Behaviour` but
+not under `use Bond`". **That was wrong**, and the retraction is the useful part. Verified with
+three isolated modules:
+
+| Form | `use Bond` |
+| --- | --- |
+| `@post whenever(pat <- result), a: ..., b: ...` (prefix, multi-label) | compiles |
+| `@post whenever(pat <- result), a: ...` (prefix, single label) | compiles |
+| `@post whenever(pat <- result, a: ..., b: ...)` (all-inside) | compiles |
+
+The forms are consistent. My failing module simply had no `use Bond` in it — I had added
+`use Errata` and assumed the annotations were live — so `@post` fell through to `Kernel.@` and I
+attributed a missing-`use` error to a form difference.
+
+The real, much smaller observation is that **none of the failure modes name Bond**, which is
+what let me misdiagnose it. Without `use Bond`:
+
+  * an assertion referencing parameters →
+    `error: undefined variable "x"`
+  * a multi-label assertion →
+    `error: expected 0 or 1 argument for @post, got: 2` (from `Kernel.do_at/5`)
+  * a parameter-free assertion → compiles, enforcing nothing, with only Elixir's generic
+    `warning: module attribute @post was set but never used`
+
+The third is the one that could bite quietly, though `--warnings-as-errors` catches it and most
+real assertions reference parameters, so the exposure is small.
+
+**Suggested fix, if it is ever worth the effort:** nothing in the compiler can easily intercept
+`@pre`/`@post` in a module that never invoked Bond. A line in the getting-started guide — "if
+`@pre`/`@post` produce `undefined variable` or `expected 0 or 1 argument`, check that the module
+has `use Bond`" — would cost nothing and is where someone would look. A Credo check would also
+fit, if Bond ever ships one.
+
+## `bond` — purging contracts orphans `import Bond.Predicates`
+
+**Found:** 2026-08-22, the first time a production build was actually compiled.
+
+`~>` lives in `Bond.Predicates`, which a module must import to use the operator in an assertion
+if it does not otherwise have it in scope. When contracts are purged, the assertion disappears
+and the import becomes unused:
+
+```
+warning: unused import Bond.Predicates
+  └─ lib/one_playlist/music/track.ex:31:3
+```
+
+Three modules here, and only in `MIX_ENV=prod`, which is exactly where it is least likely to be
+noticed and most likely to matter: a release built with `--warnings-as-errors` fails on it.
+
+The same applies to any helper that exists solely to be called from a purged assertion — a
+private one becomes an unused function.
+
+**No longer applies to this project**, which now sets the non-precondition kinds to `false`
+rather than `:purge` — the assertions stay compiled in, so the import stays used. The finding
+stands for anyone who does purge.
+
+Not a correctness problem, and there may be nothing Bond can do: purging happens in the
+`@`-annotation macro, which has no way to retract an `import` written by the user. Worth a
+sentence in `guides/configuration.md` beside the purge documentation, since the failure appears
+only in the one build people compile last. The workarounds are to use the operator in a function
+body as well, or to write the implication as `not p or q` and drop the import.
 
 ## `bond` — contracted multi-clause functions need consistent parameter names
 

@@ -31,3 +31,33 @@ config :logger, level: :info
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
+
+# Bond contract checking in production.
+#
+# Preconditions are fully on: they are the cheapest kind and the only one that
+# names a *caller's* bug, which is exactly the failure you cannot reconstruct
+# from the callee's logs afterwards.
+#
+# The rest are `false` rather than `:purge`. Both leave them inert, but `:purge`
+# removes the code entirely, and `false` compiles it in and gates it on a single
+# lock-free `:persistent_term` read per kind per call. That gate is the whole
+# point: it buys the ability to turn postconditions on from a remote console
+# while an incident is in progress —
+#
+#     Bond.Config.enable(:postconditions)
+#
+# — and off again, without a deploy. A purged build offers nothing to enable.
+#
+# Two consequences worth knowing:
+#
+#   * An assertion must be *sound*, not merely inert. "It is off in production"
+#     is not a licence to write one that could accuse correct code, because
+#     anyone can switch it on. That is why the racing table-count postcondition
+#     on `disconnect/2` was deleted rather than left disabled.
+#   * Nothing here is purged, so `import Bond.Predicates` used only inside an
+#     assertion stays used, and a release does not warn about it.
+config :bond,
+  preconditions: true,
+  postconditions: false,
+  invariants: false,
+  checks: false

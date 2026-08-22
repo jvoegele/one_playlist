@@ -59,7 +59,15 @@ defmodule OnePlaylist.Providers.Adapter do
           optional(:scopes) => [String.t()]
         }
 
-  @doc "The provider this adapter serves. Must match `Connection.provider/0`."
+  @doc """
+  The provider this adapter serves.
+
+  The postcondition is inherited by every adapter, so an adapter that reports a
+  provider the schema has never heard of — a typo, or a rename that missed one
+  place — fails at its own boundary rather than as a confusing constraint
+  violation the first time someone tries to store a connection for it.
+  """
+  @post known_to_the_schema: result in OnePlaylist.Providers.Connection.providers()
   @callback provider() :: Connection.provider()
 
   @doc """

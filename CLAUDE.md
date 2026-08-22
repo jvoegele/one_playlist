@@ -118,7 +118,9 @@ better code.
 - **Errors**: an application-level `OnePlaylist.Errors.to_error/1` normalizing at boundaries,
   a Phoenix fallback controller driven by `Errata.http_status/1`, and
   `config :errata, redact: [...]` covering every token-shaped key.
-- **Bond in production**: preconditions on, everything else `:purge`d (`config/prod.exs`).
+- **Bond in production**: preconditions on, everything else `false` — compiled in but gated,
+  so postconditions can be enabled from a remote console mid-incident via `Bond.Config`
+  (`config/prod.exs`). Not `:purge`d, which would leave nothing to enable.
 
 ---
 
@@ -266,7 +268,8 @@ Two configuration decisions worth not re-litigating, both recorded in place:
 
 **Bond contract coverage** prints after every `mix test` run (`config :bond, coverage: true`).
 An assertion marked `⚠ never failed` is a prompt: either write a test proving it can fail, or
-delete it. `test/test_helper.exs` carries a workaround for a Bond bug — see
+delete it. Before adding or changing any contract, read **`docs/reference/contracts.md`** — it
+is the house style, and every rule in it was learned by getting something wrong first. `test/test_helper.exs` carries a workaround for a Bond bug — see
 `docs/library-feedback.md`.
 
 ## Working agreements
@@ -280,6 +283,12 @@ delete it. `test/test_helper.exs` carries a workaround for a Bond bug — see
   starts informed.
 - Nothing about a user's OAuth tokens is ever logged, serialized into an error context
   unredacted, or sent to a third party.
+- A new contract follows the checklist at the end of `docs/reference/contracts.md`. The two
+  steps most often skipped are the ones that matter: prove it can fail with a `Bond.Test`
+  assertion, and for anything load-bearing, mutate the implementation and confirm it fires.
+- This project is intended as a flagship example of `bond`, `external_service`, `errata` and
+  `wait_for_it` used deeply. Prefer the demonstrative-but-honest option: a contract that earns
+  its place and is proven to fire, over either a decorative one or none at all.
 
 ---
 
@@ -291,4 +300,5 @@ delete it. `test/test_helper.exs` carries a workaround for a Bond bug — see
 | `docs/reference/jv-libraries.md` | Deep reference for `external_service`, `errata`, `bond`, `wait_for_it` |
 | `docs/reference/supabase.md` | Supabase platform reference oriented to Elixir/Phoenix |
 | `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits |
+| `docs/reference/contracts.md` | **House style for Bond contracts** — read before adding or changing one |
 | `docs/library-feedback.md` | Running log of friction found while dogfooding the four libraries |

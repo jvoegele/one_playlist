@@ -19,7 +19,6 @@ defmodule OnePlaylist.Providers.TokenLoggingTest do
 
   import ExUnit.CaptureLog
 
-  alias Ecto.Adapters.SQL
   alias OnePlaylist.Providers
 
   @access "at-secret-should-never-be-logged"

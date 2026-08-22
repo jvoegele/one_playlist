@@ -213,6 +213,13 @@ defmodule OnePlaylist.MixProject do
         "sobelow --exit",
         "deps.audit",
         "dialyzer",
+        # Broken `Module.fun/arity` references in docs are silent until someone
+        # builds them. Caught one this way: docs/library-feedback.md cited
+        # `ExternalService.call/1`, which does not exist — `call/1` is generated
+        # on the front-door module, not exported by ExternalService.
+        #
+        # Runs in :dev because ex_doc is `only: :dev`, unlike everything above it.
+        "cmd env MIX_ENV=dev mix docs",
         "coveralls"
       ]
     ]

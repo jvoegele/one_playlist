@@ -12,6 +12,14 @@ defmodule OnePlaylist.Providers.Connection do
   use Bond
 
   import Ecto.Changeset
+  # `use Bond` makes the predicate vocabulary available inside assertions; this
+  # brings `~>` into ordinary function bodies too, so a predicate written to
+  # serve a contract can be expressed the same way the contract is.
+  #
+  # Scoped to `~>` on purpose. `Bond.Predicates` also exports `|||`, which is
+  # exclusive-or despite reading as "or" — Bond's own guides flag it as a trap.
+  # It has no business being in scope in code that is not an assertion.
+  import Bond.Predicates, only: [~>: 2]
 
   alias OnePlaylist.Encrypted
 
@@ -93,10 +101,11 @@ defmodule OnePlaylist.Providers.Connection do
   # No `is_boolean(result)` postcondition here: it restates the @spec, which
   # Dialyzer checks for free, and Bond.Coverage confirmed it could never fail.
   @pre valid_now: is_struct(now, DateTime)
-  @spec expired?(t :: %__MODULE__{}, now :: DateTime.t()) :: boolean()
-  def expired?(%__MODULE__{access_token_expires_at: nil}, _now), do: false
+  @pre now_after_creation: now_after_creation?(connection, now)
+  @spec expired?(connection :: %__MODULE__{}, now :: DateTime.t()) :: boolean()
+  def expired?(%__MODULE__{access_token_expires_at: nil} = _connection, _now), do: false
 
-  def expired?(%__MODULE__{access_token_expires_at: expires_at}, now),
+  def expired?(%__MODULE__{access_token_expires_at: expires_at} = _connection, now),
     do: DateTime.compare(expires_at, now) != :gt
 
   @doc """
@@ -108,7 +117,19 @@ defmodule OnePlaylist.Providers.Connection do
   one at the call site.
   """
   @pre valid_now: is_struct(now, DateTime)
+  @pre now_after_creation: now_after_creation?(connection, now)
   @pre non_negative_skew: is_integer(skew_seconds) and skew_seconds >= 0
+  # The upper bound is the assertion that earns its place. A skew is seconds,
+  # and the classic way to get it wrong is to pass milliseconds: `300_000`
+  # instead of `300`. Nothing about that is a type error, and nothing fails —
+  # every token simply looks due for refresh on every call, so the application
+  # quietly hammers the provider with refreshes it does not need until the rate
+  # limiter or the breaker notices.
+  #
+  # A day is the ceiling because access tokens are short-lived by construction:
+  # TIDAL's last four hours. A skew longer than any plausible token lifetime
+  # means `needs_refresh?/3` is a constant function, which is never intended.
+  @pre skew_under_a_day: skew_seconds <= 86_400
   # An *active* connection whose token has already expired must be refreshed.
   #
   # Stated as an implication rather than an equality because the converse is
@@ -147,4 +168,54 @@ defmodule OnePlaylist.Providers.Connection do
   @spec usable?(connection :: %__MODULE__{}) :: boolean()
   def usable?(%__MODULE__{status: :active, access_token: token}) when is_binary(token), do: true
   def usable?(%__MODULE__{}), do: false
+
+  @doc """
+  Whether `now` is a coherent clock reading for `connection`.
+
+  Callers do not normally need this: passing `DateTime.utc_now()` satisfies it.
+  It is public and documented because `expired?/2` and `needs_refresh?/3` name
+  it in a **precondition**, and a precondition is an obligation on the caller —
+  one they can only discharge if they can see and evaluate it. Bond enforces the
+  callable half of that (it warns when a precondition calls a private function,
+  per Meyer's Precondition Availability rule); the visible half is this docstring.
+
+  A `now` earlier than the connection's `inserted_at` is rejected: "was this
+  token expired at a moment before the connection existed" has no answer, so
+  such a value means the caller passed the wrong one. The usual culprits are an
+  epoch default or a badly parsed timestamp — neither is a type error, and both
+  make every token look expired.
+
+      iex> alias OnePlaylist.Providers.Connection
+      iex> connection = %Connection{inserted_at: ~U[2026-08-01 00:00:00.000000Z]}
+      iex> Connection.now_after_creation?(connection, ~U[2026-08-22 12:00:00.000000Z])
+      true
+      iex> Connection.now_after_creation?(connection, ~U[1970-01-01 00:00:00.000000Z])
+      false
+
+  A connection that was never persisted has no `inserted_at`, which is a
+  legitimate state, so any clock is accepted:
+
+      iex> alias OnePlaylist.Providers.Connection
+      iex> Connection.now_after_creation?(%Connection{}, ~U[1970-01-01 00:00:00.000000Z])
+      true
+  """
+  #
+  # Stated as the implication it is, which is what the precondition means:
+  # *if* both operands are DateTimes, *then* `now` may not precede creation.
+  #
+  # `~>` is a macro and short-circuits, so the consequent is never evaluated
+  # when the antecedent is false — which is what makes this safe. Its named
+  # equivalent `implies?/2` is a plain function and would evaluate both sides,
+  # calling `DateTime.compare(now, nil)` and raising, turning an assertion that
+  # should be vacuously true into one that cannot be evaluated at all. That
+  # distinction is easy to miss: the two are documented as behaving identically,
+  # and for total operands they do.
+  #
+  # `inserted_at` is nil for a connection that was never persisted, which is a
+  # legitimate state, so it is satisfied rather than rejected.
+  @spec now_after_creation?(t(), DateTime.t()) :: boolean()
+  def now_after_creation?(connection, now) do
+    (is_struct(now, DateTime) and is_struct(connection.inserted_at, DateTime))
+    ~> (DateTime.compare(now, connection.inserted_at) != :lt)
+  end
 end

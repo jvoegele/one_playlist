@@ -26,6 +26,8 @@ defmodule OnePlaylist.Music.Track do
   cached as "this recording is that id over there" rather than re-derived.
   """
 
+  use Bond
+
   @enforce_keys [:provider, :provider_id]
   defstruct [
     :provider,
@@ -59,13 +61,25 @@ defmodule OnePlaylist.Music.Track do
   Returns `nil` rather than raising on anything unparseable: a missing duration
   costs one matching signal, while an exception costs the whole transfer.
   """
+  # A recording cannot be of negative length, so a negative result is not a
+  # shorter duration — it is a value that must not reach the matching engine,
+  # where it would be compared against real durations and score as a near miss.
+  #
+  # This is not hypothetical: ISO 8601 admits negative components, and
+  # `Duration.from_iso8601/1` accepts them. Measured before this contract
+  # existed: `"PT-5S"` parsed to `-5`, `"P-1DT-1S"` to `-86_401`.
+  @post non_negative: is_nil(result) or result >= 0
   @spec parse_iso8601_duration(String.t() | nil) :: non_neg_integer() | nil
+  def parse_iso8601_duration(value)
+
   def parse_iso8601_duration(nil), do: nil
 
   def parse_iso8601_duration(value) when is_binary(value) do
-    case Duration.from_iso8601(value) do
-      {:ok, duration} -> to_seconds(duration)
-      {:error, _reason} -> nil
+    with {:ok, duration} <- Duration.from_iso8601(value),
+         seconds when seconds >= 0 <- to_seconds(duration) do
+      seconds
+    else
+      _negative_or_unparseable -> nil
     end
   end
 

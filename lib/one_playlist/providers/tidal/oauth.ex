@@ -27,6 +27,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   alias OnePlaylist.Providers.Tidal.Service
   alias OnePlaylist.Providers.TokenRefreshFailed
 
+  use Bond
   use Errata
 
   @typedoc "An OAuth token set as returned by TIDAL."
@@ -44,6 +45,25 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   the verifier back to `exchange_code/2`. They are returned rather than stored
   here so this module stays free of session concerns.
   """
+  # PKCE's entire security value rests on one relationship: what travels to
+  # TIDAL must be the *hash* of the secret we keep, never the secret itself.
+  # Send the verifier as the challenge and the flow still works end to end — the
+  # exchange succeeds, tests pass, nothing looks wrong — while the protection
+  # PKCE exists to provide is gone. That is precisely the class of bug a
+  # postcondition is for: silent, security-relevant, and invisible in the
+  # happy path.
+  #
+  # The length bound is RFC 7636 §4.1, which a provider may or may not enforce.
+  @post whenever(
+          {:ok, authorization} <- result,
+          challenge_is_hashed:
+            challenge_in(authorization.url) ==
+              Base.url_encode64(:crypto.hash(:sha256, authorization.code_verifier),
+                padding: false
+              ),
+          verifier_never_sent: challenge_in(authorization.url) != authorization.code_verifier,
+          verifier_length_per_rfc7636: String.length(authorization.code_verifier) in 43..128
+        )
   @spec authorization_url(keyword()) ::
           {:ok, %{url: String.t(), code_verifier: String.t(), state: String.t()}}
           | {:error, Errata.error()}
@@ -104,6 +124,21 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
     end
   end
 
+  # Both ways tokens enter this application funnel through here — the initial
+  # `exchange_code/2` at connect, and `refresh/1` thereafter. `refresh_tokens/1`
+  # inherits equivalent guarantees from `OnePlaylist.Providers.Adapter`, but
+  # `exchange_code/2` is not behind that behaviour, so without this the connect
+  # path is the one unguarded route by which an already-expired or blank token
+  # could be stored and look healthy.
+  #
+  # A postcondition on a private function is fine: Bond exempts them from the
+  # Precondition Availability rule, since a postcondition is a promise the
+  # function makes rather than an obligation on its caller.
+  @post whenever(
+          {:ok, tokens} <- result,
+          usable: is_binary(tokens.access_token) and tokens.access_token != "",
+          fresh: DateTime.after?(tokens.expires_at, DateTime.utc_now())
+        )
   defp post_token(config, params) do
     params = Map.put(params, "client_id", config[:client_id])
 
@@ -209,6 +244,24 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
          context: %{missing: "TIDAL_CLIENT_ID"}
        )}
     end
+  end
+
+  @doc """
+  The `code_challenge` carried by an authorization URL, or `nil`.
+
+  Public because `authorization_url/1` names it in a postcondition, and an
+  assertion that appears in generated documentation should reference something a
+  reader can look up. See `OnePlaylist.Providers.Connection.now_after_creation?/2`
+  for the same reasoning applied to a precondition.
+  """
+  @spec challenge_in(String.t()) :: String.t() | nil
+  def challenge_in(url) when is_binary(url) do
+    url
+    |> URI.parse()
+    |> Map.get(:query)
+    |> Kernel.||("")
+    |> URI.decode_query()
+    |> Map.get("code_challenge")
   end
 
   defp present?(value), do: is_binary(value) and value != ""

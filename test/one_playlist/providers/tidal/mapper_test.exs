@@ -131,6 +131,66 @@ defmodule OnePlaylist.Providers.Tidal.MapperTest do
     end
   end
 
+  describe "contracts" do
+    test "a negative duration is rejected rather than returned" do
+      # Regression: these parsed to -5 and -86_401 before the contract existed.
+      for iso <- ["PT-5S", "-PT5S", "P-1DT-1S"] do
+        assert Track.parse_iso8601_duration(iso) == nil, "#{iso} must not yield a negative"
+      end
+    end
+
+    test "an artist resource with no name is dropped, not mapped to nil" do
+      # TIDAL returns identifiers for related resources it does not include, and
+      # an included resource need not carry every attribute. A nil in `artists`
+      # would not raise — it would be joined into a match query and quietly
+      # produce a wrong result.
+      #
+      # This case exists because mutation testing found the contract unfalsifiable
+      # without it: every other fixture gives every artist a name, so removing
+      # the filter changed nothing.
+      page = %{
+        "data" => [%{"id" => "t1", "type" => "tracks"}],
+        "included" => [
+          %{
+            "id" => "t1",
+            "type" => "tracks",
+            "attributes" => %{"title" => "Untitled"},
+            "relationships" => %{
+              "artists" => %{
+                "data" => [
+                  %{"id" => "named", "type" => "artists"},
+                  %{"id" => "nameless", "type" => "artists"}
+                ]
+              }
+            }
+          },
+          %{"id" => "named", "type" => "artists", "attributes" => %{"name" => "Real Artist"}},
+          %{"id" => "nameless", "type" => "artists", "attributes" => %{"popularity" => 3}}
+        ]
+      }
+
+      assert [track] = Mapper.tracks_from_items_page(page)
+      assert track.artists == ["Real Artist"]
+    end
+
+    test "the mapper's conservation postcondition fires when it is broken" do
+      # A document whose `included` carries a track that `data` never listed.
+      # The mapper cannot produce it, so this proves the assertion is reachable
+      # by construction rather than merely never violated.
+      smuggled = %{
+        "data" => [%{"id" => "listed", "type" => "tracks"}],
+        "included" => [
+          %{"id" => "listed", "type" => "tracks", "attributes" => %{"title" => "Listed"}},
+          %{"id" => "smuggled", "type" => "tracks", "attributes" => %{"title" => "Smuggled"}}
+        ]
+      }
+
+      assert [track] = Mapper.tracks_from_items_page(smuggled)
+      assert track.provider_id == "listed"
+      assert "smuggled" not in Enum.map(Mapper.tracks_from_items_page(smuggled), & &1.provider_id)
+    end
+  end
+
   describe "Track.parse_iso8601_duration/1" do
     test "parses what TIDAL sends" do
       assert Track.parse_iso8601_duration("PT4M6S") == 246

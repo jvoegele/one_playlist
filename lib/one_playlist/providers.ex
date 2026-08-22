@@ -29,6 +29,7 @@ defmodule OnePlaylist.Providers do
   alias OnePlaylist.Providers.ProviderNotSupported
   alias OnePlaylist.Repo
 
+  use Bond
   use Errata
 
   @type user_id :: Ecto.UUID.t()
@@ -102,6 +103,18 @@ defmodule OnePlaylist.Providers do
   connect always clears `status`, `last_error` and `consecutive_failures` — the
   user has just proved the authorization works, so any earlier failure is stale.
   """
+  # An upsert whose `:replace` list drifts out of step with the schema is the
+  # bug these guard: a reconnect that silently keeps a stale value. These cannot
+  # catch a *missing* field (see the round-trip test in providers_test.exs), but
+  # they do catch the identity and lifecycle fields going wrong, which is where
+  # a mistake would be least visible.
+  @post whenever(
+          {:ok, connection} <- result,
+          belongs_to_requester: connection.user_id == user_id,
+          stored_under_requested_provider: connection.provider == provider,
+          connect_clears_prior_failure:
+            connection.status == :active and connection.consecutive_failures == 0
+        )
   @spec connect(user_id(), Connection.provider(), map()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def connect(user_id, provider, attrs) do
@@ -156,6 +169,16 @@ defmodule OnePlaylist.Providers do
 
   Clears the failure counters for the same reason `connect/3` does.
   """
+  # `connections_due_for_refresh/2` only considers `:active` connections, so a
+  # success that failed to clear the failure state would quietly remove this
+  # connection from the refresh schedule forever — it would keep working until
+  # the token expired, then die, with nothing in the logs to say why.
+  @post whenever(
+          {:ok, refreshed} <- result,
+          refresh_clears_failure_state:
+            refreshed.status == :active and refreshed.consecutive_failures == 0,
+          refresh_is_recorded: is_struct(refreshed.last_refreshed_at, DateTime)
+        )
   @spec record_refresh(Connection.t(), map()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def record_refresh(%Connection{} = connection, attrs) do
@@ -180,6 +203,17 @@ defmodule OnePlaylist.Providers do
   the counter, so a provider outage does not mass-disconnect every user — which
   would turn a ten-minute upstream blip into a re-authorization campaign.
   """
+  # The counter is how "this connection keeps failing" will eventually be
+  # noticed. A rewrite that assigned rather than incremented — `1` for
+  # `connection.consecutive_failures + 1` — would peg it at one forever and no
+  # threshold would ever trigger. Nothing would fail; the signal would just
+  # never arrive.
+  @post whenever(
+          {:ok, failed} <- result,
+          counter_advances_by_one:
+            failed.consecutive_failures == connection.consecutive_failures + 1,
+          failure_never_reactivates: failed.status != :active or connection.status == :active
+        )
   @spec record_failure(Connection.t(), Exception.t()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def record_failure(%Connection{} = connection, error) do
@@ -230,6 +264,22 @@ defmodule OnePlaylist.Providers do
   This is the refresh scheduler's query. Only `:active` connections are
   considered — one already needing re-authorization cannot be fixed by us.
   """
+  # This query and `Connection.needs_refresh?/3` are the same rule written twice,
+  # once in SQL and once in Elixir. Nothing but this postcondition keeps them in
+  # step, and drift is silent in both directions: too wide and the scheduler
+  # burns provider quota refreshing tokens that were fine, too narrow and
+  # connections quietly pass their expiry and die.
+  #
+  # `DateTime.utc_now/0` is read again here, marginally later than the query
+  # used it, which can only make the predicate *more* likely to hold — so the
+  # re-read cannot produce a false failure.
+  @pre non_negative_skew: is_integer(skew_seconds) and skew_seconds >= 0
+  @pre skew_under_a_day: skew_seconds <= 86_400
+  @post query_agrees_with_predicate:
+          forall(
+            connection <- result,
+            Connection.needs_refresh?(connection, DateTime.utc_now(), skew_seconds)
+          )
   @spec connections_due_for_refresh(non_neg_integer(), keyword()) :: [Connection.t()]
   def connections_due_for_refresh(skew_seconds \\ 300, opts \\ []) do
     deadline = DateTime.add(DateTime.utc_now(), skew_seconds, :second)
@@ -275,6 +325,19 @@ defmodule OnePlaylist.Providers do
   Refreshes unconditionally; `ensure_fresh/2` is the one that decides whether it
   is needed.
   """
+  # The law the `|| connection.refresh_token` fallback in the body exists to
+  # uphold. A provider need not return a new refresh token, and TIDAL usually
+  # does not; a rewrite that trusted the response would set it to nil, and the
+  # connection would work perfectly until the next expiry and then be
+  # unrecoverable without the user reconnecting. Slow, silent, and affecting
+  # every user at once.
+  @post whenever(
+          {:ok, refreshed} <- result,
+          refresh_token_is_never_lost:
+            not is_binary(connection.refresh_token) or is_binary(refreshed.refresh_token),
+          access_token_actually_changed_or_expiry_advanced:
+            is_struct(refreshed.access_token_expires_at, DateTime)
+        )
   @spec refresh(Connection.t()) :: {:ok, Connection.t()} | {:error, Errata.error()}
   def refresh(%Connection{refresh_token: nil} = connection) do
     error =
@@ -336,6 +399,35 @@ defmodule OnePlaylist.Providers do
   def supported_providers, do: Map.keys(@adapters)
 
   @doc "Removes a connection, revoking this application's access locally."
+  # Only the pure half of what this function guarantees is asserted here, and
+  # the omission is deliberate.
+  #
+  # The interesting law is about *blast radius*: a rewrite to `Repo.delete_all`
+  # with a filter that drops the `user_id` clause would wipe other people's
+  # connections while still satisfying "the requested one is gone". Expressing
+  # that needs a before-and-after count of shared state —
+  # `connection_count() == old(connection_count()) - 1` — and that assertion is
+  # unsound. Any concurrent `connect/3` or `disconnect/2` by a *different user*
+  # can interleave between the `old/1` snapshot and the check, and the
+  # postcondition then fails on code that did exactly what it was asked to.
+  #
+  # Bond's own `contracts-and-concurrency` guide names this the worst failure
+  # mode a contract can have: it accuses correct code, and teaches you to
+  # distrust the contract rather than the program. Its advice is to assert only
+  # what the implementation can actually guarantee under interleaving — and for
+  # a global table count under concurrent writes, that is nothing at all.
+  #
+  # So the blast-radius law lives in a test instead
+  # (`providers_test.exs`, "disconnecting removes one row and leaves other users
+  # alone"), where the sandbox makes the state genuinely exclusive and the strong
+  # assertion is sound. Verified to catch the `delete_all` rewrite on its own.
+  #
+  # What survives here is race-free because it touches no shared state: it is a
+  # claim about the struct this call returned.
+  @post whenever(
+          {:ok, removed} <- result,
+          removed_what_was_asked_for: removed.user_id == user_id and removed.provider == provider
+        )
   @spec disconnect(user_id(), Connection.provider()) ::
           {:ok, Connection.t()} | {:error, ConnectionNotFound.t()}
   def disconnect(user_id, provider) do

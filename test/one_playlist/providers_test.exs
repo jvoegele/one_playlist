@@ -143,6 +143,74 @@ defmodule OnePlaylist.ProvidersTest do
     end
   end
 
+  describe "contracts" do
+    test "every field in the upsert replace list actually round-trips", %{user_id: user_id} do
+      # The `on_conflict: {:replace, [...]}` list has to be kept in step with the
+      # schema by hand. A field added to one and not the other means a reconnect
+      # silently keeps the stale value — which no contract can catch, because
+      # the function did exactly what it was told. So it is pinned here instead.
+      {:ok, _first} =
+        connect(user_id,
+          provider_user_id: "before",
+          display_name: "Before",
+          access_token: "at-before",
+          refresh_token: "rt-before",
+          scopes: ["before"],
+          access_token_expires_at: seconds_from_now(60)
+        )
+
+      later = seconds_from_now(7200)
+
+      {:ok, second} =
+        connect(user_id,
+          provider_user_id: "after",
+          display_name: "After",
+          access_token: "at-after",
+          refresh_token: "rt-after",
+          scopes: ["after"],
+          access_token_expires_at: later
+        )
+
+      assert second.provider_user_id == "after"
+      assert second.display_name == "After"
+      assert second.access_token == "at-after"
+      assert second.refresh_token == "rt-after"
+      assert second.scopes == ["after"]
+      assert DateTime.compare(second.access_token_expires_at, later) == :eq
+    end
+
+    test "disconnecting removes one row and leaves other users alone", %{user_id: user_id} do
+      other = user_id_fixture()
+      {:ok, _} = connect(user_id)
+      {:ok, _} = connect(other)
+
+      assert {:ok, removed} = Providers.disconnect(user_id, :spotify)
+      assert removed.user_id == user_id
+
+      assert {:error, _} = Providers.fetch_connection(user_id, :spotify)
+
+      assert {:ok, _} = Providers.fetch_connection(other, :spotify),
+             "another user's connection must survive"
+    end
+
+    test "disconnecting something not connected is an error, not a deletion",
+         %{user_id: user_id} do
+      {:ok, _} = connect(user_id)
+
+      assert {:error, %ConnectionNotFound{}} = Providers.disconnect(user_id, :tidal)
+      assert {:ok, _} = Providers.fetch_connection(user_id, :spotify)
+    end
+
+    test "the failure counter advances by exactly one", %{user_id: user_id} do
+      {:ok, connection} = connect(user_id)
+      {:ok, once} = Providers.record_failure(connection, dead_grant())
+      {:ok, twice} = Providers.record_failure(once, dead_grant())
+
+      assert once.consecutive_failures == 1
+      assert twice.consecutive_failures == 2
+    end
+  end
+
   describe "encryption at rest" do
     test "tokens are ciphertext in Postgres", %{user_id: user_id} do
       {:ok, connection} = connect(user_id)

@@ -4,6 +4,10 @@ defmodule OnePlaylist.Providers.ConnectionTest do
 
   alias OnePlaylist.Providers.Connection
 
+  # The `now_after_creation?/2` examples are part of a precondition's public
+  # contract, so they are executed rather than merely written down.
+  doctest OnePlaylist.Providers.Connection, import: true
+
   @now ~U[2026-08-22 12:00:00.000000Z]
 
   defp connection(overrides \\ []) do
@@ -108,6 +112,48 @@ defmodule OnePlaylist.Providers.ConnectionTest do
       assert_precondition_violation(
         Connection.needs_refresh?(connection(), :not_a_datetime, 60),
         label: :valid_now
+      )
+    end
+
+    test "rejects a clock that predates the connection" do
+      # The bug: an epoch default or a badly parsed timestamp. Not a type error,
+      # and it makes every token look expired.
+      persisted = connection(inserted_at: ~U[2026-08-01 00:00:00.000000Z])
+      epoch_default = ~U[1970-01-01 00:00:00.000000Z]
+
+      assert_precondition_violation(Connection.expired?(persisted, epoch_default),
+        label: :now_after_creation
+      )
+
+      assert_precondition_violation(
+        Connection.needs_refresh?(persisted, epoch_default, 60),
+        label: :now_after_creation
+      )
+    end
+
+    test "a connection that was never persisted is exempt, not rejected" do
+      # inserted_at is nil for an in-memory struct, which is legitimate.
+      refute Connection.expired?(connection(), ~U[1970-01-01 00:00:00.000000Z])
+    end
+
+    test "needs_refresh?/3 rejects a skew longer than any token lives" do
+      # The bug this exists for: passing milliseconds where seconds are wanted.
+      # It is not a type error and nothing fails — every token just looks due on
+      # every call, and the application refreshes in a loop.
+      assert_precondition_violation(
+        Connection.needs_refresh?(connection(), @now, 300_000),
+        label: :skew_under_a_day
+      )
+    end
+
+    test "a skew right at the boundary is still accepted" do
+      # 86_400 must pass and 86_401 must not, or the bound is off by one and
+      # the test above would pass for the wrong reason.
+      assert is_boolean(Connection.needs_refresh?(connection(), @now, 86_400))
+
+      assert_precondition_violation(
+        Connection.needs_refresh?(connection(), @now, 86_401),
+        label: :skew_under_a_day
       )
     end
   end

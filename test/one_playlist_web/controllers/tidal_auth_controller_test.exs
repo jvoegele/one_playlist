@@ -3,10 +3,8 @@ defmodule OnePlaylistWeb.TidalAuthControllerTest do
 
   import OnePlaylist.AuthFixtures
 
-  alias Ecto.Adapters.SQL
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Tidal
-  alias OnePlaylist.Repo
 
   setup %{conn: conn} do
     user_id = user_id_fixture()
