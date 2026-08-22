@@ -7,6 +7,14 @@ defmodule OnePlaylist.Providers.RefreshTest do
 
   use OnePlaylist.DataCase, async: true
 
+  import Req.Test, only: [set_req_test_from_context: 1]
+
+  # Several test files stub Req under this same name and all run async. Without
+  # per-test ownership they overwrite one another, and a test intermittently
+  # gets a response meant for a different one. Same idea as the Ecto sandbox:
+  # private ownership for async tests, shared for sync ones.
+  setup :set_req_test_from_context
+
   import OnePlaylist.AuthFixtures
 
   alias OnePlaylist.Providers

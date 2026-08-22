@@ -1,16 +1,20 @@
 defmodule OnePlaylist.Providers.Tidal.OAuthTest do
   use ExUnit.Case, async: true
 
+  use Errata
+
+  import Req.Test, only: [set_req_test_from_context: 1]
+
   alias OnePlaylist.Providers.Tidal
   alias OnePlaylist.Providers.Tidal.NotConfigured
   alias OnePlaylist.Providers.Tidal.OAuth
   alias OnePlaylist.Providers.TokenRefreshFailed
 
-  use Errata
-
-  # Req.Test stubs are per-process by default, and `ExternalService.call/1` runs
-  # the wrapped function in the calling process, so an async test's stub is
-  # visible without any extra ownership setup.
+  # Several test files stub Req under this same name and all run async. Without
+  # per-test ownership they overwrite one another, and a test intermittently
+  # gets a response meant for a different one. Same idea as the Ecto sandbox:
+  # private ownership for async tests, shared for sync ones.
+  setup :set_req_test_from_context
 
   describe "authorization_url/1" do
     test "builds a PKCE authorization URL" do

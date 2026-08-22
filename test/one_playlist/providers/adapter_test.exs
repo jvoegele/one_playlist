@@ -10,13 +10,20 @@ defmodule OnePlaylist.Providers.AdapterTest do
 
   use ExUnit.Case, async: true
   use Bond.Test
+  use Errata
+
+  import Req.Test, only: [set_req_test_from_context: 1]
 
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Adapter
   alias OnePlaylist.Providers.ProviderNotSupported
   alias OnePlaylist.Providers.Tidal
 
-  use Errata
+  # Several test files stub Req under this same name and all run async. Without
+  # per-test ownership they overwrite one another, and a test intermittently
+  # gets a response meant for a different one. Same idea as the Ecto sandbox:
+  # private ownership for async tests, shared for sync ones.
+  setup :set_req_test_from_context
 
   describe "the registry" do
     test "resolves a supported provider to its adapter" do
