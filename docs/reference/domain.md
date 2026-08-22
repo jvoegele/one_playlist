@@ -150,13 +150,48 @@ service B.*
   endpoints (`/v1/me/library/*`) are per-user and are the ones that hit limits.**
 - Adding to a *library playlist* is supported; capabilities are narrower than Spotify's.
 
-### Tidal — good
+### Tidal — good, and the platform this project builds on first
 
 - Unified JSON:API at `openapi.tidal.com/v2`: catalog, search, recommendations, playlists,
   user collections, playback manifests.
 - Full playlist CRUD including reorder, items, cover art, owners — with `playlists.read` /
   `playlists.write` scopes.
 - Currently the friendliest major platform for a small developer.
+
+**Verified against the live service, 2026-08-22** (not taken from documentation, which is
+JS-rendered and awkward to read):
+
+| | |
+| --- | --- |
+| API base | `https://openapi.tidal.com/v2` |
+| Authorize | `https://login.tidal.com/authorize` |
+| Token | `https://auth.tidal.com/v1/oauth2/token` (form-encoded) |
+| Flow | Authorization Code + **PKCE (S256)**; private playlists and `/me` work *only* under PKCE |
+| Scopes | `user.read`, `collection.read/write`, `playlists.read/write`, `playback`, `recommendations.read`, `search.read/write`, `entitlements.read` |
+
+API errors are JSON:API shaped:
+
+```json
+{"errors": [{"code": "UNAUTHORIZED",
+             "detail": "Invalid or missing Authorization Header",
+             "meta": {"category": "AUTHENTICATION_ERROR"}}]}
+```
+
+Token errors are standard OAuth 2.0 plus Tidal's own status fields:
+
+```json
+{"error": "invalid_grant", "error_description": "Token has invalid payload",
+ "status": 400, "sub_status": 1005}
+```
+
+**Rate limits are not published.** Community reports put 429s as common on catalog reads and
+rare on playlist operations. With no documented quota the only safe posture is to stay well
+under whatever it is — hence the deliberately conservative 8 calls/second in
+`OnePlaylist.Providers.Tidal.Service`.
+
+Tidal is **not** one of Supabase Auth's built-in social providers, so its OAuth flow is driven
+by this application rather than by GoTrue. That is more code and a better outcome: the tokens
+arrive directly instead of appearing once in a Supabase session and vanishing.
 
 ### Deezer — effectively closed
 

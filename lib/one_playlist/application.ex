@@ -15,6 +15,11 @@ defmodule OnePlaylist.Application do
       OnePlaylist.Repo,
       {DNSCluster, query: Application.get_env(:one_playlist, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: OnePlaylist.PubSub},
+      # Guarded front doors for outbound provider calls. The child-spec options
+      # are deep merged with the module's own, which is how the test environment
+      # takes the mechanisms off the clock without a second module.
+      {OnePlaylist.Providers.Tidal.Service,
+       Application.get_env(:one_playlist, :tidal_service_opts, [])},
       # Start a worker by calling: OnePlaylist.Worker.start_link(arg)
       # {OnePlaylist.Worker, arg},
       # Start to serve requests, typically the last entry

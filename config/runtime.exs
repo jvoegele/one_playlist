@@ -1,5 +1,27 @@
 import Config
 
+# TIDAL application credentials, from https://developer.tidal.com. Read in every
+# environment rather than only in prod, so `iex -S mix` can drive the real API
+# against a real TIDAL account. Absent, the OAuth module reports a clear
+# configuration error rather than redirecting to TIDAL with a blank client_id.
+#
+# Only keys whose environment variable is actually set are configured. This file
+# is evaluated *after* config/test.exs, so unconditionally assigning
+# `System.get_env(...)` would overwrite the test credentials with nil and every
+# TIDAL test would fail with a configuration error instead of exercising
+# anything.
+tidal_env =
+  [
+    client_id: System.get_env("TIDAL_CLIENT_ID"),
+    client_secret: System.get_env("TIDAL_CLIENT_SECRET"),
+    redirect_uri: System.get_env("TIDAL_REDIRECT_URI")
+  ]
+  |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+if tidal_env != [] do
+  config :one_playlist, OnePlaylist.Providers.Tidal, tidal_env
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration

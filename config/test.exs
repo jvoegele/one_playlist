@@ -65,3 +65,20 @@ config :one_playlist, OnePlaylist.Vault, key: "b8sLzK5ycelvlNomefBIAX7zKj12kvD3o
 # vacuous contract Bond's guides warn about — shows up instead of looking like
 # coverage. Compile-time opt-in; the reporter is installed in test_helper.exs.
 config :bond, coverage: true
+
+# Take the guarded provider calls off the clock, without making them inert:
+# the retry path is still exercised, it just does not sleep. The two stateful
+# mechanisms are set to :infinity so nothing accumulates across tests — a finite
+# tolerate would eventually trip mid-suite and look like flakiness.
+config :one_playlist, :tidal_service_opts,
+  circuit_breaker: [tolerate: :infinity],
+  rate_limit: [limit: :infinity],
+  concurrency: [limit: 1_000],
+  retry: [max_attempts: 3, backoff: :linear, base: 0]
+
+# Route every TIDAL request through Req.Test rather than the network.
+config :one_playlist, OnePlaylist.Providers.Tidal,
+  req_options: [plug: {Req.Test, OnePlaylist.Providers.Tidal}],
+  client_id: "test-client-id",
+  client_secret: "test-client-secret",
+  redirect_uri: "http://localhost:4002/auth/tidal/callback"

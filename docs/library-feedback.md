@@ -45,6 +45,40 @@ Worth checking whether `call_async`/`call_async_stream` want the same treatment.
 library's own `.formatter.exs` also carries a commented-out `line_length: 100` — presumably
 intended to be enabled, since `wait_for_it` sets exactly that.
 
+## `external_service` — Req retries by default, silently multiplying every guarded call
+
+**Found:** 2026-08-22, building the TIDAL adapter. Not a bug in `external_service`, but a trap
+worth a paragraph in its guides.
+
+`Req` — the HTTP client Phoenix now ships by default, and which `external_service`'s own
+`circuit-breakers` guide uses in its examples — defaults to `retry: :safe_transient`, retrying
+408/429/5xx and transport errors **three times with its own exponential backoff**.
+
+Wrapped in `ExternalService.call/1`, that nests: each of the four configured attempts becomes
+four requests. Observed here as **12 requests where 4 were configured**, and a test suite that
+took **103 seconds instead of 0.06**, because Req slept on its own backoff (`will retry in
+980ms`, `will retry in 1841ms`) inside a service configured with `base: 0` for tests.
+
+Worse than the count is that the retrying is invisible to the library: it happens below
+`call/1`, so `[:external_service, :call, :retry]` never fires for it, the circuit breaker never
+sees the failures, and `ExternalService.simulate/3` models a call profile the application does
+not actually have. Every tuning tool in the library is quietly wrong.
+
+The fix is one option — `retry: false` in the Req request — but it has to be *known about*.
+
+**Suggested fix:** a note in `guides/circuit-breakers.md` beside the existing Req/Finch/Tesla
+timeout examples, which already say "your HTTP client already has the timeout that matters".
+The same paragraph could say that your HTTP client may also have retries that do not matter,
+and should be turned off:
+
+```elixir
+# Req retries 408/429/5xx by default; ExternalService owns retrying.
+Req.get(url, retry: false, receive_timeout: :timer.seconds(5))
+```
+
+Tesla's `Tesla.Middleware.Retry` and Finch's own behaviour deserve the same one-liner. This is
+cheap to document and expensive to discover.
+
 ## `bond` — `Bond.Coverage`'s ETS table dies with the first test that writes to it
 
 **Found:** 2026-08-22, wiring up contract coverage. **This one is a bug**, and it silently

@@ -171,10 +171,7 @@ defmodule OnePlaylist.Providers do
   @spec record_failure(Connection.t(), Exception.t()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def record_failure(%Connection{} = connection, error) do
-    status =
-      if Errata.is_error(error) and not Errata.retryable?(error),
-        do: :reauth_required,
-        else: connection.status
+    status = if requires_reauth?(error), do: :reauth_required, else: connection.status
 
     connection
     |> Connection.changeset(%{
@@ -183,6 +180,36 @@ defmodule OnePlaylist.Providers do
       consecutive_failures: connection.consecutive_failures + 1
     })
     |> Repo.update()
+  end
+
+  # Whether a failure means the *user* must act, as opposed to us trying again
+  # later.
+  #
+  # The question has to be asked of the underlying failure, not the error in
+  # hand. A guarded call that exhausts its retries returns
+  # `ExternalService.RetriesExhausted`, which is itself deliberately *not*
+  # retryable — "retrying is precisely what has already been tried". Asking it
+  # directly would read a TIDAL outage as a dead grant and demand that every
+  # affected user reconnect, which is the exact failure this function exists to
+  # prevent.
+  #
+  # `RetriesExhausted` carries the real failure as its `:cause`, so unwrap to it
+  # first. Anything that is not an Errata error is treated as transient: an
+  # unrecognised failure is a poor reason to disconnect somebody.
+  defp requires_reauth?(error) do
+    underlying = root_of(error)
+    Errata.is_error(underlying) and not Errata.retryable?(underlying)
+  end
+
+  defp root_of(error) do
+    if Errata.is_error(error) do
+      case Errata.cause(error) do
+        nil -> error
+        cause -> root_of(cause)
+      end
+    else
+      error
+    end
   end
 
   @doc """
@@ -204,6 +231,71 @@ defmodule OnePlaylist.Providers do
     |> limit(^limit)
     |> Repo.all()
   end
+
+  @doc """
+  Ensures a connection has a usable access token, refreshing it if it is close
+  to expiry.
+
+  This is the function every provider call should go through. It is idempotent
+  and cheap in the common case — a connection with time left is returned
+  untouched, with no HTTP call.
+
+  Failure is recorded on the connection as a side effect (see
+  `record_failure/2`), so a caller that ignores the error still leaves a trail,
+  and a dead grant is marked as needing re-authorization rather than being
+  retried forever.
+  """
+  @spec ensure_fresh(Connection.t(), keyword()) ::
+          {:ok, Connection.t()} | {:error, Errata.error()}
+  def ensure_fresh(%Connection{} = connection, opts \\ []) do
+    skew = Keyword.get(opts, :skew_seconds, 300)
+
+    if Connection.needs_refresh?(connection, DateTime.utc_now(), skew) do
+      refresh(connection)
+    else
+      {:ok, connection}
+    end
+  end
+
+  @doc """
+  Exchanges a connection's refresh token for a new access token.
+
+  Refreshes unconditionally; `ensure_fresh/2` is the one that decides whether it
+  is needed.
+  """
+  @spec refresh(Connection.t()) :: {:ok, Connection.t()} | {:error, Errata.error()}
+  def refresh(%Connection{refresh_token: nil} = connection) do
+    error =
+      Errata.create(ConnectionUnusable,
+        reason: :reauth_required,
+        context: %{provider: connection.provider, user_id: connection.user_id}
+      )
+
+    _ = record_failure(connection, error)
+    {:error, error}
+  end
+
+  def refresh(%Connection{} = connection) do
+    case refresher(connection.provider).refresh(connection.refresh_token) do
+      {:ok, tokens} ->
+        record_refresh(connection, %{
+          access_token: tokens.access_token,
+          # TIDAL does not always return a new refresh token. Keeping the
+          # existing one is not a nicety: overwriting it with nil would end the
+          # connection at the next expiry, and the user would have to reconnect
+          # for no reason.
+          refresh_token: tokens.refresh_token || connection.refresh_token,
+          access_token_expires_at: tokens.expires_at,
+          scopes: if(tokens.scopes == [], do: connection.scopes, else: tokens.scopes)
+        })
+
+      {:error, error} ->
+        _ = record_failure(connection, error)
+        {:error, error}
+    end
+  end
+
+  defp refresher(:tidal), do: OnePlaylist.Providers.Tidal.OAuth
 
   @doc "Removes a connection, revoking this application's access locally."
   @spec disconnect(user_id(), Connection.provider()) ::

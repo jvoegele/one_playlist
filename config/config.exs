@@ -88,6 +88,26 @@ config :errata,
     :authorization
   ]
 
+# TIDAL. Endpoints are not secret and are the same everywhere; credentials come
+# from the environment in config/runtime.exs.
+#
+# TIDAL is first because it is the only major service whose API a small
+# developer can actually use: full playlist CRUD, no allowlist, no MAU
+# threshold. See docs/reference/domain.md.
+config :one_playlist, OnePlaylist.Providers.Tidal,
+  login_url: "https://login.tidal.com",
+  auth_url: "https://auth.tidal.com/v1",
+  api_url: "https://openapi.tidal.com/v2",
+  # Requested at authorization time. `playlists.write` and `collection.write`
+  # are what make this a transfer tool rather than a viewer.
+  scopes: ~w(user.read collection.read collection.write playlists.read playlists.write),
+  # Overridden by TIDAL_REDIRECT_URI, and must match a redirect URI registered
+  # on the TIDAL application exactly.
+  redirect_uri: "http://localhost:4000/auth/tidal/callback",
+  # Extra options merged into every Req request. Tests inject a Req.Test plug
+  # here; production leaves it empty.
+  req_options: []
+
 # Content-Security-Policy for the browser pipeline.
 #
 # Notes on the non-obvious directives:
