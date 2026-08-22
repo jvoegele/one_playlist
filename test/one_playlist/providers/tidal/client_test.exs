@@ -122,7 +122,16 @@ defmodule OnePlaylist.Providers.Tidal.ClientTest do
     end
   end
 
-  describe "stream_playlists/2" do
+  describe "stream_playlists/3" do
+    test "targets the numeric user id, since TIDAL rejects `me` on this path" do
+      Req.Test.stub(Tidal, fn conn ->
+        assert conn.request_path == "/v2/userCollections/67373615/relationships/playlists"
+        Req.Test.json(conn, %{"data" => [], "links" => %{}})
+      end)
+
+      assert Client.stream_playlists("at", "67373615") |> Enum.to_list() == []
+    end
+
     test "follows the cursor across pages and stops at the end" do
       pages = :counters.new(1, [])
 
@@ -146,7 +155,7 @@ defmodule OnePlaylist.Providers.Tidal.ClientTest do
         end
       end)
 
-      assert Client.stream_playlists("at") |> Enum.to_list() |> Enum.map(& &1["id"]) ==
+      assert Client.stream_playlists("at", "67373615") |> Enum.to_list() |> Enum.map(& &1["id"]) ==
                ~w(p1 p2 p3)
 
       assert :counters.get(pages, 1) == 2
@@ -155,7 +164,7 @@ defmodule OnePlaylist.Providers.Tidal.ClientTest do
     test "is lazy — an unconsumed stream makes no request" do
       Req.Test.stub(Tidal, fn _conn -> flunk("no request should have been made") end)
 
-      _stream = Client.stream_playlists("at")
+      _stream = Client.stream_playlists("at", "67373615")
       :ok
     end
 
@@ -171,7 +180,9 @@ defmodule OnePlaylist.Providers.Tidal.ClientTest do
         })
       end)
 
-      assert Client.stream_playlists("at") |> Enum.take(1) |> Enum.map(& &1["id"]) == ["p1"]
+      assert Client.stream_playlists("at", "67373615") |> Enum.take(1) |> Enum.map(& &1["id"]) ==
+               ["p1"]
+
       assert :counters.get(requests, 1) == 1
     end
 
@@ -190,7 +201,7 @@ defmodule OnePlaylist.Providers.Tidal.ClientTest do
         })
       end)
 
-      assert Client.stream_playlists("at") |> Enum.to_list() |> length() == 2
+      assert Client.stream_playlists("at", "67373615") |> Enum.to_list() |> length() == 2
       assert :counters.get(requests, 1) == 2
     end
   end

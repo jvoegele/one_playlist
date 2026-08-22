@@ -40,14 +40,24 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   end
 
   @doc """
-  A page of the user's own playlists.
+  A page of a user's own playlists.
+
+  `tidal_user_id` is TIDAL's numeric account id — the `provider_user_id` on the
+  connection, and the `id` from `current_user/1`.
+
+  It is required rather than defaulted to `me` because **TIDAL does not accept
+  `me` on this path**. Verified against the live API on 2026-08-22:
+
+      /userCollections/67373615/relationships/playlists  → 200
+      /userCollections/me/relationships/playlists        → 404 NOT_FOUND
 
   Returns the raw JSON:API page — `data` plus whatever `links.next` TIDAL
   supplies — rather than a list, so the caller can page without this module
-  deciding how much to fetch. `stream_playlists/2` is the convenience over it.
+  deciding how much to fetch. `stream_playlists/3` is the convenience over it.
   """
-  @spec list_playlists(String.t(), keyword()) :: {:ok, map()} | {:error, Errata.error()}
-  def list_playlists(access_token, opts \\ []) do
+  @spec list_playlists(String.t(), String.t(), keyword()) ::
+          {:ok, map()} | {:error, Errata.error()}
+  def list_playlists(access_token, tidal_user_id, opts \\ []) do
     params =
       opts
       |> Keyword.take([:cursor, :limit])
@@ -57,7 +67,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
         {:limit, v} -> {"page[limit]", v}
       end)
 
-    get(access_token, "/userCollections/me/relationships/playlists", params)
+    get(access_token, "/userCollections/#{tidal_user_id}/relationships/playlists", params)
   end
 
   @doc """
@@ -71,8 +81,8 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   error tuple. Callers that want values should wrap in `Errata`-aware handling
   or use `list_playlists/2` directly.
   """
-  @spec stream_playlists(String.t(), keyword()) :: Enumerable.t()
-  def stream_playlists(access_token, opts \\ []) do
+  @spec stream_playlists(String.t(), String.t(), keyword()) :: Enumerable.t()
+  def stream_playlists(access_token, tidal_user_id, opts \\ []) do
     Stream.resource(
       fn -> {:start, nil} end,
       fn
@@ -82,7 +92,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
         {_previous, cursor} = acc ->
           opts = if cursor, do: Keyword.put(opts, :cursor, cursor), else: opts
 
-          case list_playlists(access_token, opts) do
+          case list_playlists(access_token, tidal_user_id, opts) do
             {:ok, %{"data" => data} = page} ->
               {data, advance(acc, next_cursor(page))}
 

@@ -118,6 +118,15 @@ defmodule OnePlaylist.Providers do
     %Connection{}
     |> Connection.changeset(attrs)
     |> Repo.insert(
+      # Encryption keeps tokens out of the *database* as plaintext. It does
+      # nothing for the query log, which prints every bound parameter — and the
+      # parameters here are the tokens, pre-encryption. Observed leaking both a
+      # live access and refresh token into the dev log at :debug.
+      #
+      # `log: false` is the blunt fix, and the right one: no log line is worth a
+      # credential that grants standing access to someone's music library. It
+      # costs the timing entry for this one query.
+      log: false,
       # Without `returning: true` an upsert hands back the id Ecto generated
       # client-side rather than the id of the row that actually exists, so a
       # reconnect would return a struct whose primary key matches nothing.
@@ -157,7 +166,8 @@ defmodule OnePlaylist.Providers do
         consecutive_failures: 0
       })
     )
-    |> Repo.update()
+    # Carries tokens as query parameters — see the note in `connect/3`.
+    |> Repo.update(log: false)
   end
 
   @doc """

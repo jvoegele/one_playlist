@@ -184,6 +184,29 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
  "status": 400, "sub_status": 1005}
 ```
 
+**Verified against a real account, 2026-08-22** (OAuth round trip completed, 216 playlists read):
+
+- `GET /users/me` → `data.attributes` has `country`, `developerAccessTier`, `email`,
+  `emailVerified`, `firstName`, `lastName`, `username`. **`username` may be the email** — it
+  was for the test account. `country` here is the `countryCode` other endpoints want, and it
+  also appears as `cc` inside the access token's JWT payload.
+- **`me` is not a valid path segment outside `/users/me`.** Listing playlists needs the numeric
+  account id:
+
+  | Path | Result |
+  | --- | --- |
+  | `/userCollections/{id}/relationships/playlists` | **200** |
+  | `/userCollections/me/relationships/playlists` | 404 `NOT_FOUND` |
+  | `/users/{id}/relationships/playlists` | 404 |
+  | `/playlists?filter[r.owners.id]={id}&countryCode=US` | **200** |
+
+- The relationships endpoint returns **identifiers only** — `{"id", "type", "meta.addedAt"}` —
+  not playlist names. Getting titles needs either `include=`, a follow-up `/playlists/{id}`, or
+  the `filter[r.owners.id]` form, which returns full resources. Worth settling before building
+  the playlist list UI, since it is the difference between one request and 216.
+- Pagination is `links.next` (a path plus `page[cursor]`) with the cursor also in
+  `links.meta.nextCursor`. Pages were 20 items.
+
 **Rate limits are not published.** Community reports put 429s as common on catalog reads and
 rare on playlist operations. With no documented quota the only safe posture is to stay well
 under whatever it is — hence the deliberately conservative 8 calls/second in
