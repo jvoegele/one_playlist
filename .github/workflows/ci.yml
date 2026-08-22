@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch supersedes this run. `main` is excluded so
+# every commit that lands there is actually verified.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: mix ci
+    runs-on: ubuntu-latest
+
+    env:
+      MIX_ENV: test
+
+    defaults:
+      run:
+        working-directory: one_playlist
+
+    steps:
+      - name: Check out the application
+        uses: actions/checkout@v4
+        with:
+          path: one_playlist
+
+      # The four libraries this project dogfoods are path dependencies, so CI
+      # reproduces the sibling layout a developer checkout has. Testing against
+      # the source rather than the Hex releases is the point: the whole reason
+      # this application exists is to find friction in these libraries, and
+      # friction found against a published version is friction found too late.
+      #
+      # No `ref` — each repository's default branch is what a developer would
+      # have checked out (`main` for two of them, `master` for the other two).
+      - name: Check out bond
+        uses: actions/checkout@v4
+        with:
+          repository: jvoegele/bond
+          path: bond
+      - name: Check out errata
+        uses: actions/checkout@v4
+        with:
+          repository: jvoegele/errata
+          path: errata
+      - name: Check out external_service
+        uses: actions/checkout@v4
+        with:
+          repository: jvoegele/external_service
+          path: external_service
+      - name: Check out wait_for_it
+        uses: actions/checkout@v4
+        with:
+          repository: jvoegele/wait_for_it
+          path: wait_for_it
+
+      - name: Set up Elixir and OTP
+        uses: erlef/setup-beam@v1
+        with:
+          version-file: one_playlist/.tool-versions
+          version-type: strict
+
+      # Hex dependencies only: path dependencies are not in mix.lock, and are
+      # rebuilt from the checkouts above.
+      - name: Restore dependency cache
+        uses: actions/cache@v4
+        with:
+          path: one_playlist/deps
+          key: deps-${{ runner.os }}-${{ hashFiles('one_playlist/mix.lock') }}
+          restore-keys: deps-${{ runner.os }}-
+
+      # The key is unique per commit so every run saves a fresh entry, with
+      # restore-keys falling back to the most recent build for the same lock
+      # file. The path dependencies are safe to restore this way: a fresh
+      # checkout timestamps their sources later than any cached artifact, so
+      # Elixir recompiles them rather than trusting a stale beam.
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: one_playlist/_build
+          key: >-
+            build-${{ runner.os }}-${{ hashFiles('one_playlist/mix.lock') }}-${{
+            github.sha }}
+          restore-keys: build-${{ runner.os }}-${{ hashFiles('one_playlist/mix.lock') }}-
+
+      # Building the PLT takes ~30s; type-checking against it takes ~2s. Without
+      # this cache dialyzer would dominate the run.
+      - name: Restore dialyzer PLT cache
+        uses: actions/cache@v4
+        with:
+          path: one_playlist/priv/plts
+          key: plt-${{ runner.os }}-${{ hashFiles('one_playlist/mix.lock') }}
+          restore-keys: plt-${{ runner.os }}-
+
+      - name: Fetch dependencies
+        run: mix deps.get
+
+      - name: Set up the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # The suite needs Postgres with the Supabase schemas on top of it — the
+      # RLS tests assert against `auth.users`, the `anon`/`authenticated`/
+      # `service_role` roles and `auth.uid()`, none of which a plain Postgres
+      # service container provides. It does not need the other eleven
+      # containers, and excluding them takes the start from minutes to seconds.
+      - name: Start Supabase (database only)
+        run: supabase start -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      # `mix test` is aliased to create and migrate first, but `mix ci` measures
+      # coverage via `mix coveralls`, which invokes the test *task* rather than
+      # the alias. Doing it explicitly here removes the dependency on that
+      # distinction.
+      - name: Create and migrate the test database
+        run: mix ecto.create --quiet && mix ecto.migrate --quiet
+
+      # compile --warnings-as-errors, deps.unlock --check-unused,
+      # format --check-formatted, credo --strict, sobelow, deps.audit,
+      # dialyzer, docs, coveralls. Ordered cheapest-first in mix.exs, so a
+      # trivial failure reports without waiting for the slow steps.
+      - name: Run the CI gate
+        run: mix ci
+
+      - name: Show Supabase logs on failure
+        if: failure()
+        run: supabase status || true

@@ -1,5 +1,7 @@
 # OnePlaylist
 
+[![CI](https://github.com/jvoegele/one_playlist/actions/workflows/ci.yml/badge.svg)](https://github.com/jvoegele/one_playlist/actions/workflows/ci.yml)
+
 Move playlists between music services — and be honest about what happened.
 
 A playlist transfer tool has one failure mode worse than crashing: **finishing,
