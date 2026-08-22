@@ -59,3 +59,9 @@ config :phoenix,
 # Encryption key for OnePlaylist.Vault. See the note in config/dev.exs — this is
 # a throwaway key, deliberately committed so the suite runs without setup.
 config :one_playlist, OnePlaylist.Vault, key: "b8sLzK5ycelvlNomefBIAX7zKj12kvD3ostieeVVwY0="
+
+# Bond contract coverage. Records which assertions were checked and which were
+# ever observed to fail, so an assertion that runs but can never fail — the
+# vacuous contract Bond's guides warn about — shows up instead of looking like
+# coverage. Compile-time opt-in; the reporter is installed in test_helper.exs.
+config :bond, coverage: true

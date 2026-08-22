@@ -35,3 +35,7 @@ one_playlist-*.tar
 npm-debug.log
 /assets/node_modules/
 
+
+# Dialyzer PLTs — large, machine-specific, and rebuildable.
+/priv/plts/*.plt
+/priv/plts/*.plt.hash

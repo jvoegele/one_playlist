@@ -194,6 +194,37 @@ add policies with an explicit `TO` role. See `docs/reference/supabase.md` for th
 and the `(select auth.uid())` performance note. `public.schema_migrations` should get a
 `revoke all ... from anon, authenticated` alongside the first real migration.
 
+## Tooling
+
+`mix precommit` is the gate; it runs everything below plus the tests, ordered cheapest-first.
+`mix ci` is the same minus the formatter's rewriting (it checks instead of fixing) and with
+coverage.
+
+| Tool | What it is for |
+| --- | --- |
+| `mix credo --strict` | Style and consistency over `lib/` and `mix.exs`. Tests are deliberately outside the gate. |
+| `mix dialyzer` | Type analysis. ~2s once the PLT exists. |
+| `mix sobelow --exit` | Phoenix security scanner — XSS, CSRF, config, SQL injection. |
+| `mix deps.audit` | Dependencies against the Elixir security advisory database. |
+| `mix coveralls.html` | Test coverage report. |
+| `mix docs` | ExDoc, including the `docs/reference/` material as extras. |
+
+**First run on a fresh checkout:** `mix dialyzer --plt` builds the PLT (~30s, one-off). It is
+stored under `priv/plts/`, which is gitignored — kept out of `_build` so `mix clean` or an env
+switch does not throw it away.
+
+Two configuration decisions worth not re-litigating, both recorded in place:
+
+- `.credo.exs` must not gain an `enabled:` list. `checks: %{enabled: [...]}` **replaces** the
+  default check set rather than adding to it — measured here as 1 check running instead of 68.
+- Dialyzer's `:extra_return` flag is off. It fires on every Errata-generated `code/1` and
+  `retryable?/1`, and the count would grow with each error type we define.
+
+**Bond contract coverage** prints after every `mix test` run (`config :bond, coverage: true`).
+An assertion marked `⚠ never failed` is a prompt: either write a test proving it can fail, or
+delete it. `test/test_helper.exs` carries a workaround for a Bond bug — see
+`docs/library-feedback.md`.
+
 ## Working agreements
 
 - Run `mix precommit` when a change is complete and fix everything it reports.

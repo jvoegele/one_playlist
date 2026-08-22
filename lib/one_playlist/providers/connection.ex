@@ -87,8 +87,9 @@ defmodule OnePlaylist.Providers.Connection do
   providers issue tokens that do not expire, and guessing otherwise would send
   us refreshing on every call.
   """
+  # No `is_boolean(result)` postcondition here: it restates the @spec, which
+  # Dialyzer checks for free, and Bond.Coverage confirmed it could never fail.
   @pre valid_now: is_struct(now, DateTime)
-  @post total: is_boolean(result)
   @spec expired?(t :: %__MODULE__{}, now :: DateTime.t()) :: boolean()
   def expired?(%__MODULE__{access_token_expires_at: nil}, _now), do: false
 
@@ -140,7 +141,6 @@ defmodule OnePlaylist.Providers.Connection do
   Deliberately does not consider expiry: an expired access token is refreshable,
   which is a different situation from a revoked one.
   """
-  @post total: is_boolean(result)
   @spec usable?(connection :: %__MODULE__{}) :: boolean()
   def usable?(%__MODULE__{status: :active, access_token: token}) when is_binary(token), do: true
   def usable?(%__MODULE__{}), do: false

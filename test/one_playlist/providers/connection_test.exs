@@ -100,5 +100,15 @@ defmodule OnePlaylist.Providers.ConnectionTest do
         label: :non_negative_skew
       )
     end
+
+    # Bond.Coverage flagged this one as checked-but-never-failed. It is a real
+    # assertion rather than a vacuous one, so the answer is to prove it fires
+    # rather than to delete it.
+    test "needs_refresh?/3 rejects a non-DateTime clock" do
+      assert_precondition_violation(
+        Connection.needs_refresh?(connection(), :not_a_datetime, 60),
+        label: :valid_now
+      )
+    end
   end
 end

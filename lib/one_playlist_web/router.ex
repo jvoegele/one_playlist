@@ -1,13 +1,17 @@
 defmodule OnePlaylistWeb.Router do
   use OnePlaylistWeb, :router
 
+  # Built at compile time from config so dev can allow what LiveReload needs
+  # (a ws: connection and its iframe) without loosening the deployed policy.
+  @csp Application.compile_env!(:one_playlist, :content_security_policy)
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
     plug :put_root_layout, html: {OnePlaylistWeb.Layouts, :root}
     plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    plug :put_secure_browser_headers, %{"content-security-policy" => @csp}
   end
 
   pipeline :api do

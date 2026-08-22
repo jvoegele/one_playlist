@@ -88,6 +88,43 @@ config :errata,
     :authorization
   ]
 
+# Content-Security-Policy for the browser pipeline.
+#
+# Notes on the non-obvious directives:
+#
+#   * `img-src ... https:` — album art is served from the providers' own CDNs
+#     (i.scdn.co, mzstatic.com, and so on), and enumerating them would break
+#     every time one changed. Images are the one resource type where a broad
+#     allowance is low risk.
+#   * `style-src 'unsafe-inline'` — LiveView writes inline styles for
+#     transitions, and removing this breaks them. Scripts get no such
+#     allowance: AGENTS.md forbids inline <script> tags, so `script-src 'self'`
+#     holds.
+#   * `connect-src` and `frame-ancestors` are relaxed in dev only: LiveReload
+#     talks over an unencrypted websocket and injects a same-origin iframe.
+#
+# The dev branch lives here rather than in dev.exs because a config file cannot
+# read back what it just set — `Application.get_env/2` during config evaluation
+# returns nil — so deriving one policy from the other would have to duplicate it.
+connect_src = if config_env() == :dev, do: "'self' ws: wss:", else: "'self' wss:"
+frame_ancestors = if config_env() == :dev, do: "'self'", else: "'none'"
+
+config :one_playlist,
+  content_security_policy:
+    [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors #{frame_ancestors}",
+      "object-src 'none'",
+      "img-src 'self' data: https:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self'",
+      "connect-src #{connect_src}",
+      "font-src 'self' data:",
+      "form-action 'self'"
+    ]
+    |> Enum.join("; ")
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
