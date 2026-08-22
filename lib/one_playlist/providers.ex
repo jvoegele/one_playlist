@@ -26,6 +26,7 @@ defmodule OnePlaylist.Providers do
   alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.ConnectionNotFound
   alias OnePlaylist.Providers.ConnectionUnusable
+  alias OnePlaylist.Providers.ProviderNotSupported
   alias OnePlaylist.Repo
 
   use Errata
@@ -287,26 +288,52 @@ defmodule OnePlaylist.Providers do
   end
 
   def refresh(%Connection{} = connection) do
-    case refresher(connection.provider).refresh(connection.refresh_token) do
-      {:ok, tokens} ->
-        record_refresh(connection, %{
-          access_token: tokens.access_token,
-          # TIDAL does not always return a new refresh token. Keeping the
-          # existing one is not a nicety: overwriting it with nil would end the
-          # connection at the next expiry, and the user would have to reconnect
-          # for no reason.
-          refresh_token: tokens.refresh_token || connection.refresh_token,
-          access_token_expires_at: tokens.expires_at,
-          scopes: if(tokens.scopes == [], do: connection.scopes, else: tokens.scopes)
-        })
-
+    with {:ok, adapter} <- adapter(connection.provider),
+         {:ok, tokens} <- adapter.refresh_tokens(connection.refresh_token) do
+      record_refresh(connection, %{
+        access_token: tokens.access_token,
+        # A provider need not return a new refresh token, and TIDAL usually does
+        # not. Keeping the existing one is not a nicety: overwriting it with nil
+        # would end the connection at the next expiry, and the user would have
+        # to reconnect for no reason.
+        refresh_token: tokens[:refresh_token] || connection.refresh_token,
+        access_token_expires_at: tokens.expires_at,
+        scopes: if(tokens[:scopes] in [nil, []], do: connection.scopes, else: tokens.scopes)
+      })
+    else
       {:error, error} ->
         _ = record_failure(connection, error)
         {:error, error}
     end
   end
 
-  defp refresher(:tidal), do: OnePlaylist.Providers.Tidal.OAuth
+  @adapters %{tidal: OnePlaylist.Providers.Tidal}
+
+  @doc """
+  The `OnePlaylist.Providers.Adapter` implementation for a provider.
+
+  A map rather than function clauses so that `supported_providers/0` can be
+  derived from it — two lists that must agree is one list too many.
+
+  Returns an error rather than raising, because `Connection` deliberately
+  accepts more providers than are implemented: the schema documents the
+  roadmap, and asking for one of the unbuilt ones is a `501`, not a crash.
+  """
+  @spec adapter(Connection.provider()) ::
+          {:ok, module()} | {:error, ProviderNotSupported.t()}
+  def adapter(provider) do
+    case Map.fetch(@adapters, provider) do
+      {:ok, module} ->
+        {:ok, module}
+
+      :error ->
+        {:error, Errata.create(ProviderNotSupported, context: %{provider: provider})}
+    end
+  end
+
+  @doc "Providers this application can actually talk to today."
+  @spec supported_providers() :: [Connection.provider()]
+  def supported_providers, do: Map.keys(@adapters)
 
   @doc "Removes a connection, revoking this application's access locally."
   @spec disconnect(user_id(), Connection.provider()) ::

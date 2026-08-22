@@ -15,6 +15,8 @@ defmodule OnePlaylist.Providers.TokenLoggingTest do
 
   use OnePlaylist.DataCase, async: false
 
+  import OnePlaylist.AuthFixtures
+
   import ExUnit.CaptureLog
 
   alias Ecto.Adapters.SQL
@@ -24,7 +26,7 @@ defmodule OnePlaylist.Providers.TokenLoggingTest do
   @refresh "rt-secret-should-never-be-logged"
 
   setup do
-    %{user_id: create_auth_user()}
+    %{user_id: user_id_fixture()}
   end
 
   test "connect/3 does not log the tokens", %{user_id: user_id} do
@@ -78,20 +80,5 @@ defmodule OnePlaylist.Providers.TokenLoggingTest do
       refresh_token: @refresh,
       access_token_expires_at: DateTime.add(DateTime.utc_now(), 3600, :second)
     })
-  end
-
-  defp create_auth_user do
-    id = Ecto.UUID.generate()
-
-    SQL.query!(
-      Repo,
-      """
-      insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
-      values ($1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', $2, now(), now())
-      """,
-      [Ecto.UUID.dump!(id), "user-#{System.unique_integer([:positive])}@example.test"]
-    )
-
-    id
   end
 end

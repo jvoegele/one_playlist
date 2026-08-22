@@ -14,12 +14,14 @@ defmodule OnePlaylist.Providers.RLSTest do
 
   use OnePlaylist.DataCase, async: false
 
+  import OnePlaylist.AuthFixtures
+
   alias Ecto.Adapters.SQL
   alias OnePlaylist.Providers
 
   setup do
-    alice = create_auth_user()
-    bob = create_auth_user()
+    alice = user_id_fixture()
+    bob = user_id_fixture()
 
     {:ok, _} = connect(alice, "alice-spotify")
     {:ok, _} = connect(bob, "bob-spotify")
@@ -113,20 +115,5 @@ defmodule OnePlaylist.Providers.RLSTest do
       access_token: "token",
       refresh_token: "refresh"
     })
-  end
-
-  defp create_auth_user do
-    id = Ecto.UUID.generate()
-
-    SQL.query!(
-      Repo,
-      """
-      insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
-      values ($1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', $2, now(), now())
-      """,
-      [Ecto.UUID.dump!(id), "user-#{System.unique_integer([:positive])}@example.test"]
-    )
-
-    id
   end
 end

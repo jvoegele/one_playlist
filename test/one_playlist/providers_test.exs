@@ -1,5 +1,7 @@
 defmodule OnePlaylist.ProvidersTest do
   use OnePlaylist.DataCase, async: true
+
+  import OnePlaylist.AuthFixtures
   # `Errata.create/2` is a macro, so the calling module has to require Errata.
   use Errata
 
@@ -14,7 +16,7 @@ defmodule OnePlaylist.ProvidersTest do
   @refresh_token "AQD-fake-refresh-token"
 
   setup do
-    %{user_id: create_auth_user()}
+    %{user_id: user_id_fixture()}
   end
 
   describe "connect/3" do
@@ -76,7 +78,7 @@ defmodule OnePlaylist.ProvidersTest do
 
     test "one user cannot reach another's connection", %{user_id: user_id} do
       {:ok, _} = connect(user_id)
-      other = create_auth_user()
+      other = user_id_fixture()
 
       assert {:error, %ConnectionNotFound{}} =
                Providers.fetch_usable_connection(other, :spotify)
@@ -119,8 +121,8 @@ defmodule OnePlaylist.ProvidersTest do
 
   describe "connections_due_for_refresh/2" do
     test "finds tokens expiring inside the window and ignores the rest", %{user_id: user_id} do
-      soon = create_auth_user()
-      later = create_auth_user()
+      soon = user_id_fixture()
+      later = user_id_fixture()
 
       {:ok, _} = connect(soon, access_token_expires_at: seconds_from_now(60))
       {:ok, _} = connect(later, access_token_expires_at: seconds_from_now(3600))
@@ -209,22 +211,4 @@ defmodule OnePlaylist.ProvidersTest do
   end
 
   defp seconds_from_now(seconds), do: DateTime.add(DateTime.utc_now(), seconds, :second)
-
-  # provider_connections has a foreign key onto auth.users, which Supabase Auth
-  # owns. Inserting there directly is the pragmatic way to get a user id in a
-  # test; once sign-in exists this should go through it instead.
-  defp create_auth_user do
-    id = Ecto.UUID.generate()
-
-    SQL.query!(
-      Repo,
-      """
-      insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
-      values ($1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', $2, now(), now())
-      """,
-      [Ecto.UUID.dump!(id), "user-#{System.unique_integer([:positive])}@example.test"]
-    )
-
-    id
-  end
 end

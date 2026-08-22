@@ -7,6 +7,8 @@ defmodule OnePlaylist.Providers.RefreshTest do
 
   use OnePlaylist.DataCase, async: true
 
+  import OnePlaylist.AuthFixtures
+
   alias Ecto.Adapters.SQL
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.ConnectionUnusable
@@ -16,7 +18,7 @@ defmodule OnePlaylist.Providers.RefreshTest do
   use Errata
 
   setup do
-    %{user_id: create_auth_user()}
+    %{user_id: user_id_fixture()}
   end
 
   describe "ensure_fresh/2" do
@@ -150,20 +152,5 @@ defmodule OnePlaylist.Providers.RefreshTest do
       access_token_expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second),
       scopes: ["playlists.read"]
     })
-  end
-
-  defp create_auth_user do
-    id = Ecto.UUID.generate()
-
-    SQL.query!(
-      Repo,
-      """
-      insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
-      values ($1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', $2, now(), now())
-      """,
-      [Ecto.UUID.dump!(id), "user-#{System.unique_integer([:positive])}@example.test"]
-    )
-
-    id
   end
 end
