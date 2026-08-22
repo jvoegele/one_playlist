@@ -72,7 +72,15 @@ defmodule OnePlaylist.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+
+      # First-party libraries, depended on by path so that improvements can flow
+      # in both directions while this project dogfoods them. See CLAUDE.md.
+      # `:errata` is overridden because `:external_service` also requires it from Hex.
+      {:external_service, path: "../external_service"},
+      {:errata, path: "../errata", override: true},
+      {:bond, path: "../bond"},
+      {:wait_for_it, path: "../wait_for_it"}
     ]
   end
 
