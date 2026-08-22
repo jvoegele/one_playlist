@@ -415,6 +415,32 @@ When a mutation survives, the question is which of the three is missing — and
 `docs/reference/contracts.md` has now been wrong about that twice by assuming it was the
 contract.
 
+### A `Bond.PropertyTest` inherits its contract's blind spots exactly
+
+`contract_holds/2` uses the contract as its oracle, so the property sees precisely what the
+contract sees and nothing more. That is easy to forget once a property is running hundreds of
+cases per second and looking thorough.
+
+Measured on `Tokens.from_oauth_response/2`, whose `scopes_are_a_list` invariant is just
+`is_list/1`. Dropping `trim: true` from its `String.split/3` turns `"scope" => ""` into `[""]`
+and `"  a   b  "` into a list padded with blanks — a wrong value that is structurally fine:
+
+| | Result under the mutation |
+| --- | --- |
+| `contract_holds &Tokens.from_oauth_response/2`, 1100 checks | **passed** |
+| One example asserting `scopes == []` | **failed** |
+
+So a property test does not subsume the examples it is drawn over; it widens the *inputs* the
+existing oracle judges. Where the contract is weak — and a type check is the weakest kind —
+the examples remain the only thing looking at the value.
+
+The corollary is a decent rule for where a `contract_holds/2` earns its place: point it at a
+function whose contract states a **law about the output** over an input space too large to
+enumerate. `Signals.compare/2` qualifies (four composed scoring functions, unbounded input,
+and a mutation of `Enum.max/1` to `Enum.sum/1` that no example catches).
+`Tokens.from_oauth_response/2` barely does — four optional keys is sixteen combinations, and
+example tests can nearly enumerate that on their own.
+
 ## Mechanics learned the hard way
 
 | Thing | What actually happens |
