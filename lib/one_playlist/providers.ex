@@ -27,6 +27,7 @@ defmodule OnePlaylist.Providers do
   alias OnePlaylist.Providers.ConnectionNotFound
   alias OnePlaylist.Providers.ConnectionUnusable
   alias OnePlaylist.Providers.ProviderNotSupported
+  alias OnePlaylist.Providers.SubsonicCredentials
   alias OnePlaylist.Repo
 
   use Bond
@@ -165,6 +166,72 @@ defmodule OnePlaylist.Providers do
   end
 
   @doc """
+  Connects a Subsonic-compatible server, **after proving the credential works**.
+
+  ## Why this is not just `connect/3`
+
+  Every other provider arrives here having already proved itself: an OAuth code
+  was exchanged for a token, so a stored TIDAL connection is known to work at
+  the moment it is stored. A Subsonic credential is typed in, and a typo is
+  indistinguishable from a correct password until somebody calls the server.
+
+  Storing it unverified would push that failure to the *next* thing the user
+  does — a transfer, minutes or days later, which fails with "unauthorized" and
+  no obvious connection to the form they filled in. So this calls `whoami/1`
+  with an unsaved connection first, and persists only on success. The cost is
+  one round trip on a screen where the user is already waiting.
+
+  `whoami/1` rather than `ping`: a Subsonic server answers `ping` with `ok`
+  even when it is not checking credentials at all.
+
+  ## Stored as `:navidrome`
+
+  `Connection` knows a `:subsonic` provider too, but only one adapter exists and
+  it is registered under `:navidrome`. Since Navidrome, Airsonic, Gonic and
+  Subsonic itself all speak the same API, a second registration would be the
+  same module under a second name — and `Adapter.provider/0` can only answer
+  one of them, which the adapter's own contract checks. One name until a server
+  turns up that genuinely needs different handling.
+  """
+  @spec connect_subsonic(user_id(), SubsonicCredentials.t()) ::
+          {:ok, Connection.t()} | {:error, Errata.error() | Ecto.Changeset.t()}
+  def connect_subsonic(user_id, %SubsonicCredentials{} = credentials) do
+    provider = :navidrome
+
+    # Never persisted. It exists only so `whoami/1` — which takes a connection,
+    # because a Subsonic call needs the server's address as well as the
+    # credential — can be asked the question before the row exists.
+    candidate = %Connection{
+      user_id: user_id,
+      provider: provider,
+      provider_user_id: credentials.username,
+      server_url: credentials.server_url,
+      access_token: credentials.password,
+      status: :active
+    }
+
+    with {:ok, adapter} <- adapter(provider),
+         {:ok, _account} <- adapter.whoami(candidate) do
+      connect(user_id, provider, %{
+        provider_user_id: credentials.username,
+        display_name:
+          credentials.display_name ||
+            SubsonicCredentials.default_display_name(credentials.server_url),
+        server_url: credentials.server_url,
+        access_token: credentials.password,
+        # Both nil, and both load-bearing. `Connection.needs_refresh?/3` answers
+        # `false` for a nil expiry, which is the whole reason a never-expiring
+        # credential needs no special case anywhere else. Setting an expiry here
+        # would send `ensure_fresh/2` to `Navidrome.refresh_tokens/1`, which
+        # returns `:reauth_required` — marking a working connection dead. See
+        # the round-trip test in providers_test.exs.
+        refresh_token: nil,
+        access_token_expires_at: nil
+      })
+    end
+  end
+
+  @doc """
   Replaces the tokens on a connection after a successful refresh.
 
   Clears the failure counters for the same reason `connect/3` does.
@@ -243,15 +310,28 @@ defmodule OnePlaylist.Providers do
   # first. Anything that is not an Errata error is treated as transient: an
   # unrecognised failure is a poor reason to disconnect somebody.
   defp requires_reauth?(error) do
-    underlying = root_of(error)
+    underlying = root_cause(error)
     Errata.is_error(underlying) and not Errata.retryable?(underlying)
   end
 
-  defp root_of(error) do
+  @doc """
+  Unwraps a guarded call's failure to the error that actually caused it.
+
+  `ExternalService` wraps whatever went wrong in a `RetriesExhausted`, whose own
+  message says only that retrying did not help. That is the right thing to
+  *classify* on — see `requires_reauth?/1` — and the wrong thing to *show*: a
+  user whose music server is switched off should be told the connection was
+  refused, not that this application gave up retrying.
+
+  Errors that are not Errata errors, and Errata errors with no cause, are
+  returned as they are.
+  """
+  @spec root_cause(term()) :: term()
+  def root_cause(error) do
     if Errata.is_error(error) do
       case Errata.cause(error) do
         nil -> error
-        cause -> root_of(cause)
+        cause -> root_cause(cause)
       end
     else
       error

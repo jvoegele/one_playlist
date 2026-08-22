@@ -35,35 +35,41 @@ defmodule OnePlaylistWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
+    <header class="navbar border-b border-base-300 px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
+        <.link navigate={~p"/"} class="flex w-fit items-center gap-2 text-lg font-semibold">
+          <.icon name="hero-queue-list" class="w-6 h-6 text-primary" /> One Playlist
+        </.link>
       </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
+
+      <nav class="flex-none">
+        <ul class="flex items-center gap-1 sm:gap-2">
+          <%!-- Signed out, there is nothing behind these but a redirect back to
+                here, so they are not offered. --%>
+          <li :if={@current_scope}>
+            <.link navigate={~p"/transfers"} class="btn btn-ghost btn-sm">Transfers</.link>
           </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
+          <li :if={@current_scope}>
+            <.link navigate={~p"/connections"} class="btn btn-ghost btn-sm">
+              <.icon name="hero-link" class="w-4 h-4" />
+              <span class="hidden sm:inline">Connections</span>
+            </.link>
           </li>
           <li>
             <.theme_toggle />
           </li>
-          <li>
-            <a href="https://phoenix.hexdocs.pm/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
+          <li :if={@current_scope && dev_routes?()}>
+            <.link href="/dev/sign-out" class="btn btn-ghost btn-sm">Sign out</.link>
+          </li>
+          <li :if={!@current_scope && dev_routes?()}>
+            <.link href="/dev/sign-in" class="btn btn-primary btn-sm">Sign in</.link>
           </li>
         </ul>
-      </div>
+      </nav>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    <main class="px-4 py-10 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-4xl space-y-4">
         {render_slot(@inner_block)}
       </div>
     </main>
@@ -71,6 +77,13 @@ defmodule OnePlaylistWeb.Layouts do
     <.flash_group flash={@flash} />
     """
   end
+
+  # Sign-in is `OnePlaylistWeb.DevAuthController` scaffolding, routed only under
+  # `:dev_routes` — so the link is both hidden at runtime and written as a plain
+  # string rather than `~p`, because a verified route that exists in no
+  # environment but `:dev` is a compile warning everywhere else. When Supabase
+  # Auth lands, this becomes a real sign-in link and the guard goes away.
+  defp dev_routes?, do: Application.get_env(:one_playlist, :dev_routes, false)
 
   @doc """
   Shows the flash group with standard titles and content.

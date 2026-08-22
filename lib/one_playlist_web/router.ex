@@ -27,13 +27,15 @@ defmodule OnePlaylistWeb.Router do
     get "/", PageController, :home
   end
 
-  # Transfers need a signed-in user for the same reason connecting a service
-  # does: a transfer belongs to somebody, and its report is their data.
+  # Everything here belongs to somebody: a connection carries a credential, and
+  # a transfer's report is the user's own library. None of it has a meaningful
+  # signed-out rendering.
   scope "/", OnePlaylistWeb do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :authenticated,
       on_mount: [{OnePlaylistWeb.UserAuth, :require_authenticated}] do
+      live "/connections", ConnectionLive.Index, :index
       live "/transfers", TransferLive.Index, :index
       live "/transfers/new", TransferLive.New, :new
       live "/transfers/:id", TransferLive.Show, :show

@@ -451,6 +451,28 @@ APIs and no gatekeeping. Combined with file import/export (M3U, XSPF, CSV, iTune
 MusicBrainz for identity, these are the platforms where a new entrant can ship a genuinely
 better product *today* with no quota negotiation.
 
+#### The cost of that opening: the server address is user input
+
+Every hosted provider's base URL is a constant we compile in. A self-hosted one is whatever
+the user pastes into `/connections`, and this application then makes an outbound request to
+it. That is **server-side request forgery by design** — it is not a bug to be closed, because
+the addresses that matter are exactly the ones a naive SSRF filter blocks: `localhost`,
+`192.168.x.x`, `10.x.x.x`, a `.local` name on a home network.
+
+What is actually in place (`OnePlaylist.Providers.SubsonicCredentials`):
+
+- the scheme is restricted to `http`/`https`, which closes off `file:`, `gopher:` and friends;
+- the request is initiated by an authenticated user, naming their own server, explicitly;
+- it carries no ambient credentials — only the salted token derived from what they typed;
+- nothing of the response reaches the user except a parsed Subsonic envelope, so probing an
+  internal address learns only "not a Subsonic server", never a body or a header.
+
+That last property is what keeps this acceptable, and it is worth *not* accidentally weakening
+by surfacing raw upstream errors. It is sized for "Jason and a handful of people", not for a
+public multi-tenant deployment. **Before this is hosted for strangers**, the fix is to move the
+outbound call out of the web tier — a per-user egress proxy, or an allowlist the user opts into
+per server — rather than to try to enumerate bad addresses.
+
 ### Cross-cutting
 
 - **OAuth token lifecycle is the operational core**: store refresh tokens encrypted, refresh

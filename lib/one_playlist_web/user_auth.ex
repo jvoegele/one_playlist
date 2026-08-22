@@ -23,9 +23,20 @@ defmodule OnePlaylistWeb.UserAuth do
 
   @session_key "user_id"
 
-  @doc "Assigns `:current_user_id` from the session, or `nil`."
+  @doc """
+  Assigns `:current_user_id` from the session, or `nil`.
+
+  Also assigns `:current_scope`, which is what `OnePlaylistWeb.Layouts.app/1`
+  reads to decide whether to render navigation — the same shim `on_mount/4`
+  applies for LiveViews, applied here so a controller-rendered page gets the
+  same header rather than one missing every link.
+  """
   def fetch_current_user(conn, _opts) do
-    assign(conn, :current_user_id, get_session(conn, @session_key))
+    user_id = get_session(conn, @session_key)
+
+    conn
+    |> assign(:current_user_id, user_id)
+    |> assign(:current_scope, user_id && %{user: %{id: user_id}})
   end
 
   @doc """

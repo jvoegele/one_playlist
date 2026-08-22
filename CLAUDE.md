@@ -151,6 +151,10 @@ open http://localhost:4533                       # admin / oneplaylist
 bin/remote dev/navidrome/connect.exs             # attaches it to the dev user
 ```
 
+The last step is scripted convenience, not the only way in: `/connections` has a form, and
+the script calls the same `Providers.connect_subsonic/2` it does. Use the script to rebuild an
+environment without a browser; use the form when testing what a user actually experiences.
+
 Port **4533**. The sample library is *synthetic audio with real metadata* taken from the TIDAL
 corpus — so it matches against TIDAL, and no copyrighted audio is in the repository. Both the
 music and Navidrome's database are gitignored; the generator and compose file are not.
@@ -329,7 +333,7 @@ A fresh session should read this before proposing what to build.
 | Providers | **TIDAL** (OAuth + PKCE, encrypted tokens, refresh) and **any Subsonic server** (Navidrome) |
 | Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto and a confidence threshold |
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
-| UI | LiveView: list transfers, pick a playlist, watch the report |
+| UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
@@ -338,8 +342,6 @@ report matched what actually landed in the destination.
 
 **Not built yet**, roughly in value order:
 
-  * **Connecting a Subsonic server through the UI.** There is no form; `dev/navidrome/connect.exs`
-    is the only way in. This is the smallest gap between "works" and "usable".
   * **An honest cross-service match rate.** Every number so far is soft, because both sides
     of every measurement came from the same metadata. See `docs/reference/domain.md`.
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason

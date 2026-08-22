@@ -675,3 +675,54 @@ would make cross-library diffs quieter.
 **Suggested fix:** pick one `line_length` and apply it to all four; use
 `"{mix,.formatter}.exs"` in `inputs` everywhere (a bare `*.exs` glob does not match dotfiles,
 so `.formatter.exs` silently goes unformatted).
+
+## `errata` — the cause chain turned a useless error message into an actionable one
+
+**Found:** 2026-08-22, building the Subsonic connect form. **A positive, and a small
+documentation request.**
+
+The form calls the user's own music server before it stores their password, so the failure a
+person is most likely to see is "that address is wrong". What `ExternalService` hands back for
+that is `RetriesExhausted`, whose message is about *our* reaction to the problem:
+
+> the request could not be completed after 3 attempts
+
+Which is true, and useless: the user did not ask us to retry and cannot do anything about it.
+The failure they can act on is underneath, and `Errata.cause/1` walks straight to it —
+
+```elixir
+def root_cause(error) do
+  if Errata.is_error(error) do
+    case Errata.cause(error) do
+      nil -> error
+      cause -> root_cause(cause)
+    end
+  else
+    error
+  end
+end
+```
+
+— turning the same failure into "connection refused". Six lines, no special cases, and it
+works across library boundaries: `RetriesExhausted` is `external_service`'s error wrapping
+`one_playlist`'s, and neither knows about the other. That is the whole argument for a shared
+error library, and it is nice to have it pay off without ceremony.
+
+Two things worth noting for the guides:
+
+1. **`display_message/1` is written for one audience at a time, and that shows.** Our
+   `Subsonic.APIError` says "reconnect to continue" for `:unauthorized`, which is right on a
+   transfer report and wrong on the connect form — where there is nothing to reconnect and the
+   user is staring at the three fields they just typed. We special-cased it at the call site.
+   That is probably correct, but the guides present `display_message/1` as *the* user-facing
+   message, and it might be worth saying out loud that a given error can have more than one
+   right phrasing depending on where it surfaces.
+
+2. **`Errata.is_error/1` is a `defguard`**, so a module using it fully qualified still needs
+   `require Errata`. The error message says so clearly, so this cost about ten seconds — but
+   the guides' examples all appear inside modules that already `use Errata`, and a LiveView
+   that only wants to *classify* an error has no reason to.
+
+**Suggested fix:** an "unwrapping a wrapped error" recipe in the guides, with the `root_cause`
+loop above — the pattern is small enough that everyone writes it, and general enough that
+nobody should have to.

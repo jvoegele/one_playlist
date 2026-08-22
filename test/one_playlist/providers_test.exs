@@ -2,6 +2,7 @@ defmodule OnePlaylist.ProvidersTest do
   use OnePlaylist.DataCase, async: true
 
   import OnePlaylist.AuthFixtures
+  import Req.Test, only: [set_req_test_from_context: 1]
   # `Errata.create/2` is a macro, so the calling module has to require Errata.
   use Errata
 
@@ -10,10 +11,16 @@ defmodule OnePlaylist.ProvidersTest do
   alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.ConnectionNotFound
   alias OnePlaylist.Providers.ConnectionUnusable
+  alias OnePlaylist.Providers.Navidrome
+  alias OnePlaylist.Providers.SubsonicCredentials
   alias OnePlaylist.Providers.TokenRefreshFailed
 
   @access_token "BQC-fake-access-token"
   @refresh_token "AQD-fake-refresh-token"
+
+  # `connect_subsonic/2` calls the server before it stores anything, so this file
+  # now needs the Req stub owned per-test (it is `async: true`).
+  setup :set_req_test_from_context
 
   setup do
     %{user_id: user_id_fixture()}
@@ -258,6 +265,128 @@ defmodule OnePlaylist.ProvidersTest do
       refute String.contains?(serialized, @refresh_token)
       assert String.contains?(serialized, "REDACTED")
     end
+  end
+
+  describe "connect_subsonic/2" do
+    test "proves the credential before storing it", %{user_id: user_id} do
+      Req.Test.stub(Navidrome, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+
+        assert conn.request_path == "/rest/getUser",
+               "ping answers ok on a server that checks nothing; getUser does not"
+
+        Req.Test.json(conn, subsonic_ok(%{"user" => %{"username" => "admin"}}))
+      end)
+
+      assert {:ok, connection} = Providers.connect_subsonic(user_id, subsonic_credentials())
+      assert connection.provider == :navidrome
+      assert connection.provider_user_id == "admin"
+      assert connection.server_url == "http://music.local:4533"
+      assert connection.access_token == "hunter2"
+    end
+
+    test "stores nothing when the server rejects the credential", %{user_id: user_id} do
+      # The law this function exists for. Storing an unverified password moves
+      # the failure to the next transfer, minutes or days later, where it reads
+      # as "TIDAL is broken" rather than "you mistyped your password".
+      Req.Test.stub(Navidrome, fn conn ->
+        Req.Test.json(conn, subsonic_failed(40, "Wrong username or password"))
+      end)
+
+      assert {:error, error} =
+               Providers.connect_subsonic(user_id, subsonic_credentials(password: "wrong"))
+
+      assert Errata.reason(error) == :unauthorized
+      assert Providers.list_connections(user_id) == []
+    end
+
+    test "a stored Subsonic connection never asks to be refreshed", %{user_id: user_id} do
+      # `Navidrome.refresh_tokens/1` returns `:reauth_required` by design, so an
+      # expiry set here would have `ensure_fresh/2` mark a working connection
+      # dead the first time a transfer touched it. Nothing would look wrong until
+      # then. Verified by mutation: giving the connection an expiry fails this.
+      stub_ok()
+
+      {:ok, connection} = Providers.connect_subsonic(user_id, subsonic_credentials())
+
+      assert connection.access_token_expires_at == nil
+      assert connection.refresh_token == nil
+      refute Connection.needs_refresh?(connection, DateTime.utc_now(), 86_400)
+      assert {:ok, ^connection} = Providers.ensure_fresh(connection)
+    end
+
+    test "names the connection after the host when the user did not", %{user_id: user_id} do
+      stub_ok()
+
+      {:ok, connection} = Providers.connect_subsonic(user_id, subsonic_credentials())
+
+      assert connection.display_name == "music.local"
+    end
+
+    test "keeps the name the user chose", %{user_id: user_id} do
+      stub_ok()
+
+      {:ok, connection} =
+        Providers.connect_subsonic(user_id, subsonic_credentials(display_name: "Living room Pi"))
+
+      assert connection.display_name == "Living room Pi"
+    end
+
+    test "reconnecting replaces the credential rather than adding a row", %{user_id: user_id} do
+      stub_ok()
+
+      {:ok, first} = Providers.connect_subsonic(user_id, subsonic_credentials())
+
+      {:ok, second} =
+        Providers.connect_subsonic(user_id, subsonic_credentials(password: "rotated"))
+
+      assert first.id == second.id
+      assert second.access_token == "rotated"
+      assert [_only_one] = Providers.list_connections(user_id)
+    end
+  end
+
+  describe "root_cause/1" do
+    test "unwraps to the failure a user can act on" do
+      # ExternalService reports that retrying did not help. That is the right
+      # thing to classify on and the wrong thing to show somebody.
+      cause = Errata.create(TokenRefreshFailed, reason: :invalid_grant, context: %{})
+      wrapped = Errata.create(ConnectionUnusable, reason: :revoked, cause: cause)
+
+      assert Providers.root_cause(wrapped) == cause
+      assert Providers.root_cause(cause) == cause
+      assert Providers.root_cause(:not_an_error) == :not_an_error
+    end
+  end
+
+  defp subsonic_credentials(overrides \\ []) do
+    {:ok, credentials} =
+      SubsonicCredentials.apply(%{
+        "server_url" => "http://music.local:4533",
+        "username" => "admin",
+        "password" => Keyword.get(overrides, :password, "hunter2"),
+        "display_name" => Keyword.get(overrides, :display_name)
+      })
+
+    credentials
+  end
+
+  defp stub_ok do
+    Req.Test.stub(Navidrome, fn conn ->
+      Req.Test.json(conn, subsonic_ok(%{"user" => %{"username" => "admin"}}))
+    end)
+  end
+
+  defp subsonic_ok(body),
+    do: %{"subsonic-response" => Map.merge(%{"status" => "ok"}, body)}
+
+  defp subsonic_failed(code, message) do
+    %{
+      "subsonic-response" => %{
+        "status" => "failed",
+        "error" => %{"code" => code, "message" => message}
+      }
+    }
   end
 
   defp connect(user_id, overrides \\ []) do
