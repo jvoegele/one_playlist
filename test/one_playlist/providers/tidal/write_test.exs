@@ -247,6 +247,36 @@ defmodule OnePlaylist.Providers.Tidal.WriteTest do
                OnePlaylist.Providers.Tidal.Service.call(fn -> {:ok, :reachable} end)
     end
 
+    test "a background write is never shed for want of patience" do
+      # Both shedding paths, pinned. `external_service` draws the line at the
+      # *call site*: background work sleeps because sleeping is the
+      # back-pressure, a request path takes a finite budget because a client that
+      # has given up is being served for nothing. Every caller of this service is
+      # an Oban job.
+      #
+      # The default budget was actively harmful at this shape. A limiter check
+      # never quotes more than one emission interval — per/limit, so 2000ms here
+      # — and the default budget is one window, also 2000ms. One re-check
+      # exhausted it, and a real transfer failed with "the call was throttled
+      # beyond the configured rate limit wait time".
+      explained = ExternalService.explain(OnePlaylist.Providers.Tidal.WriteService)
+
+      assert explained =~ ~r/rate limit.*waits up to\s+as long as it takes/s,
+             "a queued transfer should sleep for its quota, not be shed"
+
+      refute explained =~ ~r/concurrency.*waits up to\s+nothing/s,
+             "fixing the limiter and leaving the bulkhead moves the shedding " <>
+               "rather than removing it"
+    end
+
+    test "the read path keeps a finite budget, because someone is waiting" do
+      # The other half of the same rule. These calls serve a page load, and a
+      # visitor who has navigated away is being served for nothing.
+      explained = ExternalService.explain(OnePlaylist.Providers.Tidal.Service)
+
+      refute explained =~ ~r/rate limit.*waits up to\s+as long as it takes/s
+    end
+
     test "the two services fail independently" do
       # The isolation that motivates having two. A write path melting its
       # breaker must not take library browsing down with it, and vice versa —

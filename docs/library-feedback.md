@@ -366,6 +366,55 @@ a project the line number does not identify which `use ExternalService` option b
 Pointing at the `use` call, or at the `:circuit_breaker` keyword itself, would save a moment.
 Very minor against how much the check itself is worth.
 
+### The same thing happened again with `:wait`, and `explain/1` caught it
+
+Worth appending rather than filing separately, because it is the same mistake twice and the
+pattern is the interesting part.
+
+The write service was shedding calls in production-ish use — a real transfer failed with
+`the call was throttled beyond the configured rate limit wait time`. The cause was the default
+`:wait` budget, and the arithmetic is invisible unless you go looking: a limiter check never
+quotes more than one emission interval (`per / limit`, **2000ms** at `limit: 1, per: 2s`), and
+the default budget is one window, **also 2000ms**. One re-check exhausts it, so the shape sheds
+on the slightest contention rather than pacing.
+
+`guides/rate-limiting.md` answers this directly, and its framing is the part worth praising:
+
+> Which value you want depends on **where the call is made**, not on the service.
+
+Background work takes `:infinity` because sleeping *is* the back-pressure; a request path takes
+a finite budget because a client that has given up is being served for nothing. Every caller of
+the write service is an Oban job. The read service next door serves page loads. Same dependency,
+opposite answers — and the first draft of the write service had copied the read one wholesale,
+exactly as it had for `:within`.
+
+Then `explain/1` found a **second** shedding path in the same configuration:
+
+```
+  rate limit
+    limit        1 per 2s
+    waits up to  as long as it takes
+
+  concurrency
+    limit           2 in flight
+    waits up to     nothing — a throttled call returns RateLimited immediately
+```
+
+Fixing the limiter alone would have moved the shedding rather than removed it. That line is
+doing a lot of work: it states the *consequence* ("returns RateLimited immediately") rather than
+the setting, which is what made it legible at a glance.
+
+The asymmetry between the two `:wait` options is also well judged and well documented —
+`:infinity` is accepted for the limiter and refused by `start/2` for the bulkhead, because a
+quota refills on its own while a slot frees only when another call finishes, so an unbounded
+wait there *is* the unbounded pile-up. That is the kind of constraint a library should enforce
+rather than document, and it does both.
+
+**The transferable lesson**, now in the module's own docs: a configuration for one dependency is
+not one thing. `:within` belongs to the retry budget, `:wait` belongs to the call site, and only
+the rest belongs to the provider. Copying a whole option list between two services for the same
+API looks like consistency and produced two bugs here.
+
 ## `bond` — `Bond.Server` invariants never appear in `Bond.Coverage`
 
 **Found:** 2026-08-22, adding `server_invariants_hold/2` for

@@ -27,6 +27,22 @@ defmodule OnePlaylist.Providers.Tidal.WriteService do
   outage should not stop a queued transfer from retrying its writes. They fail
   for different reasons and should recover independently.
 
+  ## The read service's settings are not transferable, twice over
+
+  Two of the four option groups here differ from
+  `OnePlaylist.Providers.Tidal.Service`, and in both cases the first draft copied
+  it and was wrong:
+
+    * `:within` on the breaker is a property of the **retry budget**, not the
+      provider. 30s is right next door, where the retry window is ~1.5s, and
+      leaves the breaker unable to open here, where it is 7.5s.
+    * `:wait` on the limiter is a property of the **call site**, not the
+      provider. A finite budget is right next door, where a person is waiting on
+      a page; it sheds a background job that should simply have slept.
+
+  Copying a whole configuration between two services for the same dependency
+  looks like consistency and is how both of those happened.
+
   ## Retries are the same shape, deliberately
 
   A 429 is classified `{:retry, …}` in `OnePlaylist.Providers.Tidal.Client`, so
@@ -41,7 +57,22 @@ defmodule OnePlaylist.Providers.Tidal.WriteService do
     # did not. Deliberately blunt: there is no published quota to tune against,
     # and the cost of being too slow is a longer transfer while the cost of
     # being too fast is a wedged one.
-    rate_limit: [limit: 1, per: :timer.seconds(2)],
+    #
+    # `wait: :infinity` because of **where these calls are made**, not because of
+    # TIDAL. `external_service`'s rate-limiting guide draws the line exactly
+    # here: background work sleeps, because sleeping is the back-pressure and it
+    # propagates upstream; a request path takes a finite budget, because a client
+    # that has already given up is being served for nothing. Every caller of this
+    # service is an Oban job. Nobody is waiting on the other end.
+    #
+    # The default was actively harmful at this shape, which is worth spelling out
+    # because the numbers collide invisibly. A single limiter check never quotes
+    # more than one emission interval — `per / limit`, so **2000ms** here — and
+    # the default budget is one window, also **2000ms**. One re-check exhausts
+    # it, so the slightest contention sheds rather than paces. Observed: two
+    # transfers of the same playlist racing produced
+    # `the call was throttled beyond the configured rate limit wait time`.
+    rate_limit: [limit: 1, per: :timer.seconds(2), wait: :infinity],
     # `within` is 75s rather than the read service's 30s, and the number is not
     # mine: `ExternalService`'s compile-time linter rejected 30s here and
     # computed this one. The write retry budget is longer (5 attempts, a 10s
@@ -59,8 +90,22 @@ defmodule OnePlaylist.Providers.Tidal.WriteService do
     ],
     # Far below the read bulkhead. Writes to one playlist are ordered by nature,
     # and running many at once only races the rate limiter.
+    #
+    # `wait` is set because the bulkhead is the *other* place a background call
+    # can be shed, and `explain/1` is what surfaced it: with the default it
+    # "waits up to nothing — a throttled call returns RateLimited immediately".
+    # Fixing the limiter's budget and leaving this one would have moved the
+    # shedding rather than removed it.
+    #
+    # Bounded rather than `:infinity`, and that asymmetry with the limiter above
+    # is deliberate on the library's part: a quota refills on its own, so
+    # sleeping for one terminates, while a slot frees only when another call
+    # finishes — an unbounded wait there is the unbounded pile-up. `start/2`
+    # refuses it. Ten seconds parks a write behind a few others and still sheds a
+    # genuine backlog.
     concurrency: [
       limit: 2,
+      wait: :timer.seconds(10),
       reclaim_after: :timer.seconds(30)
     ],
     # A longer expiry than reads get. A 429 on a write is worth waiting out —

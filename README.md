@@ -20,7 +20,7 @@ That problem is why this project exists, and it shapes everything below.
 > and reports on every track, with LiveView screens to start one and watch it.
 > Verified against a real TIDAL account: 8 of 8 matched by ISRC, order and
 > ISRCs identical, and a second run added nothing.
-> 351 tests, 75 contracts.
+> 353 tests, 75 contracts.
 
 ---
 
