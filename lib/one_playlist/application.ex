@@ -30,6 +30,8 @@ defmodule OnePlaylist.Application do
       # that serves a request; neither is load-bearing if absent.
       OnePlaylist.Cache,
       OnePlaylist.Cache.Singleflight,
+      # After the Repo it queues into and the services a job calls out through.
+      {Oban, Application.fetch_env!(:one_playlist, Oban)},
       # Start a worker by calling: OnePlaylist.Worker.start_link(arg)
       # {OnePlaylist.Worker, arg},
       # Start to serve requests, typically the last entry

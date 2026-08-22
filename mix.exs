@@ -143,6 +143,10 @@ defmodule OnePlaylist.MixProject do
       # L1 of the catalogue cache. Chosen for `Nebulex.Adapters.Local`'s
       # generational eviction, which bounds memory without the flush-everything
       # cliff a hand-rolled cap produces. See OnePlaylist.Cache.
+      # The transfer/sync job pipeline. Postgres-backed, which matters here:
+      # the queue lives in the same database as the transfers it drives, so a
+      # job and the row it advances commit or roll back together.
+      {:oban, "~> 2.23"},
       {:nebulex, "~> 3.0"},
       {:nebulex_local, "~> 3.0"},
       {:external_service, path: "../external_service"},

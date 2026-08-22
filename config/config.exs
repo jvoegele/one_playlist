@@ -88,6 +88,28 @@ config :errata,
     :authorization
   ]
 
+# The transfer/sync job pipeline.
+#
+# `prefix: "oban"` matches the migration: the job tables live in their own
+# schema, off the surface PostgREST exposes, so this application never has to
+# write RLS policies for columns Oban owns.
+#
+# One queue, sized low on purpose. A transfer is mostly waiting on a provider
+# that rate-limits writes, so concurrency here buys nothing and costs quota —
+# the limit that matters is in Tidal.WriteService, and running more workers just
+# queues behind it.
+config :one_playlist, Oban,
+  repo: OnePlaylist.Repo,
+  prefix: "oban",
+  queues: [transfers: 2],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    # Rescues jobs orphaned by a node dying mid-run. Safe here only because the
+    # runner is idempotent: a rescued transfer re-reads the destination and adds
+    # what is missing. See Transfers.TransferWorker.
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+  ]
+
 # L1 of the catalogue cache. Bounded by memory rather than by a guessed entry
 # count: a barcode-to-id entry measures 120 bytes, so 500k entries is roughly
 # 57 MB, and `allocated_memory` is the bound that actually stops a leak.

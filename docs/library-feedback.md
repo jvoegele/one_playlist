@@ -251,6 +251,121 @@ real assertions reference parameters, so the exposure is small.
 has `use Bond`" — would cost nothing and is where someone would look. A Credo check would also
 fit, if Bond ever ships one.
 
+## `bond` — `@invariant` cannot be used on an `Ecto.Schema` module
+
+**Found:** 2026-08-22, putting the transfer ledger law on `OnePlaylist.Transfers.Transfer`.
+**This one is a bug**, and it rules out invariants on the most common struct type in a Phoenix
+application.
+
+Adding a single `@invariant` to an Ecto schema fails to compile:
+
+```
+error: undefined variable "bond_arg_1"
+  └─ lib/one_playlist/transfers/transfer.ex:1: OnePlaylist.Transfers.Transfer.__schema__/2
+```
+
+Three isolated modules, differing only in the two axes:
+
+| Module | `@pre`/`@post` | `@invariant` |
+| --- | --- | --- |
+| `use Ecto.Schema` + `use Bond` | compiles | **CompileError** |
+| plain `defstruct` + `use Bond` | compiles | compiles |
+
+```elixir
+# does not compile
+defmodule EctoInv do
+  use Ecto.Schema
+  use Bond
+
+  @invariant non_negative: subject.n >= 0
+
+  schema "t" do
+    field :n, :integer
+  end
+
+  def bump(%__MODULE__{} = s), do: %{s | n: s.n + 1}
+end
+```
+
+The cause is that invariants are woven into **every** public function of the declaring module,
+and `Ecto.Schema` generates several — `__schema__/1`, `__schema__/2`, `__changeset__/0`. The
+multi-clause `__schema__/2` in particular has clause heads Bond's argument-renaming does not
+survive, and the generated wrapper references a `bond_arg_1` that was never bound.
+
+`use Bond, warn_skipped_invariants: false` does **not** help. It silences the warning about
+those functions not mentioning the struct, but the weaving still happens, so the compile error
+stands. That is worth knowing, because the warning text names that option as the fix and it
+addresses only the symptom that is cosmetic.
+
+Why this matters more than a niche incompatibility: the schema module is where a struct's laws
+belong in a Phoenix application, and it is where Bond's own
+[invariants guide](https://hexdocs.pm/bond/invariants.html) would send you — its `BoundedStack`
+example is exactly this shape with `defstruct` instead of `schema`. Every domain type in this
+project that is worth an invariant is an Ecto schema.
+
+**Workaround used here:** state the law as `@post` on each function that produces a value —
+`with_total/2`, `record_matched/2`, `record_unmatched/1` — via a shared public predicate
+`balanced?/1`. That covers everything the module builds, but not values built elsewhere, which
+is precisely what an invariant would have added.
+
+**Suggested fix:** skip weaving into compiler-generated functions. `__schema__`, `__changeset__`
+and friends are recognisable by name, and none of them can take or return the struct in a way an
+invariant is about — the existing `warn_skipped_invariants` machinery already knows they do not
+mention it, so the information needed to skip them is present. Failing that, making
+`warn_skipped_invariants: false` actually *skip* rather than merely not warn would give users a
+working escape hatch, and would match what the option's name suggests.
+
+## `external_service` — the compile-time linter caught a real misconfiguration I was about to ship
+
+**Found:** 2026-08-22, adding a second service for TIDAL's write endpoints. **Nothing to fix** —
+this is the opposite of friction, and it is recorded because a feedback log that only contains
+complaints gives its author a skewed picture of what is working.
+
+Writes needed their own `ExternalService`: TIDAL rate-limits mutations far harder than reads, so
+the limiter and the retry budget both had to change. I copied the circuit-breaker settings from
+the read service, since they had been reasoned about carefully and looked provider-shaped rather
+than call-shaped. They are not. The compiler said so:
+
+```
+warning: OnePlaylist.Providers.Tidal.WriteService has a circuit breaker window narrower than
+the failures it has to count. Its retry window is 7.5s per call, and it takes 6 failing calls
+to open the breaker, at one melt each — so the failures that would open it are spread over
+about 37.5s, wider than the 30s that `within: 30000` counts over. A caller making these calls
+one after another never opens it; concurrent callers still can, so this is a question of your
+traffic rather than a certainty.
+
+    circuit_breaker: [within: :timer.seconds(75)]
+
+Or leave `:within` unset, which sizes it from the retry options.
+```
+
+Four things that message does that most linters do not:
+
+  * **It shows the arithmetic.** 7.5s per call × 6 calls = 37.5s > 30s. I could check the claim
+    rather than take it on faith, which is what made it persuasive rather than annoying.
+  * **It gives the number**, and the number was right.
+  * **It offers the alternative** — omit `:within` and let it be derived — so the fix is not
+    "tune this by hand until the warning stops".
+  * **It is honest about the conditions.** "A caller making these calls one after another never
+    opens it; concurrent callers still can" — it does not overstate. That mattered here, because
+    a bulk transfer *is* a sequential caller, so the failure mode it describes was precisely
+    mine.
+
+The bug would have been invisible in production. Nothing raises; the breaker simply never trips,
+and the first anyone learns of it is a wedged transfer retrying into a provider that has stopped
+answering. It is exactly the class of defect this project uses contracts for, caught here at
+compile time by the library itself.
+
+**The transferable lesson, now in `docs/reference/domain.md`:** breaker settings are a property
+of the *retry budget*, not of the provider. `within: 30s` is right next door, where the retry
+window is ~1.5s, and wrong here, where it is 7.5s. Copying that line between two services for
+the same provider is how you get a breaker that never trips.
+
+**Suggested improvement, if any:** the warning fires at `defmodule`, so with several services in
+a project the line number does not identify which `use ExternalService` option block to edit.
+Pointing at the `use` call, or at the `:circuit_breaker` keyword itself, would save a moment.
+Very minor against how much the check itself is worth.
+
 ## `bond` — `Bond.Server` invariants never appear in `Bond.Coverage`
 
 **Found:** 2026-08-22, adding `server_invariants_hold/2` for

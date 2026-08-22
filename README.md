@@ -16,8 +16,9 @@ That problem is why this project exists, and it shapes everything below.
 > API — OAuth with PKCE, encrypted token storage, automatic refresh, playlists
 > and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
 > and by text, and is measured against a corpus captured from a real library.
-> There is no write path and no UI yet.
-> 326 tests, 66 contracts.
+> Transfers run end to end on an Oban pipeline that is idempotent, resumable
+> and reports on every track. There is no UI yet.
+> 341 tests, 75 contracts.
 
 ---
 
@@ -28,10 +29,10 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 66 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 75 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
-| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. **Not yet used** — see below. |
+| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |
 
 The backend is [Supabase](https://supabase.com) — Postgres with RLS, Auth,
 Storage, Realtime, Queues and pgvector — used as natively as the workload allows.
@@ -171,15 +172,27 @@ That one line is load-bearing. A dead grant must not be retried, while a provide
 outage must be — and getting it backwards means either wedging an integration or
 demanding that every user reconnect after a ten-minute blip.
 
-### WaitForIt
+### WaitForIt — waiting without guessing
 
-**Not yet used.** It is a declared dependency with zero call sites, which is
-worth stating plainly in a repository whose first stated goal is dogfooding.
+A transfer runs in an Oban worker, so a caller that wants the outcome has to
+wait for it. `Transfers.await/2` is `case_wait`, which polls a condition and
+binds out of the same expression that satisfied it:
 
-Its home is the transfer pipeline — waiting on asynchronous provider work
-without `Process.sleep/1`, and `WaitForIt.Test` assertions over jobs that
-complete out of band. That pipeline is the next thing being built, and this
-section will say something truer when it exists.
+```elixir
+WaitForIt.case_wait finished(id), timeout: timeout, frequency: frequency do
+  {:ok, %Transfer{} = transfer} -> {:ok, transfer}
+else
+  _never_finished -> {:error, :timeout}
+end
+```
+
+The `else` clause is load-bearing twice over. On timeout each form behaves as
+its Elixir counterpart would on a final non-matching evaluation, so without it
+this raises `CaseClauseError` — and a catch-all *inside* the `do` block would
+match on the first evaluation and end the wait immediately.
+
+The alternative is a `Process.sleep/1` long enough to be reliable, which is
+always far longer than the wait usually needs.
 
 ---
 

@@ -82,3 +82,10 @@ config :one_playlist, OnePlaylist.Providers.Tidal,
   client_id: "test-client-id",
   client_secret: "test-client-secret",
   redirect_uri: "http://localhost:4002/auth/tidal/callback"
+
+# Jobs are not run by a queue in tests. `testing: :manual` means
+# `Oban.insert/1` records the job and nothing executes it, so a test decides
+# when the work happens — either by draining the queue explicitly, or by
+# calling `Transfers.Runner.run/1` directly, which is the plain function the
+# worker wraps.
+config :one_playlist, Oban, testing: :manual
