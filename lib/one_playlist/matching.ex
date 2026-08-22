@@ -96,7 +96,7 @@ defmodule OnePlaylist.Matching do
   @post whenever({:ok, match} <- result),
     veto_respected:
       (match.strategy in [:text, :fuzzy])
-      ~> not Signals.compare(match.source, match.track).discriminating_conflict
+      ~> not Signals.vetoed?(Signals.compare(match.source, match.track))
   @spec match(Track.t(), [Track.t()], keyword()) ::
           {:ok, Match.t()} | {:error, TrackNotMatched.t()}
   def match(%Track{} = source, candidates, opts \\ []) when is_list(candidates) do

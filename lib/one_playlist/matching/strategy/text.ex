@@ -47,7 +47,7 @@ defmodule OnePlaylist.Matching.Strategy.Text do
   def score(%Track{} = source, %Track{} = candidate) do
     signals = Signals.compare(source, candidate)
 
-    if signals.title_exact and signals.artists_agree and not signals.discriminating_conflict do
+    if signals.title_exact and signals.artists_agree and not Signals.vetoed?(signals) do
       {corroboration(signals), evidence(signals)}
     end
   end
@@ -57,7 +57,7 @@ defmodule OnePlaylist.Matching.Strategy.Text do
       {signals.duration, 3},
       {signals.album, 2},
       {barcode_signal(signals), 2},
-      {editorial_penalty(signals), 2}
+      {Signals.editorial_penalty(signals), 2}
     ]
     |> Similarity.weighted_mean()
     |> Kernel.||(@uncorroborated)
@@ -69,12 +69,6 @@ defmodule OnePlaylist.Matching.Strategy.Text do
   # Different releases is weak evidence against, not proof: the same recording
   # appears on a single, an album and three compilations.
   defp barcode_signal(%{upc_agrees: false}), do: 0.4
-
-  # Only ever a penalty. Agreement about editorial tags is usually agreement
-  # that neither side labelled anything, which is not evidence of a match —
-  # scoring it as such would reward silence.
-  defp editorial_penalty(%{editorial_conflict: true}), do: 0.0
-  defp editorial_penalty(_signals), do: nil
 
   defp evidence(signals) do
     [duration: signals.duration, album: signals.album, upc_agrees: signals.upc_agrees]

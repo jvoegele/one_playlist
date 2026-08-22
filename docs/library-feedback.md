@@ -726,3 +726,126 @@ Two things worth noting for the guides:
 **Suggested fix:** an "unwrapping a wrapped error" recipe in the guides, with the `root_cause`
 loop above — the pattern is small enough that everyone writes it, and general enough that
 nobody should have to.
+
+## `bond` — an inherited contract's expression is resolved in the *implementing* module's aliases
+
+**Found:** 2026-08-22, moving the OAuth token map into a `Providers.Tokens` struct.
+
+`OnePlaylist.Providers.Adapter` aliases `OnePlaylist.Providers.Tokens` and declares a
+contract on one of its callbacks using it:
+
+```elixir
+alias OnePlaylist.Providers.Tokens
+
+@post whenever({:ok, tokens} <- result), fresh: Tokens.fresh?(tokens)
+@callback refresh_tokens(refresh_token :: String.t()) :: {:ok, tokens()} | {:error, Exception.t()}
+```
+
+That compiles cleanly in `Adapter`, and then fails in **both implementing modules**, neither
+of which aliases `Tokens`:
+
+```
+warning: Tokens.fresh?/1 is undefined (module Tokens is not available or is yet to be defined).
+Did you mean:
+      * OnePlaylist.Providers.Tokens.fresh?/1
+ 101 │
+     │                                                          ~
+     └─ lib/one_playlist/providers/tidal.ex:101:58:
+          OnePlaylist.Providers.Tidal.__bond_postconditions__refresh_tokens__1/2
+```
+
+Which is correct behaviour — the assertion is injected into the implementor and resolved
+there — but the diagnostic lands a long way from the cause. It names a generated function
+(`__bond_postconditions__refresh_tokens__1/2`), points at a file that does not contain the
+contract, and gives a line and column (`101:58`) that are blank in that file. Nothing in it
+says "inherited contract", so the natural first move is to add an alias to `Tidal` — which
+works, and quietly leaves the same trap set for the next adapter.
+
+The fix is to spell the module out in full at the declaration site. That is easy once known
+and invisible beforehand, and it is a *general* rule about inherited contracts rather than a
+detail of this one: any remote call, struct literal, or `__MODULE__` in a `Bond.Behaviour`
+contract has to be resolvable from every implementing module.
+
+**Suggested fix:** two things, in order of value.
+
+1. A paragraph in `contract-inheritance.md` — "expressions are resolved in the implementing
+   module's alias scope, so write remote calls fully qualified". This is the whole fix for
+   anyone who reads it first.
+2. If the injected AST can carry the declaring module's `__ENV__`, expanding aliases at
+   declaration time would make the short form work and remove the trap entirely. Failing
+   that, a compile-time check in `Bond.Behaviour` for unresolvable remote calls in a contract
+   would catch it where the contract is *written*.
+
+## `bond` — `warn_skipped_invariants` is a good linter, and it cannot see one-hop delegation
+
+**Found:** 2026-08-22, same change. **Mostly a positive.**
+
+Adding `@invariant` to two struct modules produced two warnings, and the linter was right
+both times about the facts:
+
+```
+warning: public function `from_oauth_response/2` in invariant-declaring module
+`OnePlaylist.Providers.Tokens` never mentions the struct: no clause matches
+`%OnePlaylist.Providers.Tokens{}` in its head or builds one in its body, so the entry check
+is skipped and invariants are skipped here.
+```
+
+The second one earned its keep immediately. It fired on `Signals.normalize_barcode/1`, a
+string utility that lives in `Matching.Signals` only because barcode comparison was first
+needed there — and which now has callers in three other modules. "This module declares an
+invariant and has a public function with nothing to do with its struct" turns out to be a
+decent smell for a namespace squatter. Suppressed for now with the reason written down;
+moving it is its own change.
+
+The first is a false positive of a specific and probably common shape. `from_oauth_response/2`
+does not build the struct — it normalizes an OAuth response and calls `new/1`, which does:
+
+```elixir
+def from_oauth_response(body, now \\ DateTime.utc_now()) when is_map(body) do
+  new(access_token: body["access_token"], ...)   # new/1 IS checked, on its way out
+end
+```
+
+So the invariant *is* enforced on every value this function returns, one call away. The
+warning text hedges correctly ("the exit check still fires if this function returns a
+`%…{}` at runtime"), but it still asks the reader to prove the linter wrong, and the
+lowest-friction way to silence it is to inline the struct literal — which duplicates the
+normalization that `new/1` exists to hold in one place. That is the linter pushing very
+gently toward a worse design.
+
+**Suggested fix:** treat a function whose every return path is a call to another public
+function *in the same module* as covered, and stay quiet. If that is more analysis than the
+linter wants to do, softening the wording would go most of the way: naming delegation as the
+common benign case, and suggesting `@bond_warn_skipped_invariants false` for it specifically,
+rather than leaving inlining as the obvious escape.
+
+## `bond` + Elixir 1.20 — the type system independently enforces Meyer's base case
+
+**Found:** 2026-08-22, same change. **A positive, and an argument for the `defstruct`
+defaults tip in the invariants guide.**
+
+The guide says a struct's `defstruct` defaults should satisfy its invariant, because `%Mod{}`
+is always constructible. `Providers.Tokens` cannot honour that — there is no valid stand-in
+for "a real access token" or "a real expiry" — so `%Tokens{}` deliberately violates its own
+invariant, and Bond's entry check is what notices.
+
+Elixir 1.20's type system reaches the same conclusion at *compile time*, without being told:
+
+```
+Tokens.fresh?(%Tokens{})
+#                    ~
+# the given type does not have the given key:
+#     dynamic(%Tokens{expires_at: nil, ...})
+# but expected one of:
+#     %Tokens{expires_at: %{..., calendar: atom(), ...}}
+```
+
+Because `fresh?/2` passes `expires_at` to `DateTime.after?/2`, the compiler can prove that the
+default-constructed struct can never be a valid argument. Two independent mechanisms — a
+1988 design rule and a 2025 type checker — agreeing that the defaults are part of the
+contract.
+
+**Suggested fix:** none, but it is a nice example for the guide. The tip currently justifies
+itself with `Bond.AssertionEvaluationError`, a runtime failure; "and on recent Elixir the type
+checker will often catch it for you first" makes the same point more forcefully, and gives a
+reader a reason to care before they have been bitten.

@@ -439,9 +439,15 @@ defmodule OnePlaylist.Providers do
         # not. Keeping the existing one is not a nicety: overwriting it with nil
         # would end the connection at the next expiry, and the user would have
         # to reconnect for no reason.
-        refresh_token: tokens[:refresh_token] || connection.refresh_token,
+        #
+        # `||` is safe here only because `%Tokens{}` cannot carry `""` — an
+        # empty string is truthy and would sail through this fallback, and past
+        # `refresh_token_is_never_lost` below, to leave the connection holding a
+        # refresh token that fails its own precondition next time. That is the
+        # `refresh_token_absent_or_real` invariant's job.
+        refresh_token: tokens.refresh_token || connection.refresh_token,
         access_token_expires_at: tokens.expires_at,
-        scopes: if(tokens[:scopes] in [nil, []], do: connection.scopes, else: tokens.scopes)
+        scopes: if(tokens.scopes == [], do: connection.scopes, else: tokens.scopes)
       })
     else
       {:error, error} ->

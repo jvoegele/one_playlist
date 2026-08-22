@@ -26,17 +26,10 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   alias OnePlaylist.Providers.Tidal
   alias OnePlaylist.Providers.Tidal.Service
   alias OnePlaylist.Providers.TokenRefreshFailed
+  alias OnePlaylist.Providers.Tokens
 
   use Bond
   use Errata
-
-  @typedoc "An OAuth token set as returned by TIDAL."
-  @type tokens :: %{
-          access_token: String.t(),
-          refresh_token: String.t() | nil,
-          expires_at: DateTime.t(),
-          scopes: [String.t()]
-        }
 
   @doc """
   Builds the URL to redirect a user to, plus the PKCE verifier and state.
@@ -94,7 +87,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   end
 
   @doc "Exchanges an authorization code for tokens."
-  @spec exchange_code(String.t(), String.t()) :: {:ok, tokens()} | {:error, Errata.error()}
+  @spec exchange_code(String.t(), String.t()) :: {:ok, Tokens.t()} | {:error, Errata.error()}
   def exchange_code(code, code_verifier) do
     with {:ok, config} <- config() do
       post_token(config, %{
@@ -114,7 +107,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   next expiry, so `:refresh_token` is `nil` here rather than absent, and
   `OnePlaylist.Providers.refresh/1` is what decides to keep the old value.
   """
-  @spec refresh(String.t()) :: {:ok, tokens()} | {:error, Errata.error()}
+  @spec refresh(String.t()) :: {:ok, Tokens.t()} | {:error, Errata.error()}
   def refresh(refresh_token) do
     with {:ok, config} <- config() do
       post_token(config, %{
@@ -134,11 +127,16 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   # A postcondition on a private function is fine: Bond exempts them from the
   # Precondition Availability rule, since a postcondition is a promise the
   # function makes rather than an obligation on its caller.
-  @post whenever(
-          {:ok, tokens} <- result,
-          usable: is_binary(tokens.access_token) and tokens.access_token != "",
-          fresh: DateTime.after?(tokens.expires_at, DateTime.utc_now())
-        )
+  #
+  # `usable` used to sit beside this, asserting a non-blank access token. It is
+  # now an invariant of `OnePlaylist.Providers.Tokens`, which fires when
+  # `from_oauth_response/2` builds the struct — earlier, in the module that owns
+  # the type, and strictly stronger: it also rejects the blank *refresh* token
+  # that `Providers.refresh/1`'s `||` fallback would otherwise store.
+  #
+  # Freshness stays here, because it is not an invariant. See the moduledoc of
+  # `OnePlaylist.Providers.Tokens`.
+  @post whenever({:ok, tokens} <- result, fresh: Tokens.fresh?(tokens))
   defp post_token(config, params) do
     params = Map.put(params, "client_id", config[:client_id])
 
@@ -162,7 +160,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
       end)
 
     with {:ok, body} <- result do
-      {:ok, to_tokens(body)}
+      {:ok, Tokens.from_oauth_response(body)}
     end
   end
 
@@ -215,15 +213,6 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
         error_description: body["error_description"]
       }
     )
-  end
-
-  defp to_tokens(body) do
-    %{
-      access_token: body["access_token"],
-      refresh_token: body["refresh_token"],
-      expires_at: DateTime.add(DateTime.utc_now(), body["expires_in"] || 3600, :second),
-      scopes: String.split(body["scope"] || "", " ", trim: true)
-    }
   end
 
   @doc """

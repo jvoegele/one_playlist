@@ -87,11 +87,36 @@ defmodule OnePlaylist.Providers.AdapterTest do
     end
 
     test "a provider that returns a blank access token is caught" do
+      # This used to be a `:usable` postcondition here. It is now an invariant of
+      # OnePlaylist.Providers.Tokens, so it fires at construction rather than at
+      # this boundary — earlier, and naming the field rather than the callback.
       Req.Test.stub(Tidal, fn conn ->
         Req.Test.json(conn, %{"access_token" => "", "expires_in" => 3600})
       end)
 
-      assert_postcondition_violation(Tidal.refresh_tokens("rt-valid"), label: :usable)
+      assert_invariant_violation(Tidal.refresh_tokens("rt-valid"),
+        label: :access_token_present
+      )
+    end
+
+    test "a provider that returns a blank refresh token is caught" do
+      # Never caught before, by anything. `""` is truthy, so
+      # `Providers.refresh/1`'s `tokens.refresh_token || connection.refresh_token`
+      # fallback would store it over a working one; `refresh_token_is_never_lost`
+      # would be satisfied, because an empty string is still a binary; and the
+      # next refresh would raise a *precondition* violation instead of failing
+      # cleanly. Slow, silent, and unrecoverable without reconnecting.
+      Req.Test.stub(Tidal, fn conn ->
+        Req.Test.json(conn, %{
+          "access_token" => "at",
+          "refresh_token" => "",
+          "expires_in" => 3600
+        })
+      end)
+
+      assert_invariant_violation(Tidal.refresh_tokens("rt-valid"),
+        label: :refresh_token_absent_or_real
+      )
     end
 
     test "a normal refresh satisfies both postconditions" do

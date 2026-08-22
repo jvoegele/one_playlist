@@ -50,16 +50,18 @@ defmodule OnePlaylist.Providers.Adapter do
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Connection
+  alias OnePlaylist.Providers.Tokens
 
   @default_search_limit 10
 
-  @typedoc "A fresh token set from the provider."
-  @type tokens :: %{
-          required(:access_token) => String.t(),
-          required(:expires_at) => DateTime.t(),
-          optional(:refresh_token) => String.t() | nil,
-          optional(:scopes) => [String.t()]
-        }
+  @typedoc """
+  A fresh token set from the provider.
+
+  Was a map declared here *and* in `OnePlaylist.Providers.Tidal.OAuth`, with the
+  two declarations disagreeing about which keys were optional. See
+  `OnePlaylist.Providers.Tokens` for what that cost and why it is a struct.
+  """
+  @type tokens :: Tokens.t()
 
   @doc """
   The provider this adapter serves.
@@ -75,15 +77,36 @@ defmodule OnePlaylist.Providers.Adapter do
   @doc """
   Exchanges a refresh token for a new access token.
 
-  The two postconditions are the whole reason this callback is contracted. A
-  refresh that returns an already-expired token, or a blank one, is worse than a
-  failed refresh: it is stored, looks healthy, and fails at the next call with
-  an error that points at the wrong thing.
+  The contract here is the whole reason this callback is contracted. A refresh
+  that returns an already-expired token, or a blank one, is worse than a failed
+  refresh: it is stored, looks healthy, and fails at the next call with an error
+  that points at the wrong thing.
+
+  It is now two contracts working at different places, which is worth being
+  precise about:
+
+    * **`fresh`, below.** Not an invariant — a token set is fresh when issued
+      and stale hours later without changing. Only the producer can promise it.
+    * **`OnePlaylist.Providers.Tokens`' invariant**, reached through the
+      `Tokens.fresh?/2` call in that postcondition. It covers the blank access
+      token the old `usable` assertion named, plus the blank *refresh* token it
+      never did.
+
+  An adapter that hand-builds `%Tokens{}` rather than going through
+  `Tokens.new/1` is exactly the case this arrangement is for: the struct alone
+  would not check it, because its invariant only fires at its own module's
+  boundary.
   """
+  #
+  # `OnePlaylist.Providers.Tokens` is spelled out rather than using the `Tokens`
+  # alias in scope above. An inherited contract's expression is injected into
+  # each *implementing* module and resolved in that module's alias table, not in
+  # this one — so the short form compiles here and fails in `Tidal` and
+  # `Navidrome` with "module Tokens is not available", reported against a
+  # generated function name at a line that is blank.
   @pre present: is_binary(refresh_token) and refresh_token != ""
   @post whenever({:ok, tokens} <- result),
-    usable: is_binary(tokens.access_token) and tokens.access_token != "",
-    fresh: DateTime.after?(tokens.expires_at, DateTime.utc_now())
+    fresh: OnePlaylist.Providers.Tokens.fresh?(tokens)
   @callback refresh_tokens(refresh_token :: String.t()) ::
               {:ok, tokens()} | {:error, Exception.t()}
 

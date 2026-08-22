@@ -43,7 +43,7 @@ defmodule OnePlaylist.Matching.Strategy.Fuzzy do
   def score(%Track{} = source, %Track{} = candidate) do
     signals = Signals.compare(source, candidate)
 
-    with false <- signals.discriminating_conflict,
+    with false <- Signals.vetoed?(signals),
          raw when is_float(raw) <- combine(signals) do
       {raw, evidence(signals)}
     else
@@ -61,12 +61,9 @@ defmodule OnePlaylist.Matching.Strategy.Fuzzy do
       {signals.artists, 3},
       {signals.duration, 2},
       {signals.album, 1},
-      {editorial_penalty(signals), 1}
+      {Signals.editorial_penalty(signals), 1}
     ])
   end
-
-  defp editorial_penalty(%{editorial_conflict: true}), do: 0.0
-  defp editorial_penalty(_signals), do: nil
 
   defp evidence(signals) do
     [
