@@ -159,6 +159,41 @@ Notes:
 - Docker Desktop's VM disk is 60 GB and *not* the same as host free space. If image pulls fail
   with "no space left on device", check `docker system df` — that is the real limit.
 
+### Both `dev` and `test` use the `postgres` database
+
+Not `one_playlist_dev` / `one_playlist_test`. This is forced, not stylistic: every Supabase
+service is wired to the `postgres` database, and the `auth` / `storage` / `realtime` schemas
+exist **only** there — a freshly created database inherits none of them from `template1`
+(verified). Our tables have to live in `postgres` or PostgREST, Realtime and Storage cannot see
+them and `auth.uid()` does not exist, which would make RLS untestable.
+
+Test isolation therefore comes from the **Ecto SQL sandbox** rather than a separate database.
+Verified empirically: a test that runs `create table` + `insert` leaves nothing behind, and
+repeated runs do not accumulate. The trade-off is that a test escaping the sandbox would be
+visible in dev; the gain is that tests see the real `auth` schema, the real
+`anon`/`authenticated`/`service_role` roles, and real `auth.uid()`.
+
+- **Never run `mix ecto.drop`.** It would delete the Supabase database out from under the
+  running stack. `mix ecto.reset` has been redefined to `supabase db reset` + `ecto.migrate`.
+- `MIX_TEST_PARTITION` is unusable here — it partitions by creating one database per partition.
+- The test pool is capped at 16 (not the usual `schedulers_online() * 2` = 32): Supabase's own
+  services already hold ~32 of the cluster's 100 connections.
+- Ecto's `public.schema_migrations` coexists fine with Supabase's `supabase_migrations` schema.
+
+### Migration convention: RLS is not on by default
+
+Tables created in `public` are **not** protected until you say so, and Supabase's default
+privileges already grant `anon`/`authenticated` a partial set on new tables (`TRUNCATE`,
+`REFERENCES`, `TRIGGER` — verified on `schema_migrations`). Not currently reachable, since
+those roles are only exposed through PostgREST and it issues no `TRUNCATE`, but it means the
+starting position for a new table is "partially granted, unprotected".
+
+So **every migration that creates a table in `public` must**: `enable row level security`,
+`revoke all` from `anon, authenticated`, then `grant` only what that table genuinely needs, and
+add policies with an explicit `TO` role. See `docs/reference/supabase.md` for the full pattern
+and the `(select auth.uid())` performance note. `public.schema_migrations` should get a
+`revoke all ... from anon, authenticated` alongside the first real migration.
+
 ## Working agreements
 
 - Run `mix precommit` when a change is complete and fix everything it reports.

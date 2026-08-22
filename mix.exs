@@ -93,8 +93,12 @@ defmodule OnePlaylist.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
-      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "ecto.setup": ["ecto.create --quiet", "ecto.migrate", "run priv/repo/seeds.exs"],
+      # `ecto.drop` would delete the local Supabase database out from under the
+      # running stack, taking auth/storage/realtime with it. `supabase db reset`
+      # is the safe equivalent: it rebuilds the Supabase base schemas and
+      # re-applies supabase/migrations, after which our Ecto migrations go on top.
+      "ecto.reset": ["cmd supabase db reset", "ecto.migrate", "run priv/repo/seeds.exs"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind one_playlist", "esbuild one_playlist"],

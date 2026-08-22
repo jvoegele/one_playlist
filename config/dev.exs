@@ -1,11 +1,26 @@
 import Config
 
 # Configure your database
+#
+# This points at the local Supabase stack (`supabase start`), not a standalone
+# Postgres. Note the port: 54322, not 5432.
+#
+# The database is `postgres` rather than `one_playlist_dev` on purpose. Every
+# Supabase service — PostgREST, Auth, Realtime, Storage — is wired to the
+# `postgres` database, and the `auth`/`storage`/`realtime` schemas live only
+# there (a freshly created database inherits none of them from template1). Our
+# tables have to live in that database or none of those services can see them,
+# and `auth.uid()` — the whole basis of RLS — would not exist.
+#
+# Consequence: **never run `mix ecto.drop` against this.** It would delete the
+# Supabase database out from under the running stack. Use `mix ecto.reset`,
+# which shells out to `supabase db reset` and then re-migrates.
 config :one_playlist, OnePlaylist.Repo,
   username: "postgres",
   password: "postgres",
-  hostname: "localhost",
-  database: "one_playlist_dev",
+  hostname: "127.0.0.1",
+  port: 54322,
+  database: "postgres",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
