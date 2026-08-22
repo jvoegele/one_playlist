@@ -43,3 +43,8 @@ npm-debug.log
 # Local development overrides — real provider credentials, never committed.
 # Copy config/dev_local.example.exs to config/dev_local.exs and fill it in.
 /config/dev_local.exs
+
+# The local Navidrome instance: generated audio and its database. The generator
+# and the compose file are committed; what they produce is not.
+/dev/navidrome/music/
+/dev/navidrome/data/

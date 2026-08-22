@@ -142,6 +142,22 @@ currently **2.115.0**. It is not pinned in `.tool-versions` — the only asdf pl
 third-party. If `config.toml` ever fails to parse, check the CLI version first; the schema is
 tied to it.
 
+### Navidrome — the second provider, run locally
+
+```sh
+docker compose -f dev/navidrome/docker-compose.yml up -d
+python3 dev/navidrome/generate_library.py        # 30 tracks; --no-isrc for the hard case
+open http://localhost:4533                       # admin / oneplaylist
+```
+
+Port **4533**. The sample library is *synthetic audio with real metadata* taken from the TIDAL
+corpus — so it matches against TIDAL, and no copyrighted audio is in the repository. Both the
+music and Navidrome's database are gitignored; the generator and compose file are not.
+
+Subsonic is deliberately unlike TIDAL — token auth with no expiry, flat JSON, HTTP 200 on
+failure, ISRC as an array. See `docs/reference/domain.md`. It exists to find the places the
+adapter behaviour encoded TIDAL's assumptions.
+
 ```sh
 supabase start     # boots the stack in Docker (12 containers)
 supabase status    # prints URLs and local keys — never commit these, just re-run this

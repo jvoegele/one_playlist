@@ -1,0 +1,45 @@
+# Navidrome: the second provider, and the first that is not TIDAL-shaped.
+#
+# Why this one
+#
+#   * It is free, local and unlimited — no allowlist, no quota, no MAU
+#     threshold, none of the constraints in docs/reference/domain.md that make
+#     the major services hard to build against.
+#   * It speaks the **Subsonic API**, which is nothing like TIDAL's: token auth
+#     rather than OAuth, flat query parameters rather than JSON:API, and no
+#     ISRCs on most libraries. That is the point — an adapter behaviour derived
+#     from one provider is a guess until a differently-shaped one arrives.
+#   * Self-hosted is where docs/reference/domain.md says the incumbents are
+#     thinnest, so it is a real product direction rather than only a test rig.
+#
+# Ports: 4533 is Navidrome's default and does not collide with Phoenix (4000),
+# the Supabase gateway (54321) or Postgres (54322).
+#
+#   docker compose -f dev/navidrome/docker-compose.yml up -d
+#   python3 dev/navidrome/generate_library.py
+#   open http://localhost:4533
+#
+# The music directory is generated and gitignored; see generate_library.py for
+# why the audio is synthetic and the metadata is real.
+
+services:
+  navidrome:
+    image: deluan/navidrome:0.58.0
+    container_name: one_playlist_navidrome
+    ports:
+      - "4533:4533"
+    environment:
+      ND_LOGLEVEL: info
+      # Seconds. The default is a minute; this makes a regenerated library
+      # visible while you are still looking at the terminal.
+      ND_SCANSCHEDULE: 30s
+      # Development only, and the reason this file is not a deployment example:
+      # it disables the sign-up flow so the credentials below are the only ones.
+      ND_ENABLETRANSCODINGCONFIG: "false"
+      ND_DEFAULTTHEME: Dark
+      # Created on first boot. Local-only, and the whole instance is disposable.
+      ND_DEVAUTOCREATEADMINPASSWORD: oneplaylist
+    volumes:
+      - ./music:/music:ro
+      - ./data:/data
+    restart: unless-stopped
