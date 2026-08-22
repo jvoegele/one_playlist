@@ -45,7 +45,13 @@ if [ $# -lt 1 ]; then
   exit 64
 fi
 
-SCRIPT="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+# `>/dev/null` is not decoration: with `CDPATH` set — which it is in some
+# shells, including the one this was found in — bash's `cd` prints the
+# directory it resolved to, and that line ends up inside `$SCRIPT`. The result
+# is a path with a newline in the middle of it, and an error naming a directory
+# nobody asked for. `-P` resolves symlinks, `--` stops a leading dash being read
+# as an option.
+SCRIPT="$(cd -P -- "$(dirname -- "$1")" >/dev/null && pwd)/$(basename -- "$1")"
 
 if [ ! -f "$SCRIPT" ]; then
   echo "bin/remote: no such file: $SCRIPT" >&2

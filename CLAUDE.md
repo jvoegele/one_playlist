@@ -148,6 +148,7 @@ tied to it.
 docker compose -f dev/navidrome/docker-compose.yml up -d
 python3 dev/navidrome/generate_library.py        # 30 tracks; --no-isrc for the hard case
 open http://localhost:4533                       # admin / oneplaylist
+bin/remote dev/navidrome/connect.exs             # attaches it to the dev user
 ```
 
 Port **4533**. The sample library is *synthetic audio with real metadata* taken from the TIDAL
@@ -314,6 +315,42 @@ is the house style, and every rule in it was learned by getting something wrong 
 - This project is intended as a flagship example of `bond`, `external_service`, `errata` and
   `wait_for_it` used deeply. Prefer the demonstrative-but-honest option: a contract that earns
   its place and is proven to fire, over either a decorative one or none at all.
+
+---
+
+## Where the project is (updated 2026-08-22)
+
+A fresh session should read this before proposing what to build.
+
+**Working end to end, verified against live services:**
+
+| | |
+| --- | --- |
+| Providers | **TIDAL** (OAuth + PKCE, encrypted tokens, refresh) and **any Subsonic server** (Navidrome) |
+| Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto and a confidence threshold |
+| Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
+| UI | LiveView: list transfers, pick a playlist, watch the report |
+| Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
+
+**Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
+ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer whose
+report matched what actually landed in the destination.
+
+**Not built yet**, roughly in value order:
+
+  * **Connecting a Subsonic server through the UI.** There is no form; `dev/navidrome/connect.exs`
+    is the only way in. This is the smallest gap between "works" and "usable".
+  * **An honest cross-service match rate.** Every number so far is soft, because both sides
+    of every measurement came from the same metadata. See `docs/reference/domain.md`.
+  * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
+    `wait_for_it` and pg_cron are already in the stack.
+  * A third provider. Apple Music needs $99/yr and a browser flow; Qobuz is partner-only
+    (email `api@qobuz.com`); Spotify is self-serve but permanently capped at 5 users.
+
+**Local state that is not in this repository.** Running `supabase start`, the Navidrome
+container, and a TIDAL connection in the dev database. The TIDAL account was reconnected on
+2026-08-22 to grant `search.read`; without it, text search fails with a `400
+INVALID_RESOURCE_ID` that names neither scopes nor the parameter.
 
 ---
 

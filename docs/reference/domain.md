@@ -406,6 +406,32 @@ ISRCs at all**, because they come from tagging rather than from a catalogue; the
 library can be rebuilt without them (`--no-isrc`) precisely so the text and fuzzy rungs can be
 measured carrying the whole match.
 
+### What has actually been measured about match quality
+
+Match quality is the product, so it is worth being precise about which numbers mean what.
+Every measurement so far is **soft in the same way**, and the reason is always that both sides
+came from the same metadata.
+
+| Measurement | Result | What it proves | What it does not |
+| --- | --- | --- | --- |
+| TIDAL → TIDAL, ISRCs present | 60/60 `:exact_isrc` | The ISRC rung and the tie-breaking work against a real catalogue | Nothing about text matching |
+| TIDAL → TIDAL, ISRCs stripped | 98% via text | Normalization survives a real catalogue's spellings | Not a cross-service rate: source and candidates are both TIDAL, written by one cataloguer |
+| TIDAL → Navidrome, ISRCs present | 30/30 `:exact_isrc` | The whole cross-provider pipeline: two adapters, two shapes, one ladder | Nothing about text |
+| TIDAL → Navidrome, ISRCs stripped | 30/30 via text, at **0.929** | Text carries a cross-provider match when rung 1 cannot | Still not a real rate — the local library's tags were *generated from* the TIDAL corpus |
+
+The `0.929` is the interesting number. A perfect text match scores `0.98`; these lose the
+difference to the **editorial-tag penalty**, because TIDAL labels those recordings
+`"Remastered 2009"` and the local files carry no version at all. That is exactly the
+cross-provider disagreement the editorial/discriminating split was written for: it costs
+confidence without rejecting the match, which is the intended behaviour and the first time it
+has fired outside a unit test.
+
+**What an honest cross-service number needs** is a destination whose metadata was written by
+somebody else — a real ripped library, or a second commercial catalogue. Until then, treat
+every rate above as a regression floor for the code rather than a claim about the product.
+`dev/navidrome/generate_library.py --no-isrc` is the closest available approximation, and its
+limitation is that it is an approximation.
+
 ### Deezer — effectively closed
 
 - The public API has been disabled for new registrations: **new tokens cannot be obtained**,
