@@ -194,6 +194,33 @@ add policies with an explicit `TO` role. See `docs/reference/supabase.md` for th
 and the `(select auth.uid())` performance note. `public.schema_migrations` should get a
 `revoke all ... from anon, authenticated` alongside the first real migration.
 
+### Running the app, and probing it while it runs
+
+Start the server **as a named node**, so it can be reached without stopping it:
+
+```sh
+elixir --sname oneplaylist --cookie oneplaylist-dev -S mix phx.server
+```
+
+Then evaluate a script inside the running server with `bin/remote`:
+
+```sh
+bin/remote path/to/probe.exs
+```
+
+This exists because `mix run` boots a second copy of the application, which then
+fails to bind port 4000 while the server holds it — and stopping the server for every probe
+drops whatever the browser was mid-way through. `bin/remote` scripts see the same processes,
+the same `ExternalService` breakers and rate limiters, and the same connections as live
+requests, which also means a probe is subject to the same rate limiting rather than quietly
+bypassing it.
+
+**Write probes that return values.** The script is evaluated on the server, so `IO.puts` inside
+one lands in the *server log*; only the final value comes back to the caller. See the header of
+`bin/remote` for the details, including why a closure cannot be used across the node boundary.
+
+The cookie is a local convenience, not a secret — the node listens only on loopback via epmd.
+
 ### Local credentials
 
 Real provider credentials for driving the live APIs go in **`config/dev_local.exs`**, which is

@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# Evaluate an .exs file inside the running Phoenix server.
+#
+#     bin/remote path/to/script.exs
+#
+# Why this exists: `mix run` boots a second copy of the application, which then
+# fails to bind port 4000 while the server holds it. The alternative — stopping
+# the server for every probe — drops whatever the browser was doing and loses
+# the log you were watching.
+#
+# This connects to the running node instead, so scripts see the same processes,
+# the same ExternalService circuit breakers and rate limiters, and the same
+# database connections as live requests.
+#
+# ## Where output goes
+#
+# The script is evaluated on the server, so its group leader is the server's:
+# `IO.puts` inside a script lands in the **server log**, not in this terminal.
+# Only the script's final value comes back here, printed below.
+#
+# So write probes that *return* what you want to see:
+#
+#     # good — comes back to the caller
+#     Enum.map(playlists, & &1.name)
+#
+#     # goes into the server log instead
+#     IO.puts("...")
+#
+# A closure cannot be used here: an anonymous function defined in this wrapper
+# belongs to a module the server has never loaded, so shipping one across the
+# node boundary fails. `Code.eval_file/1` by module-function-arguments is the
+# form that works.
+#
+# The server must have been started as a named node with a matching cookie:
+#
+#     elixir --sname oneplaylist --cookie oneplaylist-dev -S mix phx.server
+#
+# The cookie is a local development convenience, not a secret: the node listens
+# only on the loopback interface via epmd.
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "usage: bin/remote <script.exs>" >&2
+  exit 64
+fi
+
+SCRIPT="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+
+if [ ! -f "$SCRIPT" ]; then
+  echo "bin/remote: no such file: $SCRIPT" >&2
+  exit 66
+fi
+
+# The path travels in the environment rather than interpolated into the -e
+# string, so the Elixir below can be single-quoted and needs no shell escaping.
+export ONE_PLAYLIST_REMOTE_SCRIPT="$SCRIPT"
+
+exec elixir --sname "op-remote-$$" --cookie oneplaylist-dev -e '
+  node = :"oneplaylist@#{:inet_db.gethostname()}"
+
+  unless Node.connect(node) do
+    IO.puts(:stderr, "bin/remote: could not reach #{node}.")
+    IO.puts(:stderr, "Is the server running as a named node? See the header of bin/remote.")
+    System.halt(69)
+  end
+
+  path = System.fetch_env!("ONE_PLAYLIST_REMOTE_SCRIPT")
+
+  case :erpc.call(node, Code, :eval_file, [path]) do
+    {value, _binding} when is_binary(value) -> IO.puts(value)
+    {value, _binding} -> IO.inspect(value, limit: :infinity, printable_limit: :infinity)
+  end
+'
