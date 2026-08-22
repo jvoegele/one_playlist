@@ -86,6 +86,50 @@ defmodule OnePlaylist.Providers.Tidal do
     end
   end
 
+  @impl true
+  def create_playlist(%Connection{} = connection, name, opts \\ []) do
+    with {:ok, connection} <- Providers.ensure_fresh(connection) do
+      Client.create_playlist(connection.access_token, name, call_opts(connection, opts))
+    end
+  end
+
+  @impl true
+  def add_tracks(connection, playlist, tracks, opts \\ [])
+
+  def add_tracks(%Connection{} = connection, %Playlist{provider_id: id}, tracks, opts),
+    do: add_tracks(connection, id, tracks, opts)
+
+  def add_tracks(%Connection{} = connection, playlist, tracks, opts) when is_binary(playlist) do
+    ids = Enum.map(tracks, & &1.provider_id)
+
+    with {:ok, connection} <- Providers.ensure_fresh(connection),
+         :ok <-
+           Client.add_tracks(
+             connection.access_token,
+             playlist,
+             ids,
+             call_opts(connection, opts)
+           ) do
+      # TIDAL answers an append with 200 and no body, so there is nothing to
+      # count but what we sent. Reporting `length(ids)` is honest only because
+      # the call is all-or-nothing: a partial append would come back as an
+      # error, and the caller re-reads the destination before trusting a total.
+      {:ok, length(ids)}
+    end
+  end
+
+  @impl true
+  def playlist_track_ids(connection, playlist, opts \\ [])
+
+  def playlist_track_ids(%Connection{} = connection, %Playlist{provider_id: id}, opts),
+    do: playlist_track_ids(connection, id, opts)
+
+  def playlist_track_ids(%Connection{} = connection, playlist, opts) when is_binary(playlist) do
+    with {:ok, connection} <- Providers.ensure_fresh(connection) do
+      Client.playlist_track_ids(connection.access_token, playlist, call_opts(connection, opts))
+    end
+  end
+
   # ISRC first, always. It is one request, the results are exact, and it does
   # not need a scope this connection may not have.
   defp candidates(connection, %Track{isrc: isrc}, opts) when is_binary(isrc) do

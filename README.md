@@ -17,7 +17,7 @@ That problem is why this project exists, and it shapes everything below.
 > and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
 > and by text, and is measured against a corpus captured from a real library.
 > There is no write path and no UI yet.
-> 312 tests, 61 contracts.
+> 326 tests, 66 contracts.
 
 ---
 
@@ -28,10 +28,10 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 61 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 66 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
-| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |
+| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. **Not yet used** — see below. |
 
 The backend is [Supabase](https://supabase.com) — Postgres with RLS, Auth,
 Storage, Realtime, Queues and pgvector — used as natively as the workload allows.
@@ -173,8 +173,13 @@ demanding that every user reconnect after a ten-minute blip.
 
 ### WaitForIt
 
-Used for `WaitForIt.Test` assertions and for polling asynchronous provider work.
-The heaviest use is still ahead, in the transfer pipeline.
+**Not yet used.** It is a declared dependency with zero call sites, which is
+worth stating plainly in a repository whose first stated goal is dogfooding.
+
+Its home is the transfer pipeline — waiting on asynchronous provider work
+without `Process.sleep/1`, and `WaitForIt.Test` assertions over jobs that
+complete out of band. That pipeline is the next thing being built, and this
+section will say something truer when it exists.
 
 ---
 

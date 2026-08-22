@@ -21,6 +21,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   alias OnePlaylist.Providers.Tidal.APIError
   alias OnePlaylist.Providers.Tidal.Mapper
   alias OnePlaylist.Providers.Tidal.Service
+  alias OnePlaylist.Providers.Tidal.WriteService
 
   use Errata
 
@@ -241,6 +242,118 @@ defmodule OnePlaylist.Providers.Tidal.Client do
     end)
   end
 
+  @doc """
+  Creates a playlist and returns it.
+
+  Verified live on 2026-08-22: `POST /v2/playlists` with a JSON:API document
+  returns **201** and a playlist whose `id` is a **UUID**, unlike the numeric
+  ids catalogue resources carry. Nothing downstream should assume a shape for a
+  provider id, and this is why.
+
+  `accessType` is deliberately not sent. `"PRIVATE"` is rejected with a 400
+  pointing at `data/attributes/accessType`, while `"UNLISTED"` and `"PUBLIC"`
+  are accepted — so the safe default is to omit it and let TIDAL decide, rather
+  than to guess at a visibility on the user's behalf.
+  """
+  @spec create_playlist(String.t(), String.t(), keyword()) ::
+          {:ok, OnePlaylist.Music.Playlist.t()} | {:error, Errata.error()}
+  def create_playlist(access_token, name, opts \\ []) do
+    body = %{
+      "data" => %{
+        "type" => "playlists",
+        "attributes" =>
+          %{"name" => name}
+          |> maybe_put("description", Keyword.get(opts, :description))
+      }
+    }
+
+    with {:ok, %{"data" => resource}} <-
+           write(access_token, :post, "/playlists", body, country_param(opts)) do
+      {:ok, Mapper.playlist(resource)}
+    end
+  end
+
+  @doc """
+  Appends tracks to a playlist, in the order given.
+
+  `POST /v2/playlists/{id}/relationships/items` with a JSON:API resource
+  identifier array; verified to return **200**.
+
+  Appends, and does not deduplicate — TIDAL will happily add a track already
+  present. Deciding what to add is the caller's job, and
+  `playlist_track_ids/3` is what it should decide against.
+  """
+  @spec add_tracks(String.t(), String.t(), [String.t()], keyword()) ::
+          :ok | {:error, Errata.error()}
+  def add_tracks(access_token, playlist_id, track_ids, opts \\ [])
+
+  def add_tracks(_access_token, _playlist_id, [], _opts), do: :ok
+
+  def add_tracks(access_token, playlist_id, track_ids, opts) do
+    body = %{"data" => Enum.map(track_ids, &%{"id" => &1, "type" => "tracks"})}
+
+    with {:ok, _response} <-
+           write(
+             access_token,
+             :post,
+             "/playlists/#{playlist_id}/relationships/items",
+             body,
+             country_param(opts)
+           ) do
+      :ok
+    end
+  end
+
+  @doc """
+  The ids of the tracks currently in a playlist, in order.
+
+  The snapshot an idempotent transfer diffs against: `docs/reference/domain.md`
+  requires that a retried "add tracks" must not duplicate, and the only way to
+  keep that promise is to look before writing.
+
+  Returns identifiers rather than `OnePlaylist.Music.Track` structs on purpose.
+  The caller wants to know *what is already there*, which is a set membership
+  question — mapping the resources would cost an `include` and produce data
+  nobody reads.
+  """
+  @spec playlist_track_ids(String.t(), String.t(), keyword()) ::
+          {:ok, [String.t()]} | {:error, Errata.error()}
+  def playlist_track_ids(access_token, playlist_id, opts \\ []) do
+    ids =
+      opts
+      |> Keyword.put(:map_page, &Mapper.item_ids/1)
+      |> paginate(fn page_opts ->
+        list_playlist_items(access_token, playlist_id, page_opts)
+      end)
+      |> Enum.to_list()
+
+    {:ok, ids}
+  rescue
+    error in [OnePlaylist.Providers.Tidal.APIError, ExternalService.RetriesExhausted] ->
+      {:error, error}
+  end
+
+  @doc """
+  Deletes a playlist.
+
+  Present for the sake of the tests and of cleaning up after them, not because
+  the product deletes playlists. It is the call that revealed how hard TIDAL
+  rate-limits mutations — see `OnePlaylist.Providers.Tidal.WriteService`.
+  """
+  @spec delete_playlist(String.t(), String.t(), keyword()) :: :ok | {:error, Errata.error()}
+  def delete_playlist(access_token, playlist_id, opts \\ []) do
+    with {:ok, _response} <-
+           write(access_token, :delete, "/playlists/#{playlist_id}", nil, country_param(opts)) do
+      :ok
+    end
+  end
+
+  defp with_body(options, nil), do: options
+  defp with_body(options, body), do: Keyword.put(options, :json, body)
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
   # One pagination loop for every cursor-paged endpoint. `fetch` returns the raw
   # page; the caller decides what a page's items are.
   defp paginate(opts, fetch) do
@@ -300,6 +413,33 @@ defmodule OnePlaylist.Providers.Tidal.Client do
 
   defp decode_cursor(nil), do: nil
   defp decode_cursor(query), do: query |> URI.decode_query() |> Map.get("page[cursor]")
+
+  # The mutating counterpart of `get/3`. Same classification and the same
+  # timeouts; a different guarded front door, because TIDAL rate-limits writes
+  # far harder than reads.
+  defp write(access_token, method, path, body, params) do
+    WriteService.call(fn ->
+      [
+        base_url: api_url(),
+        url: path,
+        method: method,
+        params: params,
+        auth: {:bearer, access_token},
+        headers: [
+          {"accept", "application/vnd.api+json"},
+          {"content-type", "application/vnd.api+json"}
+        ],
+        receive_timeout: @receive_timeout,
+        finch: [pool_timeout: @pool_timeout],
+        retry: false
+      ]
+      |> with_body(body)
+      |> Keyword.merge(req_options())
+      |> Req.new()
+      |> Req.request()
+      |> classify()
+    end)
+  end
 
   defp get(access_token, path, params \\ []) do
     Service.call(fn ->

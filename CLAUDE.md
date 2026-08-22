@@ -24,7 +24,7 @@ be depended on **by path** during development so improvements flow both ways.
 | [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.0.0-rc.4) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
 | [`errata`](https://hexdocs.pm/errata) | `../errata` (1.7.0) | Every error the domain can produce. `TrackNotMatched`, `ProviderUnavailable`, `TokenExpired`, `PlaylistTooLarge`, … |
 | [`bond`](https://hexdocs.pm/bond) | `../bond` (1.14.1) | Contracts on the matching engine and the transfer state machine — the places where a silent wrong answer is worse than a crash. |
-| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.4.0) | Polling async provider jobs; and `WaitForIt.Test` assertions throughout the test suite. |
+| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.4.0) | **Intended, not yet used.** Polling async provider jobs; `WaitForIt.Test` assertions over out-of-band work. Its home is the transfer pipeline. |
 
 ```elixir
 # mix.exs, during development — this is the working configuration

@@ -18,10 +18,11 @@ defmodule OnePlaylist.Providers.Adapter do
       Apple Music does not, since its Music User Token can only be obtained in a
       browser via MusicKit JS. One OAuth provider is not enough to know which
       parts of that are universal.
-    * **Writes** — creating playlists, adding tracks. Not built yet for anyone.
 
   Adding a callback later is cheap. Removing one that turned out to encode
-  TIDAL's assumptions is not.
+  TIDAL's assumptions is not — which is why the write callbacks below are the
+  smallest set that can express a transfer, and why `add_tracks/4` is specified
+  as *append*, leaving deduplication to a caller that can see both sides.
 
   ## Contracts
 
@@ -138,6 +139,60 @@ defmodule OnePlaylist.Providers.Adapter do
     never_more_than_requested: length(candidates) <= OnePlaylist.Providers.Adapter.limit(opts)
   @callback search_tracks(connection :: Connection.t(), track :: Track.t(), opts :: keyword()) ::
               {:ok, [Track.t()]} | {:error, Exception.t()}
+
+  @doc """
+  Creates an empty playlist owned by the connected account.
+
+  Returns the created playlist so the caller has its `provider_id`; there is
+  nothing to add tracks to otherwise.
+  """
+  # A created playlist that cannot be addressed is worse than a failed creation:
+  # the transfer proceeds, adds tracks to nothing, and reports success. The
+  # provider is the only thing that can mint that id, so this is the boundary at
+  # which its absence must stop being someone else's problem.
+  @post whenever({:ok, playlist} <- result),
+    addressable: is_binary(playlist.provider_id) and playlist.provider_id != "",
+    from_this_provider: playlist.provider == provider()
+  @callback create_playlist(connection :: Connection.t(), name :: String.t(), opts :: keyword()) ::
+              {:ok, Playlist.t()} | {:error, Exception.t()}
+
+  @doc """
+  Appends tracks to a playlist, in the order given.
+
+  Implementations **append and do not deduplicate**: deciding what to add is
+  `OnePlaylist.Transfers`' job, because only it knows what the destination
+  already held before this transfer began. See `playlist_track_ids/3`.
+
+  Returns how many were added, which is what a transfer report counts.
+  """
+  # Conservation, at the one point in the application where being wrong writes
+  # to somebody's music library. A provider that reported adding more than it
+  # was given would inflate every report built on it, and the inflation would be
+  # invisible — the numbers would simply agree with each other and disagree with
+  # the playlist.
+  @pre something_to_add: is_list(tracks)
+  @post whenever({:ok, added} <- result),
+    never_more_than_offered: added <= length(tracks),
+    non_negative: added >= 0
+  @callback add_tracks(
+              connection :: Connection.t(),
+              playlist :: String.t() | Playlist.t(),
+              tracks :: [Track.t()],
+              opts :: keyword()
+            ) :: {:ok, non_neg_integer()} | {:error, Exception.t()}
+
+  @doc """
+  The provider ids of the tracks a playlist already contains, in order.
+
+  The snapshot an idempotent transfer diffs against. `docs/reference/domain.md`
+  requires that a retried transfer must not duplicate, and the only way to keep
+  that promise is to look before writing.
+  """
+  @callback playlist_track_ids(
+              connection :: Connection.t(),
+              playlist :: String.t() | Playlist.t(),
+              opts :: keyword()
+            ) :: {:ok, [String.t()]} | {:error, Exception.t()}
 
   @doc """
   How many candidates a search should return, from `opts`.

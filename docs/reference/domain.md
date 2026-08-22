@@ -313,6 +313,37 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
   is a 404 on the follow-up request. So a cached id is invalidated where that 404 is seen
   rather than trusted indefinitely.
 
+**Verified against a real account, 2026-08-22** (the write path):
+
+| Request | Result |
+| --- | --- |
+| `POST /v2/playlists` + `{data: {type, attributes: {name, description}}}` | **201**, `data.id` is a **UUID** |
+| …with `attributes.accessType: "PRIVATE"` | 400 `INVALID_REQUEST_BODY`, pointer `data/attributes/accessType` |
+| …with `"UNLISTED"` or `"PUBLIC"` | **201** |
+| `POST /v2/playlists/{id}/relationships/items` + `{data: [{id, type: "tracks"}]}` | **200** |
+| `DELETE /v2/playlists/{id}` | **200** |
+
+- **A created playlist's id is a UUID**, where every catalogue id is numeric. Nothing should
+  assume a shape for a provider id.
+- **`accessType` is best omitted.** `"PRIVATE"` is rejected outright, so the safe default is to
+  let TIDAL choose rather than guess at a visibility on someone's library.
+- **An append does not deduplicate.** TIDAL will add a track already present, as many times as
+  asked. Idempotency is the caller's job, which is why a transfer must snapshot the destination
+  and diff before writing.
+- Items read back carry `meta.itemId` — a per-item UUID distinct from the track id — which is
+  what makes removing one *occurrence* of a duplicated track possible.
+
+> #### Mutations are rate-limited far harder than reads {: .warning}
+>
+> This corrects what is written above from community reports. Measured: **five playlist deletes
+> issued back to back returned one 200 and four 429s.** Re-issued two seconds apart, all four
+> succeeded first time.
+>
+> So "429s are common on catalog reads and rare on playlist operations" is not true for bursts,
+> and a bulk transfer is nothing but a burst. Writes need their own limiter an order of
+> magnitude below the read one — see `OnePlaylist.Providers.Tidal.WriteService` — and their own
+> circuit breaker, so a transfer melting the write path does not take library browsing with it.
+
 **Rate limits are not published.** Community reports put 429s as common on catalog reads and
 rare on playlist operations. With no documented quota the only safe posture is to stay well
 under whatever it is — hence the deliberately conservative 8 calls/second in

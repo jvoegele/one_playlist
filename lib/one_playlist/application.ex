@@ -20,6 +20,11 @@ defmodule OnePlaylist.Application do
       # takes the mechanisms off the clock without a second module.
       {OnePlaylist.Providers.Tidal.Service,
        Application.get_env(:one_playlist, :tidal_service_opts, [])},
+      # Mutations get their own front door: TIDAL rate-limits them an order of
+      # magnitude harder than reads, and one limiter sized for both is sized
+      # wrong for one of them. See Tidal.WriteService.
+      {OnePlaylist.Providers.Tidal.WriteService,
+       Application.get_env(:one_playlist, :tidal_service_opts, [])},
       # L1 of the catalogue cache and the coordinator that stops concurrent
       # misses on one key becoming N provider calls. Both must precede anything
       # that serves a request; neither is load-bearing if absent.
