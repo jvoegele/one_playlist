@@ -14,6 +14,10 @@ defmodule OnePlaylist.CatalogueTest do
   alias OnePlaylist.Catalogue
   alias OnePlaylist.Catalogue.ReleaseLookup
 
+  # Real barcodes throughout. `Catalogue.album_id/3` has a precondition that its
+  # barcode is already normalized, and the first version of this file used
+  # readable labels like "doomed" — which the precondition rejected, correctly.
+  # A fixture that could not occur in production tests nothing that matters.
   setup do
     {:ok, _cleared} = Cache.delete_all()
     :ok
@@ -36,7 +40,7 @@ defmodule OnePlaylist.CatalogueTest do
       {lookup, calls} = counting({:ok, "album-1"})
 
       for _ <- 1..10 do
-        assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "111", lookup)
+        assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "602547670111", lookup)
       end
 
       assert calls.() == 1
@@ -45,12 +49,12 @@ defmodule OnePlaylist.CatalogueTest do
     test "survives losing L1, which is the reason L2 exists" do
       {lookup, calls} = counting({:ok, "album-1"})
 
-      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "111", lookup)
+      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "602547670111", lookup)
 
       # A deploy, a restart, a second node: everything L1 knew is gone.
       {:ok, _cleared} = Cache.delete_all()
 
-      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "111", lookup)
+      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "602547670111", lookup)
 
       assert calls.() == 1,
              "a cold node must refill from Postgres, not from the provider's quota"
@@ -62,7 +66,7 @@ defmodule OnePlaylist.CatalogueTest do
       {lookup, calls} = counting({:ok, nil})
 
       for _ <- 1..5 do
-        assert {:ok, nil} = Catalogue.album_id(:tidal, "222", lookup)
+        assert {:ok, nil} = Catalogue.album_id(:tidal, "602547670222", lookup)
       end
 
       assert calls.() == 1
@@ -71,9 +75,9 @@ defmodule OnePlaylist.CatalogueTest do
     test "a negative result survives losing L1 too" do
       {lookup, calls} = counting({:ok, nil})
 
-      assert {:ok, nil} = Catalogue.album_id(:tidal, "222", lookup)
+      assert {:ok, nil} = Catalogue.album_id(:tidal, "602547670222", lookup)
       {:ok, _cleared} = Cache.delete_all()
-      assert {:ok, nil} = Catalogue.album_id(:tidal, "222", lookup)
+      assert {:ok, nil} = Catalogue.album_id(:tidal, "602547670222", lookup)
 
       assert calls.() == 1
     end
@@ -83,30 +87,34 @@ defmodule OnePlaylist.CatalogueTest do
       # a transient outage into a permanent hole in matching.
       {failing, failures} = counting({:error, :boom})
 
-      assert {:error, :boom} = Catalogue.album_id(:tidal, "333", failing)
-      assert {:error, :boom} = Catalogue.album_id(:tidal, "333", failing)
+      assert {:error, :boom} = Catalogue.album_id(:tidal, "602547670333", failing)
+      assert {:error, :boom} = Catalogue.album_id(:tidal, "602547670333", failing)
       assert failures.() == 2
 
-      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "333") == nil
+      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547670333") == nil
 
-      {:ok, "recovered"} = Catalogue.album_id(:tidal, "333", fn -> {:ok, "recovered"} end)
-      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "333")
+      {:ok, "recovered"} =
+        Catalogue.album_id(:tidal, "602547670333", fn -> {:ok, "recovered"} end)
+
+      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547670333")
     end
 
     test "providers do not share an answer" do
       assert {:ok, "tidal-album"} =
-               Catalogue.album_id(:tidal, "444", fn -> {:ok, "tidal-album"} end)
+               Catalogue.album_id(:tidal, "602547670444", fn -> {:ok, "tidal-album"} end)
 
       assert {:ok, "spotify-album"} =
-               Catalogue.album_id(:spotify, "444", fn -> {:ok, "spotify-album"} end)
+               Catalogue.album_id(:spotify, "602547670444", fn -> {:ok, "spotify-album"} end)
 
-      assert {:ok, "tidal-album"} = Catalogue.album_id(:tidal, "444", fn -> flunk("cached") end)
+      assert {:ok, "tidal-album"} =
+               Catalogue.album_id(:tidal, "602547670444", fn -> flunk("cached") end)
     end
 
     test "what is written to L2 is what a later reader gets back" do
-      assert {:ok, "album-9"} = Catalogue.album_id(:tidal, "555", fn -> {:ok, "album-9"} end)
+      assert {:ok, "album-9"} =
+               Catalogue.album_id(:tidal, "602547670555", fn -> {:ok, "album-9"} end)
 
-      row = Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "555")
+      row = Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547670555")
 
       assert row.provider_album_id == "album-9"
       assert row.looked_up_at
@@ -133,7 +141,7 @@ defmodule OnePlaylist.CatalogueTest do
         for _ <- 1..100 do
           Task.async(fn ->
             Ecto.Adapters.SQL.Sandbox.allow(Repo, parent, self())
-            Catalogue.album_id(:tidal, "concurrent", slow)
+            Catalogue.album_id(:tidal, "602547679001", slow)
           end)
         end
 
@@ -151,7 +159,7 @@ defmodule OnePlaylist.CatalogueTest do
           Task.async(fn ->
             Ecto.Adapters.SQL.Sandbox.allow(Repo, parent, self())
 
-            Catalogue.album_id(:tidal, "key-#{barcode}", fn ->
+            Catalogue.album_id(:tidal, "60254768#{1000 + barcode}", fn ->
               Process.sleep(20)
               {:ok, "album-#{barcode}"}
             end)
@@ -175,7 +183,7 @@ defmodule OnePlaylist.CatalogueTest do
         spawn_monitor(fn ->
           Ecto.Adapters.SQL.Sandbox.allow(Repo, parent, self())
 
-          Catalogue.album_id(:tidal, "doomed", fn ->
+          Catalogue.album_id(:tidal, "602547679002", fn ->
             send(parent, :owner_in_flight)
             Process.sleep(:infinity)
           end)
@@ -189,7 +197,7 @@ defmodule OnePlaylist.CatalogueTest do
             Ecto.Adapters.SQL.Sandbox.allow(Repo, parent, self())
             send(parent, :waiting)
 
-            Catalogue.album_id(:tidal, "doomed", fn -> {:ok, "late"} end)
+            Catalogue.album_id(:tidal, "602547679002", fn -> {:ok, "late"} end)
           end)
         end
 
@@ -215,13 +223,13 @@ defmodule OnePlaylist.CatalogueTest do
       # provider's id for that release is not.
       {lookup, calls} = counting({:ok, "album-1"})
 
-      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "666", lookup)
+      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "602547670666", lookup)
       assert calls.() == 1
 
-      :ok = Catalogue.forget(:tidal, "666")
+      :ok = Catalogue.forget(:tidal, "602547670666")
 
-      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "666") == nil
-      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "666", lookup)
+      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547670666") == nil
+      assert {:ok, "album-1"} = Catalogue.album_id(:tidal, "602547670666", lookup)
 
       assert calls.() == 2, "forgetting must reach L1 as well, or L1 keeps serving the stale id"
     end
@@ -229,24 +237,24 @@ defmodule OnePlaylist.CatalogueTest do
 
   describe "prune_negatives/1" do
     test "removes stale negatives and leaves positives alone" do
-      assert {:ok, nil} = Catalogue.album_id(:tidal, "old-negative", fn -> {:ok, nil} end)
-      assert {:ok, "keep"} = Catalogue.album_id(:tidal, "positive", fn -> {:ok, "keep"} end)
+      assert {:ok, nil} = Catalogue.album_id(:tidal, "602547679003", fn -> {:ok, nil} end)
+      assert {:ok, "keep"} = Catalogue.album_id(:tidal, "602547679004", fn -> {:ok, "keep"} end)
 
-      age(["old-negative", "positive"], days: 60)
+      age(["602547679003", "602547679004"], days: 60)
 
       assert Catalogue.prune_negatives("30 days") == 1
 
-      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "old-negative") == nil
+      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547679003") == nil
 
-      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "positive"),
+      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547679004"),
              "a positive never stops being true, so it is never pruned"
     end
 
     test "leaves recent negatives alone" do
-      assert {:ok, nil} = Catalogue.album_id(:tidal, "fresh", fn -> {:ok, nil} end)
+      assert {:ok, nil} = Catalogue.album_id(:tidal, "602547679005", fn -> {:ok, nil} end)
 
       assert Catalogue.prune_negatives("30 days") == 0
-      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "fresh")
+      assert Repo.get_by(ReleaseLookup, provider: "tidal", barcode: "602547679005")
     end
 
     test "the pg_cron job that calls this is scheduled" do

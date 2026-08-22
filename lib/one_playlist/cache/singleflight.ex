@@ -38,10 +38,36 @@ defmodule OnePlaylist.Cache.Singleflight do
   """
 
   use GenServer
+  use Bond.Server
 
   require Logger
 
   @default_timeout :timer.seconds(30)
+
+  # The state records one fact twice: a key's monitor reference lives both on
+  # its `in_flight` entry and as a key of `monitors`, which exists so a `:DOWN`
+  # can find the key it belongs to. Nothing else keeps the two in step, and
+  # drift is silent in both directions — a `release/3` that forgot to delete
+  # from `monitors` would leak a reference per completed fetch forever, and a
+  # stale entry there would make a later, unrelated `:DOWN` release a key that
+  # is legitimately in flight.
+  #
+  # This is `docs/reference/contracts.md`'s "two implementations of one rule"
+  # shape, applied to state rather than to code — and unlike the cache this
+  # coordinates, it is genuinely assertable, because a GenServer's state is
+  # touched by one process and no interleaving can be observed mid-callback.
+  @state_invariant one_monitor_per_in_flight_key:
+                     map_size(state.monitors) == map_size(state.in_flight),
+                   monitors_point_back_at_their_keys: monitors_agree?(state)
+
+  # A message coordinates at most one key: an acquire adds one, a completion or
+  # a `:DOWN` removes one, and anything else changes nothing. A `release/3`
+  # rewritten to filter or reset the map — the shape that looks like tidying up
+  # — would strand every other in-flight fetch's waiters until their timeouts,
+  # which is exactly the failure this module exists to prevent, caused by the
+  # module itself.
+  @transition_invariant at_most_one_key_per_message:
+                          abs(map_size(new_state.in_flight) - map_size(old_state.in_flight)) <= 1
 
   @doc false
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -86,6 +112,19 @@ defmodule OnePlaylist.Cache.Singleflight do
     # less, not to be load-bearing.
     :exit, {:noproc, _call} ->
       fun.()
+  end
+
+  @doc """
+  Whether every monitor reference in the state agrees with the key it indexes.
+
+  Public because the state invariant names it, and an assertion rendered into
+  the documentation should reference something a reader can look up.
+  """
+  @spec monitors_agree?(map()) :: boolean()
+  def monitors_agree?(state) do
+    Enum.all?(state.monitors, fn {monitor, key} ->
+      match?(%{monitor: ^monitor}, Map.get(state.in_flight, key))
+    end)
   end
 
   @impl true

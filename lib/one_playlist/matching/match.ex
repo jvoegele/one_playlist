@@ -31,6 +31,8 @@ defmodule OnePlaylist.Matching.Match do
   `:exact_isrc` meaning what it says.
   """
 
+  use Bond
+
   alias OnePlaylist.Music.Track
 
   @typedoc "Which rung of the ladder produced this."
@@ -64,6 +66,20 @@ defmodule OnePlaylist.Matching.Match do
   # `rank/1` can use the index directly.
   @ordering [:none, :low, :medium, :high, :exact_upc, :exact_isrc]
 
+  # The law that makes a score comparable across rungs, stated on the type
+  # rather than at the one place that currently upholds it.
+  #
+  # `Matching.to_matches/3` scales every raw score through `in_band/2`, so today
+  # this cannot fail. It is not thereby vacuous: `new/1` is public and takes a
+  # bare keyword list, so the next rung's author calling
+  # `Match.new(score: raw, strategy: :fuzzy)` — forgetting the scaling, which is
+  # a separate call and easy to miss — produces a match whose confidence reads
+  # plausibly and outranks rungs that are more trustworthy. That is this
+  # product's worst failure mode wearing a believable number, and an invariant
+  # on the struct catches it wherever it is constructed rather than only where
+  # it is constructed today.
+  @invariant score_within_its_strategys_band: score_in_band?(subject)
+
   @bands %{
     isrc: {1.0, 1.0},
     upc_position: {1.0, 1.0},
@@ -85,6 +101,24 @@ defmodule OnePlaylist.Matching.Match do
   end
 
   @doc """
+  Whether a match's score lies inside the band its strategy is allowed.
+
+  Public because the invariant names it, and an assertion rendered into the
+  documentation should reference something a reader can look up.
+
+  A strategy with no band is a violation rather than an error: it means a rung
+  reported a name that `confidence_for/2` cannot interpret, and the resulting
+  match would have no meaningful confidence at all.
+  """
+  @spec score_in_band?(t()) :: boolean()
+  def score_in_band?(%__MODULE__{score: score, strategy: strategy}) do
+    case Map.fetch(@bands, strategy) do
+      {:ok, {floor, ceiling}} -> is_float(score) and score >= floor and score <= ceiling
+      :error -> false
+    end
+  end
+
+  @doc """
   The name for a score produced by a given strategy.
 
       iex> alias OnePlaylist.Matching.Match
@@ -95,6 +129,10 @@ defmodule OnePlaylist.Matching.Match do
       iex> Match.confidence_for(0.4, :fuzzy)
       :none
   """
+  # Takes a score and a strategy rather than a match, so there is no subject for
+  # the invariant to check on the way in. Deliberate: this is the function that
+  # *derives* a match's confidence, and it has to be callable before one exists.
+  @bond_warn_skipped_invariants false
   @spec confidence_for(float(), strategy()) :: confidence()
   def confidence_for(1.0, :isrc), do: :exact_isrc
   def confidence_for(1.0, :upc_position), do: :exact_upc
@@ -115,6 +153,7 @@ defmodule OnePlaylist.Matching.Match do
   cannot outrank a mediocre text match, because a rung's confidence is bounded
   by how much the *kind* of evidence it uses is worth.
   """
+  @bond_warn_skipped_invariants false
   @spec in_band(float(), strategy()) :: float()
   def in_band(raw, strategy) when is_float(raw) do
     {floor, ceiling} = Map.fetch!(@bands, strategy)
@@ -123,6 +162,7 @@ defmodule OnePlaylist.Matching.Match do
   end
 
   @doc "The band a strategy scores within, as `{floor, ceiling}`."
+  @bond_warn_skipped_invariants false
   @spec band(strategy()) :: {float(), float()}
   def band(strategy), do: Map.fetch!(@bands, strategy)
 
@@ -143,6 +183,7 @@ defmodule OnePlaylist.Matching.Match do
     do: rank(confidence) >= rank(minimum)
 
   @doc "Confidence names, worst first. Useful for building a threshold control."
+  @bond_warn_skipped_invariants false
   @spec confidences() :: [confidence()]
   def confidences, do: @ordering
 

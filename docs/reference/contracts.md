@@ -124,6 +124,32 @@ At a parsing boundary, assert what you emit, never what you received. The proper
 "never raises on an arbitrary resource" is what caught the mistake — the two techniques check
 each other.
 
+### A cache, beyond its keys
+
+`OnePlaylist.Cache` and `OnePlaylist.Catalogue` carry **no postconditions**, and the reason
+is shape 0b rather than oversight. Every law worth stating about them — "an error is never
+cached", "after `forget/2` neither tier holds it", "a hit does not call the provider" — is a
+claim about shared state that another process may legitimately change between the call and
+the check. Asserted, they would accuse correct code under exactly the concurrency the cache
+exists to serve.
+
+What *is* assertable is the boundary, and it turned out to be the valuable part anyway:
+
+```elixir
+@pre normalized_barcode: barcode == Signals.normalize_barcode(barcode)
+```
+
+An unnormalized barcode is not a wrong answer. It is a **different cache key for the same
+release**, so the caller silently gets a private copy of every lookup, doubles the provider
+calls the cache was meant to save, and writes a second row for a release that already has
+one. Nothing raises and nothing is incorrect; the cache simply stops working, in a way that
+shows up as a bill. Preconditions stay enabled in production precisely for this: it names the
+caller's bug, and the caller is the one who can fix it.
+
+It also caught something immediately — not in `lib/`, but in the tests, which had been using
+readable labels like `"doomed"` as barcodes. A fixture that cannot occur in production tests
+nothing that matters, and the fix was the fixtures.
+
 ### Anything unfalsifiable in this codebase
 
 Requiring `now` to be UTC looked principled — the schema is `:utc_datetime_usec` throughout.
@@ -217,6 +243,52 @@ Mutation-verified by returning `unmatched: []`.
 The general lesson: when tempted to assert that a collection has no duplicates, ask whether
 duplicates are illegal *in the domain* or merely unexpected in the examples to hand. If the
 input may contain them, compare against the input instead of appealing to uniqueness.
+
+### 0d. Process state — where `Bond.Server` earns its place
+
+`@invariant` constrains a struct; `Bond.Server`'s `@state_invariant` and
+`@transition_invariant` constrain a running `GenServer`'s state, checked after every
+callback that returns one.
+
+The distinction that matters is **who can observe the state mid-change**. Shape 0b above
+rules out asserting over a shared table because a concurrent writer can interleave between
+the snapshot and the check. A `GenServer`'s state has no such problem: one process owns it,
+callbacks are serialized, and no interleaving is observable. So the strong assertions that
+are unsound against shared state are perfectly sound here.
+
+`Cache.Singleflight` records one fact twice — a key's monitor reference lives both on its
+`in_flight` entry and as a key of `monitors`, so a `:DOWN` can find the key it belongs to.
+Nothing else keeps them in step:
+
+```elixir
+@state_invariant one_monitor_per_in_flight_key:
+                   map_size(state.monitors) == map_size(state.in_flight),
+                 monitors_point_back_at_their_keys: monitors_agree?(state)
+
+@transition_invariant at_most_one_key_per_message:
+                        abs(map_size(new_state.in_flight) - map_size(old_state.in_flight)) <= 1
+```
+
+The first pair is shape 0 applied to state rather than to code. Drift is silent in both
+directions: a `release/3` that forgot to delete from `monitors` leaks a reference per
+completed fetch forever, and a stale entry there makes a later, unrelated `:DOWN` release a
+key that is legitimately in flight.
+
+The transition invariant is the blast-radius law that `disconnect/2` could not have — there,
+the state was a shared table and the assertion would have raced; here it is process-local and
+sound. Mutation-verified: rewriting `release/3` to reset the map, the shape that looks like
+tidying up, fires it.
+
+**One result worth knowing before relying on this.** That mutation fired the invariant and
+**the test suite still reported all green**. The violation raises inside the coordinator, the
+supervisor restarts it, and callers absorb the error — so nothing asserted on it. The
+`Bond.InvariantError` was in the output, with the label and the offending expression, and no
+test failed.
+
+That is the argument for process invariants rather than against them: it is a bug tests
+structurally cannot see, because the system is designed to survive exactly that crash. But it
+also means an invariant on a supervised process is a **diagnostic**, not a gate. If a
+violation must fail a build, something has to assert on it.
 
 ### 1. Conservation — nothing invented, nothing lost
 

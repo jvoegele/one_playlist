@@ -42,10 +42,13 @@ defmodule OnePlaylist.Catalogue do
   one would turn a transient outage into a permanent hole in matching.
   """
 
+  use Bond
+
   import Ecto.Query
 
   alias OnePlaylist.Cache
   alias OnePlaylist.Catalogue.ReleaseLookup
+  alias OnePlaylist.Matching.Signals
   alias OnePlaylist.Repo
 
   require Logger
@@ -66,6 +69,16 @@ defmodule OnePlaylist.Catalogue do
         Client.album_by_barcode(token, "602547670052", country: "US")
       end)
   """
+  # An unnormalized barcode is not a wrong answer, it is a *different cache key*
+  # for the same release — so a caller that skips normalization silently gets
+  # its own private copy of every lookup, doubles the provider calls it was
+  # meant to save, and writes a second row for a release that already has one.
+  # Nothing raises and nothing is incorrect; the cache simply stops working, in
+  # a way that only shows up as a bill.
+  #
+  # This is why preconditions stay enabled in production: it names the caller's
+  # bug at the boundary, and it is the caller, not this module, that can fix it.
+  @pre normalized_barcode: barcode == Signals.normalize_barcode(barcode)
   @spec album_id(atom(), String.t(), (-> {:ok, String.t() | nil} | {:error, term()})) ::
           {:ok, String.t() | nil} | {:error, term()}
   def album_id(provider, barcode, lookup)
@@ -86,6 +99,7 @@ defmodule OnePlaylist.Catalogue do
   anything visible at lookup time. The caller that sees that 404 is the only
   one who knows, so it is the one that says so.
   """
+  @pre normalized_barcode: barcode == Signals.normalize_barcode(barcode)
   @spec forget(atom(), String.t()) :: :ok
   def forget(provider, barcode) do
     # Matched rather than discarded: a delete that silently failed would leave

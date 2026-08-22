@@ -17,7 +17,7 @@ That problem is why this project exists, and it shapes everything below.
 > and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
 > and by text, and is measured against a corpus captured from a real library.
 > There is no write path and no UI yet.
-> 266 tests, 58 contracts.
+> 293 tests, 61 contracts.
 
 ---
 
@@ -28,7 +28,7 @@ example** of four Elixir libraries used deeply rather than decoratively:
 
 | Library | What it does here |
 | --- | --- |
-| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 58 contracts stating laws that a plausible rewrite could break. |
+| [`bond`](https://hexdocs.pm/bond) | Design by Contract. 61 contracts stating laws that a plausible rewrite could break. |
 | [`external_service`](https://hexdocs.pm/external_service) | Every outbound provider call: retries, circuit breaker, rate limit, bulkhead. |
 | [`errata`](https://hexdocs.pm/errata) | Structured errors that classify themselves — HTTP status, severity, retryability. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | Waiting on asynchronous work without `Process.sleep/1`. |
