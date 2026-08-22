@@ -1,0 +1,20 @@
+OnePlaylist
+Copyright 2026 Jason Voegele
+
+This project is licensed under the GNU Affero General Public License v3.0
+(see LICENSE), with one deliberate exception.
+
+    The contents of docs/ are licensed under the Apache License 2.0
+    (see docs/LICENSE).
+
+Why the exception: this application exists partly as a worked example of four
+Apache-2.0 libraries — bond, external_service, errata and wait_for_it. The
+documentation under docs/, and the code excerpts within it, are meant to be
+copied into other projects, including proprietary ones. Placing them under the
+AGPL would defeat the purpose of writing them.
+
+The application source itself is AGPL-3.0. Section 13 of that license is the
+reason for choosing it over the GPL: running a modified version as a network
+service counts as conveying it, so anyone offering a modified OnePlaylist over a
+network must offer its users the corresponding source. The plain GPL would not
+require that, since serving software over a network is not distribution.

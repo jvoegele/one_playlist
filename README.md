@@ -167,3 +167,19 @@ Contract coverage prints after every test run. An assertion marked
 
 That last one is deliberate. Dogfooding is only worth something if the friction
 gets written down, including the times the mistake was mine.
+
+## License
+
+**AGPL-3.0** for the application ([`LICENSE`](LICENSE)), **Apache-2.0** for the
+documentation ([`docs/LICENSE`](docs/LICENSE)).
+
+The split is deliberate. AGPL §13 is the reason it is not the plain GPL: running
+a modified version as a network service counts as conveying it, so anyone
+offering a modified OnePlaylist over a network must offer its users the source.
+The GPL would not require that, because serving software over a network is not
+distribution — which is the whole loophole a hosted competitor would use.
+
+But `docs/` exists to be copied. The contract patterns, the guarded-call
+configuration and the reference material are written to be lifted into other
+projects, including proprietary ones, and AGPL-ing them would defeat the point
+of writing them. See [`NOTICE`](NOTICE).
