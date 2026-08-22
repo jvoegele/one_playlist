@@ -17,7 +17,7 @@ That problem is why this project exists, and it shapes everything below.
 > and tracks with ISRCs. The matching engine is built, searches TIDAL by ISRC
 > and by text, and is measured against a corpus captured from a real library.
 > There is no write path and no UI yet.
-> 293 tests, 61 contracts.
+> 312 tests, 61 contracts.
 
 ---
 

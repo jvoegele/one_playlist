@@ -154,7 +154,14 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
     document
     |> Map.get("data", [])
     |> List.wrap()
-    |> Enum.filter(&is_map_key(&1, "id"))
+    # Type-checked, unlike `tracks_from_items_page/1`, which deliberately maps
+    # videos too because a playlist can hold them. Here `data` is the *answer to
+    # a catalogue query for tracks*, so anything else in it means this function
+    # was handed the wrong document shape — and without this filter it would
+    # oblige, mapping a `searchResults` wrapper into a track whose id is the
+    # search token. That passes the conservation postconditions, because the id
+    # really was in `data`; a property comparing the shapes is what caught it.
+    |> Enum.filter(&(&1["type"] == "tracks" and is_map_key(&1, "id")))
     |> Enum.map(&track(&1, index))
   end
 

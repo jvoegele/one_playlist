@@ -251,6 +251,47 @@ real assertions reference parameters, so the exposure is small.
 has `use Bond`" — would cost nothing and is where someone would look. A Credo check would also
 fit, if Bond ever ships one.
 
+## `bond` — `Bond.Server` invariants never appear in `Bond.Coverage`
+
+**Found:** 2026-08-22, adding `server_invariants_hold/2` for
+`OnePlaylist.Cache.Singleflight`.
+
+`@state_invariant` and `@transition_invariant` are checked — proven by mutation, which fires
+them with a correct label and expression — but they are **never recorded** in the coverage
+table. Three ways of driving them, none of which produce a row:
+
+| Driven by | Invariants run? | Appears in coverage? |
+| --- | --- | --- |
+| `server_invariants_hold/2` (`:callbacks` mode) | yes | no |
+| A live `GenServer` under test | yes | no |
+| A direct call to `handle_call/3` | yes | no |
+
+The property file alone reports `Bond contract coverage: no contracts were evaluated.` Run
+alongside a file whose `@pre`/`@post`/`@invariant` do appear, the other module's rows show and
+the server's still do not, so this is not the ETS-ownership issue recorded above — the table
+is alive and being written to, and these particular checks are absent from it.
+
+Why it matters more than a cosmetic gap: `guides/testing-contracts.md` presents coverage as the
+way to spot a vacuous assertion, and this project's house style makes `⚠ never failed` the
+prompt to either prove a contract can fail or delete it. A whole contract kind missing from the
+table means a vacuous **state** invariant is invisible to that process — and process invariants
+are exactly where vacuity is hardest to notice by reading, because no caller can put the state
+into a bad shape by hand.
+
+It also interacts badly with a second property of supervised servers, which is worth stating in
+the same breath: a violated invariant raises inside the server, the supervisor restarts it, and
+callers absorb the error. Verified here — a mutation that reset the in-flight map fired
+`at_most_one_key_per_message` **and the suite still reported all green**. So the two signals
+that would normally catch a bad server invariant, a failing test and a coverage row, are both
+absent at once.
+
+**Suggested fix:** record `:state_invariant` and `:transition_invariant` through the same
+coverage path as `@invariant`, keyed on the callback the check ran after (which the
+`Bond.InvariantError` already carries in its `:function` field, so the information exists at
+raise time). Failing that, a line in `testing-contracts.md` under "Contract coverage" saying
+these kinds are not reported would at least stop someone concluding their server invariants
+never ran.
+
 ## `bond` — inherited-contract coverage is aggregated under one arbitrary implementation
 
 **Found:** 2026-08-22, adding a fourth implementation of `OnePlaylist.Matching.Strategy`.

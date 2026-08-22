@@ -24,6 +24,7 @@ defmodule OnePlaylist.MatchingPropertyTest do
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Matching.Report
+  alias OnePlaylist.Matching.Strategy
   alias OnePlaylist.Music.Track
 
   @titles ["Yesterday", "Hey Jude", "Bohemian Rhapsody", "Jóga", "Don’t Stop Me Now", ""]
@@ -151,7 +152,12 @@ defmodule OnePlaylist.MatchingPropertyTest do
       end
     end
 
-    property "the ledger always balances" do
+    property "a report's match rate is a proportion" do
+      # The ledger law itself — that the two halves account for every input
+      # exactly once — is `match_all/2`'s own postcondition, and
+      # `contract_holds/2` at the bottom of this file drives it. Restating it
+      # here would be the same law maintained in two places. What is left is
+      # the derived value, which nothing asserts.
       check all(
               pairs <-
                 list_of(
@@ -161,10 +167,9 @@ defmodule OnePlaylist.MatchingPropertyTest do
                   max_length: 6
                 )
             ) do
-        report = Matching.match_all(pairs, threshold: :low)
+        rate = Matching.match_all(pairs, threshold: :low) |> Report.match_rate()
 
-        assert Report.total(report) == length(pairs)
-        assert Report.match_rate(report) >= 0.0 and Report.match_rate(report) <= 1.0
+        assert rate >= 0.0 and rate <= 1.0
       end
     end
 
@@ -231,5 +236,51 @@ defmodule OnePlaylist.MatchingPropertyTest do
 
   contract_holds(&Matching.rank/3,
     args: [track_generator(), candidates_generator(), constant([])]
+  )
+
+  # `match_all/2`'s ledger postcondition — that the matched and unmatched halves
+  # are exactly the input, as a multiset — is the strongest contract in the
+  # module and until now was only ever driven by hand-written examples.
+  contract_holds(&Matching.match_all/2,
+    args: [
+      list_of(
+        gen all(source <- track_generator(), candidates <- candidates_generator()) do
+          {source, candidates}
+        end,
+        max_length: 6
+      ),
+      constant(threshold: :low)
+    ]
+  )
+
+  # Every rung, against its inherited postcondition. One property per module
+  # rather than one for the ladder, so a violation names the rung that produced
+  # it — the ladder stops at the first rung with an opinion, so driving
+  # `match/3` alone leaves the lower rungs largely unvisited.
+  contract_holds(&Strategy.Isrc.score/2, args: [track_generator(), track_generator()])
+  contract_holds(&Strategy.UpcPosition.score/2, args: [track_generator(), track_generator()])
+  contract_holds(&Strategy.Text.score/2, args: [track_generator(), track_generator()])
+  contract_holds(&Strategy.Fuzzy.score/2, args: [track_generator(), track_generator()])
+
+  # The `Match` invariant, driven across every strategy. The law it states —
+  # a score inside its strategy's band — is upheld today by `in_band/2`, so
+  # this is really a property about *that* function: for any raw opinion in
+  # `0.0..1.0` and any strategy, scaling must land inside the band.
+  contract_holds(&Match.new/1,
+    args: [
+      gen all(
+            raw <- float(min: 0.0, max: 1.0),
+            strategy <- member_of([:isrc, :upc_position, :text, :fuzzy]),
+            source <- track_generator(),
+            track <- track_generator()
+          ) do
+        [
+          source: source,
+          track: track,
+          score: Match.in_band(raw, strategy),
+          strategy: strategy
+        ]
+      end
+    ]
   )
 end

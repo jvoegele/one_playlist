@@ -344,6 +344,51 @@ matching engine. **The property test passed over this bug** because it only asse
 
 ---
 
+## Using the contracts as the test oracle
+
+`Bond.PropertyTest` inverts the usual property-test cost. There is no model of expected
+behaviour to write, because the contracts already are one — the work is choosing generators
+that produce **valid** inputs and actually reach the interesting branch.
+
+| Macro | Used here for | Not used here because |
+| --- | --- | --- |
+| `contract_holds/2` | The pure core: `Similarity`, the four rungs' `score/2`, the three `Mapper` document shapes, `Matching.match_all/2`, `Match.new/1` | — |
+| `probe_contract/2` | `Connection.needs_refresh?/3`, whose `@pre` bounds a range (`skew >= 0`, `<= 86_400`) | Every other `@pre` here is either an *equality* on a computed value — where the guide notes the injected neighbours are exactly what the filter discards — or on a function that performs I/O, which the guide warns probes badly |
+| `invariants_hold/2` | — | It drives constructor/transformer/observer sequences over a struct, and the one struct with an `@invariant` (`Match`) has no transformers: it is immutable, with no function taking a match and returning another |
+| `server_invariants_hold/2` | `Cache.Singleflight` | — |
+
+Two rules earned the hard way, both about generators rather than assertions.
+
+**A small key space is a feature.** `server_invariants_hold/2` over randomly generated keys
+would produce sequences in which no two messages touch the same key — exercising none of the
+coordination the module exists for. Three keys, drawn repeatedly, is what makes collisions the
+common case.
+
+**Measure that the interesting branch is reached.** `contract_holds &Similarity.jaro_winkler/2`
+passed immediately, and a guard beside it showed why: only **11 of 300** generated pairs
+exceeded the Winkler threshold, so the prefix bonus — the only arithmetic in the function that
+can leave the unit interval — was essentially never computed. Weighting the generator toward
+variants of one word fixed it. Note that `contract_holds/2` draws each argument independently
+and so cannot produce a *correlated* pair; when similarity between arguments is what matters,
+it has to come from the pool being tight.
+
+This is the same failure the vacuity trap describes, and it has now appeared in three different
+suites. **Every generator in this project is paired with a measurement that it produces the
+shape under test.**
+
+### What property testing found that examples had not
+
+`tracks_from_data/1` did not check a resource's `type`, so handing it a *search* document —
+one of the three confusable shapes — mapped the `searchResults` wrapper itself into a track
+whose id was the search token. Its conservation postconditions all held, correctly: that id
+really was in `data`. The module's own documentation claimed confusing the shapes "yields an
+empty list, not an error", and that claim was false until a property compared the shapes
+directly.
+
+Worth noting what caught it: not the contract, and not an example test, but a property
+asserting a relationship *between two functions*. The contracts constrain each function against
+its own input; nothing until then constrained them against each other.
+
 ## What a contract cannot catch
 
 A bound cannot see a value that is wrong but in range.
