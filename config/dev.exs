@@ -97,3 +97,14 @@ config :swoosh, :api_client, false
 # work without setup. It must never be used outside dev/test — config/runtime.exs
 # requires ONE_PLAYLIST_VAULT_KEY from the environment in prod.
 config :one_playlist, OnePlaylist.Vault, key: "b8sLzK5ycelvlNomefBIAX7zKj12kvD3ostieeVVwY0="
+
+# Local, uncommitted overrides — real provider credentials for driving the live
+# APIs from `iex -S mix`. Copy config/dev_local.example.exs to
+# config/dev_local.exs and fill it in; the real file is gitignored.
+#
+# Kept last so it wins over everything above. config/runtime.exs runs later
+# still, but only assigns keys whose environment variable is actually set, so an
+# unset TIDAL_CLIENT_ID does not clobber what this file provides.
+if File.exists?(Path.join(__DIR__, "dev_local.exs")) do
+  import_config "dev_local.exs"
+end

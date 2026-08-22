@@ -194,6 +194,23 @@ add policies with an explicit `TO` role. See `docs/reference/supabase.md` for th
 and the `(select auth.uid())` performance note. `public.schema_migrations` should get a
 `revoke all ... from anon, authenticated` alongside the first real migration.
 
+### Local credentials
+
+Real provider credentials for driving the live APIs go in **`config/dev_local.exs`**, which is
+gitignored. `config/dev_local.example.exs` is the committed template:
+
+```sh
+cp config/dev_local.example.exs config/dev_local.exs
+```
+
+It is imported at the end of `config/dev.exs`, so it wins over everything above it.
+`config/runtime.exs` runs later still but only assigns keys whose environment variable is
+actually set, so an unset `TIDAL_CLIENT_ID` does not clobber the file. Environment variables
+remain the right answer in production.
+
+Redirect URIs must be registered on the provider's application **byte for byte** — a mismatch
+fails at the authorize step with an error that does not say which part disagreed.
+
 ## Tooling
 
 `mix precommit` is the gate; it runs everything below plus the tests, ordered cheapest-first.

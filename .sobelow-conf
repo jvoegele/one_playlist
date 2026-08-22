@@ -1,0 +1,36 @@
+# Sobelow configuration. Read automatically when this file is present — the
+# precommit and ci aliases just run `mix sobelow --exit`.
+#
+# Verified 2026-08-22 that the exception below is scoped rather than a blanket
+# disable: with this file in place, a secret planted in config/prod.exs is still
+# caught and still exits non-zero.
+#
+# Also learned while checking: Sobelow does not scan config/dev.exs or
+# config/test.exs at all, treating them as non-production. That is why the
+# throwaway Vault key committed in those two files raises nothing — and why
+# config/dev.exs is useless as a test of whether this check works.
+[
+  verbose: false,
+  private: false,
+  skip: true,
+  router: "lib/one_playlist_web/router.ex",
+  exit: "low",
+  format: "txt",
+
+  # `Config.Secrets` flags a literal secret in a config file, which is a good
+  # check and stays on everywhere else. These two files are the deliberate
+  # exception:
+  #
+  #   * config/dev_local.exs is gitignored and exists precisely to hold real
+  #     local credentials. Sobelow cannot see gitignore, so it cannot know that.
+  #   * config/dev_local.example.exs holds placeholders ("your-tidal-client-
+  #     secret"), which look like secrets to a pattern matcher and are not.
+  #
+  # Scoped to these exact paths rather than to the check, so a real secret
+  # committed to config/dev.exs, config/prod.exs or anywhere else still fails
+  # the build.
+  ignore_files: [
+    "config/dev_local.exs",
+    "config/dev_local.example.exs"
+  ]
+]
