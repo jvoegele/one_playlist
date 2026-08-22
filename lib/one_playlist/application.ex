@@ -20,9 +20,11 @@ defmodule OnePlaylist.Application do
       # takes the mechanisms off the clock without a second module.
       {OnePlaylist.Providers.Tidal.Service,
        Application.get_env(:one_playlist, :tidal_service_opts, [])},
-      # Owns the barcode → album ETS table. Placed after the service it saves
-      # requests against, and before anything that serves a request.
-      OnePlaylist.Providers.Tidal.AlbumCache,
+      # L1 of the catalogue cache and the coordinator that stops concurrent
+      # misses on one key becoming N provider calls. Both must precede anything
+      # that serves a request; neither is load-bearing if absent.
+      OnePlaylist.Cache,
+      OnePlaylist.Cache.Singleflight,
       # Start a worker by calling: OnePlaylist.Worker.start_link(arg)
       # {OnePlaylist.Worker, arg},
       # Start to serve requests, typically the last entry

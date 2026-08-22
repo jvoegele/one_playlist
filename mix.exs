@@ -140,6 +140,11 @@ defmodule OnePlaylist.MixProject do
       # First-party libraries, depended on by path so that improvements can flow
       # in both directions while this project dogfoods them. See CLAUDE.md.
       # `:errata` is overridden because `:external_service` also requires it from Hex.
+      # L1 of the catalogue cache. Chosen for `Nebulex.Adapters.Local`'s
+      # generational eviction, which bounds memory without the flush-everything
+      # cliff a hand-rolled cap produces. See OnePlaylist.Cache.
+      {:nebulex, "~> 3.0"},
+      {:nebulex_local, "~> 3.0"},
       {:external_service, path: "../external_service"},
       {:errata, path: "../errata", override: true},
       {:bond, path: "../bond"},

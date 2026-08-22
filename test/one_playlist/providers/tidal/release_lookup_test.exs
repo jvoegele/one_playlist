@@ -12,7 +12,7 @@ defmodule OnePlaylist.Providers.Tidal.ReleaseLookupTest do
   spends is a behaviour worth pinning, not an implementation detail.
   """
 
-  use ExUnit.Case, async: false
+  use OnePlaylist.DataCase, async: false
 
   use Errata
 
@@ -22,15 +22,19 @@ defmodule OnePlaylist.Providers.Tidal.ReleaseLookupTest do
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.Tidal
-  alias OnePlaylist.Providers.Tidal.AlbumCache
+  alias OnePlaylist.Cache
   alias OnePlaylist.Providers.Tidal.Mapper
 
-  # `async: false` because the barcode cache is process-independent shared
-  # state, and these tests count requests — a memo left by a concurrent test
-  # would make the count wrong. The cache is cleared rather than isolated,
-  # since isolating it would mean not testing the thing it exists for.
+  # `async: false` because both cache tiers are shared state and these tests
+  # count requests — a memo left by a concurrent test would make the count
+  # wrong. L1 is cleared rather than isolated, since isolating it would mean not
+  # testing the thing it exists for; L2 is rolled back by the sandbox.
   setup :set_req_test_from_context
-  setup do: AlbumCache.clear()
+
+  setup do
+    {:ok, _cleared} = Cache.delete_all()
+    :ok
+  end
 
   @album_items File.read!("test/support/fixtures/tidal_album_items.json") |> Jason.decode!()
 
@@ -312,23 +316,6 @@ defmodule OnePlaylist.Providers.Tidal.ReleaseLookupTest do
       assert {:ok, match} = Matching.match(source, candidates)
 
       assert match.strategy == :upc_position
-    end
-  end
-
-  describe "AlbumCache" do
-    test "a failed lookup is not remembered" do
-      # An error says nothing about the catalogue. Caching it would turn a
-      # transient outage into a permanent hole in matching.
-      assert {:error, :boom} = AlbumCache.fetch("123", fn -> {:error, :boom} end)
-      assert AlbumCache.size() == 0
-
-      assert {:ok, "album"} = AlbumCache.fetch("123", fn -> {:ok, "album"} end)
-      assert AlbumCache.size() == 1
-    end
-
-    test "a negative result is remembered" do
-      assert {:ok, nil} = AlbumCache.fetch("456", fn -> {:ok, nil} end)
-      assert {:ok, nil} = AlbumCache.fetch("456", fn -> flunk("should not be asked twice") end)
     end
   end
 end

@@ -88,6 +88,19 @@ config :errata,
     :authorization
   ]
 
+# L1 of the catalogue cache. Bounded by memory rather than by a guessed entry
+# count: a barcode-to-id entry measures 120 bytes, so 500k entries is roughly
+# 57 MB, and `allocated_memory` is the bound that actually stops a leak.
+#
+# `Nebulex.Adapters.Local` is generational — at the bound it drops the oldest
+# generation rather than emptying, so a full cache loses a fraction and keeps
+# the hot set. That is the property this replaced a hand-rolled ETS table for.
+config :one_playlist, OnePlaylist.Cache,
+  gc_interval: :timer.hours(12),
+  max_size: 500_000,
+  allocated_memory: 100_000_000,
+  gc_memory_check_interval: :timer.seconds(30)
+
 # TIDAL. Endpoints are not secret and are the same everywhere; credentials come
 # from the environment in config/runtime.exs.
 #

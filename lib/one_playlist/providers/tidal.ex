@@ -23,6 +23,7 @@ defmodule OnePlaylist.Providers.Tidal do
   use Bond, behaviours: [OnePlaylist.Providers.Adapter]
   use Errata
 
+  alias OnePlaylist.Catalogue
   alias OnePlaylist.Matching.Signals
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
@@ -30,7 +31,6 @@ defmodule OnePlaylist.Providers.Tidal do
   alias OnePlaylist.Providers.Adapter
   alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.ConnectionUnusable
-  alias OnePlaylist.Providers.Tidal.AlbumCache
   alias OnePlaylist.Providers.Tidal.Client
   alias OnePlaylist.Providers.Tidal.Mapper
   alias OnePlaylist.Providers.Tidal.OAuth
@@ -146,13 +146,32 @@ defmodule OnePlaylist.Providers.Tidal do
 
     with true <- is_binary(barcode),
          {:ok, album_id} when is_binary(album_id) <-
-           AlbumCache.fetch(barcode, fn -> Client.album_by_barcode(token, barcode, opts) end),
-         {:ok, tracks} <- Client.album_items(token, album_id, lookup_opts) do
+           Catalogue.album_id(:tidal, barcode, fn ->
+             Client.album_by_barcode(token, barcode, opts)
+           end),
+         {:ok, tracks} <- items_or_forget(token, album_id, barcode, lookup_opts) do
       {:ok, Enum.filter(tracks, &same_position?(&1, track))}
     else
       # A barcode TIDAL does not carry, or a release that lists nothing at that
       # position. Both are misses, not failures.
       _miss -> {:ok, []}
+    end
+  end
+
+  # A barcode identifies a release permanently, but TIDAL's *id* for that
+  # release does not have to be permanent — a re-ingest or a delisting changes
+  # it, and the only symptom is a 404 here rather than anything visible when the
+  # id was handed over. This is the one place that can tell, so it is the one
+  # place that says so.
+  defp items_or_forget(token, album_id, barcode, opts) do
+    case Client.album_items(token, album_id, opts) do
+      {:ok, tracks} ->
+        {:ok, tracks}
+
+      {:error, error} = failure ->
+        if Errata.reason(error) == :not_found, do: Catalogue.forget(:tidal, barcode)
+
+        failure
     end
   end
 

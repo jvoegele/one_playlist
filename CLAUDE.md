@@ -114,7 +114,16 @@ better code.
   text + duration → fuzzy → embeddings, producing a confidence value. Never silently drop a
   track; every miss is a typed Errata error in an inspectable report.
 - **Oban** for the transfer/sync job pipeline; **Supabase Queues and pg_cron** used
-  deliberately elsewhere for learning.
+  deliberately elsewhere for learning. `pg_cron` is in use as of the catalogue cache: it prunes
+  expired negative lookups nightly, scheduled from the migration and best-effort so a project
+  without the extension still migrates.
+- **Catalogue cache** in two tiers — `OnePlaylist.Cache` (Nebulex, per node) over
+  `catalogue_release_lookups` in Postgres (shared, survives deploys), with request coalescing
+  in `OnePlaylist.Cache.Singleflight`. Nebulex is used for L1 only and deliberately not for L2:
+  `nebulex_adapters_ecto` pins to `nebulex ~> 2.5`, and L2 is a queryable domain table with RLS
+  and scheduled pruning rather than opaque cache rows. This is the first table here whose rows
+  **belong to nobody**, so the usual `auth.uid()` policy shape does not apply — see the
+  migration for the reasoning.
 - **Errors**: an application-level `OnePlaylist.Errors.to_error/1` normalizing at boundaries,
   a Phoenix fallback controller driven by `Errata.http_status/1`, and
   `config :errata, redact: [...]` covering every token-shaped key.

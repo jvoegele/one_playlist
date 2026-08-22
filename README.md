@@ -75,6 +75,12 @@ answer: an ISRC filter where one exists (one request, exact), a barcode plus
 position lookup where the source knows both (two requests, exact), and
 free-text search otherwise.
 
+Lookups are cached in two tiers — in memory per node, and in Postgres shared
+across nodes, users and deploys — with concurrent misses on one key coalesced
+into a single provider call. Measured over 8 barcodes: 2,503 ms cold, 13 ms
+after a restart that empties the in-memory tier. The persistent tier is what
+turns a deploy from an eight-request quota bill into a 13 ms read.
+
 Rung 2 is the one place an identifier alone is not trusted. Two services can
 list different items under one barcode — a bonus track on one edition, not the
 other — and then position 7 is a different recording on each. Unguarded that is

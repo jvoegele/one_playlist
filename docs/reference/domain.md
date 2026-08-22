@@ -284,16 +284,34 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
   `include=items.artists` costs nothing extra and makes the results scoreable on text too, so a
   candidate rung 2 declines is not wasted.
 
-- **A barcode's album id is worth caching and never expires.** A barcode identifies a release
-  permanently, so the mapping cannot become wrong — only incomplete, which a cache miss
-  handles. It is also identical for every user, which makes it the compounding asset described
-  above rather than per-user state. Tracks cluster into albums (38 distinct albums across the
-  60-track corpus; 5 across an 8-track live sample), so caching removes most of the lookups.
+- **A barcode's album id is worth caching across users, nodes and deploys.** It is identical
+  for every user and does not change through normal catalogue drift, which makes it the
+  compounding asset described above rather than per-user state. Tracks cluster into albums
+  (38 distinct albums across the 60-track corpus; 8 across a 12-track live sample), so caching
+  removes most of the lookups outright.
 
-  Worth being explicit, because the instinct is to reach for concurrency instead: running these
-  requests in parallel reduces wall-clock while spending **exactly the same quota**, and the
-  circuit breaker is shared across all users, so bursting catalogue reads degrades TIDAL for
-  everyone. Fewer requests is the lever; faster requests is not.
+  Measured live over 8 distinct barcodes:
+
+  | | Time |
+  | --- | --- |
+  | Cold — both tiers empty, 8 calls to TIDAL | **2,503 ms** |
+  | Warm L1 (in memory) | **0 ms** |
+  | After a deploy — L1 gone, L2 intact | **13 ms** |
+
+  The last row is the entire argument for persisting it. A restart without L2 costs the full
+  2,503 ms *and* 8 requests against an unpublished quota; with L2 it costs 13 ms and none.
+
+  Worth being explicit about the alternative, because the instinct is to reach for concurrency:
+  running these requests in parallel reduces wall-clock while spending **exactly the same
+  quota**, and the circuit breaker is shared across all users, so bursting catalogue reads
+  degrades TIDAL for everyone. Fewer requests is the lever; faster requests is not. The same
+  reasoning makes request coalescing worth building — without it, N concurrent misses on one
+  barcode are N identical requests, arriving precisely when the system is busiest.
+
+  One caveat on permanence: the *release* a barcode names is permanent, but a provider's **id**
+  for that release need not be — a re-ingest or a delisting can change it, and the only symptom
+  is a 404 on the follow-up request. So a cached id is invalidated where that 404 is seen
+  rather than trusted indefinitely.
 
 **Rate limits are not published.** Community reports put 429s as common on catalog reads and
 rare on playlist operations. With no documented quota the only safe posture is to stay well
