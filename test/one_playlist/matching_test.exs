@@ -213,7 +213,7 @@ defmodule OnePlaylist.MatchingTest do
       # Ys" is a backing band, so the band goes beside the featured credits and
       # only "bruce springsteen" has to agree.
       #
-      # This used to work because `artists_agree?/2` accepted a subset in either
+      # This used to work because the credit check accepted a subset in either
       # direction, over every name at once. That was too generous — see the
       # collaboration test below — and the cost was noted in this comment at the
       # time: "it also matches a genuine solo recording to a band one, which is
@@ -237,11 +237,16 @@ defmodule OnePlaylist.MatchingTest do
       # 0.50 of a legitimate Vitalogy-to-greatest-hits pairing, so no album rule
       # can separate them. The credit is the only signal that distinguishes a
       # collaboration from a solo take.
+      # `duration_seconds: nil` is the case, not a simplification: the playlist
+      # was a Roon CSV export, whose columns are title, artist, album and ISRC.
+      # The fixture's default gives both sides 125 seconds, which silently
+      # corroborates every match — worth knowing when reading any test here.
       source =
         track(
           artists: ["Neil Young & Pearl Jam"],
           title: "Powderfinger",
-          album: "1995-06-24: Broken Mirror: Golden Gate Park"
+          album: "1995-06-24: Broken Mirror: Golden Gate Park",
+          duration_seconds: nil
         )
 
       candidate =
@@ -253,6 +258,36 @@ defmodule OnePlaylist.MatchingTest do
         )
 
       assert {:error, _error} = Matching.match(source, [candidate])
+    end
+
+    test "but it does match when something independent confirms it" do
+      # The other half of the same rule, and the reason it is a bar rather than
+      # a ban. A backing band credited on one service and not the other —
+      # Neil Young & Crazy Horse against Neil Young — is the same shape as the
+      # collaboration above and cannot be told apart from the credits alone:
+      # both score an identical 0.667 artist similarity.
+      #
+      # What separates them is everything else. Same album, same length, and the
+      # ambiguous credit is no longer carrying the decision on its own.
+      source =
+        track(
+          artists: ["Neil Young & Crazy Horse"],
+          title: "Cortez the Killer",
+          album: "Zuma",
+          duration_seconds: 447
+        )
+
+      candidate =
+        track(
+          artists: ["Neil Young"],
+          title: "Cortez the Killer",
+          album: "Zuma",
+          duration_seconds: 447,
+          provider_id: "c1"
+        )
+
+      assert {:ok, match} = Matching.match(source, [candidate])
+      assert match.strategy == :text
     end
 
     test "a guest credit one service spells out and another omits still matches" do

@@ -43,7 +43,7 @@ defmodule OnePlaylist.Matching.Signals do
   defstruct title: nil,
             title_exact: false,
             artists: nil,
-            artists_agree: false,
+            credit_match: :unrelated,
             album: nil,
             duration: nil,
             upc_agrees: nil,
@@ -56,7 +56,7 @@ defmodule OnePlaylist.Matching.Signals do
           title: float() | nil,
           title_exact: boolean(),
           artists: float() | nil,
-          artists_agree: boolean(),
+          credit_match: :same | :contained | :unrelated,
           album: float() | nil,
           duration: float() | nil,
           upc_agrees: boolean() | nil,
@@ -114,9 +114,7 @@ defmodule OnePlaylist.Matching.Signals do
       title: title_similarity(left.title, right.title),
       title_exact: left.title != "" and left.title == right.title,
       artists: artist_similarity(left_artists, right_artists, left_words, right_words),
-      artists_agree:
-        artists_agree?(left_credits, right_credits) or
-          words_agree?(left_words, right_words),
+      credit_match: credit_match(left_credits, right_credits, left_words, right_words),
       album: album_similarity(source.album, candidate.album),
       duration:
         Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds),
@@ -229,7 +227,7 @@ defmodule OnePlaylist.Matching.Signals do
   # Exact, because this comparison has already thrown away the structure that
   # made containment meaningful: once every credit is a bag of words, "Bruce
   # Springsteen" is contained in "Bruce Springsteen and the E Street Band" and
-  # so is "Street Band Bruce". `artists_agree?/2` is where containment belongs,
+  # so is "Street Band Bruce". `credit_match/4` is where containment belongs,
   # and it decides that case on its own terms; this exists only to recognise the
   # same names divided up differently.
   defp words_agree?(left, right),
@@ -253,29 +251,41 @@ defmodule OnePlaylist.Matching.Signals do
   # to credit far more often than they disagree about who the artists are, so
   # requiring the same set would reject true matches wholesale. What must not
   # happen is a *disjoint* credit — that is a different recording.
-  # The **primary** credits must be the same set. Guests may differ freely.
+  # How two credits relate, in three values rather than a yes/no.
   #
-  # This used to accept a subset in either direction, over every name at once,
-  # and that is how a live Neil Young & Pearl Jam recording matched the studio
-  # "Powderfinger" credited to Neil Young alone: `{neil young}` is a subset of
-  # `{neil young, pearl jam}`, so the gate opened, and this rung's band floor of
-  # 0.80 then reported it at `medium` on an album similarity near zero.
+  # The boolean it replaces had to decide, on its own, whether a one-name
+  # difference meant "same recording, described differently" or "a different
+  # recording". It cannot: `Neil Young & Pearl Jam` against `Neil Young` and
+  # `Neil Young & Crazy Horse` against `Neil Young` are the same string problem,
+  # scoring an identical 0.667 artist similarity. One is a collaboration and one
+  # is a backing band, and no rule over those strings knows which.
   #
-  # Subsetting was there for a real case — one service spelling out a feature
-  # credit another omits — and that case is now handled by where the name goes
-  # rather than by how loosely the sets are compared. "Pearl Jam feat. Eddie
-  # Vedder" and "Pearl Jam" still agree, because Eddie Vedder is a guest on one
-  # side and absent on the other, and neither is primary.
+  # So this reports the *relationship* and lets `Strategy.Text` decide what
+  # evidence it wants for each. `:same` needs none; `:contained` has to be
+  # corroborated by something else; `:unrelated` is refused outright.
   #
-  # Equality rather than "the source's primaries are a subset": a collaboration
-  # is a different recording whichever side has the extra name. Where two
-  # services genuinely disagree about co-billing — "Neil Young" against "Neil
-  # Young & Crazy Horse" — this rung declines and `Fuzzy` scores it instead,
-  # which is the behaviour the duration gate above already chose for the same
-  # reason. A rung that cannot express doubt must decline.
-  defp artists_agree?(left, right) do
-    MapSet.size(left.primary) > 0 and MapSet.equal?(left.primary, right.primary)
+  #   * `:same` — the primary credits are the same set, or the names scramble
+  #     into each other ("Beatles, The" against "The Beatles"). A backing band
+  #     lands here too, because `Normalize.credits/1` puts "and *the* Ys" beside
+  #     the guests rather than among the primaries.
+  #   * `:contained` — one primary set is strictly inside the other. Either a
+  #     credit one service spells out and another does not, or a collaboration
+  #     matched to a solo take. Genuinely ambiguous, and treated as such.
+  #   * `:unrelated` — disjoint, partially overlapping, or empty on either side.
+  @spec credit_match(credits(), credits(), MapSet.t(), MapSet.t()) ::
+          :same | :contained | :unrelated
+  defp credit_match(left, right, left_words, right_words) do
+    cond do
+      MapSet.size(left.primary) == 0 or MapSet.size(right.primary) == 0 -> :unrelated
+      MapSet.equal?(left.primary, right.primary) -> :same
+      words_agree?(left_words, right_words) -> :same
+      MapSet.subset?(left.primary, right.primary) -> :contained
+      MapSet.subset?(right.primary, left.primary) -> :contained
+      true -> :unrelated
+    end
   end
+
+  @typep credits :: %{primary: MapSet.t(String.t()), featured: MapSet.t(String.t())}
 
   defp album_similarity(nil, _right), do: nil
   defp album_similarity(_left, nil), do: nil

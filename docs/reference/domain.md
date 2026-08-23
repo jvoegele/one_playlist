@@ -587,42 +587,64 @@ this rung has doubt, the only thing it can do with it is decline and let `Fuzzy`
 **Before adding a signal to the corroboration, ask whether it needs to be a gate.** A signal that
 should be able to prevent a match cannot do it from there.
 
-### Co-billing, backing bands and guest credits are three different things
+### An ambiguous credit raises the bar; it does not decide the match
 
 A live "Powderfinger" credited to *Neil Young & Pearl Jam* matched the studio recording on *Rust
 Never Sleeps*, credited to *Neil Young* alone, and landed in a Pearl Jam playlist at `medium`.
 
-`artists_agree?/2` accepted a subset in either direction over a flat set of every name, and
-`Normalize.artists/1` builds that set by splitting on `,&/+` and on `x|and|feat|ft|featuring|
-with|vs` alike — so the conjunction is gone before anything compares them. `{neil young}` is a
-subset of `{neil young, pearl jam}`, and the gate opened.
+The gate accepted a subset in either direction over a flat set of every name — and
+`Normalize.artists/1` builds that set by splitting on `,&/+` and on
+`x|and|feat|ft|featuring|with|vs` alike, so the conjunction is gone before anything compares
+them.
 
-Nothing else could have caught it. The source was a CSV with no duration and no barcode, and
-album similarity was **0.53** — *higher* than the **0.50** of a legitimate *Vitalogy* against
-*Rearviewmirror: Greatest Hits* pairing. No album rule can separate those two.
+**The trap is that the obvious fix is wrong.** Requiring the credits to match exactly rejects
+*Neil Young & Crazy Horse* against *Neil Young*, which is one recording credited two ways.
+And no rule over the strings can tell those cases apart:
 
-`Normalize.credits/1` keeps the distinction the flat set destroys:
-
-| Credit | Primary | Guest |
+| | source vs candidate | artist similarity |
 | --- | --- | --- |
-| `Neil Young & Pearl Jam` | neil young, pearl jam | — |
-| `Bruce Springsteen and the E Street Band` | bruce springsteen | the e street band |
-| `Pearl Jam feat. Eddie Vedder` | pearl jam | eddie vedder |
+| A collaboration | Neil Young & Pearl Jam · Neil Young | **0.667** |
+| A backing band | Neil Young & Crazy Horse · Neil Young | **0.667** |
 
-The gate compares **primary sets for equality**. The definite article is what marks a backing
-band: "X and *the* Ys" is one act, "X & Y" is two. That is why `Normalize.text/1` keeping
-leading articles is load-bearing rather than incidental.
+Identical. The difference is world knowledge — Pearl Jam is a headline act, Crazy Horse is a
+backing band — and nothing in the metadata carries it. Strict equality was measured and cost two
+corpus tracks while fixing nothing that the rule below does not.
 
-Known cost: a backing band with no article — *Neil Young & Crazy Horse* against *Neil Young* —
-declines rather than matching. It falls to `Fuzzy`, lands below the threshold, and appears as an
-unmatched row **with the candidate offered**, which one click resolves. That trade is only
-acceptable because match override exists.
+Nor can another field decide it. Album similarity for the bad match was **0.53**, *higher* than
+the **0.50** of a legitimate *Vitalogy* against *Rearviewmirror: Greatest Hits* pairing.
 
-Measured on the hundred-track corpus, before and after: `certain` 82 → 80, `duration_corroborated`
-12 → 14, `none` 5 → 5, wrong 1 → 1. No match gained or lost. The two that moved are *All Blues*
-and *Flamenco Sketches*, which now resolve to *The Complete Miles Davis Featuring John Coltrane*
-within 1s and 2s of the source — the same recording on a different compilation, whose ISRC
-MusicBrainz does not list. A change in how those two are *verified*, not in what they matched.
+So `Signals.credit_match/4` reports the *relationship* rather than a verdict, and
+`Strategy.Text` decides what evidence each one has to earn:
+
+| Relationship | Meaning | What the rung asks for |
+| --- | --- | --- |
+| `:same` | equal primary credits, or names that scramble into each other | nothing — the normal path |
+| `:contained` | one primary set strictly inside the other | **one independent field agreeing at ≥ 0.9** — duration, barcode or album |
+| `:unrelated` | disjoint, partial overlap, or empty | refused outright |
+
+`Normalize.credits/1` keeps the distinction that flattening destroys, so a backing band reaches
+`:same` rather than needing corroboration at all: "X and *the* Ys" is one act, "X & Y" is two,
+and the definite article is the marker. That is why `Normalize.text/1` keeping leading articles
+is load-bearing rather than incidental.
+
+What this buys:
+
+  * *Neil Young & Crazy Horse* on the same album at the same length — **matches**, because
+    everything except the credit agrees.
+  * The same pair with nothing but a title and a partial credit — **declines**, correctly. There
+    is no evidence either way, and this rung cannot express doubt.
+  * *Neil Young & Pearl Jam* against a studio take on a different album with no duration —
+    **declines**.
+  * *Bruce Springsteen and the E Street Band* against *Bruce Springsteen* — matches with no
+    corroboration needed, because the credits are `:same`.
+
+Measured on the hundred-track corpus: identical to the baseline in every bucket — `certain` 82,
+`duration_corroborated` 12, `none` 5, wrong 1. The strict-equality version moved two tracks; this
+moves none.
+
+**The general shape, worth reaching for again**: when two cases are genuinely indistinguishable
+from the evidence, do not pick a side. Make the ambiguous one carry a higher burden of proof, and
+let the absence of proof be the answer.
 
 ### What has actually been measured about match quality
 

@@ -62,11 +62,43 @@ defmodule OnePlaylist.Matching.Strategy.Text do
     # which can score it low rather than discard it. Measured over the
     # hundred-track MusicBrainz corpus: wrong matches fell from 4 to 1, with no
     # correct match lost. See `docs/reference/domain.md`.
-    if signals.title_exact and signals.artists_agree and not Signals.vetoed?(signals) and
-         not signals.duration_conflict do
-      {corroboration(signals), evidence(signals)}
+    cond do
+      not gated_in?(signals) -> nil
+      signals.credit_match == :unrelated -> nil
+      # A credit that differs by a name does not decide the match — it raises
+      # the bar. `Neil Young & Pearl Jam` against `Neil Young` and
+      # `Neil Young & Crazy Horse` against `Neil Young` are indistinguishable
+      # from the strings alone: identical artist similarity, one a
+      # collaboration and one a backing band. Refusing both loses real matches;
+      # accepting both put a Neil Young solo recording in a Pearl Jam playlist.
+      #
+      # So an ambiguous credit is allowed to match *when something else
+      # confirms it*, and declines when nothing does. That is not a compromise
+      # between the two errors, it is the honest reading: with a title, a
+      # partial credit and no other agreeing field, there is no evidence either
+      # way, and a rung that cannot express doubt must decline.
+      signals.credit_match == :contained and not corroborated?(signals) -> nil
+      true -> {corroboration(signals), evidence(signals)}
     end
   end
+
+  defp gated_in?(signals) do
+    signals.title_exact and not Signals.vetoed?(signals) and not signals.duration_conflict
+  end
+
+  # One field that both sides carry and that agrees strongly. Not a weighted
+  # mean: this asks whether there is *any* independent confirmation, and a
+  # single strong agreement is exactly that. `@uncorroborated` covers the
+  # opposite case — no evidence — and is only reachable when the credits already
+  # agree.
+  @confirmation 0.9
+
+  defp corroborated?(signals) do
+    signals.upc_agrees == true or
+      confirms?(signals.duration) or confirms?(signals.album)
+  end
+
+  defp confirms?(signal), do: is_number(signal) and signal >= @confirmation
 
   defp corroboration(signals) do
     [

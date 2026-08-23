@@ -81,7 +81,7 @@ defmodule OnePlaylist.Matching.SignalsTest do
         title: 1.0,
         title_exact: true,
         artists: 1.0,
-        artists_agree: true,
+        credit_match: :same,
         album: 1.0,
         duration: 1.0,
         discriminating_conflict: true
