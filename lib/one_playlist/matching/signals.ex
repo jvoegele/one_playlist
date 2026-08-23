@@ -281,6 +281,18 @@ defmodule OnePlaylist.Matching.Signals do
       words_agree?(left_words, right_words) -> :same
       MapSet.subset?(left.primary, right.primary) -> :contained
       MapSet.subset?(right.primary, left.primary) -> :contained
+      # Sharing a name but not containment: two credits that name some of the
+      # same people and disagree about the rest. Ambiguous in exactly the way
+      # `:contained` is, and treated the same — allowed to match only if
+      # something independent confirms it.
+      #
+      # This is where an artist renaming itself lands without any alias data.
+      # "JAY Z + Young Jeezy" against "JAŸ-Z, Jeezy" shares one name and differs
+      # on the other, because Young Jeezy became Jeezy. So does "Ghostface
+      # Killah feat. ... Cappadonna" against a catalogue spelling it Capadonna.
+      # Neither is a different recording, and neither is knowable from the
+      # strings — which is the definition of ambiguous.
+      not MapSet.disjoint?(left.primary, right.primary) -> :contained
       true -> :unrelated
     end
   end

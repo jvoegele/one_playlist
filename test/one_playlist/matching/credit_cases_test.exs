@@ -44,6 +44,12 @@ defmodule OnePlaylist.Matching.CreditCasesTest do
 
   @corpus "dev/corpus/credit_cases.json"
 
+  # Three of these left when partial credit overlap stopped being read as
+  # `:unrelated` — the two Ghostface cases and 2Pac's "Thug Passion", where the
+  # catalogue spells Cappadonna "Capadonna" and Dramacydal had become Outlawz.
+  # Both are artist renamings, which is what an alias table would have bought,
+  # obtained here from the overlap alone.
+  #
   # Declined a candidate that was offered and correct. Less bad than a wrong
   # match — the report says so, and the row can be corrected by hand — but this
   # is the backlog, and two of these are worth naming precisely.
@@ -64,10 +70,7 @@ defmodule OnePlaylist.Matching.CreditCasesTest do
   # Fixing these needs to know that *At Folsom Prison* is a live album, which no
   # amount of string comparison can tell. See `docs/reference/domain.md`.
   @missed [
-    "2Pac feat. Jewell, Dramacydal & Storm - Thug Passion",
     "De La Soul with Jungle Brothers and Q-Tip - Buddy",
-    "Ghostface Killah feat. Raekwon & Theodore Unit (Trife Diesel, Cappadonna & Sun God) - Dogs of War",
-    "Ghostface Killah feat. Theodore Unit (Cappadonna, Shawn Wigs & Trife Diesel) - Jellyfish",
     "James Brown - Brother Rapp / Ain't It Funky Now (live)",
     "James Brown - It's a New Day (live)",
     "Johnny Cash with June Carter Cash - Jackson",

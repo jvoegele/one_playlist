@@ -705,6 +705,42 @@ Two things worth keeping from the attempt:
     album is a fact about the world, not a property of the strings. That is the strongest
     argument in this file for an external catalogue — see below.
 
+### An artist-alias table would buy about three cases in a hundred
+
+Measured before building one, because the obvious answer to "Ye is Kanye West" is a MusicBrainz
+alias dump, and it is a multi-gigabyte dependency.
+
+Over the 115 judged credit cases, the source's credit and the *correct* candidate's credit
+relate as:
+
+| | |
+| --- | --- |
+| `:same` | **101** |
+| `:contained` | 7 |
+| `:unrelated` | 7 |
+
+Only the seven `:unrelated` pairs are ones an alias table could touch, and three of those are
+SpongeBob voice actors against SpongeBob characters, which no catalogue reconciles. The rest are
+genuine renamings — *Young Jeezy* to *Jeezy*, *Dramacydal* to *Outlawz* — and one catalogue
+spelling *Cappadonna* as *Capadonna*.
+
+Diacritics are **not** among them: `Normalize.text/1` already folds `JAŸ-Z` to `jay z`, and
+`Beyoncé`, `Sigur Rós` and `Motörhead` all normalize with their unaccented spellings.
+
+**Most of that value is available without the dump.** Those pairs share a name and disagree about
+another, and the classifier was reading "not a subset" as `:unrelated` — refusing outright what is
+merely ambiguous. Treating partial overlap as `:contained` puts them on the same evidentiary
+footing as any other ambiguous credit: allowed to match if something independent confirms it.
+
+Measured: **+2 correct, −3 missed, no new wrong matches**, and the MusicBrainz corpus did not
+move. Disjoint credits stay `:unrelated`, which the "a different artist with the same title does
+not match" test holds in place.
+
+An alias table is therefore worth perhaps one or two more cases in a hundred here, against a
+build step and a shipped dataset. Revisit it when a corpus shows it earning more — a library
+heavier in non-Latin scripts or in artists who have renamed would be the case that changes the
+arithmetic.
+
 ### Query construction is not the recall problem
 
 Worth recording as a *negative* result, because it is the obvious next move and it does not work.
