@@ -218,6 +218,24 @@ defmodule OnePlaylist.Formats.CsvTest do
     end
   end
 
+  describe "a spreadsheet" do
+    test "is refused with the reason, not just the remedy" do
+      # `PK\x03\x04` is a ZIP, which in this context is an .xlsx. Parsed as text
+      # it fails as `:no_header` from a file that plainly has one.
+      #
+      # The message names the ISRC because that is the measured difference:
+      # Roon's CSV export of a 58-track playlist carries an ISRC for 57 of them
+      # and its spreadsheet export carries none.
+      assert {:error, error} = Csv.parse(<<0x50, 0x4B, 0x03, 0x04, "anything else">>)
+      assert error.reason == :looks_like_a_spreadsheet
+      assert Errata.display_message(error) =~ "ISRC"
+    end
+
+    test "a file that merely starts with P and K is not one" do
+      assert {:ok, [_track]} = Csv.parse(csv(["title", "PK Subban Appreciation Song"]))
+    end
+  end
+
   describe "the codec contract, inherited by every format" do
     # Proven with a deliberately broken implementation rather than by contriving
     # a call into the behaviour, because that is the only honest way to fail an

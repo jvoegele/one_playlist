@@ -167,12 +167,24 @@ defmodule OnePlaylist.Formats.Csv do
     # and XLSX, and the spreadsheet is the one that looks more like a playlist to
     # a person. Parsing it as text gives `:no_header` from a file that plainly
     # has one, so it is worth the four bytes to say what actually happened.
+    #
+    # The message names the *reason* rather than just the remedy, because the
+    # reason is the useful part and it is measured rather than assumed. Both of
+    # Roon's exports of one 58-track playlist were compared: the CSV carries an
+    # ISRC for 57 of 58 tracks, and the spreadsheet carries none at all — no
+    # ISRC column exists in it. That is the difference between rung 1 resolving
+    # almost everything exactly and nothing being resolved exactly.
+    #
+    # Which is also why this application does not read spreadsheets. Doing so
+    # would mean importing the weaker of the two files a user already has. See
+    # docs/reference/domain.md.
     {:error,
      Errata.create(UnreadablePlaylist,
        reason: :looks_like_a_spreadsheet,
        message:
-         "that looks like a spreadsheet rather than a CSV — open it and save as CSV, " <>
-           "or export CSV directly"
+         "that is a spreadsheet, not a CSV. Export CSV instead if you can — a " <>
+           "spreadsheet export usually leaves out the ISRC, which is what lets " <>
+           "tracks be matched exactly rather than by name"
      )}
   end
 

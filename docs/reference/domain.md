@@ -450,11 +450,39 @@ after the MusicBrainz measurement is inert on exactly the input that most needs 
 This is the concrete form of the metadata problem: rung 1 works only where an ISRC is present
 (57 of 58 here), and everything else falls to text with no length to check it against.
 
-**The XLSX is richer than the CSV** — it carries `Track Artist(s)` separately from `Album
-Artist`, plus `Disc#`, `Track#`, `Source` (`Tidal`) and `Path`. Supporting it means a zip and an
-XML reader, so it is not done; `parse/2` detects the `PK\x03\x04` magic and says "save as CSV"
-rather than failing as `:no_header`. Its column names *are* aliased for CSV, because
-Roon → XLSX → Excel → "Save as CSV" is the likely route in.
+**The XLSX has more columns and is the worse import.** Both exports of the same 58-track
+playlist, counted:
+
+| | CSV | XLSX |
+| --- | --- | --- |
+| **ISRC** | **57 / 58** | **0 / 58** — no such column |
+| Disc# / Track# | absent | 58 / 58 |
+| `Track Artist(s)` | — | 38 / 58 |
+| `External Id` | — | 34 / 58, all `rovi:MT…` |
+| `Path` | — | 34 / 58 |
+| `Source` | — | 34 `Local`, 24 `Tidal` |
+
+No ISRC column exists in the spreadsheet at all, so rung 1 goes from resolving 57 of 58 tracks
+exactly to resolving none. Everything falls to text, on a file that also has no duration — so
+the `duration_conflict` veto cannot fire either.
+
+`External Id` looked like it might overturn that and does not: it is a **Rovi/AllMusic**
+identifier, present only on the 34 `Local` rows. The 24 TIDAL-sourced rows have it empty, so
+there is no id to look a streaming track up by, and importing a Roon playlist into TIDAL is a
+matching problem either way.
+
+**So spreadsheets are deliberately not supported.** Reading them would mean a zip and an XML
+parser on user uploads — decompression bombs and entity expansion are real on that path — in
+order to import the weaker of two files the user already has. `parse/2` detects the
+`PK\x03\x04` magic and says so, naming the ISRC as the reason rather than only the remedy.
+
+Two things that would change the answer, neither true yet: a **path-based import** for
+self-hosted libraries could use `Path` + `Source: Local` — though M3U is the standard for that
+and far simpler, so it comes first; and people who keep playlists in **Excel** with no CSV to
+export are a real audience, unlike Roon users, who have one.
+
+The XLSX column names *are* aliased for CSV, because Roon → XLSX → Excel → "Save as CSV" is a
+likely route in.
 
 `Album Artist` is deliberately **not** aliased to artists. On a compilation it is "Various
 Artists", which performs nothing on the album — and a wrong artist is worse than none here,
