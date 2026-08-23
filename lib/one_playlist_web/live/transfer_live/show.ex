@@ -12,6 +12,20 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   Progress arrives by PubSub rather than polling: the run happens in an Oban
   worker, possibly on another node, and broadcasts each state change.
+
+  ## Two different size limits, for two different problems
+
+  A finished report is **paged**: `@page_size` rows at a time, with the rest
+  behind "Load more". A 5,000 track transfer otherwise puts 5,000 table rows in
+  the initial payload, which is slow to render and most of it is never scrolled
+  to.
+
+  A running report is **windowed**: the stream keeps only the most recent
+  `@live_window` rows, and drops the older ones. That is not pagination and
+  should not be — a run in flight has nothing worth paging back through, and
+  every row it has ever shown is about to be replaced by the real report anyway.
+  The window is what keeps a long run's memory flat in the LiveView process and
+  in the browser.
   """
 
   use OnePlaylistWeb, :live_view
@@ -22,6 +36,16 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   alias OnePlaylist.Transfers.Transfer
 
   require Logger
+
+  # One screenful and then some. Big enough that a typical playlist needs no
+  # paging at all, small enough that the initial render of a large one is not
+  # dominated by rows nobody scrolls to.
+  @page_size 100
+
+  # The live window is the same size deliberately: a run showing more rows than
+  # a page holds would shrink when the report replaced it, which reads as rows
+  # being lost.
+  @live_window 100
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -39,7 +63,8 @@ defmodule OnePlaylistWeb.TransferLive.Show do
          # rather than as zero of zero.
          |> assign(:progress, nil)
          # Position => provisional row, for the rows a run has reported but not
-         # yet persisted. Assigned before `assign_transfer/2`, which reads it.
+         # yet persisted. Assigned before `assign_transfer/2`, which reads it,
+         # and bounded to `@live_window` by `remember/2`.
          |> assign(:provisional, %{})
          |> assign_transfer(transfer)}
 
@@ -55,25 +80,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   def handle_info({:transfer_progress, progress}, socket) do
     socket = assign(socket, :progress, %{resolved: progress.resolved, total: progress.total})
 
-    # The row appears the moment its track resolves, rather than every row
-    # appearing at once when the run ends. Keyed on position, so the persisted
-    # report replaces these in place instead of doubling the table.
+    # Rows appear as their tracks resolve, rather than every row appearing at
+    # once when the run ends. Keyed on position, so the persisted report replaces
+    # these in place instead of doubling the table.
     #
-    # Kept in an assign as well as streamed, because changing the filter
-    # re-streams from the database with `reset: true` — and during a run the
-    # database has nothing, so without this a filter click would wipe every row
-    # the watcher had seen.
-    if progress.item do
-      {:noreply,
-       socket
-       |> assign(
-         :provisional,
-         Map.put(socket.assigns.provisional, progress.item.position, progress.item)
-       )
-       |> insert_if_shown(progress.item)}
-    else
-      {:noreply, socket}
-    end
+    # A batch rather than one row: `OnePlaylist.Transfers.Progress` decides how
+    # many arrive together, so that a 5,000 track run is not 5,000 messages.
+    {:noreply, Enum.reduce(progress.items, socket, &live_row(&2, &1))}
   end
 
   def handle_info({:transfer_updated, transfer}, socket) do
@@ -98,15 +111,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   end
 
   def handle_event("filter", %{"outcome" => outcome}, socket) do
-    filter = String.to_existing_atom(outcome)
+    # Each filter is its own sequence of rows, so switching starts again at the
+    # top rather than carrying the previous filter's offset into it.
+    {:noreply, socket |> assign(:filter, String.to_existing_atom(outcome)) |> load_first_page()}
+  end
 
-    shown = items(socket.assigns.transfer, filter)
-
-    {:noreply,
-     socket
-     |> assign(:filter, filter)
-     |> stream(:items, shown, reset: true, dom_id: &row_id/1)
-     |> restore_provisional(shown)}
+  def handle_event("load-more", _params, socket) do
+    {:noreply, load_next_page(socket)}
   end
 
   @impl true
@@ -243,6 +254,18 @@ defmodule OnePlaylistWeb.TransferLive.Show do
               </tbody>
             </table>
           </div>
+
+          <%!-- Only for a finished report. A run in flight is windowed rather
+                than paged, so there is no "rest" to ask for: the rows scrolled
+                off are about to be replaced wholesale by the real report. --%>
+          <div :if={@more?} class="flex items-center justify-center gap-3 mt-4">
+            <span class="text-sm opacity-60 tabular-nums">
+              Showing {@loaded} of {shown_total(@transfer, @filter)}
+            </span>
+            <button phx-click="load-more" class="btn btn-sm btn-ghost">
+              Load more
+            </button>
+          </div>
         </div>
       </div>
     </Layouts.app>
@@ -327,6 +350,16 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   defp reason_text(%{reason: "unsearchable"}), do: "too little information to search"
   defp reason_text(%{reason: reason}), do: reason
 
+  # What the current filter's tab already counts, so "Showing 100 of 4,812" and
+  # the tab above it cannot disagree. `:already_present` has no counter of its
+  # own — it is `matched - added` — which is also why its tab carries no number.
+  defp shown_total(%Transfer{} = transfer, :all), do: transfer.total_tracks
+  defp shown_total(%Transfer{} = transfer, :unmatched), do: transfer.unmatched_count
+  defp shown_total(%Transfer{} = transfer, :matched), do: transfer.added_count
+
+  defp shown_total(%Transfer{} = transfer, :already_present),
+    do: transfer.matched_count - transfer.added_count
+
   defp filters(%Transfer{} = transfer) do
     [
       {:all, "All #{transfer.total_tracks}"},
@@ -337,18 +370,44 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   end
 
   defp assign_transfer(socket, transfer) do
-    filter = socket.assigns[:filter] || :all
-
     socket
     |> assign(:transfer, transfer)
     |> assign(:page_title, transfer.source_playlist_name || "Transfer")
-    |> then(fn socket ->
-      shown = items(transfer, filter)
+    |> load_first_page()
+  end
 
-      socket
-      |> stream(:items, shown, reset: true, dom_id: &row_id/1)
-      |> restore_provisional(shown)
-    end)
+  # Replaces whatever was on screen with the first page of the current filter.
+  # `reset: true` is what makes this safe to call on every transfer update: the
+  # rows are rebuilt from the database rather than accumulated.
+  defp load_first_page(socket) do
+    {rows, more?} = page(socket.assigns.transfer, socket.assigns.filter, 0)
+
+    socket
+    |> stream(:items, rows, reset: true, dom_id: &row_id/1)
+    |> assign(:loaded, length(rows))
+    |> assign(:more?, more?)
+    |> restore_provisional(rows)
+  end
+
+  defp load_next_page(socket) do
+    {rows, more?} = page(socket.assigns.transfer, socket.assigns.filter, socket.assigns.loaded)
+
+    socket
+    |> stream(:items, rows, dom_id: &row_id/1)
+    |> assign(:loaded, socket.assigns.loaded + length(rows))
+    |> assign(:more?, more?)
+  end
+
+  # Asks for one row more than a page holds, and reports whether it came back.
+  # That is cheaper than a `count(*)` over the report and cannot disagree with
+  # it: the extra row either exists or it does not.
+  defp page(transfer, filter, offset) do
+    rows = items(transfer, filter, limit: @page_size + 1, offset: offset)
+
+    case rows do
+      [_ | _] = rows when length(rows) > @page_size -> {Enum.take(rows, @page_size), true}
+      rows -> {rows, false}
+    end
   end
 
   # Only on the connected mount: the static render has no channel to deliver a
@@ -368,9 +427,38 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # then as the persisted `TransferItem` that replaces it.
   defp row_id(item), do: "item-#{item.position}"
 
+  # One provisional row: remembered so a filter change does not lose it, and
+  # appended to the table if the current filter admits it.
+  defp live_row(socket, item) do
+    socket |> remember(item) |> insert_if_shown(item)
+  end
+
+  # Bounded, because this map is held by the LiveView process for the whole run.
+  # Unbounded it grew one entry per resolved track, which is exactly the thing
+  # this change exists to stop. The oldest positions go first: a watcher looking
+  # at a run in flight is looking at the end of it.
+  defp remember(socket, item) do
+    provisional = Map.put(socket.assigns.provisional, item.position, item)
+
+    provisional =
+      if map_size(provisional) > @live_window do
+        Map.delete(provisional, provisional |> Map.keys() |> Enum.min())
+      else
+        provisional
+      end
+
+    assign(socket, :provisional, provisional)
+  end
+
+  # `limit: -@live_window` keeps the most recent rows and drops the rest, which
+  # is the browser-side half of the same bound. Negative because we append
+  # (`at: -1`) and it is the newest rows that are worth keeping.
+  #
+  # Only on this path. The paged report must not be windowed, or "Load more"
+  # would evict the rows it just scrolled past.
   defp insert_if_shown(socket, item) do
     if shown?(item, socket.assigns.filter),
-      do: stream_insert(socket, :items, item, at: -1),
+      do: stream_insert(socket, :items, item, at: -1, limit: -@live_window),
       else: socket
   end
 
@@ -401,6 +489,6 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   defp shown?(_item, :all), do: true
   defp shown?(item, outcome), do: item.outcome == outcome
 
-  defp items(transfer, :all), do: Transfers.items(transfer)
-  defp items(transfer, outcome), do: Transfers.items(transfer, outcome: outcome)
+  defp items(transfer, :all, opts), do: Transfers.items(transfer, opts)
+  defp items(transfer, outcome, opts), do: Transfers.items(transfer, [outcome: outcome] ++ opts)
 end

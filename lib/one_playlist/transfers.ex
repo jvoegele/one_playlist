@@ -73,21 +73,25 @@ defmodule OnePlaylist.Transfers do
   broadcast between "queued" and "completed" was the destination playlist being
   created.
 
-  `item` carries the row a watcher can show straight away — the same shape
+  `items` carries the rows a watcher can show straight away — the same shape
   `OnePlaylist.Transfers.TransferItem.matched/4` builds, minus the fields that
-  are only known once the writes are done. It is *provisional*: whether a
+  are only known once the writes are done. They are *provisional*: whether a
   matched track was `:matched` or `:already_present` depends on what the
   destination turns out to hold, which is decided after every track has been
   resolved. So a row shown here can change when the run finishes, and the final
   report replaces it.
+
+  A list rather than one row, because a per-track broadcast is fine for a 58
+  track import and not for a 5,000 track one. `OnePlaylist.Transfers.Progress`
+  decides how many arrive together and how often.
   """
-  @spec report_progress(Transfer.t(), non_neg_integer(), non_neg_integer(), map() | nil) :: :ok
-  def report_progress(%Transfer{} = transfer, resolved, total, item \\ nil) do
+  @spec report_progress(Transfer.t(), non_neg_integer(), non_neg_integer(), [map()]) :: :ok
+  def report_progress(%Transfer{} = transfer, resolved, total, items \\ []) do
     Phoenix.PubSub.broadcast(
       OnePlaylist.PubSub,
       "#{@topic}:#{transfer.id}",
       {:transfer_progress,
-       %{transfer_id: transfer.id, resolved: resolved, total: total, item: item}}
+       %{transfer_id: transfer.id, resolved: resolved, total: total, items: items}}
     )
     |> case do
       :ok ->
@@ -245,8 +249,11 @@ defmodule OnePlaylist.Transfers do
   @doc """
   The per-track report, in source playlist order.
 
-  `outcome` is the column worth filtering on: `:unmatched` is the list a person
+  `:outcome` is the column worth filtering on: `:unmatched` is the list a person
   resolves by hand, and `:already_present` is what a re-run looks like.
+
+  `:limit` and `:offset` take a window. Unwindowed by default, which is right
+  for a CSV export and wrong for a page — see `OnePlaylistWeb.TransferLive.Show`.
   """
   @spec items(Transfer.t(), keyword()) :: [TransferItem.t()]
   def items(%Transfer{} = transfer, opts \\ []) do
@@ -256,6 +263,21 @@ defmodule OnePlaylist.Transfers do
       case Keyword.get(opts, :outcome) do
         nil -> query
         outcome -> where(query, [i], i.outcome == ^outcome)
+      end
+
+    # A window rather than everything. A report is ordered by `position` and its
+    # rows never move once written, so offset paging cannot skip or repeat a row
+    # the way it can over a table somebody is still inserting into.
+    query =
+      case Keyword.get(opts, :limit) do
+        nil -> query
+        value when is_integer(value) and value >= 0 -> limit(query, ^value)
+      end
+
+    query =
+      case Keyword.get(opts, :offset) do
+        nil -> query
+        value when is_integer(value) and value >= 0 -> offset(query, ^value)
       end
 
     # Scoped by `transfer_id`, and scoped again by the policy on

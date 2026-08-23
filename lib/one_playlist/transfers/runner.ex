@@ -45,6 +45,7 @@ defmodule OnePlaylist.Transfers.Runner do
 
   alias OnePlaylist.Matching
   alias OnePlaylist.Providers
+  alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Source
   alias OnePlaylist.Transfers.SourceMissing
   alias OnePlaylist.Transfers.Transfer
@@ -202,27 +203,40 @@ defmodule OnePlaylist.Transfers.Runner do
     end
   end
 
-  # Reports after each track rather than at the end. Matching a playlist is one
+  # Reports as it goes rather than at the end. Matching a playlist is one
   # rate-limited provider search per track, so a 58 track import is a minute or
   # more of a page that otherwise says only "running".
+  #
+  # Batched through `Progress`, because "as it goes" used to mean one broadcast
+  # per track and that does not survive a 5,000 track playlist. The final flush
+  # is not optional: without it a run ending mid-batch strands its last tracks.
   defp resolve_all(transfer, tracks, adapter, connection, threshold) do
     total = length(tracks)
 
-    tracks
-    |> Enum.with_index()
-    |> Enum.map(fn {track, position} ->
-      outcome = resolve(track, adapter, connection, threshold)
+    {resolutions, progress} =
+      tracks
+      |> Enum.with_index()
+      |> Enum.map_reduce(Progress.new(total), fn {track, position}, progress ->
+        outcome = resolve(track, adapter, connection, threshold)
+        {batch, progress} = Progress.add(progress, provisional_item(position, track, outcome))
 
-      _ =
-        OnePlaylist.Transfers.report_progress(
-          transfer,
-          position + 1,
-          total,
-          provisional_item(position, track, outcome)
-        )
+        _ = report(transfer, batch, progress)
 
-      {position, track, outcome}
-    end)
+        {{position, track, outcome}, progress}
+      end)
+
+    {batch, progress} = Progress.flush(progress)
+    _ = report(transfer, batch, progress)
+
+    resolutions
+  end
+
+  # An empty batch is the ordinary case between flushes, and broadcasting it
+  # would undo the batching.
+  defp report(_transfer, [], _progress), do: :ok
+
+  defp report(transfer, batch, %Progress{} = progress) do
+    OnePlaylist.Transfers.report_progress(transfer, progress.resolved, progress.total, batch)
   end
 
   # What a watcher can be shown before the writes happen. Deliberately says
