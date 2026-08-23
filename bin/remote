@@ -32,6 +32,32 @@
 # node boundary fails. `Code.eval_file/1` by module-function-arguments is the
 # form that works.
 #
+# ## A probe that raises can print secrets that `inspect/1` would redact
+#
+# Learned the hard way, 2026-08-23. A probe called a function that did not
+# exist. The resulting `:undef` came back through `:erpc`, which formats the
+# failed call's **arguments** using Erlang's error formatter — and that never
+# consults Elixir's `Inspect` protocol. One of those arguments was a
+# `%Providers.Connection{}`, whose `access_token` and `refresh_token` carry
+# `redact: true`.
+#
+# The tokens were printed in full. The redaction was working exactly as
+# designed and protected nothing, because nothing called `inspect/1`.
+#
+# So, for any probe touching a connection, a session, or a token:
+#
+#     # good — the value that crosses the boundary is a scalar
+#     %{provider: c.provider, status: c.status, expires: c.access_token_expires_at}
+#
+#     # dangerous — one typo away from dumping a credential to your terminal
+#     connection
+#
+# Return summaries, never structs that hold secrets, and wrap risky calls in
+# `try/rescue` returning `e.__struct__` and `Exception.message(e)` rather than
+# letting the raise carry its arguments home. Note this applies to the *typo*
+# case as much as the deliberate one — the leak here came from a misremembered
+# function name, not from printing anything on purpose.
+#
 # The server must have been started as a named node with a matching cookie:
 #
 #     elixir --sname oneplaylist --cookie oneplaylist-dev -S mix phx.server

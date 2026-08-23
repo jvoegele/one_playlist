@@ -348,7 +348,11 @@ is the house style, and every rule in it was learned by getting something wrong 
 - Keep `docs/reference/*.md` current as understanding deepens. They exist so a fresh session
   starts informed.
 - Nothing about a user's OAuth tokens is ever logged, serialized into an error context
-  unredacted, or sent to a third party.
+  unredacted, or sent to a third party. **`redact: true` protects `inspect/1` and nothing
+  else** — an exception crossing `:erpc` (which is every `bin/remote` probe) has its
+  arguments formatted by Erlang, which never consults the `Inspect` protocol. A probe that
+  raises with a `%Connection{}` in scope prints both tokens in full. See the header of
+  `bin/remote`.
 - A new contract follows the checklist at the end of `docs/reference/contracts.md`. The two
   steps most often skipped are the ones that matter: prove it can fail with a `Bond.Test`
   assertion, and for anything load-bearing, mutate the implementation and confirm it fires.
