@@ -1,0 +1,1717 @@
+[
+  {
+    "title": "So What",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.9430232558139535,
+    "artists": [
+      "Miles Davis"
+    ],
+    "album": "Kind of Blue",
+    "offered?": true,
+    "chose": "So What",
+    "chose_isrc": "USSM19805624",
+    "source_seconds": 545,
+    "chose_seconds": 545
+  },
+  {
+    "title": "Freddie Freeloader",
+    "strategy": false,
+    "candidates": 20,
+    "confidence": false,
+    "outcome": "no_match",
+    "score": false,
+    "artists": [
+      "Miles Davis Quintet"
+    ],
+    "album": "Kind of Blue",
+    "offered?": true,
+    "chose": false,
+    "chose_isrc": false,
+    "source_seconds": 575,
+    "chose_seconds": false
+  },
+  {
+    "title": "Blue in Green",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "contradicted",
+    "score": 0.929098901098901,
+    "artists": [
+      "Miles Davis"
+    ],
+    "album": "Kind of Blue",
+    "offered?": true,
+    "chose": "Blue in Green",
+    "chose_isrc": "ITS041600047",
+    "source_seconds": 328,
+    "chose_seconds": 324
+  },
+  {
+    "title": "All Blues",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.972,
+    "artists": [
+      "Miles Davis"
+    ],
+    "album": "Kind of Blue",
+    "offered?": true,
+    "chose": "All Blues (feat. John Coltrane, Cannonball Adderley & Bill Evans)",
+    "chose_isrc": "USSM15900116",
+    "source_seconds": 693,
+    "chose_seconds": 693
+  },
+  {
+    "title": "Flamenco Sketches",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.972,
+    "artists": [
+      "Miles Davis"
+    ],
+    "album": "Kind of Blue",
+    "offered?": true,
+    "chose": "Flamenco Sketches (feat. John Coltrane, Cannonball Adderley & Bill Evans)",
+    "chose_isrc": "USSM15900117",
+    "source_seconds": 564,
+    "chose_seconds": 566
+  },
+  {
+    "title": "Smells Like Teen Spirit",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Smells Like Teen Spirit",
+    "chose_isrc": "USGF19942501",
+    "source_seconds": 301,
+    "chose_seconds": 301
+  },
+  {
+    "title": "In Bloom",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "In Bloom",
+    "chose_isrc": "USGF19942502",
+    "source_seconds": 254,
+    "chose_seconds": 255
+  },
+  {
+    "title": "Come as You Are",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Come As You Are",
+    "chose_isrc": "USGF19942503",
+    "source_seconds": 219,
+    "chose_seconds": 219
+  },
+  {
+    "title": "Breed",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Breed",
+    "chose_isrc": "USGF19942504",
+    "source_seconds": 183,
+    "chose_seconds": 184
+  },
+  {
+    "title": "Lithium",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Lithium",
+    "chose_isrc": "USGF19942505",
+    "source_seconds": 257,
+    "chose_seconds": 257
+  },
+  {
+    "title": "Polly",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Polly",
+    "chose_isrc": "USGF19942506",
+    "source_seconds": 177,
+    "chose_seconds": 177
+  },
+  {
+    "title": "Territorial Pissings",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Territorial Pissings",
+    "chose_isrc": "USGF19942507",
+    "source_seconds": 143,
+    "chose_seconds": 143
+  },
+  {
+    "title": "Drain You",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Drain You",
+    "chose_isrc": "USGF19942508",
+    "source_seconds": 223,
+    "chose_seconds": 224
+  },
+  {
+    "title": "Lounge Act",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Lounge Act",
+    "chose_isrc": "USGF19942509",
+    "source_seconds": 156,
+    "chose_seconds": 157
+  },
+  {
+    "title": "Stay Away",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Stay Away",
+    "chose_isrc": "USGF19942510",
+    "source_seconds": 212,
+    "chose_seconds": 212
+  },
+  {
+    "title": "On a Plain",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "On A Plain",
+    "chose_isrc": "USGF19942511",
+    "source_seconds": 196,
+    "chose_seconds": 196
+  },
+  {
+    "title": "Something in the Way",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.9716923076923076,
+    "artists": [
+      "Nirvana"
+    ],
+    "album": "Nevermind",
+    "offered?": true,
+    "chose": "Something In The Way",
+    "chose_isrc": "USGF19942512",
+    "source_seconds": 232,
+    "chose_seconds": 235
+  },
+  {
+    "title": "Hunter",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "Hunter",
+    "chose_isrc": "GBBTF9700142",
+    "source_seconds": 255,
+    "chose_seconds": 253
+  },
+  {
+    "title": "Jóga",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": true,
+    "chose": "Joga",
+    "chose_isrc": "USEE12400151",
+    "source_seconds": 305,
+    "chose_seconds": 305
+  },
+  {
+    "title": "Unravel",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "Unravel",
+    "chose_isrc": "USEE12400152",
+    "source_seconds": 201,
+    "chose_seconds": 202
+  },
+  {
+    "title": "Bachelorette",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": true,
+    "chose": "Bachelorette (Family Tree Version)",
+    "chose_isrc": "GBBTF9700107",
+    "source_seconds": 315,
+    "chose_seconds": 317
+  },
+  {
+    "title": "All Neon Like",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "All Neon Like",
+    "chose_isrc": "GBBTF0200240",
+    "source_seconds": 353,
+    "chose_seconds": 353
+  },
+  {
+    "title": "5 Years",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "5 Years",
+    "chose_isrc": "GBBTF0200241",
+    "source_seconds": 269,
+    "chose_seconds": 269
+  },
+  {
+    "title": "Immature",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "Immature",
+    "chose_isrc": "GBBTF9700095",
+    "source_seconds": 186,
+    "chose_seconds": 186
+  },
+  {
+    "title": "Alarm Call",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "Alarm Call",
+    "chose_isrc": "GBBTF0200242",
+    "source_seconds": 259,
+    "chose_seconds": 260
+  },
+  {
+    "title": "Pluto",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "Pluto",
+    "chose_isrc": "GBBTF0200243",
+    "source_seconds": 199,
+    "chose_seconds": 199
+  },
+  {
+    "title": "All Is Full of Love",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.98,
+    "artists": [
+      "Björk"
+    ],
+    "album": "Homogenic",
+    "offered?": false,
+    "chose": "All Is Full of Love",
+    "chose_isrc": "GBBTF9700092",
+    "source_seconds": 273,
+    "chose_seconds": 272
+  },
+  {
+    "title": "Intro",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Intro",
+    "chose_isrc": "GBDCA9900066",
+    "source_seconds": 97,
+    "chose_seconds": 96
+  },
+  {
+    "title": "Svefn‐g‐englar",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Svefn-g-englar",
+    "chose_isrc": "GBDCA9900067",
+    "source_seconds": 606,
+    "chose_seconds": 607
+  },
+  {
+    "title": "Starálfur",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Starálfur",
+    "chose_isrc": "GBDCA9900068",
+    "source_seconds": 406,
+    "chose_seconds": 407
+  },
+  {
+    "title": "Flugufrelsarinn",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Flugufrelsarinn",
+    "chose_isrc": "GBDCA9900069",
+    "source_seconds": 468,
+    "chose_seconds": 468
+  },
+  {
+    "title": "Ný batterí",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Ný batterí",
+    "chose_isrc": "GBDCA9900070",
+    "source_seconds": 491,
+    "chose_seconds": 491
+  },
+  {
+    "title": "Hjartað hamast (bamm bamm bamm)",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Hjartað hamast (bamm bamm bamm)",
+    "chose_isrc": "GBDCA9900071",
+    "source_seconds": 430,
+    "chose_seconds": 430
+  },
+  {
+    "title": "Viðrar vel til loftárása",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Viðrar vel til loftárása",
+    "chose_isrc": "GBDCA9900072",
+    "source_seconds": 617,
+    "chose_seconds": 618
+  },
+  {
+    "title": "Olsen Olsen",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Olsen olsen",
+    "chose_isrc": "GBDCA9900073",
+    "source_seconds": 483,
+    "chose_seconds": 483
+  },
+  {
+    "title": "Ágætis byrjun",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Ágætis byrjun",
+    "chose_isrc": "GBDCA9900074",
+    "source_seconds": 476,
+    "chose_seconds": 476
+  },
+  {
+    "title": "Avalon",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Sigur Rós"
+    ],
+    "album": "Ágætis byrjun",
+    "offered?": true,
+    "chose": "Avalon",
+    "chose_isrc": "GBDCA9900075",
+    "source_seconds": 241,
+    "chose_seconds": 242
+  },
+  {
+    "title": "One More Time",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "One More Time",
+    "chose_isrc": "GBDUW0000053",
+    "source_seconds": 320,
+    "chose_seconds": 320
+  },
+  {
+    "title": "Aerodynamic",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.9467692307692308,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Aerodynamic",
+    "chose_isrc": "GBDUW0000057",
+    "source_seconds": 207,
+    "chose_seconds": 213
+  },
+  {
+    "title": "Digital Love",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.9716923076923076,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Digital Love",
+    "chose_isrc": "GBDUW0000058",
+    "source_seconds": 298,
+    "chose_seconds": 301
+  },
+  {
+    "title": "Harder, Better, Faster, Stronger",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Harder, Better, Faster, Stronger",
+    "chose_isrc": "GBDUW0000059",
+    "source_seconds": 224,
+    "chose_seconds": 226
+  },
+  {
+    "title": "Crescendolls",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Crescendolls",
+    "chose_isrc": "GBDUW0000060",
+    "source_seconds": 211,
+    "chose_seconds": 212
+  },
+  {
+    "title": "Nightvision",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Nightvision",
+    "chose_isrc": "GBDUW0000061",
+    "source_seconds": 104,
+    "chose_seconds": 104
+  },
+  {
+    "title": "Superheroes",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Superheroes",
+    "chose_isrc": "GBDUW0000062",
+    "source_seconds": 237,
+    "chose_seconds": 238
+  },
+  {
+    "title": "High Life",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "High Life",
+    "chose_isrc": "GBDUW0000063",
+    "source_seconds": 201,
+    "chose_seconds": 202
+  },
+  {
+    "title": "Something About Us",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Something About Us",
+    "chose_isrc": "GBDUW0000064",
+    "source_seconds": 231,
+    "chose_seconds": 233
+  },
+  {
+    "title": "Voyager",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Voyager",
+    "chose_isrc": "GBDUW0000065",
+    "source_seconds": 227,
+    "chose_seconds": 228
+  },
+  {
+    "title": "Veridis Quo",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Veridis Quo",
+    "chose_isrc": "GBDUW0000066",
+    "source_seconds": 344,
+    "chose_seconds": 345
+  },
+  {
+    "title": "Short Circuit",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Short Circuit",
+    "chose_isrc": "GBDUW0000067",
+    "source_seconds": 206,
+    "chose_seconds": 207
+  },
+  {
+    "title": "Face to Face",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Face to Face",
+    "chose_isrc": "GBDUW0000068",
+    "source_seconds": 240,
+    "chose_seconds": 240
+  },
+  {
+    "title": "Too Long",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Daft Punk"
+    ],
+    "album": "Discovery",
+    "offered?": true,
+    "chose": "Too Long",
+    "chose_isrc": "GBDUW0000069",
+    "source_seconds": 600,
+    "chose_seconds": 600
+  },
+  {
+    "title": "Wesley’s Theory",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar",
+      "George Clinton",
+      "Thundercat"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Wesley's Theory",
+    "chose_isrc": "USUM71502491",
+    "source_seconds": 287,
+    "chose_seconds": 287
+  },
+  {
+    "title": "For Free? (interlude)",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "For Free?",
+    "chose_isrc": "USUM71502493",
+    "source_seconds": 130,
+    "chose_seconds": 131
+  },
+  {
+    "title": "King Kunta",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "King Kunta",
+    "chose_isrc": "USUM71502494",
+    "source_seconds": 234,
+    "chose_seconds": 235
+  },
+  {
+    "title": "Institutionalized",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar",
+      "Bilal",
+      "Anna Wise",
+      "Snoop Dogg"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Institutionalized",
+    "chose_isrc": "USUM71502495",
+    "source_seconds": 271,
+    "chose_seconds": 272
+  },
+  {
+    "title": "These Walls",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar",
+      "Bilal",
+      "Anna Wise",
+      "Thundercat"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "These Walls",
+    "chose_isrc": "USUM71502496",
+    "source_seconds": 300,
+    "chose_seconds": 301
+  },
+  {
+    "title": "u",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "u",
+    "chose_isrc": "USUM71502497",
+    "source_seconds": 268,
+    "chose_seconds": 268
+  },
+  {
+    "title": "Alright",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Alright",
+    "chose_isrc": "USUM71502498",
+    "source_seconds": 219,
+    "chose_seconds": 219
+  },
+  {
+    "title": "For Sale? (interlude)",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "For Sale?",
+    "chose_isrc": "USUM71502499",
+    "source_seconds": 291,
+    "chose_seconds": 292
+  },
+  {
+    "title": "Momma",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Momma",
+    "chose_isrc": "USUM71502500",
+    "source_seconds": 283,
+    "chose_seconds": 283
+  },
+  {
+    "title": "Hood Politics",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Hood Politics",
+    "chose_isrc": "USUM71502501",
+    "source_seconds": 292,
+    "chose_seconds": 293
+  },
+  {
+    "title": "How Much a Dollar Cost",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar",
+      "James Fauntleroy",
+      "Ronald Isley"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "How Much A Dollar Cost",
+    "chose_isrc": "USUM71502502",
+    "source_seconds": 261,
+    "chose_seconds": 262
+  },
+  {
+    "title": "Complexion (A Zulu Love)",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar",
+      "Rapsody"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Complexion (A Zulu Love)",
+    "chose_isrc": "USUM71502503",
+    "source_seconds": 263,
+    "chose_seconds": 263
+  },
+  {
+    "title": "The Blacker the Berry",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "The Blacker The Berry",
+    "chose_isrc": "USUM71501985",
+    "source_seconds": 328,
+    "chose_seconds": 329
+  },
+  {
+    "title": "You Ain’t Gotta Lie (Momma Said)",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "You Ain't Gotta Lie (Momma Said)",
+    "chose_isrc": "USUM71502504",
+    "source_seconds": 241,
+    "chose_seconds": 242
+  },
+  {
+    "title": "i",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "i",
+    "chose_isrc": "USUM71502509",
+    "source_seconds": 336,
+    "chose_seconds": 336
+  },
+  {
+    "title": "Mortal Man",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "album": "To Pimp a Butterfly",
+    "offered?": true,
+    "chose": "Mortal Man",
+    "chose_isrc": "USUM71502505",
+    "source_seconds": 727,
+    "chose_seconds": 727
+  },
+  {
+    "title": "PRAY YOU CATCH ME",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "PRAY YOU CATCH ME",
+    "chose_isrc": "USSM11603175",
+    "source_seconds": 196,
+    "chose_seconds": 196
+  },
+  {
+    "title": "HOLD UP",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "HOLD UP",
+    "chose_isrc": "USSM11603176",
+    "source_seconds": 221,
+    "chose_seconds": 221
+  },
+  {
+    "title": "Don’t Hurt Yourself",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé",
+      "Jack White"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "DON’T HURT YOURSELF",
+    "chose_isrc": "USSM11603177",
+    "source_seconds": 234,
+    "chose_seconds": 234
+  },
+  {
+    "title": "SORRY",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "SORRY",
+    "chose_isrc": "USSM11603178",
+    "source_seconds": 233,
+    "chose_seconds": 233
+  },
+  {
+    "title": "6 Inch",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé",
+      "The Weeknd"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "6 INCH",
+    "chose_isrc": "USSM11603179",
+    "source_seconds": 260,
+    "chose_seconds": 260
+  },
+  {
+    "title": "DADDY LESSONS",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "DADDY LESSONS",
+    "chose_isrc": "USSM11603180",
+    "source_seconds": 288,
+    "chose_seconds": 288
+  },
+  {
+    "title": "LOVE DROUGHT",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "LOVE DROUGHT",
+    "chose_isrc": "USSM11603181",
+    "source_seconds": 237,
+    "chose_seconds": 237
+  },
+  {
+    "title": "SANDCASTLES",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "SANDCASTLES",
+    "chose_isrc": "USSM11603182",
+    "source_seconds": 183,
+    "chose_seconds": 183
+  },
+  {
+    "title": "Forward",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé",
+      "James Blake"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "FORWARD",
+    "chose_isrc": "USSM11603183",
+    "source_seconds": 79,
+    "chose_seconds": 79
+  },
+  {
+    "title": "Freedom",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé",
+      "Kendrick Lamar"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "FREEDOM",
+    "chose_isrc": "USSM11603184",
+    "source_seconds": 290,
+    "chose_seconds": 290
+  },
+  {
+    "title": "ALL NIGHT",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "ALL NIGHT",
+    "chose_isrc": "USSM11603185",
+    "source_seconds": 322,
+    "chose_seconds": 322
+  },
+  {
+    "title": "FORMATION",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": true,
+    "chose": "FORMATION",
+    "chose_isrc": "USSM11603186",
+    "source_seconds": 206,
+    "chose_seconds": 206
+  },
+  {
+    "title": "Lemonade",
+    "strategy": false,
+    "candidates": 20,
+    "confidence": false,
+    "outcome": "no_match",
+    "score": false,
+    "artists": [
+      "Beyoncé"
+    ],
+    "album": "Lemonade",
+    "offered?": false,
+    "chose": false,
+    "chose_isrc": false,
+    "source_seconds": 3932,
+    "chose_seconds": false
+  },
+  {
+    "title": "Chan Chan",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Chan Chan",
+    "chose_isrc": "GBBGU9700150",
+    "source_seconds": 258,
+    "chose_seconds": 259
+  },
+  {
+    "title": "De camino a la vereda",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "De Camino a la Vereda",
+    "chose_isrc": "GBBGU9700250",
+    "source_seconds": 303,
+    "chose_seconds": 304
+  },
+  {
+    "title": "El cuarto de Tula",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "El Cuarto de Tula",
+    "chose_isrc": "GBBGU9700350",
+    "source_seconds": 445,
+    "chose_seconds": 445
+  },
+  {
+    "title": "Pueblo Nuevo",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Pueblo Nuevo",
+    "chose_isrc": "GBBGU9700450",
+    "source_seconds": 366,
+    "chose_seconds": 367
+  },
+  {
+    "title": "Dos gardenias",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Dos Gardenias",
+    "chose_isrc": "GBBGU9700550",
+    "source_seconds": 184,
+    "chose_seconds": 184
+  },
+  {
+    "title": "¿Y tú qué has hecho?",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.9232142857142858,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": false,
+    "chose": "¿Y Tú Qué Has Hecho?",
+    "chose_isrc": "GB5KW2100144",
+    "source_seconds": 194,
+    "chose_seconds": 196
+  },
+  {
+    "title": "Veinte años",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Veinte Años",
+    "chose_isrc": "GBBGU9700750",
+    "source_seconds": 211,
+    "chose_seconds": 212
+  },
+  {
+    "title": "El carretero",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "El Carretero",
+    "chose_isrc": "GBBGU9700850",
+    "source_seconds": 210,
+    "chose_seconds": 210
+  },
+  {
+    "title": "Candela",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Candela",
+    "chose_isrc": "GBBGU9700950",
+    "source_seconds": 329,
+    "chose_seconds": 329
+  },
+  {
+    "title": "Amor de loca juventud",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Amor de Loca Juventud",
+    "chose_isrc": "GBBGU9701050",
+    "source_seconds": 202,
+    "chose_seconds": 203
+  },
+  {
+    "title": "Orgullecida",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Orgullecida",
+    "chose_isrc": "GBBGU9701150",
+    "source_seconds": 199,
+    "chose_seconds": 199
+  },
+  {
+    "title": "Murmullo",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Murmullo",
+    "chose_isrc": "GBBGU9701250",
+    "source_seconds": 231,
+    "chose_seconds": 231
+  },
+  {
+    "title": "Buena Vista Social Club",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "Buena Vista Social Club",
+    "chose_isrc": "GBBGU9701350",
+    "source_seconds": 292,
+    "chose_seconds": 293
+  },
+  {
+    "title": "La Bayamesa",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.98,
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "album": "Buena Vista Social Club",
+    "offered?": true,
+    "chose": "La Bayamesa",
+    "chose_isrc": "GBBGU9701450",
+    "source_seconds": 174,
+    "chose_seconds": 174
+  },
+  {
+    "title": "Die Roboter",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "medium",
+    "outcome": "contradicted",
+    "score": 0.8368765550239234,
+    "artists": [
+      "Kraftwerk"
+    ],
+    "album": "Die Mensch·Maschine",
+    "offered?": false,
+    "chose": "Die Roboter",
+    "chose_isrc": "GBAYE1701582",
+    "source_seconds": 373,
+    "chose_seconds": 463
+  },
+  {
+    "title": "Spacelab",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.9104008296603578,
+    "artists": [
+      "Kraftwerk"
+    ],
+    "album": "Die Mensch·Maschine",
+    "offered?": true,
+    "chose": "Spacelab (2009 Remaster)",
+    "chose_isrc": "DEC610900215",
+    "source_seconds": 357,
+    "chose_seconds": 357
+  },
+  {
+    "title": "Metropolis",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "isrc_confirmed",
+    "score": 0.9104008296603578,
+    "artists": [
+      "Kraftwerk"
+    ],
+    "album": "Die Mensch·Maschine",
+    "offered?": true,
+    "chose": "Metropolis (2009 Remaster)",
+    "chose_isrc": "DEC610900216",
+    "source_seconds": 361,
+    "chose_seconds": 361
+  },
+  {
+    "title": "Das Model",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "high",
+    "outcome": "duration_corroborated",
+    "score": 0.9448765550239234,
+    "artists": [
+      "Kraftwerk"
+    ],
+    "album": "Die Mensch·Maschine",
+    "offered?": false,
+    "chose": "Das Model",
+    "chose_isrc": "GBAYE1701580",
+    "source_seconds": 220,
+    "chose_seconds": 220
+  },
+  {
+    "title": "Neonlicht",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "medium",
+    "outcome": "contradicted",
+    "score": 0.8368765550239234,
+    "artists": [
+      "Kraftwerk"
+    ],
+    "album": "Die Mensch·Maschine",
+    "offered?": false,
+    "chose": "Neonlicht",
+    "chose_isrc": "GBAYE1701581",
+    "source_seconds": 535,
+    "chose_seconds": 344
+  },
+  {
+    "title": "Die Mensch‐Maschine",
+    "strategy": "text",
+    "candidates": 20,
+    "confidence": "medium",
+    "outcome": "contradicted",
+    "score": 0.8368765550239234,
+    "artists": [
+      "Kraftwerk"
+    ],
+    "album": "Die Mensch·Maschine",
+    "offered?": false,
+    "chose": "Die Mensch-Maschine",
+    "chose_isrc": "GBAYE1701578",
+    "source_seconds": 328,
+    "chose_seconds": 308
+  }
+]

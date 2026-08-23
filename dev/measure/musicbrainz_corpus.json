@@ -1,0 +1,1358 @@
+[
+  {
+    "album": "Kind of Blue",
+    "artists": [
+      "Miles Davis"
+    ],
+    "duration_seconds": 545,
+    "isrcs": [
+      "USSM15900113",
+      "USSM15900898"
+    ],
+    "musicbrainz_id": "60f750f4-d222-46b7-ad5c-905334c9a48a",
+    "position": 1,
+    "title": "So What"
+  },
+  {
+    "album": "Kind of Blue",
+    "artists": [
+      "Miles Davis Quintet"
+    ],
+    "duration_seconds": 575,
+    "isrcs": [
+      "FR8V61400029",
+      "USSM15900114"
+    ],
+    "musicbrainz_id": "852bf62a-29f9-4026-abc5-86d6e973196f",
+    "position": 2,
+    "title": "Freddie Freeloader"
+  },
+  {
+    "album": "Kind of Blue",
+    "artists": [
+      "Miles Davis"
+    ],
+    "duration_seconds": 328,
+    "isrcs": [
+      "GBAWA0918230",
+      "USSM15900115"
+    ],
+    "musicbrainz_id": "67a9794c-153a-4a24-82ec-9eace7e208f2",
+    "position": 3,
+    "title": "Blue in Green"
+  },
+  {
+    "album": "Kind of Blue",
+    "artists": [
+      "Miles Davis"
+    ],
+    "duration_seconds": 693,
+    "isrcs": [
+      "USSM15900116"
+    ],
+    "musicbrainz_id": "b7ebe185-21e9-4400-a17a-3d0cee232925",
+    "position": 4,
+    "title": "All Blues"
+  },
+  {
+    "album": "Kind of Blue",
+    "artists": [
+      "Miles Davis"
+    ],
+    "duration_seconds": 564,
+    "isrcs": [
+      "USSM15900117"
+    ],
+    "musicbrainz_id": "250b3f1d-7620-42a9-87b3-5d1a166e0f2f",
+    "position": 5,
+    "title": "Flamenco Sketches"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 301,
+    "isrcs": [
+      "USGF19942501"
+    ],
+    "musicbrainz_id": "5fb524f1-8cc8-4c04-a921-e34c0a911ea7",
+    "position": 1,
+    "title": "Smells Like Teen Spirit"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 254,
+    "isrcs": [
+      "USGF19942502"
+    ],
+    "musicbrainz_id": "593e9317-a327-4a31-b796-416c62dcf49d",
+    "position": 2,
+    "title": "In Bloom"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 219,
+    "isrcs": [
+      "USGF19942503"
+    ],
+    "musicbrainz_id": "70ac6733-068f-4613-b06b-bea17cfbcc30",
+    "position": 3,
+    "title": "Come as You Are"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 183,
+    "isrcs": [
+      "USGF19942504"
+    ],
+    "musicbrainz_id": "0cf9f95f-70e7-4f2e-8075-5d8ba38dd4a3",
+    "position": 4,
+    "title": "Breed"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 257,
+    "isrcs": [
+      "USGF19942505"
+    ],
+    "musicbrainz_id": "3fac712c-4196-4865-8c1a-94231a7da309",
+    "position": 5,
+    "title": "Lithium"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 177,
+    "isrcs": [
+      "USGF19942506"
+    ],
+    "musicbrainz_id": "d088ed9e-1921-4568-ae75-fba8b15ed206",
+    "position": 6,
+    "title": "Polly"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 143,
+    "isrcs": [
+      "USGF19942507"
+    ],
+    "musicbrainz_id": "dbaa10b1-d46a-4960-8b50-4e2d80c8113c",
+    "position": 7,
+    "title": "Territorial Pissings"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 223,
+    "isrcs": [
+      "USGF19942508"
+    ],
+    "musicbrainz_id": "11cc49bd-f531-4cdd-9b59-e1f59b06c1d7",
+    "position": 8,
+    "title": "Drain You"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 156,
+    "isrcs": [
+      "USGF19942509"
+    ],
+    "musicbrainz_id": "aef0677b-93b4-4c66-be74-10120d0e6f5a",
+    "position": 9,
+    "title": "Lounge Act"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 212,
+    "isrcs": [
+      "USGF19942510"
+    ],
+    "musicbrainz_id": "8bf26383-8b9b-4252-9cb3-0efa4d3f47f1",
+    "position": 10,
+    "title": "Stay Away"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 196,
+    "isrcs": [
+      "USGF19942511"
+    ],
+    "musicbrainz_id": "ea61d42b-9a76-47fd-bcf7-df911640c309",
+    "position": 11,
+    "title": "On a Plain"
+  },
+  {
+    "album": "Nevermind",
+    "artists": [
+      "Nirvana"
+    ],
+    "duration_seconds": 232,
+    "isrcs": [
+      "USGF19942512"
+    ],
+    "musicbrainz_id": "3589823f-b494-4b2d-aab3-c2e500f81175",
+    "position": 12,
+    "title": "Something in the Way"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 255,
+    "isrcs": [
+      "GBALW9700071",
+      "GBBTF0200128"
+    ],
+    "musicbrainz_id": "95be89c5-f55f-40a8-96bd-7a285c348096",
+    "position": 1,
+    "title": "Hunter"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 305,
+    "isrcs": [
+      "GBALW9700072",
+      "GBBTF0200103",
+      "GBBTF9700093",
+      "ISCRU1000228"
+    ],
+    "musicbrainz_id": "83534ada-9f60-4093-bbf3-ca182a03cf8b",
+    "position": 2,
+    "title": "Jóga"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 201,
+    "isrcs": [
+      "GBALW9700073",
+      "ISCRU1000229",
+      "ISCRU1000250"
+    ],
+    "musicbrainz_id": "20af32c5-38f3-4717-a65b-8dcb26ce53b8",
+    "position": 3,
+    "title": "Unravel"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 315,
+    "isrcs": [
+      "GBAKY9800002",
+      "GBALW9700074",
+      "GBBTF0200105",
+      "GBBTF9700107",
+      "ISCRU1000230"
+    ],
+    "musicbrainz_id": "8ddbc4f1-f3db-47f1-b727-b4ceaf98cef8",
+    "position": 4,
+    "title": "Bachelorette"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 353,
+    "isrcs": [
+      "GBALW9700075"
+    ],
+    "musicbrainz_id": "e7dacee3-36f2-4a40-a658-61fd2ce04d28",
+    "position": 5,
+    "title": "All Neon Like"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 269,
+    "isrcs": [
+      "GBALW9700076"
+    ],
+    "musicbrainz_id": "ca9bb619-50d9-45f5-a65c-bd0b53dcf848",
+    "position": 6,
+    "title": "5 Years"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 186,
+    "isrcs": [
+      "GBALW9700077"
+    ],
+    "musicbrainz_id": "5125ec6f-b7cb-4573-a255-26a1227ae160",
+    "position": 7,
+    "title": "Immature"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 259,
+    "isrcs": [
+      "GBALW9700078"
+    ],
+    "musicbrainz_id": "32abc30c-3655-460d-b910-1086bf10e48b",
+    "position": 8,
+    "title": "Alarm Call"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 199,
+    "isrcs": [
+      "GBALW9700079"
+    ],
+    "musicbrainz_id": "d6febbc3-1495-45f5-a987-0f236d094086",
+    "position": 9,
+    "title": "Pluto"
+  },
+  {
+    "album": "Homogenic",
+    "artists": [
+      "Björk"
+    ],
+    "duration_seconds": 273,
+    "isrcs": [
+      "GBALW9700080"
+    ],
+    "musicbrainz_id": "7f527f79-3303-4f30-add1-3b58b65181d9",
+    "position": 10,
+    "title": "All Is Full of Love"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 97,
+    "isrcs": [
+      "GBDCA9900066",
+      "ISC109900401"
+    ],
+    "musicbrainz_id": "80c8836e-5dff-4d00-a092-8094216921f3",
+    "position": 1,
+    "title": "Intro"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 606,
+    "isrcs": [
+      "GBDCA9900067",
+      "ISC109900402"
+    ],
+    "musicbrainz_id": "59e24cd5-5c11-4dd8-b6c2-99ed9885553c",
+    "position": 2,
+    "title": "Svefn‐g‐englar"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 406,
+    "isrcs": [
+      "GBDCA9900068",
+      "ISC109900403"
+    ],
+    "musicbrainz_id": "9c691c15-dba1-42c8-a99b-0aead1ec0bd4",
+    "position": 3,
+    "title": "Starálfur"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 468,
+    "isrcs": [
+      "GBDCA9900069",
+      "ISC109900404"
+    ],
+    "musicbrainz_id": "53837546-8792-41e2-a0fa-2ee34dfcaec5",
+    "position": 4,
+    "title": "Flugufrelsarinn"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 491,
+    "isrcs": [
+      "GBDCA9900070",
+      "ISC109900405"
+    ],
+    "musicbrainz_id": "0003dd36-b4d2-4216-a37e-b110f6882ecb",
+    "position": 5,
+    "title": "Ný batterí"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 430,
+    "isrcs": [
+      "GBDCA9900071",
+      "ISC109900406"
+    ],
+    "musicbrainz_id": "cd96be20-9dc2-409a-8faf-b6d938def0d9",
+    "position": 6,
+    "title": "Hjartað hamast (bamm bamm bamm)"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 617,
+    "isrcs": [
+      "GBDCA9900072",
+      "ISC109900407"
+    ],
+    "musicbrainz_id": "8cf770ff-b93a-48b4-ba04-cb437bc52d36",
+    "position": 7,
+    "title": "Viðrar vel til loftárása"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 483,
+    "isrcs": [
+      "GBDCA9900073",
+      "ISC109900408"
+    ],
+    "musicbrainz_id": "9ca22b58-f9a8-43e3-9404-57cdef7b1f29",
+    "position": 8,
+    "title": "Olsen Olsen"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 476,
+    "isrcs": [
+      "GBDCA9900074",
+      "ISC109900409"
+    ],
+    "musicbrainz_id": "482c80fc-9281-4d3c-b570-8bf053f01b7d",
+    "position": 9,
+    "title": "Ágætis byrjun"
+  },
+  {
+    "album": "Ágætis byrjun",
+    "artists": [
+      "Sigur Rós"
+    ],
+    "duration_seconds": 241,
+    "isrcs": [
+      "GBDCA9900075",
+      "ISC109900410"
+    ],
+    "musicbrainz_id": "6bc9cd53-f0eb-4cea-b4c1-27a536bb13ba",
+    "position": 10,
+    "title": "Avalon"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 320,
+    "isrcs": [
+      "GBAHT1305744",
+      "GBDUW0000053"
+    ],
+    "musicbrainz_id": "60fa767a-d85d-4991-82bc-4294e0b11ae7",
+    "position": 1,
+    "title": "One More Time"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 207,
+    "isrcs": [
+      "GATIW0000057",
+      "GBDUW0000057"
+    ],
+    "musicbrainz_id": "7c0e11a3-1c7a-4e6d-a14d-6e86d86dbaad",
+    "position": 2,
+    "title": "Aerodynamic"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 298,
+    "isrcs": [
+      "GBDUW0000058"
+    ],
+    "musicbrainz_id": "15f16efc-8762-4151-95ab-c12d06268640",
+    "position": 3,
+    "title": "Digital Love"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 224,
+    "isrcs": [
+      "GBDUW0000059",
+      "GBDUW0600059"
+    ],
+    "musicbrainz_id": "f1a6a40f-78f5-4918-968d-f64363bae94c",
+    "position": 4,
+    "title": "Harder, Better, Faster, Stronger"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 211,
+    "isrcs": [
+      "GBDUW0000060"
+    ],
+    "musicbrainz_id": "d63ad586-1124-4df1-9a2b-c014d7b7cb02",
+    "position": 5,
+    "title": "Crescendolls"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 104,
+    "isrcs": [
+      "GBDUW0000061"
+    ],
+    "musicbrainz_id": "712edd8d-b413-4e4e-aca4-9b91fce2e65c",
+    "position": 6,
+    "title": "Nightvision"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 237,
+    "isrcs": [
+      "GBDUW0000062"
+    ],
+    "musicbrainz_id": "8a98614f-0533-44ef-890a-639cab407a2d",
+    "position": 7,
+    "title": "Superheroes"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 201,
+    "isrcs": [
+      "GBDUW0000063"
+    ],
+    "musicbrainz_id": "07b720fc-0d6f-4342-a6df-876d1749de0b",
+    "position": 8,
+    "title": "High Life"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 231,
+    "isrcs": [
+      "GBDUW0000064",
+      "GBDUW0600064"
+    ],
+    "musicbrainz_id": "defbfcb2-7a5c-4456-be28-b7e5ccf92cc2",
+    "position": 9,
+    "title": "Something About Us"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 227,
+    "isrcs": [
+      "GBDUW0000065"
+    ],
+    "musicbrainz_id": "e1fe1d12-dac2-4325-ae1b-25e0ef06b998",
+    "position": 10,
+    "title": "Voyager"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 344,
+    "isrcs": [
+      "GBDUW0000066"
+    ],
+    "musicbrainz_id": "2a220770-1150-4190-b0e0-57d89a0a7469",
+    "position": 11,
+    "title": "Veridis Quo"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 206,
+    "isrcs": [
+      "GBDUW0000067"
+    ],
+    "musicbrainz_id": "3f60ae01-43cc-4db9-86ec-97b79f83764f",
+    "position": 12,
+    "title": "Short Circuit"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 240,
+    "isrcs": [
+      "GBDUW0000068"
+    ],
+    "musicbrainz_id": "59038571-03ea-4ca4-965c-a57eae2aa138",
+    "position": 13,
+    "title": "Face to Face"
+  },
+  {
+    "album": "Discovery",
+    "artists": [
+      "Daft Punk"
+    ],
+    "duration_seconds": 600,
+    "isrcs": [
+      "GBDUW0000069"
+    ],
+    "musicbrainz_id": "1a915a2d-e2f4-4300-a230-96fc9c8a7b60",
+    "position": 14,
+    "title": "Too Long"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar",
+      "George Clinton",
+      "Thundercat"
+    ],
+    "duration_seconds": 287,
+    "isrcs": [
+      "USUM71502491"
+    ],
+    "musicbrainz_id": "c47d12de-2982-4875-8200-ad47b6e3c68d",
+    "position": 1,
+    "title": "Wesley’s Theory"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 130,
+    "isrcs": [
+      "USUM71502493"
+    ],
+    "musicbrainz_id": "92ee7ebc-6421-4426-91b4-cbeaab93c5c8",
+    "position": 2,
+    "title": "For Free? (interlude)"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 234,
+    "isrcs": [
+      "USUM71502494"
+    ],
+    "musicbrainz_id": "2d584d3c-d6ce-40ec-b23a-7b29c687ac07",
+    "position": 3,
+    "title": "King Kunta"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar",
+      "Bilal",
+      "Anna Wise",
+      "Snoop Dogg"
+    ],
+    "duration_seconds": 271,
+    "isrcs": [
+      "USUM71502495"
+    ],
+    "musicbrainz_id": "f49ad366-23d0-4911-b626-f27a1352a2e2",
+    "position": 4,
+    "title": "Institutionalized"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar",
+      "Bilal",
+      "Anna Wise",
+      "Thundercat"
+    ],
+    "duration_seconds": 300,
+    "isrcs": [
+      "USUM71502496"
+    ],
+    "musicbrainz_id": "500212ba-0292-435d-96cc-f6aeb4829a58",
+    "position": 5,
+    "title": "These Walls"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 268,
+    "isrcs": [
+      "USUM71502497"
+    ],
+    "musicbrainz_id": "b8a8e5e9-7123-4be5-b8bc-1cfd249ad2ea",
+    "position": 6,
+    "title": "u"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 219,
+    "isrcs": [
+      "USUM71502498"
+    ],
+    "musicbrainz_id": "b5e1e12f-8832-4ba4-b772-de15e2db2009",
+    "position": 7,
+    "title": "Alright"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 291,
+    "isrcs": [
+      "USUM71502499"
+    ],
+    "musicbrainz_id": "8b035ce9-f46a-4507-b22d-b1350cd97bfc",
+    "position": 8,
+    "title": "For Sale? (interlude)"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 283,
+    "isrcs": [
+      "USUM71502500"
+    ],
+    "musicbrainz_id": "15fa4ab0-774e-4177-991d-16cc30d906af",
+    "position": 9,
+    "title": "Momma"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 292,
+    "isrcs": [
+      "USUM71502501"
+    ],
+    "musicbrainz_id": "823a733e-d2b7-43a2-9f66-8064a69ad788",
+    "position": 1,
+    "title": "Hood Politics"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar",
+      "James Fauntleroy",
+      "Ronald Isley"
+    ],
+    "duration_seconds": 261,
+    "isrcs": [
+      "USUM71502502"
+    ],
+    "musicbrainz_id": "f52168e3-359a-455b-914d-f9ccb0b91bb6",
+    "position": 2,
+    "title": "How Much a Dollar Cost"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar",
+      "Rapsody"
+    ],
+    "duration_seconds": 263,
+    "isrcs": [
+      "USUM71502503"
+    ],
+    "musicbrainz_id": "9d2fb25d-f0bd-4497-a9af-aa3df103ec17",
+    "position": 3,
+    "title": "Complexion (A Zulu Love)"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 328,
+    "isrcs": [
+      "USUM71501985"
+    ],
+    "musicbrainz_id": "7428c59d-333a-4cee-86cb-21663b9671f6",
+    "position": 4,
+    "title": "The Blacker the Berry"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 241,
+    "isrcs": [
+      "USUM71502504"
+    ],
+    "musicbrainz_id": "a50c395d-69a9-43e8-a0ea-0dd5c8bd3de6",
+    "position": 5,
+    "title": "You Ain’t Gotta Lie (Momma Said)"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 336,
+    "isrcs": [
+      "USUM71502509"
+    ],
+    "musicbrainz_id": "ad1eb2af-6332-44ce-9cd9-42a5bda9ea62",
+    "position": 6,
+    "title": "i"
+  },
+  {
+    "album": "To Pimp a Butterfly",
+    "artists": [
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 727,
+    "isrcs": [
+      "USUM71502505"
+    ],
+    "musicbrainz_id": "78f2e3a2-0fc3-45b9-9cc8-dbdc53e7c1c3",
+    "position": 7,
+    "title": "Mortal Man"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 196,
+    "isrcs": [
+      "USSM11603175"
+    ],
+    "musicbrainz_id": "dbfccc91-7912-463d-8c64-4520fd7c0328",
+    "position": 1,
+    "title": "PRAY YOU CATCH ME"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 221,
+    "isrcs": [
+      "USSM11603176"
+    ],
+    "musicbrainz_id": "dead2e96-b693-4c10-a496-77f2d5f4c98f",
+    "position": 2,
+    "title": "HOLD UP"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé",
+      "Jack White"
+    ],
+    "duration_seconds": 234,
+    "isrcs": [
+      "USSM11603177"
+    ],
+    "musicbrainz_id": "8a1ce668-f7bb-4f17-a1cd-a2255939d3ce",
+    "position": 3,
+    "title": "Don’t Hurt Yourself"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 233,
+    "isrcs": [
+      "USSM11603178"
+    ],
+    "musicbrainz_id": "862a7098-b3c7-4e9f-a0f2-bf58fefa4fda",
+    "position": 4,
+    "title": "SORRY"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé",
+      "The Weeknd"
+    ],
+    "duration_seconds": 260,
+    "isrcs": [
+      "USSM11603179"
+    ],
+    "musicbrainz_id": "91f1b837-1344-4653-9205-26058dbffdb0",
+    "position": 5,
+    "title": "6 Inch"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 288,
+    "isrcs": [
+      "USSM11603180"
+    ],
+    "musicbrainz_id": "b3085c07-3429-4dcc-b007-9b56b5b56976",
+    "position": 6,
+    "title": "DADDY LESSONS"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 237,
+    "isrcs": [
+      "USSM11603181"
+    ],
+    "musicbrainz_id": "11a15565-9ed1-4d90-a9cb-bef712b4bd96",
+    "position": 7,
+    "title": "LOVE DROUGHT"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 183,
+    "isrcs": [
+      "USSM11603182"
+    ],
+    "musicbrainz_id": "46aa67fc-8a56-4ad3-9d7e-895aba2bacaa",
+    "position": 8,
+    "title": "SANDCASTLES"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé",
+      "James Blake"
+    ],
+    "duration_seconds": 79,
+    "isrcs": [
+      "USSM11603183"
+    ],
+    "musicbrainz_id": "a02c0998-452e-4288-9ddd-6487a51d5472",
+    "position": 9,
+    "title": "Forward"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé",
+      "Kendrick Lamar"
+    ],
+    "duration_seconds": 290,
+    "isrcs": [
+      "USSM11603184"
+    ],
+    "musicbrainz_id": "c7187797-ed70-45e7-8044-53534fa70afe",
+    "position": 10,
+    "title": "Freedom"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 322,
+    "isrcs": [
+      "USSM11603185"
+    ],
+    "musicbrainz_id": "500a24ed-bc95-4079-9b57-0b1258b09f0b",
+    "position": 11,
+    "title": "ALL NIGHT"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 206,
+    "isrcs": [
+      "USSM11603186"
+    ],
+    "musicbrainz_id": "c0e14e51-35e1-4f94-bf25-750e974ba690",
+    "position": 12,
+    "title": "FORMATION"
+  },
+  {
+    "album": "Lemonade",
+    "artists": [
+      "Beyoncé"
+    ],
+    "duration_seconds": 3932,
+    "isrcs": [
+      "USSM21600755"
+    ],
+    "musicbrainz_id": "1fb304b1-2673-4315-ac6e-c3e33349b830",
+    "position": 13,
+    "title": "Lemonade"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 258,
+    "isrcs": [
+      "GB5KW2100083",
+      "GBBGU9700150"
+    ],
+    "musicbrainz_id": "47b7339f-8f7e-432e-acf1-8cb6b53a3554",
+    "position": 1,
+    "title": "Chan Chan"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 303,
+    "isrcs": [
+      "GB5KW2100084",
+      "GBBGU9700250"
+    ],
+    "musicbrainz_id": "f22b505c-9496-4c67-a872-c2768b4ae50f",
+    "position": 2,
+    "title": "De camino a la vereda"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 445,
+    "isrcs": [
+      "GB5KW2100085",
+      "GBBGU9700350"
+    ],
+    "musicbrainz_id": "471cc66c-7772-4d6c-b780-b2429a48edc2",
+    "position": 3,
+    "title": "El cuarto de Tula"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 366,
+    "isrcs": [
+      "GB5KW2100086",
+      "GBBGU9700450"
+    ],
+    "musicbrainz_id": "7a2f8a38-e1a8-4f8d-9d92-919d6ea54195",
+    "position": 4,
+    "title": "Pueblo Nuevo"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 184,
+    "isrcs": [
+      "GB5KW2100087",
+      "GBBGU9700550"
+    ],
+    "musicbrainz_id": "3337d23e-eec6-4e8c-a279-9dcfee979719",
+    "position": 5,
+    "title": "Dos gardenias"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 194,
+    "isrcs": [
+      "GB5KW2100088",
+      "GBBGU9700650"
+    ],
+    "musicbrainz_id": "fd503a45-da49-4a11-8e4b-cc0e123cf366",
+    "position": 6,
+    "title": "¿Y tú qué has hecho?"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 211,
+    "isrcs": [
+      "GB5KW2100089",
+      "GBBGU9700750"
+    ],
+    "musicbrainz_id": "de7429d0-04f4-4c20-b0d8-b350610db002",
+    "position": 7,
+    "title": "Veinte años"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 210,
+    "isrcs": [
+      "GB5KW2100090",
+      "GBBGU9700850"
+    ],
+    "musicbrainz_id": "68d8672e-7f48-4fa6-aca1-b63fc9b3e2da",
+    "position": 8,
+    "title": "El carretero"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 329,
+    "isrcs": [
+      "GB5KW2100091",
+      "GBBGU9700950"
+    ],
+    "musicbrainz_id": "16c11b1d-162e-4b9e-a3c0-fc74546b4520",
+    "position": 9,
+    "title": "Candela"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 202,
+    "isrcs": [
+      "GB5KW2100092",
+      "GBBGU9701050"
+    ],
+    "musicbrainz_id": "4198c8e0-7cf4-48c1-b143-c2b9ad9074a8",
+    "position": 10,
+    "title": "Amor de loca juventud"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 199,
+    "isrcs": [
+      "GB5KW2100093",
+      "GBBGU9701150"
+    ],
+    "musicbrainz_id": "9820e0fd-a16c-43f3-8cd0-e5f0949ad9f6",
+    "position": 11,
+    "title": "Orgullecida"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 231,
+    "isrcs": [
+      "GB5KW2100094",
+      "GBBGU9701250"
+    ],
+    "musicbrainz_id": "b6d6d862-bc20-4c9a-9571-ee6f9cbb490c",
+    "position": 12,
+    "title": "Murmullo"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 292,
+    "isrcs": [
+      "GB5KW2100095",
+      "GBBGU9701350"
+    ],
+    "musicbrainz_id": "82014f36-3cc7-4682-bfea-2f6b7104c61d",
+    "position": 13,
+    "title": "Buena Vista Social Club"
+  },
+  {
+    "album": "Buena Vista Social Club",
+    "artists": [
+      "Buena Vista Social Club"
+    ],
+    "duration_seconds": 174,
+    "isrcs": [
+      "GB5KW2100096",
+      "GBBGU9701450"
+    ],
+    "musicbrainz_id": "93eb6045-fc56-4e71-8577-583fcbd31e60",
+    "position": 14,
+    "title": "La Bayamesa"
+  },
+  {
+    "album": "Die Mensch·Maschine",
+    "artists": [
+      "Kraftwerk"
+    ],
+    "duration_seconds": 373,
+    "isrcs": [
+      "DEC610900214"
+    ],
+    "musicbrainz_id": "366b27eb-5f23-4b46-85a0-65cfa001fc47",
+    "position": 1,
+    "title": "Die Roboter"
+  },
+  {
+    "album": "Die Mensch·Maschine",
+    "artists": [
+      "Kraftwerk"
+    ],
+    "duration_seconds": 357,
+    "isrcs": [
+      "DEC610900215"
+    ],
+    "musicbrainz_id": "356eb8a5-67bc-40d6-85f0-ae9e19971a11",
+    "position": 2,
+    "title": "Spacelab"
+  },
+  {
+    "album": "Die Mensch·Maschine",
+    "artists": [
+      "Kraftwerk"
+    ],
+    "duration_seconds": 361,
+    "isrcs": [
+      "DEC610900216"
+    ],
+    "musicbrainz_id": "4cf9bf33-f088-466d-926b-a9a08477d3ae",
+    "position": 3,
+    "title": "Metropolis"
+  },
+  {
+    "album": "Die Mensch·Maschine",
+    "artists": [
+      "Kraftwerk"
+    ],
+    "duration_seconds": 220,
+    "isrcs": [
+      "DEC610900217"
+    ],
+    "musicbrainz_id": "934c2b4b-8767-489c-a2b6-2d8e5daa853c",
+    "position": 4,
+    "title": "Das Model"
+  },
+  {
+    "album": "Die Mensch·Maschine",
+    "artists": [
+      "Kraftwerk"
+    ],
+    "duration_seconds": 535,
+    "isrcs": [
+      "DEC610900218"
+    ],
+    "musicbrainz_id": "55a620ae-83a7-45d6-a4d5-ed10e8cd0617",
+    "position": 5,
+    "title": "Neonlicht"
+  },
+  {
+    "album": "Die Mensch·Maschine",
+    "artists": [
+      "Kraftwerk"
+    ],
+    "duration_seconds": 328,
+    "isrcs": [
+      "DEC610900219"
+    ],
+    "musicbrainz_id": "9bb571c5-386f-4471-910c-dd92d65a9b89",
+    "position": 6,
+    "title": "Die Mensch‐Maschine"
+  }
+]

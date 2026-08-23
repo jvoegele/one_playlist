@@ -409,28 +409,88 @@ measured carrying the whole match.
 ### What has actually been measured about match quality
 
 Match quality is the product, so it is worth being precise about which numbers mean what.
-Every measurement so far is **soft in the same way**, and the reason is always that both sides
-came from the same metadata.
+
+#### The honest cross-service number
+
+Measured 2026-08-23. **100 recordings catalogued by MusicBrainz, matched against the live TIDAL
+catalogue, with the ISRC withheld from the engine.** Two organisations catalogued these
+recordings independently, over twenty years, with no shared source — which is what every
+earlier measurement here lacked.
+
+| | Share of 100 |
+| --- | --- |
+| Certainly right — TIDAL's ISRC is one MusicBrainz records for that recording | **82%** |
+| Probably right — identifier differs, duration agrees within 3s | **94%** cumulative |
+| Possibly wrong — duration disagrees materially | 4% |
+| Found nothing | 2% |
+
+So the honest claim is a **band, 82%–94%**, on the *hard* path: identifiers withheld, text and
+fuzzy carrying the whole match. It is not comparable to Soundiiz's and TuneMyMusic's advertised
+97–99%, which are whole-catalogue figures dominated by ISRC hits — and this project's own
+ISRC path measured 60/60 and 30/30 in earlier runs.
+
+**Reproduce with** `dev/measure/fetch_musicbrainz.exs` then
+`bin/remote dev/measure/match_rate.exs`. The corpus and the per-track results are committed.
+
+#### Why it is a band and not a number
+
+The obvious oracle — does the chosen TIDAL track's ISRC match the source's? — proves a match
+right and **cannot prove one wrong**. An ISRC identifies a *release's* track, not a performance,
+so one recording carries many: Fleetwood Mac's "Dreams" has seven. When two services reference
+different releases of one performance, the identifiers differ and the match is correct anyway.
+
+The first run scored 16 wrong, and reading them showed most were not. Six were Björk's
+*Homogenic*, matched title-for-title at 0.980 — a perfect text score — to a TIDAL entry whose
+ISRC MusicBrainz does not list. Duration agreement is what separates "different release" from
+"different recording", and adding it moved 12 of the 16 into *probably right*.
+
+#### Where the remaining failures actually are
+
+Not spread evenly, and not mostly the engine's fault.
+
+**TIDAL's text search is the binding constraint.** It returned an ISRC-matching candidate for
+only **86%** of the corpus. Where the right recording *was* among the candidates, the engine
+picked it 95% of the time. Improving the ladder cannot fix the other 14%; only a better query
+or a second lookup can.
+
+**The genuine errors cluster on unlabelled versions.** Three of the four contradicted matches
+are Kraftwerk — `Die Roboter` at 373s matched to a 463s recording, `Neonlicht` at 535s to 344s.
+Both catalogues carry several versions of each and **neither labels them**, so the
+discriminating-tag veto has nothing to fire on and the text rung sees two identical titles by
+one artist. This is the clearest direction for the engine: when several candidates share a
+normalized title and artist, duration should discriminate between them rather than merely
+contribute a signal. The fourth, `Blue in Green` at 328s against 324s, is a tolerance artefact
+rather than an error.
+
+**One recall failure worth understanding.** `Freddie Freeloader` returned no match although an
+ISRC-matching candidate was among the twenty offered — the ladder rejected the right answer.
+
+#### The earlier numbers, and why they are floors rather than rates
+
+Every measurement before the one above is soft in the same way: both sides came from the same
+metadata.
 
 | Measurement | Result | What it proves | What it does not |
 | --- | --- | --- | --- |
 | TIDAL → TIDAL, ISRCs present | 60/60 `:exact_isrc` | The ISRC rung and the tie-breaking work against a real catalogue | Nothing about text matching |
 | TIDAL → TIDAL, ISRCs stripped | 98% via text | Normalization survives a real catalogue's spellings | Not a cross-service rate: source and candidates are both TIDAL, written by one cataloguer |
 | TIDAL → Navidrome, ISRCs present | 30/30 `:exact_isrc` | The whole cross-provider pipeline: two adapters, two shapes, one ladder | Nothing about text |
-| TIDAL → Navidrome, ISRCs stripped | 30/30 via text, at **0.929** | Text carries a cross-provider match when rung 1 cannot | Still not a real rate — the local library's tags were *generated from* the TIDAL corpus |
+| TIDAL → Navidrome, ISRCs stripped | 30/30 via text, at **0.929** | Text carries a cross-provider match when rung 1 cannot | The local library's tags were *generated from* the TIDAL corpus |
 
-The `0.929` is the interesting number. A perfect text match scores `0.98`; these lose the
-difference to the **editorial-tag penalty**, because TIDAL labels those recordings
-`"Remastered 2009"` and the local files carry no version at all. That is exactly the
-cross-provider disagreement the editorial/discriminating split was written for: it costs
-confidence without rejecting the match, which is the intended behaviour and the first time it
-has fired outside a unit test.
+Treat all four as regression floors for the code. The MusicBrainz measurement is the one to
+quote about the product.
 
-**What an honest cross-service number needs** is a destination whose metadata was written by
-somebody else — a real ripped library, or a second commercial catalogue. Until then, treat
-every rate above as a regression floor for the code rather than a claim about the product.
-`dev/navidrome/generate_library.py --no-isrc` is the closest available approximation, and its
-limitation is that it is an approximation.
+#### What this measurement still does not cover
+
+  * **100 tracks, 9 albums.** Enough to locate the failure modes, not to put a confidence
+    interval on 82%.
+  * **Well-known releases only**, deliberately: an obscure record missing from TIDAL would
+    measure catalogue coverage and be scored as a matching failure. Real libraries contain
+    obscure records, so the true rate on a real library is lower.
+  * **One destination.** TIDAL's search behaviour is baked into the 86% recall figure; another
+    service would move it in either direction.
+  * **No non-Latin scripts.** The corpus reaches diacritics, a middle dot and an inverted
+    question mark, but nothing in Cyrillic, Japanese or Arabic.
 
 ### Deezer — effectively closed
 

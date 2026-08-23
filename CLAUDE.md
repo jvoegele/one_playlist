@@ -359,6 +359,7 @@ A fresh session should read this before proposing what to build.
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
 | UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
+| Match quality | **82–94% correct** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
 ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer whose
@@ -366,8 +367,10 @@ report matched what actually landed in the destination.
 
 **Not built yet**, roughly in value order:
 
-  * **An honest cross-service match rate.** Every number so far is soft, because both sides
-    of every measurement came from the same metadata. See `docs/reference/domain.md`.
+  * **A better tie-break between unlabelled versions.** The one place the honest measurement
+    found real errors: two catalogues each carry several versions of a Kraftwerk track, neither
+    labels them, and the text rung sees identical titles by one artist. Duration should
+    discriminate there rather than merely contribute a signal. See `docs/reference/domain.md`.
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
   * A third provider. Apple Music needs $99/yr and a browser flow; Qobuz is partner-only
