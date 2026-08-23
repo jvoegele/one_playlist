@@ -1,0 +1,352 @@
+defmodule OnePlaylist.Formats.Csv do
+  @moduledoc """
+  Comma-separated playlists — the interchange format the incumbents export.
+
+  `:metadata_based`, so it crosses service boundaries: every column means the
+  same thing to TIDAL as to Navidrome.
+
+  ## Strict on the way out, permissive on the way in
+
+  `render/2` writes exactly one header, documented below. `parse/2` accepts a
+  great deal more, because the files people upload were written by Soundiiz,
+  TuneMyMusic, Excel, or a script somebody wrote once — and none of them agree
+  on what the title column is called.
+
+  What it will **not** do is guess at column *order*. A headerless file is
+  rejected rather than assumed to be `artist,title`, because the failure mode of
+  guessing wrong is an entire playlist imported with artist and title swapped,
+  which matches nothing and looks like the matching engine is broken.
+
+  ## The columns we write
+
+      title,artists,album,isrc,duration_seconds,track_number,disc_number,version,album_upc,explicit
+
+  `parse/2` recognises these and the common aliases in `@aliases` — `track name`,
+  `artist`, `song`, `length`, and so on — case-insensitively, ignoring
+  surrounding whitespace and a leading UTF-8 BOM.
+
+  ## Artists are joined with `;`
+
+  Because a comma is the field separator and a slash appears inside real artist
+  names. On the way back in, a field is split on `;` **and on nothing else**.
+
+  That restraint is deliberate. Splitting on `,`, `&`, `feat.` or `x` would turn
+  *Earth, Wind & Fire* into three artists and *Simon & Garfunkel* into two, and
+  the matching engine would then fail to find either. The Subsonic mapper makes
+  the same call for the same reason: prefer the structured field, never guess at
+  a separator you did not write.
+
+  ## Round-tripping
+
+  Rendering and re-parsing is **not** the identity, and cannot be: `provider`
+  and `provider_id` describe where a track came from, which a file does not
+  know, and `popularity` is one service's opinion. What holds instead is a
+  fixpoint one step in —
+
+      parse(render(parse(csv))) == parse(csv)
+
+  — which is the law `csv_property_test.exs` checks, and the stronger claim of
+  the two. It says the format loses nothing *it carries*, however many times a
+  playlist goes round.
+  """
+
+  # `use Bond, behaviours:` rather than a bare `@behaviour`: that is what draws
+  # `Codec`'s inherited contracts into this module. With only `@behaviour` the
+  # callback's postconditions compile fine and are never applied to anything —
+  # which is exactly how they were first written here, and the reason the two
+  # tests at the bottom of `csv_test.exs` exist.
+  use Bond, behaviours: [OnePlaylist.Formats.Codec]
+  use Errata
+
+  alias OnePlaylist.Formats.UnreadablePlaylist
+  alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Payload
+
+  # `NimbleCSV.RFC4180` rather than a `NimbleCSV.define/2` of our own, which
+  # started out as a byte-for-byte copy of it: comma, double-quote, and — the
+  # part that was wrong — `\r\n` line endings. A private definition is a place
+  # to drift from the standard we claim to implement, and it had already drifted
+  # before the golden test in `csv_test.exs` caught it.
+  #
+  # It reads both line endings and writes CRLF, which is the "strict out,
+  # permissive in" rule this module follows everywhere else.
+  alias NimbleCSV.RFC4180, as: Parser
+
+  @columns ~w(title artists album isrc duration_seconds track_number disc_number version
+              album_upc explicit)
+
+  # What other people's exports call our columns. Lowercased and trimmed before
+  # lookup, so only the spelling varies here.
+  @aliases %{
+    "track" => "title",
+    "track name" => "title",
+    "song" => "title",
+    "song name" => "title",
+    "name" => "title",
+    "artist" => "artists",
+    "artist name" => "artists",
+    "artist(s)" => "artists",
+    "album name" => "album",
+    "duration" => "duration_seconds",
+    "length" => "duration_seconds",
+    "time" => "duration_seconds",
+    "track number" => "track_number",
+    "track #" => "track_number",
+    "disc" => "disc_number",
+    "disc number" => "disc_number",
+    "volume_number" => "disc_number",
+    "upc" => "album_upc",
+    "barcode" => "album_upc"
+  }
+
+  @artist_separator ";"
+
+  @impl true
+  def kind, do: :metadata_based
+
+  @impl true
+  def extensions, do: ["csv"]
+
+  @doc """
+  Reads a CSV export into tracks, in file order.
+
+  ## Options
+
+    * `:provider` — the provider atom to stamp on each track. Defaults to
+      `:file`. Exists so a caller importing a known service's export can say so.
+
+  Rows that carry neither a title nor an ISRC are dropped rather than returned:
+  they cannot be searched for, and
+  `c:OnePlaylist.Providers.Adapter.search_tracks/3`'s precondition would raise
+  on them. A file of *nothing but* such rows is an error, because silently
+  importing zero tracks from a file with content in it is worse than saying why.
+  """
+  @impl true
+  def parse(content, opts \\ [])
+
+  def parse(content, opts) when is_binary(content) do
+    provider = Keyword.get(opts, :provider, :file)
+
+    with {:ok, rows} <- rows(content),
+         {:ok, header, body} <- split_header(rows),
+         {:ok, index} <- column_index(header) do
+      tracks =
+        body
+        |> Enum.with_index(1)
+        |> Enum.map(fn {row, position} -> track(row, index, position, provider) end)
+        |> Enum.reject(&is_nil/1)
+
+      if tracks == [] do
+        {:error,
+         Errata.create(UnreadablePlaylist,
+           reason: :nothing_usable,
+           message: "no row in that file had a title or an ISRC"
+         )}
+      else
+        {:ok, tracks}
+      end
+    end
+  end
+
+  @doc """
+  Writes tracks as CSV, header first.
+
+  Always quotes, which costs a few bytes and removes an entire class of bug: a
+  title containing a comma, a quote, or a newline is common enough in real
+  catalogues that unquoted output is wrong rather than merely risky.
+  """
+  @impl true
+  def render(tracks, opts \\ [])
+
+  def render(tracks, _opts) when is_list(tracks) do
+    Parser.dump_to_iodata([@columns | Enum.map(tracks, &row/1)])
+  end
+
+  # ---------------------------------------------------------------------------
+
+  defp rows(content) do
+    content
+    |> strip_bom()
+    |> Parser.parse_string(skip_headers: false)
+    |> case do
+      [] -> {:error, Errata.create(UnreadablePlaylist, reason: :empty)}
+      rows -> {:ok, rows}
+    end
+  rescue
+    # NimbleCSV raises on genuinely malformed CSV — an unterminated quote, most
+    # often, which is what a truncated download looks like.
+    error in [NimbleCSV.ParseError] ->
+      {:error,
+       Errata.create(UnreadablePlaylist,
+         reason: :malformed,
+         message: Exception.message(error)
+       )}
+  end
+
+  # Excel writes UTF-8 with a byte order mark, and it lands on the first header
+  # cell — so `"﻿title"` would not match `"title"` and the file would be
+  # rejected as having no title column. Costs one clause, saves a support email.
+  defp strip_bom(<<0xEF, 0xBB, 0xBF, rest::binary>>), do: rest
+  defp strip_bom(content), do: content
+
+  # No empty clause: `rows/1` has already rejected a file with no rows at all,
+  # so by here there is always at least a header.
+  defp split_header([header | body]), do: {:ok, header, body}
+
+  # Maps our column names to their position in *this* file, so the rest of the
+  # module never thinks about column order.
+  defp column_index(header) do
+    index =
+      header
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {name, position}, acc ->
+        case canonical(name) do
+          nil -> acc
+          column -> Map.put_new(acc, column, position)
+        end
+      end)
+
+    cond do
+      index == %{} ->
+        {:error,
+         Errata.create(UnreadablePlaylist,
+           reason: :no_header,
+           message:
+             "the first row must name the columns — expected one of " <>
+               "#{Enum.join(Enum.sort(Map.keys(@aliases)) ++ @columns, ", ")}",
+           context: %{first_row: Enum.take(header, 8)}
+         )}
+
+      not Map.has_key?(index, "title") and not Map.has_key?(index, "isrc") ->
+        {:error,
+         Errata.create(UnreadablePlaylist,
+           reason: :no_title_column,
+           message: "that file has no title column and no ISRC column",
+           context: %{columns_found: Map.keys(index)}
+         )}
+
+      true ->
+        {:ok, index}
+    end
+  end
+
+  defp canonical(name) when is_binary(name) do
+    normalized = name |> strip_bom() |> String.trim() |> String.downcase()
+
+    if normalized in @columns, do: normalized, else: Map.get(@aliases, normalized)
+  end
+
+  defp canonical(_name), do: nil
+
+  # `nil` for a row that cannot become a searchable track. The caller drops it.
+  defp track(row, index, position, provider) do
+    title = Payload.text(at(row, index, "title"))
+    isrc = Payload.text(at(row, index, "isrc"))
+
+    if is_nil(title) and is_nil(isrc) do
+      nil
+    else
+      %Track{
+        provider: provider,
+        # The row's position in the file. Unique within the playlist, which is
+        # what `Track`'s `identifiable` invariant is protecting — two id-less
+        # tracks compare equal and `Runner`'s snapshot-and-diff would treat them
+        # as one. It is also the most useful thing to show a user next to an
+        # unmatched row: "row 47" is somewhere they can look.
+        provider_id: Integer.to_string(position),
+        title: title,
+        isrc: isrc,
+        artists: artists(at(row, index, "artists")),
+        album: Payload.text(at(row, index, "album")),
+        album_upc: Payload.text(at(row, index, "album_upc")),
+        duration_seconds: duration(at(row, index, "duration_seconds")),
+        track_number: Payload.position(integer(at(row, index, "track_number"))),
+        volume_number: Payload.position(integer(at(row, index, "disc_number"))),
+        version: Payload.text(at(row, index, "version")),
+        explicit: boolean(at(row, index, "explicit"))
+      }
+    end
+  end
+
+  defp at(row, index, column) do
+    case Map.fetch(index, column) do
+      {:ok, position} -> Enum.at(row, position)
+      :error -> nil
+    end
+  end
+
+  defp artists(nil), do: []
+
+  defp artists(value) when is_binary(value) do
+    value
+    |> String.split(@artist_separator)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  # Accepts both what we write (`225`) and what a human-facing export writes
+  # (`3:45`, `1:02:03`), because "duration" in someone else's CSV is usually the
+  # second.
+  defp duration(nil), do: nil
+
+  defp duration(value) when is_binary(value) do
+    case value |> String.trim() |> String.split(":") do
+      [seconds] -> Payload.count(integer(seconds))
+      parts -> parts |> Enum.map(&integer/1) |> from_clock()
+    end
+  end
+
+  # `nil` if any component failed to parse, rather than treating it as zero:
+  # `3:xx` is a value we do not understand, not three minutes exactly.
+  defp from_clock(parts) do
+    if Enum.all?(parts, &is_integer/1) do
+      parts
+      |> Enum.reduce(0, fn part, total -> total * 60 + part end)
+      |> Payload.count()
+    end
+  end
+
+  defp integer(nil), do: nil
+
+  defp integer(value) when is_binary(value) do
+    case value |> String.trim() |> Integer.parse() do
+      {number, _rest} -> number
+      :error -> nil
+    end
+  end
+
+  # Only the spellings a machine wrote. Anything else is `nil` — "not stated" —
+  # rather than `false`, because guessing "clean" for an unrecognised value is a
+  # claim about a recording rather than an absence of one.
+  defp boolean(value) when is_binary(value) do
+    case value |> String.trim() |> String.downcase() do
+      v when v in ~w(true yes y 1 explicit) -> true
+      v when v in ~w(false no n 0 clean) -> false
+      _otherwise -> nil
+    end
+  end
+
+  defp boolean(_value), do: nil
+
+  defp row(%Track{} = track) do
+    [
+      track.title,
+      Enum.join(track.artists, "#{@artist_separator} "),
+      track.album,
+      track.isrc,
+      track.duration_seconds,
+      track.track_number,
+      track.volume_number,
+      track.version,
+      track.album_upc,
+      track.explicit
+    ]
+    |> Enum.map(&cell/1)
+  end
+
+  defp cell(nil), do: ""
+  defp cell(value) when is_binary(value), do: value
+  defp cell(value) when is_integer(value), do: Integer.to_string(value)
+  defp cell(true), do: "true"
+  defp cell(false), do: "false"
+end

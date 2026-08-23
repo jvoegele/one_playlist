@@ -1109,3 +1109,63 @@ should then be deleted.
 Until then, the guard in `test/test_helper.exs` is `:ets.whereis(:bond_coverage) == :undefined`,
 which is a correct thing for user code to do but is not something a user should have to
 discover by having a green suite fail to start.
+
+---
+
+## `bond` — a `@post` written *after* its `@callback` attaches to the next one
+
+**Version:** 1.15.0 · **Found:** 2026-08-23, contracting `OnePlaylist.Formats.Codec`.
+
+`Bond.Behaviour` attaches `@pre`/`@post` to the **following** `@callback`, which the moduledoc
+says. Writing them underneath is therefore user error — but the way it fails is worth a
+diagnostic, because it is the exact hazard the 1.15.0 discard logic was written to prevent,
+arriving from a direction that change does not cover.
+
+```elixir
+@callback parse(binary(), keyword()) :: {:ok, [Track.t()]} | {:error, term()}
+@post whenever({:ok, tracks} <- result, ok: forall(t <- tracks, usable?(t)))
+
+@callback render([Track.t()], keyword()) :: iodata()
+```
+
+The `@post` intended for `parse/2` is absorbed by `render/2`. The only sign was a warning about
+an unused variable in a generated function:
+
+```
+warning: variable "tracks" is unused
+  └─ lib/one_playlist/formats/csv.ex:1: OnePlaylist.Formats.Csv.__bond_postconditions__render__2/3
+```
+
+That names `csv.ex:1` — the *implementing* module, at line 1 — for a mistake made in a different
+file, in the behaviour. It took a deliberately-broken implementation and a failing test to find,
+because the contract compiled, was woven, and simply guarded the wrong function.
+
+The compiler warning appeared only because `tracks` happens not to be bound in `render/2`'s
+scope. Had the two callbacks shared a parameter name — `opts`, say, or `tracks` for a
+`@callback validate(tracks, opts)` — the assertion would have compiled silently and enforced
+against the wrong callback. That is precisely what the `discard_contracts_declared_on/3`
+comment in `compiler.ex` says must not happen:
+
+> leaving them queued means the *next* function silently acquires a contract its author never
+> wrote on it — which, when the parameter names happen to line up, enforces quietly against the
+> wrong function rather than failing.
+
+1.15.0 closed that for implicitly generated functions. The same reasoning applies to an ordinary
+`@callback` that follows another one.
+
+**Suggested fix:** warn when a `Bond.Behaviour` module reaches `@before_compile` with contracts
+still pending — that is unambiguously a `@pre`/`@post` after the final `@callback`, and cannot
+be anything else. That alone would have caught this, since the trailing `@post` on the last
+callback is the shape a user reaching for the wrong order tends to write.
+
+Going further would mean warning when an absorbed contract references a variable that is not a
+parameter of the callback absorbing it. That is a stronger check and would have named this
+exactly — `tracks` is not a parameter of `render/2` — but it needs care around assertions that
+legitimately reference module attributes or imported functions.
+
+**Second, smaller thing.** An implementing module needs `use Bond, behaviours: [TheBehaviour]`;
+a bare `@behaviour TheBehaviour` compiles and inherits nothing. This is documented, and it is
+still the easier of the two mistakes to make, because `@behaviour` is what Elixir itself asks
+for and the result is silently uncontracted rather than an error. A note in the behaviour's
+`@moduledoc` output — "implementers must `use Bond, behaviours: [...]`" — would be seen at
+exactly the moment somebody is writing one.

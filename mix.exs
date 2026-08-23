@@ -125,6 +125,11 @@ defmodule OnePlaylist.MixProject do
        compile: false,
        depth: 1},
       {:swoosh, "~> 1.16"},
+
+      # RFC 4180 CSV. Hand-rolling this is a classic own goal: quoting, embedded
+      # newlines, CRLF and Excel's UTF-8 BOM are each a bug waiting to be found
+      # by a user's real export rather than by us.
+      {:nimble_csv, "~> 1.2"},
       {:req, "~> 0.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
