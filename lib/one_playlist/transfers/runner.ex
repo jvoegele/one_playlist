@@ -45,6 +45,7 @@ defmodule OnePlaylist.Transfers.Runner do
 
   alias OnePlaylist.Matching
   alias OnePlaylist.Providers
+  alias OnePlaylist.Transfers.PlaylistTooLarge
   alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Source
   alias OnePlaylist.Transfers.SourceMissing
@@ -153,7 +154,40 @@ defmodule OnePlaylist.Transfers.Runner do
   # matching, the destination snapshot, the write, the report — is the same
   # whether the tracks came from a catalogue or from somebody's spreadsheet,
   # which is the argument for importing through this pipeline at all.
-  defp read_source(%Transfer{source_provider: :file} = transfer) do
+  # The size guard sits here rather than in either branch, so a source that is
+  # too big is refused the same way whether it came from a provider or a file.
+  defp read_source(%Transfer{} = transfer) do
+    with {:ok, tracks} <- read_tracks(transfer), do: within_limit(tracks)
+  end
+
+  defp within_limit(tracks) do
+    limit = max_tracks()
+
+    if length(tracks) > limit do
+      {:error,
+       Errata.create(PlaylistTooLarge,
+         reason: :too_many_tracks,
+         # "More than the limit" rather than the exact count: the streaming read
+         # stops at `limit + 1` on purpose, and reporting a number it did not
+         # finish counting would be a guess dressed as a fact.
+         context: %{limit: limit}
+       )}
+    else
+      {:ok, tracks}
+    end
+  end
+
+  # Above any real playlist. See `OnePlaylist.Transfers.PlaylistTooLarge` for
+  # why this is a safety valve rather than a rationing decision.
+  @default_max_tracks 10_000
+
+  defp max_tracks do
+    :one_playlist
+    |> Application.get_env(OnePlaylist.Transfers, [])
+    |> Keyword.get(:max_tracks, @default_max_tracks)
+  end
+
+  defp read_tracks(%Transfer{source_provider: :file} = transfer) do
     # Already parsed, in the request that received the upload. This worker has
     # no session and therefore no way to read Storage without the service key;
     # see `OnePlaylist.Transfers.Source`.
@@ -170,11 +204,15 @@ defmodule OnePlaylist.Transfers.Runner do
     end
   end
 
-  defp read_source(%Transfer{} = transfer) do
+  defp read_tracks(%Transfer{} = transfer) do
     with {:ok, connection} <- connection(transfer.user_id, transfer.source_provider),
          {:ok, adapter} <- Providers.adapter(transfer.source_provider),
          {:ok, stream} <- adapter.stream_tracks(connection, transfer.source_playlist_id, []) do
-      {:ok, Enum.to_list(stream)}
+      # One past the limit, so `within_limit/1` can tell "at the limit" from
+      # "over it" without the unbounded `Enum.to_list/1` this replaced. A
+      # provider that reports a playlist size it then exceeds, or a paging bug
+      # that never terminates, stops here instead of in the worker's memory.
+      {:ok, Enum.take(stream, max_tracks() + 1)}
     end
   rescue
     error -> {:error, error}

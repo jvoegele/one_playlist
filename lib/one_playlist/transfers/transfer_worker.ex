@@ -40,6 +40,8 @@ defmodule OnePlaylist.Transfers.TransferWorker do
     ]
 
   alias OnePlaylist.Transfers
+
+  require Errata
   alias OnePlaylist.Transfers.Runner
 
   require Logger
@@ -71,11 +73,24 @@ defmodule OnePlaylist.Transfers.TransferWorker do
       {:error, reason} ->
         {:ok, _failed} = Transfers.record_failure(transfer, reason)
 
-        # Returned as an error so Oban retries. The row already says `failed`,
-        # which is the honest state between attempts: if this is the last one,
-        # it stays that way, and if a retry succeeds it is overwritten with the
-        # completed run.
-        {:error, reason}
+        # An error that says it is not retryable is taken at its word. Retrying
+        # one costs real money in rate limit: `PlaylistTooLarge` re-reads the
+        # whole playlist before refusing it, so twenty attempts is twenty reads
+        # of something that will be exactly as large every time. The row still
+        # says `failed`, which is what the user sees either way.
+        #
+        # Everything else is returned as an error so Oban retries. The row
+        # already says `failed`, which is the honest state between attempts: if
+        # this is the last one it stays that way, and if a retry succeeds it is
+        # overwritten with the completed run.
+        if retryable?(reason), do: {:error, reason}, else: {:cancel, reason}
     end
   end
+
+  # `Errata.retryable?/1` raises on anything that is not an Errata error, and
+  # plenty of what reaches here is not — a `Req` transport error, an
+  # `Ecto.Changeset`, an exception from a mapper. Those keep the old behaviour
+  # of being retried, because for them a retry is exactly the right answer.
+  defp retryable?(reason) when Errata.is_error(reason), do: Errata.retryable?(reason)
+  defp retryable?(_reason), do: true
 end

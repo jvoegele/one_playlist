@@ -28,6 +28,7 @@ defmodule OnePlaylist.TransfersTest do
   alias OnePlaylist.Cache
   alias OnePlaylist.Providers
   alias OnePlaylist.Transfers
+  alias OnePlaylist.Transfers.PlaylistTooLarge
   alias OnePlaylist.Transfers.Runner
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferWorker
@@ -279,6 +280,71 @@ defmodule OnePlaylist.TransfersTest do
 
       assert Transfers.items(second) |> length() == 3,
              "the report is rewritten, not appended to"
+    end
+  end
+
+  describe "a playlist bigger than one transfer may move" do
+    setup do
+      # Safe in this file specifically: it is `async: false`, and ExUnit runs
+      # sync tests after every async one has finished. In an async file this is
+      # the mutation that cost a day twice — see `CLAUDE.md`.
+      previous = Application.get_env(:one_playlist, Transfers, [])
+      Application.put_env(:one_playlist, Transfers, Keyword.put(previous, :max_tracks, 2))
+      on_exit(fn -> Application.put_env(:one_playlist, Transfers, previous) end)
+    end
+
+    test "is refused before a single track is matched", %{user: user} do
+      state = provider_state()
+      transfer = transfer_for(user)
+
+      assert {:error, %PlaylistTooLarge{} = error} = Runner.run(transfer)
+      assert error.context.limit == 2
+
+      assert Agent.get(state, & &1.added) == [],
+             "refused before a single track was matched, let alone written"
+    end
+
+    test "and Oban is told not to retry it", %{user: user} do
+      # Re-reading a playlist twenty times to refuse it twenty times is real
+      # rate limit spent on a certainty. The transfer still records as failed,
+      # which is what the user sees either way.
+      _state = provider_state()
+      transfer = transfer_for(user)
+
+      assert {:cancel, %PlaylistTooLarge{}} =
+               perform_job(TransferWorker, %{transfer_id: transfer.id})
+
+      assert {:ok, failed} = Transfers.fetch(user, transfer.id)
+      assert failed.status == :failed
+      assert failed.last_error =~ "more tracks than a single transfer can move"
+
+      assert failed.total_tracks == 0,
+             "nothing was counted, because nothing was read past the limit"
+    end
+
+    test "a playlist exactly at the limit still runs" do
+      # The boundary is the interesting half. Reading `limit + 1` to detect
+      # "over" makes an off-by-one here refuse a playlist that fits.
+      Application.put_env(:one_playlist, Transfers, max_tracks: 3)
+
+      user = AuthFixtures.user_id_fixture()
+
+      {:ok, _connection} =
+        Providers.connect(user, :tidal, %{
+          provider_user_id: "67373615",
+          access_token: "at",
+          refresh_token: "rt",
+          access_token_expires_at: DateTime.add(DateTime.utc_now(), 3600),
+          scopes: ["playlists.read", "playlists.write", "search.read"],
+          country: "US"
+        })
+
+      _state = provider_state()
+      transfer = transfer_for(user)
+
+      assert {:ok, completed} = Runner.run(transfer)
+      assert completed.status == :completed
+      assert completed.total_tracks == 3
     end
   end
 
