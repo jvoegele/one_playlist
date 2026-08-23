@@ -182,21 +182,32 @@ defmodule OnePlaylist.Providers.Tidal do
   defp candidates(connection, %Track{} = track, opts),
     do: text_candidates(connection, track, opts)
 
-  # An empty result stays authoritative: an ISRC identifies one recording, so a
-  # catalogue that does not have it does not have that recording, and searching
-  # by name instead would be looking for a *different* one. That is the false
-  # positive this application is organised against, and the release-position
-  # rung below is the deliberate recovery path for the case worth recovering.
+  # A miss falls back to text, and so does a failure. This is the same shape as
+  # the release-position rung above, and it did not used to be.
   #
-  # A *failed* lookup is a different thing and did not used to be treated as
-  # one. A rate limit, a network blip or a rejected identifier ended the search
-  # with no candidates at all, and the track came back unmatched having never
-  # been searched for by name. The rung below already fell back on error; this
-  # one now does too.
+  # It used to stop on an empty result, on the reasoning that "an ISRC names one
+  # recording, so a catalogue without it does not have that recording". **That
+  # reasoning is wrong**, and a real import disproved it. An ISRC identifies a
+  # recording *as issued on a particular release*, and a reissue is a new issue:
+  # the same master gets a new code. Roon exports Eddie Vedder's "Setting Forth"
+  # as `USJY50700001`, the 2007 soundtrack. TIDAL has the recording as
+  # `USJY51700100`, the 2017 reissue. Asking TIDAL for the first returns nothing
+  # at all, and the track was reported "nothing found on the destination" while
+  # sitting in the catalogue under a different number. Searching by name finds it
+  # first result.
+  #
+  # The fear behind the old rule — that text search finds a *different* recording
+  # and reports it as a match — is real and is defended against, but not here.
+  # It is defended by the version veto, the duration conflict and the confidence
+  # threshold, which every text candidate goes through. Refusing to look was
+  # never what made the answer safe; it only made a findable track unfindable.
+  #
+  # The cost is one extra call per ISRC that misses, and only for tracks that
+  # would otherwise have been reported unmatched.
   defp by_isrc(connection, track, isrc, opts) do
     case Client.tracks_by_isrc(connection.access_token, isrc, opts) do
-      {:ok, found} -> {:ok, found}
-      {:error, _reason} -> text_candidates(connection, track, opts)
+      {:ok, [_candidate | _rest] = found} -> {:ok, found}
+      _miss_or_error -> text_candidates(connection, track, opts)
     end
   end
 

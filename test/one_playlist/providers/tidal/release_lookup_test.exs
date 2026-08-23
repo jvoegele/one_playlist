@@ -243,17 +243,34 @@ defmodule OnePlaylist.Providers.Tidal.ReleaseLookupTest do
       assert :counters.get(counter, 3) == 1
     end
 
-    test "an ISRC still wins, and costs one request" do
+    test "an ISRC still wins, and the release rung is never reached" do
+      # The claim is about *ordering*, not about a request count. A track
+      # carrying both an ISRC and a barcode with a position is looked up by
+      # identifier, and the release rung below it never runs.
+      #
+      # It used to assert one request, which stopped being true when a missed
+      # ISRC started falling back to text — an ISRC names a recording as issued,
+      # and a reissue carries a different one, so a miss is not an answer. What
+      # matters here is unchanged: `/v2/albums` is not consulted.
+      asked = start_supervised!({Agent, fn -> [] end})
+
       Req.Test.stub(Tidal, fn conn ->
         conn = Plug.Conn.fetch_query_params(conn)
+        Agent.update(asked, &[conn.request_path | &1])
 
-        assert conn.request_path == "/v2/tracks"
-        assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
+        if conn.request_path == "/v2/tracks" do
+          assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
+        end
 
         Req.Test.json(conn, %{"data" => [], "included" => []})
       end)
 
       assert {:ok, []} = Tidal.search_tracks(connection(), positioned(isrc: "GBAYE0601477"))
+
+      paths = Agent.get(asked, & &1)
+
+      assert "/v2/tracks" in paths
+      refute "/v2/albums" in paths, "the identifier rung outranks the release rung"
     end
   end
 

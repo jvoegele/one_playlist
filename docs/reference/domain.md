@@ -530,6 +530,39 @@ Artists", which performs nothing on the album — and a wrong artist is worse th
 because the text rung needs `artists_agree`, so a confident wrong value rejects the right
 candidate where an absent one would have let the title carry the match.
 
+### An ISRC miss is not an answer — reissues carry new codes
+
+Recorded because the opposite was believed here, written down as a reason, and acted on for
+weeks before a real import disproved it.
+
+An ISRC identifies a recording **as issued on a particular release**. A reissue, remaster or
+compilation appearance is a new issue and gets a **new ISRC** for the same master. So "the
+destination's catalogue does not contain ISRC X" does *not* mean "the destination does not have
+that recording".
+
+Measured, on a 153-track Roon export:
+
+| | |
+| --- | --- |
+| Roon's ISRC for Eddie Vedder's *Setting Forth* | `USJY50700001` — the 2007 *Into the Wild* soundtrack |
+| TIDAL's ISRC for the same recording | `USJY51700100` — the 2017 reissue |
+| `filter[isrc]=USJY50700001` on TIDAL | **0 results** |
+| `filter[query]=Setting Forth Eddie Vedder` | 20 results, the right one first |
+
+`Tidal.candidates/3` used to stop on an empty ISRC result, so the track was reported *"nothing
+found on the destination"* while sitting in the catalogue under a different number. Four tracks
+of that playlist — the whole soundtrack block — failed this way. Falling back to text recovers
+all four at `high` confidence, and moves a fifth from "nothing found" to a list of candidates
+worth choosing between.
+
+The fear that motivated the old rule (text search finding a *different* recording and reporting
+it as a match) is real, and is defended by the version veto, the duration conflict and the
+confidence threshold — every text candidate goes through all three. Refusing to look was never
+what made the answer safe; it only made a findable track unfindable.
+
+**The general lesson**: an identifier rung's miss is evidence about the *identifier*, not about
+the recording. Treat it as a reason to try the next rung, never as an answer.
+
 ### What has actually been measured about match quality
 
 Match quality is the product, so it is worth being precise about which numbers mean what.

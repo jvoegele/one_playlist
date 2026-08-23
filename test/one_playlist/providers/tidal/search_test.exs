@@ -120,13 +120,18 @@ defmodule OnePlaylist.Providers.Tidal.SearchTest do
 
   describe "Tidal.search_tracks/3" do
     test "uses the ISRC filter when the track has one" do
+      asked = start_supervised!({Agent, fn -> [] end})
+
       Req.Test.stub(Tidal, fn conn ->
         conn = Plug.Conn.fetch_query_params(conn)
+        Agent.update(asked, &[conn.request_path | &1])
 
-        assert conn.request_path == "/v2/tracks"
-        assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
-
-        Req.Test.json(conn, %{"data" => [], "included" => []})
+        if conn.request_path == "/v2/tracks" do
+          assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
+          Req.Test.json(conn, %{"data" => [], "included" => []})
+        else
+          Req.Test.json(conn, %{"data" => [], "included" => []})
+        end
       end)
 
       track = %Track{
@@ -137,6 +142,9 @@ defmodule OnePlaylist.Providers.Tidal.SearchTest do
       }
 
       assert {:ok, []} = Tidal.search_tracks(connection(["search.read"]), track)
+
+      assert "/v2/tracks" in Agent.get(asked, & &1),
+             "the identifier rung is tried first, and with the right filter"
     end
 
     test "a lower-case ISRC is normalised before it reaches the provider" do
@@ -147,7 +155,9 @@ defmodule OnePlaylist.Providers.Tidal.SearchTest do
       Req.Test.stub(Tidal, fn conn ->
         conn = Plug.Conn.fetch_query_params(conn)
 
-        assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
+        if conn.request_path == "/v2/tracks" do
+          assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
+        end
 
         Req.Test.json(conn, %{"data" => [], "included" => []})
       end)
@@ -188,6 +198,38 @@ defmodule OnePlaylist.Providers.Tidal.SearchTest do
       }
 
       assert {:ok, [_candidate | _rest]} = Tidal.search_tracks(connection(["search.read"]), track)
+    end
+
+    test "an ISRC the destination does not carry falls back to text" do
+      # The regression, with the identifiers that produced it. Roon exports
+      # Eddie Vedder's "Setting Forth" as `USJY50700001`, the 2007 soundtrack;
+      # TIDAL has the same recording as `USJY51700100`, the 2017 reissue. An
+      # ISRC names a recording *as issued*, so a reissue carries a new one and a
+      # miss says nothing about whether the catalogue has the recording.
+      #
+      # Before this, the track was reported "nothing found on the destination"
+      # while sitting in the catalogue under a different number.
+      Req.Test.stub(Tidal, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+
+        if conn.request_path == "/v2/tracks" do
+          Req.Test.json(conn, %{"data" => [], "included" => []})
+        else
+          assert conn.request_path == "/v2/searchResults"
+          Req.Test.json(conn, @document)
+        end
+      end)
+
+      track = %Track{
+        provider: :file,
+        provider_id: "1",
+        isrc: "USJY50700001",
+        title: "Setting Forth",
+        artists: ["Eddie Vedder"]
+      }
+
+      assert {:ok, [_candidate | _rest]} =
+               Tidal.search_tracks(connection(["search.read"]), track)
     end
 
     test "falls back to text, querying title and artists together" do

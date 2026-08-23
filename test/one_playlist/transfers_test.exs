@@ -178,6 +178,13 @@ defmodule OnePlaylist.TransfersTest do
 
           Req.Test.json(conn, %{})
 
+        # A text search. Reached when an ISRC lookup misses, which is now a
+        # fallback rather than an answer: an ISRC names a recording *as issued*,
+        # and a reissue carries a different one. The unmatchable fixtures below
+        # find nothing here either, which is what makes them unmatchable.
+        conn.method == "GET" and path == "/v2/searchResults" ->
+          Req.Test.json(conn, %{"data" => [], "included" => []})
+
         true ->
           flunk("unexpected #{conn.method} #{path}")
       end
