@@ -12,9 +12,13 @@ Each entry carries a reproduction that runs with no network and no Supabase proj
 that is what makes it filable — and what lets us re-check it against a new release in one
 command rather than by remembering.
 
-**Upstream state, checked 2026-08-23:** `supabase-community/storage-ex` and
-`supabase-community/auth-ex` each have **zero open issues**, and both bugs below are still
-present on `main` (last commits 2026-07-28). Neither is reported.
+**Upstream state, checked 2026-08-23:** both bugs below are still present on `main` (last
+commits 2026-07-28) and both are now filed:
+
+| | Issue |
+| --- | --- |
+| `Storage.File.list/3` | [storage-ex#36](https://github.com/supabase-community/storage-ex/issues/36) |
+| `get_claims/3` | [auth-ex#97](https://github.com/supabase-community/auth-ex/issues/97) |
 
 The packages live in three separate repositories, which is worth knowing before looking for the
 source: `supabase_potion` → `supabase-community/supabase-ex`, `supabase_auth` →
@@ -24,7 +28,7 @@ source: `supabase_potion` → `supabase-community/supabase-ex`, `supabase_auth` 
 
 ## `supabase_storage` — `Supabase.Storage.File.list/3` raises on every call
 
-**Version:** 0.6.0, and `main` as of 2026-07-28 · **Status:** not reported
+**Version:** 0.6.0, and `main` as of 2026-07-28 · **Filed:** [storage-ex#36](https://github.com/supabase-community/storage-ex/issues/36)
 
 Listing objects is impossible. `SearchOptions.parse/1` raises before any request is made:
 
@@ -59,9 +63,6 @@ end
 is `:sort_by`. The second would raise as soon as the first was fixed, so a patch has to address
 both — which is presumably why this was never caught: the first error masks the second.
 
-**That it ships at all suggests the function has no test**, since any call in any test would
-fail.
-
 **Impact here:** `OnePlaylist.Storage` has no `list/2`. It was written, found to be
 unimplementable, and removed.
 
@@ -69,7 +70,7 @@ unimplementable, and removed.
 
 ## `supabase_auth` — `get_claims/3` raises on most malformed tokens
 
-**Version:** 1.0.0, and `main` as of 2026-07-28 · **Status:** not reported
+**Version:** 1.0.0, and `main` as of 2026-07-28 · **Filed:** [auth-ex#97](https://github.com/supabase-community/auth-ex/issues/97)
 
 The function's whole purpose is to decide whether a token is valid, so it is called precisely
 where a token cannot be trusted. It raises instead of answering, and raises *differently*
