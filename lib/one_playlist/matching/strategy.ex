@@ -41,7 +41,7 @@ defmodule OnePlaylist.Matching.Strategy do
   @doc """
   Which rung this is.
 
-  Contracted for the same reason `OnePlaylist.Providers.Adapter.provider/0` is:
+  Contracted for the same reason `c:OnePlaylist.Providers.Adapter.provider/0` is:
   a rung reporting a name the `Match` struct has never heard of would otherwise
   surface much later, as a `KeyError` from a band lookup, or — worse — as a
   match whose confidence silently failed to derive.

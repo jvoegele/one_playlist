@@ -238,7 +238,7 @@ what let me misdiagnose it. Without `use Bond`:
   * an assertion referencing parameters →
     `error: undefined variable "x"`
   * a multi-label assertion →
-    `error: expected 0 or 1 argument for @post, got: 2` (from `Kernel.do_at/5`)
+    `error: expected 0 or 1 argument for @post, got: 2` (reported against Elixir's internal `do_at` expansion helper)
   * a parameter-free assertion → compiles, enforcing nothing, with only Elixir's generic
     `warning: module attribute @post was set but never used`
 
@@ -258,7 +258,7 @@ fit, if Bond ever ships one.
 library's own guides use Req in their examples, so a reader following them inherits its
 defaults.
 
-`Req.Steps.put_params/2` merges parameters with `List.keystore/4`, which **replaces** a
+Req's `put_params` step merges parameters with `List.keystore/4`, which **replaces** a
 parameter of the same name:
 
 ```elixir
@@ -537,7 +537,7 @@ correct in total, only the attribution is wrong.
 
 ## `bond` — the all-inside `whenever`/`where` form is rejected on `Bond.Behaviour` callbacks
 
-**Found:** 2026-08-22, declaring a contract on `OnePlaylist.Matching.Strategy.score/2`.
+**Found:** 2026-08-22, declaring a contract on `c:OnePlaylist.Matching.Strategy.score/2`.
 
 `guides/public-api.md` documents the all-inside form as an alias of the prefix form, and says
 so specifically for inherited contracts:

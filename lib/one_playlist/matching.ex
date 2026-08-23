@@ -140,7 +140,7 @@ defmodule OnePlaylist.Matching do
   Matches many tracks at once, collecting successes and failures together.
 
   Takes `{source, candidates}` pairs rather than a flat list because candidates
-  are fetched per track — see `OnePlaylist.Providers.Adapter.search_tracks/3`.
+  are fetched per track — see `c:OnePlaylist.Providers.Adapter.search_tracks/3`.
   """
   # The ledger law. `docs/reference/contracts.md` names this shape as the one
   # the transfer engine will want most, and this is the first place it applies:
@@ -361,7 +361,7 @@ defmodule OnePlaylist.Matching do
   — which is a different report line from "searched for and not found", and a
   different fix. Local files and some podcast entries land here.
 
-  Public because `OnePlaylist.Providers.Adapter.search_tracks/3` names it in a
+  Public because `c:OnePlaylist.Providers.Adapter.search_tracks/3` names it in a
   precondition, and Bond's Precondition Availability Rule asks that a caller be
   able to check a precondition before calling. A private helper, or a public one
   hidden with `@doc false`, would leave the caller unable to satisfy the rule it

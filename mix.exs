@@ -227,8 +227,14 @@ defmodule OnePlaylist.MixProject do
         # `ExternalService.call/1`, which does not exist — `call/1` is generated
         # on the front-door module, not exported by ExternalService.
         #
+        # `--warnings-as-errors` because without it this step *reported* six
+        # broken references and passed anyway, which is how they accumulated
+        # over several sessions. The commonest cause is a callback written as
+        # `Mod.fun/arity`: ExDoc resolves that as a function and needs `c:` for
+        # a callback.
+        #
         # Runs in :dev because ex_doc is `only: :dev`, unlike everything above it.
-        "cmd env MIX_ENV=dev mix docs",
+        "cmd env MIX_ENV=dev mix docs --warnings-as-errors",
         "coveralls"
       ]
     ]
