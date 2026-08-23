@@ -100,7 +100,11 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
         <div :if={@transfer.total_tracks > 0} class="stats bg-base-200 w-full mb-6">
           <.stat label="Tracks" value={@transfer.total_tracks} />
-          <.stat label="Matched" value={@transfer.matched_count} />
+          <.stat
+            label="Matched"
+            value={@transfer.matched_count}
+            detail={"#{matched_percentage(@transfer)}% of the source"}
+          />
           <.stat label="Added" value={@transfer.added_count} />
           <.stat
             label="Unmatched"
@@ -155,13 +159,36 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   attr :value, :integer, required: true
   attr :tone, :any, default: nil
 
+  attr :detail, :string, default: nil
+
   defp stat(assigns) do
     ~H"""
     <div class="stat">
       <div class="stat-title">{@label}</div>
       <div class={["stat-value text-3xl tabular-nums", @tone]}>{@value}</div>
+      <div :if={@detail} class="stat-desc">{@detail}</div>
     </div>
     """
+  end
+
+  # `Transfer.match_rate/1` answers in `0.0..1.0`; this is the only place that
+  # turns it into something a person reads, and the rounding is deliberately
+  # asymmetric at both ends.
+  #
+  # A transfer that lost one track in a thousand must not render as `100%`, and
+  # one that matched one in a thousand must not render as `0%`. Either would be
+  # this application telling the exact lie it exists to prevent — a report that
+  # looks like a clean sweep or a total failure when it was neither. So only a
+  # genuine 1.0 reaches 100 and only a genuine 0.0 reaches 0; everything between
+  # is clamped into 1..99.
+  defp matched_percentage(%Transfer{} = transfer) do
+    # Guards rather than float literals: Elixir rightly warns that matching on
+    # `0.0` matches only positive zero.
+    case Transfer.match_rate(transfer) do
+      rate when rate <= 0.0 -> 0
+      rate when rate >= 1.0 -> 100
+      rate -> rate |> Kernel.*(100) |> floor() |> max(1) |> min(99)
+    end
   end
 
   attr :outcome, :atom, required: true

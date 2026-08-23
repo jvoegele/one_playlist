@@ -13,6 +13,8 @@ defmodule OnePlaylist.Matching.Report do
   confident enough, or too little information to search with.
   """
 
+  use Bond
+
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Matching.TrackNotMatched
 
@@ -24,6 +26,33 @@ defmodule OnePlaylist.Matching.Report do
 
   @enforce_keys [:threshold]
   defstruct matched: [], unmatched: [], threshold: 0.0
+
+  # `OnePlaylist.Matching.threshold/1` already asserts this about the value it
+  # *returns*, and this is not that assertion repeated — it is the same law
+  # lifted to where it belongs, on the type, so it holds for every report
+  # however the report was built.
+  #
+  # The two cover different surfaces, which is what stops this being the "two
+  # guards" mistake in `docs/reference/contracts.md`. `match/3` resolves a
+  # threshold and never builds a report, so only the postcondition guards that
+  # path; a report assembled by hand — a fixture, a future caller, a second
+  # construction site — never goes near `threshold/1`, so only the invariant
+  # guards that one. Neither is reachable from the other, and each has its own
+  # test.
+  #
+  # The consequence of a bad threshold is total and silent: at `75.0` no score
+  # can clear it, so every track is reported unmatched, the transfer completes,
+  # and the destination playlist is empty. `match_rate/1` then divides by a
+  # total made entirely of failures and answers `0.0`, which reads as a
+  # catalogue that contains none of the user's music rather than as a
+  # misconfiguration.
+  #
+  # The `defstruct` default of `0.0` satisfies it, per Meyer's base case: a bare
+  # `%Report{}` is not constructible anyway — `:threshold` is enforced — but the
+  # default is part of the contract regardless of whether it can be reached.
+  @invariant threshold_is_a_proportion:
+               is_float(subject.threshold) and subject.threshold >= 0.0 and
+                 subject.threshold <= 1.0
 
   @doc "How many tracks were considered."
   @spec total(t()) :: non_neg_integer()

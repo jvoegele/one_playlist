@@ -566,16 +566,45 @@ Three things make this shape worth looking for elsewhere:
     `Runner.run/1`'s `reported_every_track` counts the rows with a database query; ten rows
     against ten tracks satisfies it even when seven are unmatched and the counter says three.
 
-### A contract on dead code catches nothing
+### A contract on dead code catches nothing — so check for callers, then decide
 
-`Transfer.match_rate/1` looked like an obvious candidate — a proportion, rendered in a UI, on a
-struct whose counters are independent columns. A postcondition was added, then removed: the
-function has **no callers anywhere**, in `lib/` or in tests. Its mutation test could not fire
-because nothing ran it.
+`Transfer.match_rate/1` looked like an obvious candidate: a proportion, on a struct whose
+counters are independent columns rather than values derived from one list. A postcondition was
+added, and its mutation test would not fire. The reason was not the assertion — the function
+had **no callers anywhere**, in `lib/` or in tests.
 
-Check for callers before contracting a function. An assertion that never executes is the
-purest form of the thing `Bond.Coverage` exists to warn about, and it will not even show up as
-`⚠ never failed` — it will not appear in the table at all.
+An assertion that never executes is worse than one that never fails, because it does not even
+appear in the coverage table as `⚠ never failed`. It is invisible.
+
+The fix was not to delete the function. It was written for the transfer page and never wired
+in, so wiring it in was the smaller change and the better one: `TransferLive.Show` now renders
+"75% of the source" under the Matched stat. With a caller the postcondition became live *and*
+data-falsifiable — the re-run accumulation bug this project actually hit, six matched of three
+total, is caught rather than rendered as "200% of the source".
+
+The order matters. **Check for callers first**; an uncontracted function nothing calls is a
+question about the design, and answering it is a prerequisite to contracting it, not a
+consequence.
+
+### Lift a law to an invariant when it is a property of the type
+
+If an assertion about a value would hold for *every* instance of that type, prefer stating it
+once on the type over repeating it at each function that produces one.
+
+`Matching.threshold/1` asserts `is_a_proportion` about what it returns. `Report` carries the
+same number, so the obvious readings are "the invariant is redundant, skip it" or "add it and
+accept the duplication". Both are wrong, and the test is the one used everywhere else here:
+**can each be falsified without the other firing?**
+
+  * `match/3` resolves a threshold and never builds a report — only the postcondition guards
+    that path.
+  * A report built directly, in a fixture or a future second construction site, never calls
+    `threshold/1` — only the invariant guards that one.
+
+So they are complementary, and the invariant is the stronger of the two to have: it holds for
+every report however it was built, and it is falsifiable from a plain test rather than needing
+a bad config. Where the two genuinely *do* coincide, lift the law to the invariant and drop the
+per-function assertion rather than keeping both.
 
 ## Mechanics learned the hard way
 

@@ -4,8 +4,10 @@ defmodule OnePlaylist.ContractsTest do
 
   These live together rather than in each module's own test file because what
   they have in common is the point: every one guards a *silent* failure, and
-  three of the four are falsifiable by **data** rather than only by mutating the
-  code — the stronger of the two categories in `docs/reference/contracts.md`.
+  every one is falsifiable by **data** — a config value, a provider response, a
+  row read back from the database — rather than only by mutating the code. That
+  is the stronger of the two categories in `docs/reference/contracts.md`, and it
+  is why none of them shows up as `⚠ never failed`.
   """
 
   use ExUnit.Case, async: true
@@ -61,6 +63,70 @@ defmodule OnePlaylist.ContractsTest do
 
       assert Matching.threshold(threshold: 0.75) == 0.75
       assert Matching.threshold() >= 0.0
+    end
+  end
+
+  describe "Matching.Report — the threshold invariant, lifted" do
+    alias OnePlaylist.Matching.Report
+
+    test "a percentage stored on a report is caught when the report is used" do
+      # Independent of `threshold/1`'s postcondition rather than a copy of it: a
+      # report built directly never goes near that function, so nothing else
+      # looks at this value. Falsifiable from a plain test, with no mutation and
+      # no bad config — the strongest of the three categories.
+      assert_invariant_violation(Report.total(%Report{threshold: 75.0}),
+        label: :threshold_is_a_proportion
+      )
+    end
+
+    test "it guards every entry point, not just one" do
+      report = %Report{threshold: 1.5}
+
+      for call <- [
+            fn -> Report.total(report) end,
+            fn -> Report.match_rate(report) end,
+            fn -> Report.by_confidence(report) end,
+            fn -> Report.ambiguous(report) end,
+            fn -> Report.needs_review(report) end
+          ] do
+        assert_raise Bond.InvariantError, call
+      end
+    end
+
+    test "the two assertions cover different surfaces" do
+      # `match/3` resolves a threshold and builds no report, so only the
+      # postcondition guards it. A report built by hand never calls `threshold/1`,
+      # so only the invariant guards that. Neither is reachable from the other.
+      assert_postcondition_violation(Matching.threshold(threshold: 75), label: :is_a_proportion)
+
+      assert_invariant_violation(Report.total(%Report{threshold: 75.0}),
+        label: :threshold_is_a_proportion
+      )
+    end
+
+    test "a real report is unaffected" do
+      report = %Report{threshold: 0.75, matched: [], unmatched: []}
+
+      assert Report.total(report) == 0
+      assert Report.match_rate(report) == 1.0
+    end
+  end
+
+  describe "Transfer.match_rate/1 — now that the UI renders it" do
+    test "a ledger that does not add up is caught rather than displayed" do
+      # The re-run accumulation bug that actually happened here: six matched of
+      # three total. It would render as "200% of the source" on the transfer
+      # page. Falsifiable by data — no mutation needed.
+      assert_postcondition_violation(
+        Transfer.match_rate(%Transfer{total_tracks: 3, matched_count: 6}),
+        label: :is_a_proportion
+      )
+    end
+
+    test "the honest extremes still work" do
+      assert Transfer.match_rate(%Transfer{total_tracks: 0}) == 1.0
+      assert Transfer.match_rate(%Transfer{total_tracks: 10, matched_count: 0}) == 0.0
+      assert Transfer.match_rate(%Transfer{total_tracks: 10, matched_count: 10}) == 1.0
     end
   end
 
