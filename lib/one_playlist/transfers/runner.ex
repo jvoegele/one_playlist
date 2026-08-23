@@ -102,7 +102,13 @@ defmodule OnePlaylist.Transfers.Runner do
          {:ok, present} <-
            destination_adapter.playlist_track_ids(destination_connection, destination),
          resolutions =
-           resolve_all(tracks, destination_adapter, destination_connection, transfer.threshold),
+           resolve_all(
+             transfer,
+             tracks,
+             destination_adapter,
+             destination_connection,
+             transfer.threshold
+           ),
          {:ok, added} <-
            write_missing(
              resolutions,
@@ -196,11 +202,20 @@ defmodule OnePlaylist.Transfers.Runner do
     end
   end
 
-  defp resolve_all(tracks, adapter, connection, threshold) do
+  # Reports after each track rather than at the end. Matching a playlist is one
+  # rate-limited provider search per track, so a 58 track import is a minute or
+  # more of a page that otherwise says only "running".
+  defp resolve_all(transfer, tracks, adapter, connection, threshold) do
+    total = length(tracks)
+
     tracks
     |> Enum.with_index()
     |> Enum.map(fn {track, position} ->
-      {position, track, resolve(track, adapter, connection, threshold)}
+      resolution = {position, track, resolve(track, adapter, connection, threshold)}
+
+      _ = OnePlaylist.Transfers.report_progress(transfer, position + 1, total)
+
+      resolution
     end)
   end
 

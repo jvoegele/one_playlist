@@ -94,6 +94,44 @@ defmodule OnePlaylist.Providers.Connection do
     timestamps(type: :utc_datetime_usec)
   end
 
+  # How each service writes its own name. Facts rather than styling: TIDAL
+  # capitalises itself, Apple Music is two words, and rendering them from the
+  # atom would produce "Apple_music" or "Tidal" — neither of which is the
+  # service's name.
+  @display_names %{
+    spotify: "Spotify",
+    apple_music: "Apple Music",
+    youtube_music: "YouTube Music",
+    tidal: "TIDAL",
+    deezer: "Deezer",
+    plex: "Plex",
+    jellyfin: "Jellyfin",
+    navidrome: "Navidrome",
+    subsonic: "Subsonic",
+    # Not a service, and here because a transfer's *source* can be one — see
+    # `OnePlaylist.Transfers.Transfer.source_provider/0`. Anywhere a source is
+    # shown, this is the other thing it might say.
+    file: "File"
+  }
+
+  @doc """
+  The name a service uses for itself.
+
+  For display anywhere a provider is named. Falls back to the atom for anything
+  unrecognised, so a provider added to `@providers` and forgotten here shows up
+  as its own name rather than as blank.
+
+      iex> alias OnePlaylist.Providers.Connection
+      iex> {Connection.display_name(:tidal), Connection.display_name(:apple_music)}
+      {"TIDAL", "Apple Music"}
+      iex> Connection.display_name(:file)
+      "File"
+  """
+  # No connection to check, and none to build.
+  @bond_warn_skipped_invariants false
+  @spec display_name(atom()) :: String.t()
+  def display_name(provider), do: Map.get(@display_names, provider, to_string(provider))
+
   @doc "Every provider this application knows how to connect to."
   # No connection to check: this answers what the `provider` field may hold,
   # which is a fact about the type rather than about a value of it.

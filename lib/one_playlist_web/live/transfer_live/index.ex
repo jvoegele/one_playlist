@@ -5,6 +5,8 @@ defmodule OnePlaylistWeb.TransferLive.Index do
 
   use OnePlaylistWeb, :live_view
 
+  alias OnePlaylist.Providers.Connection
+
   alias OnePlaylist.Transfers
 
   @impl true
@@ -58,7 +60,9 @@ defmodule OnePlaylistWeb.TransferLive.Index do
                   {transfer.source_playlist_name || transfer.source_playlist_id}
                 </p>
                 <p class="text-sm opacity-70">
-                  {transfer.source_provider} → {transfer.destination_provider}
+                  {Connection.display_name(transfer.source_provider)} → {Connection.display_name(
+                    transfer.destination_provider
+                  )}
                 </p>
               </div>
 

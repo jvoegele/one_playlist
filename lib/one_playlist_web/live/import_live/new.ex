@@ -25,6 +25,7 @@ defmodule OnePlaylistWeb.ImportLive.New do
   alias OnePlaylist.Formats
   alias OnePlaylist.Imports
   alias OnePlaylist.Providers
+  alias OnePlaylist.Providers.Connection
 
   # Comfortably above a real playlist and below the bucket's own 5 MiB limit, so
   # an oversized file is refused by the browser with a useful message rather than
@@ -172,7 +173,7 @@ defmodule OnePlaylistWeb.ImportLive.New do
             </label>
             <select id="destination" name="destination" class="select select-bordered w-full">
               <option :for={connection <- @connections} value={connection.provider}>
-                {connection.display_name || connection.provider}
+                {destination_label(connection)}
               </option>
             </select>
           </div>
@@ -191,6 +192,20 @@ defmodule OnePlaylistWeb.ImportLive.New do
       </div>
     </Layouts.app>
     """
+  end
+
+  # The service first, because that is what the person is choosing. The account
+  # second and only when it says something the service name does not — with one
+  # connection per provider it is usually noise, but two Navidrome servers are
+  # indistinguishable without it.
+  defp destination_label(connection) do
+    service = Connection.display_name(connection.provider)
+
+    case connection.display_name do
+      nil -> service
+      ^service -> service
+      account -> "#{service} (#{account})"
+    end
   end
 
   defp default_destination([]), do: nil

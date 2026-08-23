@@ -62,6 +62,36 @@ defmodule OnePlaylist.Transfers do
   end
 
   @doc """
+  Tells subscribers how far a run has got, without writing anything.
+
+  Deliberately not persisted. The counters are written once at the end by
+  `record_run/3`, and a row update per track would be ten thousand writes for a
+  number nobody reads after the run finishes. A watcher that misses a message
+  gets the next one; a watcher that arrives late reads the counters.
+
+  This is what makes a progress bar possible at all: before it, the only thing
+  broadcast between "queued" and "completed" was the destination playlist being
+  created.
+  """
+  @spec report_progress(Transfer.t(), non_neg_integer(), non_neg_integer()) :: :ok
+  def report_progress(%Transfer{} = transfer, resolved, total) do
+    Phoenix.PubSub.broadcast(
+      OnePlaylist.PubSub,
+      "#{@topic}:#{transfer.id}",
+      {:transfer_progress, %{transfer_id: transfer.id, resolved: resolved, total: total}}
+    )
+    |> case do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        # A watcher not hearing about track 7 of 58 is not a failed transfer.
+        Logger.warning("transfer #{transfer.id} progress not broadcast: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  @doc """
   Creates a transfer and queues it, atomically.
 
   Returns the persisted transfer. The job is inserted in the same transaction,

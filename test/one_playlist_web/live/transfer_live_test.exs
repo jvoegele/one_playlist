@@ -194,6 +194,55 @@ defmodule OnePlaylistWeb.TransferLiveTest do
     end
   end
 
+  # `create_changeset/2` does not cast `status`, deliberately: a transfer is
+  # created pending and the pipeline moves it. `progress_changeset/2` is what
+  # the runner uses, so it is what a test should use too.
+  defp with_status(transfer, status) do
+    {:ok, updated} = OnePlaylist.Transfers.record_progress(transfer, %{status: status})
+    updated
+  end
+
+  describe "progress" do
+    test "a running transfer shows a bar that moves", %{conn: conn, user_id: user_id} do
+      # Before this the page said only "running" for the whole matching pass,
+      # which for a 58 track import is a minute or more of no information.
+      transfer = user_id |> transfer_fixture() |> with_status(:running)
+
+      {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert html =~ "Starting…", "no report yet reads as starting, not as zero of zero"
+
+      OnePlaylist.Transfers.report_progress(transfer, 23, 58)
+
+      html = render(view)
+
+      assert html =~ "Matching track 23 of 58"
+      assert html =~ "40%"
+    end
+
+    test "a finished transfer shows counters instead", %{conn: conn, user_id: user_id} do
+      # A full bar says less than "54 matched, 4 not found" does.
+      transfer = user_id |> transfer_fixture() |> with_status(:completed)
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ "Matching track"
+      refute html =~ "Starting…"
+    end
+  end
+
+  describe "provider names" do
+    test "are the names the services use for themselves", %{conn: conn, user_id: user_id} do
+      # Not "file → tidal".
+      transfer =
+        transfer_fixture(user_id, %{source_provider: :file, destination_provider: :tidal})
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert html =~ "File → TIDAL"
+    end
+  end
+
   describe "deleting" do
     test "removes the transfer and sends the user back to the list", %{
       conn: conn,

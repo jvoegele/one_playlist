@@ -16,6 +16,8 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   use OnePlaylistWeb, :live_view
 
+  alias OnePlaylist.Providers.Connection
+
   alias OnePlaylist.Transfers
   alias OnePlaylist.Transfers.Transfer
 
@@ -30,7 +32,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
       {:ok, transfer} ->
         if connected?(socket), do: watch(id)
 
-        {:ok, socket |> assign_transfer(transfer) |> assign(:filter, :all)}
+        {:ok,
+         socket
+         |> assign_transfer(transfer)
+         |> assign(:filter, :all)
+         # `nil` until the first report arrives, which reads as "Starting…"
+         # rather than as zero of zero.
+         |> assign(:progress, nil)}
 
       :error ->
         {:ok,
@@ -41,6 +49,10 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   end
 
   @impl true
+  def handle_info({:transfer_progress, %{resolved: resolved, total: total}}, socket) do
+    {:noreply, assign(socket, :progress, %{resolved: resolved, total: total})}
+  end
+
   def handle_info({:transfer_updated, transfer}, socket) do
     {:noreply, assign_transfer(socket, transfer)}
   end
@@ -86,7 +98,9 @@ defmodule OnePlaylistWeb.TransferLive.Show do
               {@transfer.source_playlist_name || @transfer.source_playlist_id}
             </h1>
             <p class="text-sm opacity-70">
-              {@transfer.source_provider} → {@transfer.destination_provider}
+              {Connection.display_name(@transfer.source_provider)} → {Connection.display_name(
+                @transfer.destination_provider
+              )}
             </p>
           </div>
 
@@ -99,20 +113,39 @@ defmodule OnePlaylistWeb.TransferLive.Show do
           ]}>
             {@transfer.status}
           </span>
+        </div>
 
-          <%!-- `data-confirm` rather than a modal. A transfer takes provider
+        <%!-- Only while a run is in flight. A finished transfer has counters,
+              which say more than a full bar does. --%>
+        <div :if={@transfer.status in [:pending, :running]} class="mb-6">
+          <div class="flex items-center justify-between text-sm mb-2">
+            <span class="opacity-70">
+              {if @progress, do: "Matching track #{@progress.resolved} of #{@progress.total}", else: "Starting…"}
+            </span>
+            <span :if={@progress} class="opacity-70 tabular-nums">
+              {round(@progress.resolved / max(@progress.total, 1) * 100)}%
+            </span>
+          </div>
+
+          <progress
+            class="progress progress-primary w-full"
+            value={(@progress && @progress.resolved) || 0}
+            max={(@progress && @progress.total) || 1}
+          ></progress>
+        </div>
+
+        <%!-- `data-confirm` rather than a modal. A transfer takes provider
                 calls to rebuild and its report is not reproducible, so the one
                 irreversible action on this page should cost a deliberate
                 click. --%>
-          <button
-            phx-click="delete"
-            data-confirm={"Delete #{@transfer.source_playlist_name || "this transfer"} and its report?"}
-            class="btn btn-ghost btn-sm text-error shrink-0"
-          >
-            <.icon name="hero-trash" class="w-4 h-4" />
-            <span class="hidden sm:inline">Delete</span>
-          </button>
-        </div>
+        <button
+          phx-click="delete"
+          data-confirm={"Delete #{@transfer.source_playlist_name || "this transfer"} and its report?"}
+          class="btn btn-ghost btn-sm text-error shrink-0"
+        >
+          <.icon name="hero-trash" class="w-4 h-4" />
+          <span class="hidden sm:inline">Delete</span>
+        </button>
 
         <div :if={@transfer.status in [:pending, :running]} class="mb-6">
           <div class="flex items-center gap-3 text-sm opacity-70">
