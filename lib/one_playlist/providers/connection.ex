@@ -170,6 +170,43 @@ defmodule OnePlaylist.Providers.Connection do
     do: expired?(connection, DateTime.add(now, skew_seconds, :second))
 
   @doc """
+  Whether this connection was granted a scope.
+
+  A question about a connection that was being asked inside
+  `OnePlaylist.Providers.Tidal`, spelled `"search.read" in (connection.scopes || [])`.
+  It belongs here: `scopes` is this struct's field, the `|| []` was working
+  around this struct's nilable column, and the next OAuth provider will ask the
+  same question.
+
+  Not hypothetical. The TIDAL account connected to this project had to be
+  re-authorized to grant `search.read`, because without it TIDAL answers
+  `400 INVALID_RESOURCE_ID` — an error naming neither scopes nor the parameter
+  it is really complaining about. Asking before calling is what turns that into
+  a message telling the user to reconnect.
+
+      iex> alias OnePlaylist.Providers.Connection
+      iex> Connection.grants?(%Connection{scopes: ["playlists.read", "search.read"]}, "search.read")
+      true
+      iex> Connection.grants?(%Connection{scopes: ["playlists.read"]}, "search.read")
+      false
+
+  A connection with no recorded scopes grants nothing, rather than raising —
+  the column is nilable, and an older row may predate scope capture entirely:
+
+      iex> alias OnePlaylist.Providers.Connection
+      iex> Connection.grants?(%Connection{scopes: nil}, "search.read")
+      false
+  """
+  # Stated because the *absence* of a scope has to be distinguishable from a
+  # connection that never recorded any. Answering `true` for an unknown scope
+  # set would send the call anyway and surface TIDAL's unhelpful 400; answering
+  # `false` sends the user to reconnect, which is the action that fixes it.
+  @post unrecorded_scopes_grant_nothing: is_nil(connection.scopes) ~> (result == false)
+  @spec grants?(t(), String.t()) :: boolean()
+  def grants?(%__MODULE__{} = connection, scope) when is_binary(scope),
+    do: scope in (connection.scopes || [])
+
+  @doc """
   Whether the connection can be used to call the provider right now.
 
   Deliberately does not consider expiry: an expired access token is refreshable,

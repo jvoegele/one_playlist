@@ -19,6 +19,7 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
 
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Payload
 
   @provider :tidal
 
@@ -48,11 +49,11 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       provider: @provider,
       provider_id: id,
       name: attributes["name"],
-      description: blank_to_nil(attributes["description"]),
-      track_count: non_negative_count(attributes["numberOfItems"]),
+      description: Payload.text(attributes["description"]),
+      track_count: Payload.count(attributes["numberOfItems"]),
       duration_seconds: Track.parse_iso8601_duration(attributes["duration"]),
-      created_at: parse_datetime(attributes["createdAt"]),
-      updated_at: parse_datetime(attributes["lastModifiedAt"]),
+      created_at: Payload.timestamp(attributes["createdAt"]),
+      updated_at: Payload.timestamp(attributes["lastModifiedAt"]),
       url: sharing_url(attributes["externalLinks"]),
       owned: attributes["playlistType"] == "USER"
     }
@@ -84,7 +85,7 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       provider_id: id,
       isrc: attributes["isrc"],
       title: attributes["title"],
-      version: blank_to_nil(attributes["version"]),
+      version: Payload.text(attributes["version"]),
       album: get_in(album, ["attributes", "title"]),
       # TIDAL exposes the release barcode on the album resource, so this costs
       # nothing extra when albums are already included — but it does *not*
@@ -92,7 +93,7 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       # on the relationship, so `track_number` stays nil here. Rung 2 of the
       # ladder therefore does not fire for TIDAL sources; the barcode is still
       # worth carrying, because it corroborates a text match strongly.
-      album_upc: blank_to_nil(get_in(album, ["attributes", "barcodeId"])),
+      album_upc: Payload.text(get_in(album, ["attributes", "barcodeId"])),
       artists: related_names(resource, "artists", index),
       duration_seconds: Track.parse_iso8601_duration(attributes["duration"]),
       explicit: attributes["explicit"],
@@ -317,24 +318,8 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
 
   defp sharing_url(_links), do: nil
 
-  defp parse_datetime(nil), do: nil
-
-  defp parse_datetime(value) when is_binary(value) do
-    case DateTime.from_iso8601(value) do
-      {:ok, datetime, _offset} -> datetime
-      {:error, _reason} -> nil
-    end
-  end
-
-  defp parse_datetime(_value), do: nil
-
   # External data, so this sanitizes rather than trusts. The postcondition above
   # is then a law about what this module *produces*, which is the only thing it
   # controls — a provider sending nonsense is not a programming error, and a
   # contract that raised on it would turn their bad data into our crash.
-  defp non_negative_count(count) when is_integer(count) and count >= 0, do: count
-  defp non_negative_count(_count), do: nil
-
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(value), do: value
 end

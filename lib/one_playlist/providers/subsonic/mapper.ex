@@ -24,6 +24,7 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
 
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Payload
 
   @provider :navidrome
 
@@ -62,9 +63,9 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
       # what rung 2 wants — but without a barcode to pair it with, it cannot
       # fire. Carried anyway: it costs nothing and a future provider pairing
       # would need it.
-      track_number: positive_integer(resource["track"]),
-      volume_number: positive_integer(resource["discNumber"]),
-      duration_seconds: non_negative_integer(resource["duration"]),
+      track_number: Payload.position(resource["track"]),
+      volume_number: Payload.position(resource["discNumber"]),
+      duration_seconds: Payload.count(resource["duration"]),
       explicit: resource["explicitStatus"] == "explicit",
       artists: artists(resource)
     }
@@ -79,11 +80,11 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
       provider: @provider,
       provider_id: to_string(resource["id"]),
       name: resource["name"],
-      description: blank_to_nil(resource["comment"]),
-      track_count: non_negative_integer(resource["songCount"]),
-      duration_seconds: non_negative_integer(resource["duration"]),
-      created_at: parse_datetime(resource["created"]),
-      updated_at: parse_datetime(resource["changed"]),
+      description: Payload.text(resource["comment"]),
+      track_count: Payload.count(resource["songCount"]),
+      duration_seconds: Payload.count(resource["duration"]),
+      created_at: Payload.timestamp(resource["created"]),
+      updated_at: Payload.timestamp(resource["changed"]),
       # Every playlist a Subsonic account can see through `getPlaylists` is
       # either its own or shared with it, and the API does not distinguish. A
       # transfer only ever *reads* a source, so guessing `true` here would be a
@@ -96,8 +97,8 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
   # different Subsonic implementation might send, because the protocol has
   # several servers and this field is an OpenSubsonic extension rather than part
   # of 1.16.1.
-  defp first_string(value) when is_binary(value), do: blank_to_nil(value)
-  defp first_string([first | _rest]) when is_binary(first), do: blank_to_nil(first)
+  defp first_string(value) when is_binary(value), do: Payload.text(value)
+  defp first_string([first | _rest]) when is_binary(first), do: Payload.text(first)
   defp first_string(_value), do: nil
 
   # `artists` is the OpenSubsonic structured field; `artist` is the 1.16.1
@@ -113,22 +114,4 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
 
   defp artists(%{"artist" => artist}) when is_binary(artist), do: [artist]
   defp artists(_resource), do: []
-
-  defp positive_integer(value) when is_integer(value) and value > 0, do: value
-  defp positive_integer(_value), do: nil
-
-  defp non_negative_integer(value) when is_integer(value) and value >= 0, do: value
-  defp non_negative_integer(_value), do: nil
-
-  defp parse_datetime(value) when is_binary(value) do
-    case DateTime.from_iso8601(value) do
-      {:ok, datetime, _offset} -> datetime
-      {:error, _reason} -> nil
-    end
-  end
-
-  defp parse_datetime(_value), do: nil
-
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(value), do: value
 end

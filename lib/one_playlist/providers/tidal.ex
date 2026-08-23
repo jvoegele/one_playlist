@@ -35,6 +35,11 @@ defmodule OnePlaylist.Providers.Tidal do
   alias OnePlaylist.Providers.Tidal.Mapper
   alias OnePlaylist.Providers.Tidal.OAuth
 
+  # TIDAL reports the absence of this as `400 INVALID_RESOURCE_ID`, naming
+  # neither scopes nor the parameter it is complaining about — so it is checked
+  # rather than discovered.
+  @search_scope "search.read"
+
   @impl true
   def provider, do: :tidal
 
@@ -163,12 +168,12 @@ defmodule OnePlaylist.Providers.Tidal do
   defp candidates(connection, %Track{} = track, opts),
     do: text_candidates(connection, track, opts)
 
-  # Needs the `search.read` scope, which a connection authorized before it was
+  # Needs this scope, which a connection authorized before it was
   # requested will not have — checked here because TIDAL reports its absence as
   # `400 INVALID_RESOURCE_ID`, which names neither scopes nor the parameter it
   # is really complaining about.
   defp text_candidates(connection, %Track{} = track, opts) do
-    if "search.read" in (connection.scopes || []) do
+    if Connection.grants?(connection, @search_scope) do
       Client.search_tracks(connection.access_token, Track.search_query(track), opts)
     else
       {:error,
@@ -176,7 +181,7 @@ defmodule OnePlaylist.Providers.Tidal do
          reason: :insufficient_scope,
          context: %{
            provider: :tidal,
-           required_scope: "search.read",
+           required_scope: @search_scope,
            granted_scopes: connection.scopes
          }
        )}

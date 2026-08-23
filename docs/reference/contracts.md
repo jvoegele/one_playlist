@@ -611,6 +611,33 @@ Record the measured range in a comment next to the assertion. The next person to
 fail needs to know whether they broke the generator or drew badly, and only the range answers
 that.
 
+### Duplicated private helpers are a missing module, and the module is where the contract goes
+
+Three helpers were byte-identical across `Tidal.Mapper` and `Subsonic.Mapper` —
+`blank_to_nil/1`, `parse_datetime/1`, and the same two lines named
+`non_negative_count/1` in one and `non_negative_integer/1` in the other. None was contracted,
+because a private helper is awkward to contract and pointless to contract twice.
+
+The duplication was the symptom; the missing abstraction was the cause. Every provider mapper
+stands at the same boundary — a stranger's JSON on one side, the values the matching engine
+compares on the other — and that boundary is exactly where
+[assert what you emit, never what you received](#that-external-data-was-well-formed) applies.
+Gathering them into `Providers.Payload` means each law is stated **once and inherited by every
+provider**, present and future.
+
+Two things worth copying from how it turned out:
+
+  * **Name for the value, not the guard.** `count/1` rather than `non_negative_integer/1`. The
+    old name described the check; the new one describes what a reader of `Mapper.playlist/1`
+    is getting. The postcondition can then carry the check without the name repeating it.
+  * **Near-duplicates are where the bugs hide.** `count/1` and `position/1` differ only on
+    zero, and that difference is load-bearing: a release has no track 0, and rung 2 pairs a
+    barcode with a position. Two private helpers under two names in two modules is precisely
+    the arrangement in which that distinction gets lost.
+
+The general move: **when the same private helper appears in two modules, do not extract it to
+whichever one seems closer — ask what boundary both modules are standing at, and name that.**
+
 ### An `@invariant` is only as reachable as its own module's API
 
 Bond checks a struct invariant on entry to and exit from **that struct module's** public
