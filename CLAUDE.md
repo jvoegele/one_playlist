@@ -409,7 +409,9 @@ A fresh session should read this before proposing what to build.
 | UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
 | Files | CSV playlists read and written, round-trip property tested; a private Supabase Storage bucket with per-user policies |
-| Import / export | A CSV upload becomes a queued transfer (`OnePlaylist.Imports`); a provider playlist becomes a stored CSV (`OnePlaylist.Exports`). No UI yet |
+| Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
+| Export | `OnePlaylist.Exports` writes a provider playlist to Storage as CSV. Context only, no UI yet |
+| Pruning | `pg_cron` drops the parsed tracks behind transfers that finished over 7 days ago. **Stored files are not pruned** — `storage.objects` refuses direct `DELETE`, so that needs the Storage API |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
@@ -423,6 +425,13 @@ report matched what actually landed in the destination.
     exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
     magic-link iteration painful until raised in `supabase/config.toml`.
 
+  * **Pruning stored files.** `pg_cron` handles the database side, and cannot touch Storage:
+    `storage.objects` carries a `protect_delete` trigger refusing direct `DELETE`. The
+    Supabase-native answer is `pg_net` calling the Storage API with a service key from Vault —
+    three unexercised surfaces at once, and a service key in the database. The ordinary answer
+    is an Oban job. Undecided.
+  * **A UI for export.** The context works; nothing calls it. A download button on the playlist
+    picker plus `Storage.signed_url/3` is most of it.
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
   * **Search recall, not the ladder.** With the duration fix in, the engine picks correctly from

@@ -23,9 +23,16 @@ defmodule OnePlaylistWeb.TransferLive.Index do
             <p class="text-sm opacity-70">Move a playlist, and see what happened to every track.</p>
           </div>
 
-          <.link navigate={~p"/transfers/new"} class="btn btn-primary">
-            <.icon name="hero-plus" class="w-4 h-4" /> New transfer
-          </.link>
+          <div class="flex gap-2">
+            <.link navigate={~p"/imports/new"} class="btn btn-ghost">
+              <.icon name="hero-document-arrow-up" class="w-4 h-4" />
+              <span class="hidden sm:inline">Import a file</span>
+            </.link>
+
+            <.link navigate={~p"/transfers/new"} class="btn btn-primary">
+              <.icon name="hero-plus" class="w-4 h-4" /> New transfer
+            </.link>
+          </div>
         </div>
 
         <div id="transfers" phx-update="stream" class="space-y-3">
