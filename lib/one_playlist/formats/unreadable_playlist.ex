@@ -17,6 +17,7 @@ defmodule OnePlaylist.Formats.UnreadablePlaylist do
     default_reason: :malformed,
     reasons: [
       :empty,
+      :looks_like_a_spreadsheet,
       :malformed,
       :no_header,
       :no_title_column,

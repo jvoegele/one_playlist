@@ -70,7 +70,31 @@ defmodule OnePlaylist.Formats.Csv do
   #
   # It reads both line endings and writes CRLF, which is the "strict out,
   # permissive in" rule this module follows everywhere else.
-  alias NimbleCSV.RFC4180, as: Parser
+  alias NimbleCSV.RFC4180, as: Comma
+
+  # RFC 4180 in every respect except the separator. Both exist because real
+  # exporters use them: Roon writes `;`, and a spreadsheet saved as "CSV" in a
+  # European locale does too, because `,` is the decimal point there. Tab is the
+  # third thing people mean when they say CSV.
+  NimbleCSV.define(OnePlaylist.Formats.Csv.Semicolon,
+    separator: ";",
+    escape: "\"",
+    line_separator: "\r\n"
+  )
+
+  NimbleCSV.define(OnePlaylist.Formats.Csv.Tab,
+    separator: "\t",
+    escape: "\"",
+    line_separator: "\r\n"
+  )
+
+  # Comma first, so it wins a tie — `Enum.max_by/2` keeps the first maximal
+  # element, and a single-column file parses identically under all three.
+  @parsers [
+    {",", Comma},
+    {";", OnePlaylist.Formats.Csv.Semicolon},
+    {"\t", OnePlaylist.Formats.Csv.Tab}
+  ]
 
   @columns ~w(title artists album isrc duration_seconds track_number disc_number version
               album_upc explicit)
@@ -96,7 +120,21 @@ defmodule OnePlaylist.Formats.Csv do
     "disc number" => "disc_number",
     "volume_number" => "disc_number",
     "upc" => "album_upc",
-    "barcode" => "album_upc"
+    "barcode" => "album_upc",
+    # Roon's spreadsheet export, which is the likely route in: Roon writes an
+    # .xlsx, the user opens it in Excel and saves as CSV. Its header row is
+    # `Album Artist, Album, Disc#, Track#, Title, Track Artist(s), ...`.
+    "track artist" => "artists",
+    "track artist(s)" => "artists",
+    "disc#" => "disc_number",
+    "track#" => "track_number"
+    #
+    # `Album Artist` is deliberately **not** aliased to `artists`. On a
+    # compilation it is "Various Artists", which is not the performer of any
+    # track on it — mapping it would give every row an artist that matches
+    # nothing, and a wrong artist is worse than none: the text rung needs
+    # `artists_agree`, so a confident wrong value rejects the right candidate
+    # where an absent one would have let the title carry the match.
   }
 
   @artist_separator ";"
@@ -123,6 +161,20 @@ defmodule OnePlaylist.Formats.Csv do
   """
   @impl true
   def parse(content, opts \\ [])
+
+  def parse(<<0x50, 0x4B, 0x03, 0x04>> <> _rest, _opts) do
+    # A ZIP, and in this context almost always an .xlsx — Roon exports both CSV
+    # and XLSX, and the spreadsheet is the one that looks more like a playlist to
+    # a person. Parsing it as text gives `:no_header` from a file that plainly
+    # has one, so it is worth the four bytes to say what actually happened.
+    {:error,
+     Errata.create(UnreadablePlaylist,
+       reason: :looks_like_a_spreadsheet,
+       message:
+         "that looks like a spreadsheet rather than a CSV — open it and save as CSV, " <>
+           "or export CSV directly"
+     )}
+  end
 
   def parse(content, opts) when is_binary(content) do
     provider = Keyword.get(opts, :provider, :file)
@@ -159,15 +211,18 @@ defmodule OnePlaylist.Formats.Csv do
   def render(tracks, opts \\ [])
 
   def render(tracks, _opts) when is_list(tracks) do
-    Parser.dump_to_iodata([@columns | Enum.map(tracks, &row/1)])
+    Comma.dump_to_iodata([@columns | Enum.map(tracks, &row/1)])
   end
 
   # ---------------------------------------------------------------------------
 
   defp rows(content) do
+    content = strip_bom(content)
+
+    parser = parser_for(content)
+
     content
-    |> strip_bom()
-    |> Parser.parse_string(skip_headers: false)
+    |> parser.parse_string(skip_headers: false)
     |> case do
       [] -> {:error, Errata.create(UnreadablePlaylist, reason: :empty)}
       rows -> {:ok, rows}
@@ -181,6 +236,27 @@ defmodule OnePlaylist.Formats.Csv do
          reason: :malformed,
          message: Exception.message(error)
        )}
+  end
+
+  # Which separator this file uses, decided by whichever one makes the header row
+  # into the most column names we recognise.
+  #
+  # This is not sniffing the *content*, which `OnePlaylist.Formats.for_filename/1`
+  # deliberately refuses to do. It is choosing the reading under which the file
+  # has a header we understand — and if none of them does, `column_index/1`
+  # rejects the file exactly as before. A comma-separated file scored under `;`
+  # yields one unrecognised column, so the comparison is not close.
+  defp parser_for(content) do
+    header = content |> String.split(["\r\n", "\n"], parts: 2) |> List.first() || ""
+
+    {_separator, parser} =
+      Enum.max_by(@parsers, fn {separator, _parser} -> recognised_columns(header, separator) end)
+
+    parser
+  end
+
+  defp recognised_columns(header, separator) do
+    header |> String.split(separator) |> Enum.count(&(canonical(&1) != nil))
   end
 
   # Excel writes UTF-8 with a byte order mark, and it lands on the first header

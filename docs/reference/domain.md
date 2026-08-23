@@ -406,6 +406,61 @@ ISRCs at all**, because they come from tagging rather than from a catalogue; the
 library can be rebuilt without them (`--no-isrc`) precisely so the text and fuzzy rungs can be
 measured carrying the whole match.
 
+### Playlist files — what a real exporter actually writes
+
+Learned from two Roon exports of the same 58-track playlist, 2026-08-23. Both are committed in
+trimmed form as `test/fixtures/roon_export.csv`; the reasoning is here because every item cost
+something to discover.
+
+| | What Roon writes |
+| --- | --- |
+| CSV separator | **`;`**, not `,` |
+| CSV header | `title;artist;album;isrc` — singular `artist` |
+| ISRC case | **lower** — `ussm10805339` |
+| Line endings | LF, no BOM |
+| Versions | in the title: `(Remastered)`, `(Live)`, `(Album Version)`, `(Brendan O'Brien Mix)` |
+| Duration | **absent entirely** |
+| XLSX columns | `Album Artist, Album, Disc#, Track#, Title, Track Artist(s), Composer(s), External Id, Source, Is Dup?, Is Hidden?, Tags, Path` |
+
+Four of those changed the code.
+
+**The separator is the one that mattered.** Read as comma-separated, the entire header is a
+single unrecognised column and the file is rejected outright — a total failure on the first real
+file we were handed. `;` is not a Roon quirk either: a spreadsheet saved as "CSV" in a European
+locale uses it, because `,` is the decimal point there. `OnePlaylist.Formats.Csv` now picks the
+separator that turns the header into the most column names it recognises, among `,`, `;` and tab.
+That is not sniffing content — it is choosing the reading under which the file has a header we
+understand, and a file none of them explains is rejected exactly as before.
+
+**Lower-case ISRCs were already handled, by luck rather than design.** Rung 1 compares for exact
+equality, so raw comparison would have silently killed the most trusted rung for every imported
+track. `Strategy.Isrc.normalize/1` upcases before comparing, so it works — and the codec
+deliberately stores what the file said, matching what the TIDAL and Subsonic mappers do. Pinned
+by a test now, because it held by accident.
+
+**Versions in the title are the right shape for the existing engine.** Roon has no version
+field, so `Rearviewmirror (Remastered)` arrives as one string —
+`OnePlaylist.Matching.Normalize` already takes titles apart and classifies `remaster` and
+`album version` as *editorial* (same performance, soft signal) while `live` is *discriminating*
+(different recording, vetoes). Nothing needed changing, which is worth recording as a
+confirmation rather than a non-event.
+
+**No duration at all**, so `duration_conflict` can never fire on a Roon import — the veto added
+after the MusicBrainz measurement is inert on exactly the input that most needs discrimination.
+This is the concrete form of the metadata problem: rung 1 works only where an ISRC is present
+(57 of 58 here), and everything else falls to text with no length to check it against.
+
+**The XLSX is richer than the CSV** — it carries `Track Artist(s)` separately from `Album
+Artist`, plus `Disc#`, `Track#`, `Source` (`Tidal`) and `Path`. Supporting it means a zip and an
+XML reader, so it is not done; `parse/2` detects the `PK\x03\x04` magic and says "save as CSV"
+rather than failing as `:no_header`. Its column names *are* aliased for CSV, because
+Roon → XLSX → Excel → "Save as CSV" is the likely route in.
+
+`Album Artist` is deliberately **not** aliased to artists. On a compilation it is "Various
+Artists", which performs nothing on the album — and a wrong artist is worse than none here,
+because the text rung needs `artists_agree`, so a confident wrong value rejects the right
+candidate where an absent one would have let the title carry the match.
+
 ### What has actually been measured about match quality
 
 Match quality is the product, so it is worth being precise about which numbers mean what.
