@@ -292,7 +292,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                   <td>
                     <div class="font-medium">{item.source_title || item.source_track_id}</div>
                     <div class="text-xs opacity-60">
-                      {item.source_artist}<span :if={item.source_album}> · {item.source_album}</span>
+                      {item.source_artist}<.album name={item.source_album} />
                     </div>
 
                     <%!-- What it actually chose. A row used to carry only the
@@ -307,10 +307,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                     >
                       <div class="opacity-80">{item.destination_title}</div>
                       <div class="opacity-50">
-                        {item.destination_artist}
-                        <span :if={item.destination_album}>
-                          · {item.destination_album}
-                        </span>
+                        {item.destination_artist}<.album name={item.destination_album} />
                       </div>
                     </div>
 
@@ -376,6 +373,21 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     """
   end
 
+  attr :name, :string, default: nil
+
+  # An album title is the title of a work, and titles of works are set in
+  # italics — the convention a record sleeve or a bibliography follows. One
+  # component rather than three call sites, so the source line, the matched line
+  # and the candidate list cannot drift apart on it.
+  #
+  # Renders nothing at all when there is no album, separator included: a
+  # dangling "Pearl Jam ·" is worse than no album.
+  defp album(assigns) do
+    ~H"""
+    <span :if={@name}> · <em>{@name}</em></span>
+    """
+  end
+
   attr :item, :map, required: true
   attr :correcting, :any, default: nil
 
@@ -408,9 +420,9 @@ defmodule OnePlaylistWeb.TransferLive.Show do
               <span class="text-xs opacity-60 shrink-0">{rejection(candidate)}</span>
             </div>
             <div class="text-xs opacity-60 truncate">
-              {candidate.artist}<span :if={candidate.album}> · {candidate.album}</span><span :if={
+              {candidate.artist}<.album name={candidate.album} /><span :if={candidate.duration_seconds}> · {duration(
                 candidate.duration_seconds
-              }> · {duration(candidate.duration_seconds)}</span>
+              )}</span>
             </div>
           </button>
         </li>

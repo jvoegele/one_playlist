@@ -290,6 +290,23 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       # with no explanation reads as though the engine were simply broken.
       assert html =~ "a different version", "the veto outranks the score and is reported first"
       assert html =~ "scored 0.71"
+
+      # An album title is the title of a work, so it is set in italics wherever
+      # it appears — the candidate list included.
+      assert html =~ "<em>Vitalogy</em>"
+      assert html =~ "<em>Live On Two Legs</em>"
+    end
+
+    test "an album title is italicised on the row as well as in the list", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      transfer = report_fixture(user_id, 1)
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert html =~ "<em>An Album</em>", "the source album"
+      assert html =~ "<em>A Destination Album</em>", "and the album it matched to"
     end
 
     test "a row that matched exactly offers nothing, because there is nothing to decide", %{
@@ -419,8 +436,12 @@ defmodule OnePlaylistWeb.TransferLiveTest do
             position: position,
             source_title: "Track #{position}",
             source_artist: "Somebody",
+            source_album: "An Album",
             outcome: :matched,
             destination_track_id: "d#{position}",
+            destination_title: "Track #{position}",
+            destination_artist: "Somebody",
+            destination_album: "A Destination Album",
             confidence: "exact",
             score: 1.0,
             strategy: "isrc",
