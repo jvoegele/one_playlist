@@ -34,6 +34,47 @@ Capabilities:
 - Long tail of platforms is a genuine moat: Plex, Jellyfin, Emby, Navidrome, Subsonic,
   Bandcamp, Beatport, SoundCloud, Pandora — plus per-platform read/write capability matrices.
 
+#### How their sync actually works, and why it matters to us
+
+Worth stating precisely, because it is a solved design we should adopt rather than reinvent,
+and because one of its constraints is one we hit independently.
+
+A sync slot pairs **one source playlist with one destination playlist**, and runs in **one
+direction**. It is not a bidirectional mirror. Frequency is daily, weekly or monthly. Two update
+methods:
+
+| Method | What it does | Source removals | Destination-only tracks |
+| --- | --- | --- | --- |
+| **Add** | Appends matched source tracks not already at the destination | **Not** propagated | Kept |
+| **Replace** | Rewrites the destination from the source | Propagated | **Removed** |
+
+Add checks the destination before writing, so it does not duplicate — the same snapshot-and-diff
+this project's `Runner` already does.
+
+**Replace is not available on every platform, and this is the interesting part.** Deleting a
+track from a playlist is an API capability some services simply do not offer; Apple Music
+withdrew its delete methods, so Soundiiz answers a Replace sync there with a "feature not
+available for this platform" error rather than silently doing something else.
+
+Two consequences for us:
+
+  * **Add-mode sync needs no capability we do not already have.** It is the existing transfer on
+    a schedule, and it works against every provider. Replace needs deletion, and therefore needs
+    the capability model below before it can be offered at all.
+  * **`OnePlaylist.Providers.Adapter` currently assumes every provider can do everything.** It
+    has `add_tracks/4` and no counterpart, which is what forced match override to be offered on
+    unmatched rows only — correcting a row that already matched would leave the wrong track in
+    the playlist with no way to remove it. The incumbent has the same underlying limitation and
+    models it explicitly as a per-platform capability. We should too: a
+    `capabilities/0` on the adapter behaviour, consulted by the UI and by the sync scheduler, so
+    that "this service cannot do that" is a fact the code carries rather than a surprise at the
+    call site.
+
+*(Sourced from Soundiiz's public feature and sync pages plus search summaries of their help
+centre — `support.soundiiz.com` refuses automated requests, so the help articles themselves were
+not read directly. Treat the table above as their documented behaviour, not as verified
+behaviour.)*
+
 ### TuneMyMusic — the simpler, cheaper one
 
 - ~20+ platforms, entirely browser-based, no install.
