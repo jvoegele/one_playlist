@@ -21,15 +21,10 @@ defmodule OnePlaylist.Matching.NormalizePropertyTest do
 
   ## The laws that are *not* contracts
 
-  Three of the properties below take two runs to see, which is what makes them
-  properties rather than postconditions (see the table in
-  `docs/reference/contracts.md`):
+  Two of the properties below take two runs to see and have no natural home in a
+  contract, because each compares the results of two *different* calls rather
+  than constraining one:
 
-    * **`text/1` is idempotent.** Load-bearing rather than tidy: the pipeline
-      applies it twice to the same data on the featured-artist path —
-      `featured_names/1` normalizes a segment, then hands it to `artists/1`,
-      which normalizes each piece again. A non-idempotent `text/1` would make
-      those two passes disagree, silently.
     * **`artists/1` does not care which separator a provider chose.** `"A & B"`,
       `"A, B"` and `"A and B"` are the same credit, and the whole reason the
       separator regex exists.
@@ -37,6 +32,12 @@ defmodule OnePlaylist.Matching.NormalizePropertyTest do
       brackets, after a dash, or in its own field — three places, and TIDAL uses
       a different one from Navidrome. Reading them differently is the bug the
       module was written to prevent.
+
+  Idempotence used to be listed here and no longer is. It compares two calls
+  too, but both are calls on the *same* value, so a postcondition can state it
+  by re-entering the function — which is where it now lives. See
+  `docs/reference/contracts.md`; getting that wrong is what kept it out of the
+  contract in the first place.
   """
 
   use ExUnit.Case, async: true
@@ -133,18 +134,11 @@ defmodule OnePlaylist.Matching.NormalizePropertyTest do
   # ── The laws that need two runs ─────────────────────────────────────────────
 
   describe "text/1" do
-    property "is idempotent" do
-      # Not tidiness. `featured_names/1` normalizes a segment and then hands it
-      # to `artists/1`, which normalizes each split piece again — so a second
-      # application happens on a real path, and if it changed anything the two
-      # passes would disagree about the same artist's name.
-      check all(raw <- text_generator()) do
-        once = Normalize.text(raw)
-
-        assert Normalize.text(once) == once
-      end
-    end
-
+    # `property "is idempotent"` lived here until idempotence became a
+    # postcondition on `text/1` itself, at which point `contract_holds/2` above
+    # drove it over the same generator and this said the same thing twice.
+    # Removed rather than kept for visibility, on the same grounds as the
+    # redundant guard deleted from `artists/1`.
     property "never invents content out of nothing" do
       # A normalizer that produced output from empty-ish input would be matching
       # on an artefact of its own making.

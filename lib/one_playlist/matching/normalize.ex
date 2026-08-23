@@ -164,6 +164,30 @@ defmodule OnePlaylist.Matching.Normalize do
   @post case_folded: result == String.downcase(result)
   @post only_letters_digits_and_spaces: not Regex.match?(~r/[^\p{L}\p{N} ]/u, result)
   @post single_spaced: result == String.trim(result) and not String.contains?(result, "  ")
+  # Added after the other three, and independent of them despite looking like a
+  # consequence — which was worth proving rather than assuming, since a
+  # `decomposed:` assertion was dropped from this very list for being implied.
+  #
+  # The three above constrain what the output *looks like*; this one constrains
+  # what `text/1` *is*: a projection. Nothing in "lowercase, letters and digits
+  # and single spaces, trimmed" forbids a pipeline that keeps changing its
+  # answer. Leading-article stripping is the plausible edit that separates them —
+  # a standard music-library normalization, and one this module may well want —
+  # under which "The The Beatles" normalizes to "the beatles" and then to
+  # "beatles", satisfying all three assertions above at every step. The band
+  # The The is a real counterexample rather than a contrived one.
+  #
+  # Idempotence is load-bearing here because the pipeline applies `text/1` twice
+  # to the same data: `featured_names/1` normalizes a segment before handing it
+  # to `artists/1`, which normalizes each split piece again. A non-projection
+  # would make those two passes disagree about one artist's name, silently.
+  #
+  # Last in the list on purpose. It is the only assertion that re-enters the
+  # function, so the three cheaper ones get to fail first and name the problem
+  # more precisely. Bond suppresses contract checking while evaluating an
+  # assertion — Eiffel's rule — so the nested call terminates instead of
+  # recursing forever, and is checked once rather than once per level.
+  @post idempotent: text(result) == result
   @spec text(String.t() | nil) :: String.t()
   def text(nil), do: ""
 

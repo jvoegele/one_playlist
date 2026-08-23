@@ -409,7 +409,7 @@ So the division of labour is not stylistic:
 | --- | --- |
 | Contracts | Structural violations — wrong element, wrong count, out of range, relationship broken |
 | Example tests | Wrong values that are structurally fine |
-| Property tests | Laws needing two runs to see: determinism, order-independence, monotonicity |
+| Property tests | Laws relating two *different* calls: order-independence, agreement between two spellings of one input |
 
 When a mutation survives, the question is which of the three is missing — and
 `docs/reference/contracts.md` has now been wrong about that twice by assuming it was the
@@ -440,6 +440,43 @@ enumerate. `Signals.compare/2` qualifies (four composed scoring functions, unbou
 and a mutation of `Enum.max/1` to `Enum.sum/1` that no example catches).
 `Tokens.from_oauth_response/2` barely does — four optional keys is sixteen combinations, and
 example tests can nearly enumerate that on their own.
+
+### "It takes two runs to see" does not mean it cannot be a postcondition
+
+The table above sorted idempotence into the property-test column, and that
+mis-sorting kept `Normalize.text/1`'s `idempotent` assertion out of its contract
+until it was added by hand. A postcondition may **call the function it belongs
+to**:
+
+```elixir
+@post idempotent: text(result) == result
+```
+
+Bond suppresses contract checking while evaluating an assertion — Eiffel's rule —
+so the nested call terminates rather than recursing forever, and is counted once
+rather than once per level. Worth knowing before assuming the shape is illegal.
+
+The real distinction is not "how many runs" but **what the law relates**:
+
+  * Two calls on the *same* value — idempotence, `f(f(x)) == f(x)` — is a claim
+    about one result and belongs in a postcondition, where it holds over every
+    input the application ever sees rather than over generated ones.
+  * Two calls on *different* values — "these two spellings of one credit agree",
+    "order does not matter" — has no single result to hang on, and stays a
+    property test.
+
+Put a self-invoking assertion **last**, so the cheaper ones fail first and name
+the problem more precisely.
+
+It also has to be checked for independence rather than assumed, exactly like any
+other addition to an existing list. `text/1` already asserted that its output is
+lowercase, is letters/digits/single-spaces only, and is trimmed — which sounds
+like it forces a fixed point and does not. Those three constrain what the output
+*looks like*; idempotence constrains what the function *is*. Leading-article
+stripping — a standard music-library normalization, and a plausible future edit
+here — separates them: "The The Beatles" becomes "the beatles" and then
+"beatles", satisfying all three at every step. (The band The The is a real
+counterexample, not a contrived one.)
 
 ### A postcondition on a pure function is a *production* assertion, not a test assertion
 
