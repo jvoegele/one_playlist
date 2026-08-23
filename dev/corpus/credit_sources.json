@@ -1,0 +1,962 @@
+[
+ {
+  "artist": "2Pac feat. Danny Boy",
+  "title": "I Ain't Mad at Cha",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500011",
+  "duration_seconds": 293,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. Danny Boy, Big Syke & CPO-Boss Hog",
+  "title": "Picture Me Rollin'",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500030",
+  "duration_seconds": 314,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. Dramacydal",
+  "title": "Me Against the World",
+  "album": "Me Against the World",
+  "isrc": "USIR19500003",
+  "duration_seconds": 280,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. Dramacydal",
+  "title": "Outlaw",
+  "album": "Me Against the World",
+  "isrc": "USIR19500015",
+  "duration_seconds": 272,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. George Clinton",
+  "title": "Can't C Me",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500027",
+  "duration_seconds": 330,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. Jewell, Dramacydal & Storm",
+  "title": "Thug Passion",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500017",
+  "duration_seconds": 307,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. K-Ci & JoJo",
+  "title": "How Do U Want It",
+  "album": "All Eyez on Me",
+  "isrc": "DEA450106900",
+  "duration_seconds": 287,
+  "category": "guest"
+ },
+ {
+  "artist": "2Pac feat. Richie Rich",
+  "title": "Heavy in the Game",
+  "album": "Me Against the World",
+  "isrc": "USIR19500007",
+  "duration_seconds": 263,
+  "category": "guest"
+ },
+ {
+  "artist": "50 Cent feat. Eminem",
+  "title": "Gatman and Robbin'",
+  "album": "The Massacre",
+  "isrc": "USIR10500266",
+  "duration_seconds": 226,
+  "category": "guest"
+ },
+ {
+  "artist": "50 Cent feat. Jamie Foxx",
+  "title": "Build You Up",
+  "album": "The Massacre",
+  "isrc": "USIR10500282",
+  "duration_seconds": 175,
+  "category": "guest"
+ },
+ {
+  "artist": "50 Cent feat. Olivia",
+  "title": "So Amazing",
+  "album": "The Massacre",
+  "isrc": "USIR10500281",
+  "duration_seconds": 196,
+  "category": "guest"
+ },
+ {
+  "artist": "50 Cent feat. Olivia",
+  "title": "Candy Shop",
+  "album": "The Massacre",
+  "isrc": "USIR10500072",
+  "duration_seconds": 209,
+  "category": "guest"
+ },
+ {
+  "artist": "50 Cent feat. The Game, Tony Yayo, Young Buck & Lloyd Banks",
+  "title": "Hate It or Love It (G-Unit remix)",
+  "album": "The Massacre",
+  "isrc": "USIR10500277",
+  "duration_seconds": 263,
+  "category": "guest"
+ },
+ {
+  "artist": "50 Cent feat. Tony Yayo",
+  "title": "My Toy Soldier",
+  "album": "The Massacre",
+  "isrc": "USIR10500269",
+  "duration_seconds": 224,
+  "category": "guest"
+ },
+ {
+  "artist": "Alicia Keys feat. John Mayer",
+  "title": "Lesson Learned",
+  "album": "As I Am",
+  "isrc": "USJAY0700220",
+  "duration_seconds": 253,
+  "category": "guest"
+ },
+ {
+  "artist": "Alicia Keys feat. Tony! Toni! Toné!",
+  "title": "Diary",
+  "album": "The Diary of Alicia Keys",
+  "isrc": "USJAY0300445",
+  "duration_seconds": 284,
+  "category": "guest"
+ },
+ {
+  "artist": "Beastie Boys feat. Nas",
+  "title": "Too Many Rappers (New Reactionaries version)",
+  "album": "Hot Sauce Committee Part Two",
+  "isrc": "USCA21100547",
+  "duration_seconds": 291,
+  "category": "guest"
+ },
+ {
+  "artist": "Beastie Boys feat. Santigold",
+  "title": "Don't Play No Game That I Can't Win",
+  "album": "Hot Sauce Committee Part Two",
+  "isrc": "USCA21100550",
+  "duration_seconds": 251,
+  "category": "guest"
+ },
+ {
+  "artist": "Chris Botti feat. Andrea Bocelli",
+  "title": "Per Te (For You)",
+  "album": "Impressions",
+  "isrc": "USSM11201518",
+  "duration_seconds": 265,
+  "category": "guest"
+ },
+ {
+  "artist": "Chris Botti feat. Caroline Campbell",
+  "title": "Oblivion",
+  "album": "Impressions",
+  "isrc": "USSM11201524",
+  "duration_seconds": 263,
+  "category": "guest"
+ },
+ {
+  "artist": "Chris Botti feat. David Foster",
+  "title": "Summertime",
+  "album": "Impressions",
+  "isrc": "USSM11201526",
+  "duration_seconds": 222,
+  "category": "guest"
+ },
+ {
+  "artist": "Chris Botti feat. Herbie Hancock",
+  "title": "Tango Suite",
+  "album": "Impressions",
+  "isrc": "USSM11201522",
+  "duration_seconds": 399,
+  "category": "guest"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Christ for President",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800066",
+  "duration_seconds": 162,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Walt Whitman's Niece",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800058",
+  "duration_seconds": 233,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Eisler on the Go",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800069",
+  "duration_seconds": 177,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Birds and Ships",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800061",
+  "duration_seconds": 135,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "One by One",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800068",
+  "duration_seconds": 205,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "The Unwelcome Guest",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800072",
+  "duration_seconds": 305,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "California Stars",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800059",
+  "duration_seconds": 298,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Another Man's Done Gone",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800071",
+  "duration_seconds": 96,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "At My Window Sad and Lonely",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800064",
+  "duration_seconds": 207,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Hoodoo Voodoo",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800062",
+  "duration_seconds": 192,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "She Came Along to Me",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800063",
+  "duration_seconds": 208,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Way Over Yonder in the Minor Key",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800060",
+  "duration_seconds": 246,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Hesitating Beauty",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800070",
+  "duration_seconds": 185,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Ingrid Bergman",
+  "album": "Mermaid Avenue",
+  "isrc": "GBCEJ0300152;USEE19800065",
+  "duration_seconds": 110,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "I Guess I Planted",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800067",
+  "duration_seconds": 213,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "My Flying Saucer",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "GBCEJ0300154;USEE10000592",
+  "duration_seconds": 105,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Feed of Man",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "USEE10000593",
+  "duration_seconds": 248,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Secret of the Sea",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "USEE10000516",
+  "duration_seconds": 162,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Meanest Man",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "USEE10000602",
+  "duration_seconds": 226,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "All You Fascists",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "USEE10000600",
+  "duration_seconds": 163,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "I Was Born",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "USEE10000595",
+  "duration_seconds": 110,
+  "category": "ampersand"
+ },
+ {
+  "artist": "Billy Bragg & Wilco",
+  "title": "Stetson Kennedy",
+  "album": "Mermaid Avenue, Vol. II",
+  "isrc": "USEE10000596",
+  "duration_seconds": 159,
+  "category": "ampersand"
+ },
+ {
+  "artist": "De La Soul with Jungle Brothers and Q-Tip",
+  "title": "Buddy",
+  "album": "3 Feet High and Rising",
+  "isrc": "USTB10250137",
+  "duration_seconds": 294,
+  "category": "with"
+ },
+ {
+  "artist": "Johnny Cash with June Carter Cash",
+  "title": "Jackson",
+  "album": "At Folsom Prison",
+  "isrc": "USSM16801309",
+  "duration_seconds": 192,
+  "category": "with"
+ },
+ {
+  "artist": "Johnny Cash with June Carter Cash",
+  "title": "Give My Love to Rose",
+  "album": "At Folsom Prison",
+  "isrc": "USSM16801310",
+  "duration_seconds": 160,
+  "category": "with"
+ },
+ {
+  "artist": "Johnny Cash with The Carter Family",
+  "title": "Were You There (When They Crucified My Lord)",
+  "album": "The Essential Johnny Cash",
+  "isrc": "USSM19930543",
+  "duration_seconds": 231,
+  "category": "with"
+ },
+ {
+  "artist": "Mike Simpson with SpongeBob SquarePants, Patrick Star & Goofy Goober",
+  "title": "The Goofy Goober Song",
+  "album": "The SpongeBob SquarePants Movie: Music From the Movie and More...",
+  "isrc": "USWB10403622",
+  "duration_seconds": 161,
+  "category": "with"
+ },
+ {
+  "artist": "Pink Floyd with Stéphane Grappelli",
+  "title": "Wish You Were Here",
+  "album": "Wish You Were Here (\"Experience Edition\" bonus disc)",
+  "isrc": "GBN9Y1100206",
+  "duration_seconds": 373,
+  "category": "with"
+ },
+ {
+  "artist": "Tom Rothrock with Jim Wise",
+  "title": "Goofy Goober Rock",
+  "album": "The SpongeBob SquarePants Movie: Music From the Movie and More...",
+  "isrc": "USWB10403629",
+  "duration_seconds": 174,
+  "category": "with"
+ },
+ {
+  "artist": "Eddie Vedder with Nusrat Fateh Ali Khan",
+  "title": "The Long Road",
+  "album": "Dead Man Walking: Music From and Inspired by the Motion Picture",
+  "isrc": null,
+  "duration_seconds": 331,
+  "category": "with"
+ },
+ {
+  "artist": "Neil Young with Pearl Jam",
+  "title": "Powder Finger",
+  "album": null,
+  "isrc": null,
+  "duration_seconds": 262,
+  "category": "with"
+ },
+ {
+  "artist": "Nusrat Fateh Ali Khan with Eddie Vedder",
+  "title": "The Face of Love",
+  "album": "Dead Man Walking: Music From and Inspired by the Motion Picture",
+  "isrc": null,
+  "duration_seconds": 341,
+  "category": "with"
+ },
+ {
+  "artist": "The Doors with Eddie Vedder",
+  "title": "Roadhouse Blues",
+  "album": null,
+  "isrc": null,
+  "duration_seconds": 350,
+  "category": "with"
+ },
+ {
+  "artist": "The Doors with Eddie Vedder",
+  "title": "Light My Fire",
+  "album": null,
+  "isrc": null,
+  "duration_seconds": 501,
+  "category": "with"
+ },
+ {
+  "artist": "The Doors with Eddie Vedder",
+  "title": "Break on Through",
+  "album": null,
+  "isrc": null,
+  "duration_seconds": 169,
+  "category": "with"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "Purple Rain",
+  "album": "Purple Rain",
+  "isrc": "USWB10001880;USWB10600305",
+  "duration_seconds": 521,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "Let's Go Crazy",
+  "album": "Purple Rain",
+  "isrc": "USWB19903188",
+  "duration_seconds": 279,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "Computer Blue",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 239,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "When Doves Cry",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 354,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "Darling Nikki",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 254,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "Take Me With U",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 234,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "Baby I'm a Star",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 264,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "I Would Die 4 U",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 169,
+  "category": "and"
+ },
+ {
+  "artist": "Prince and The Revolution",
+  "title": "The Beautiful Ones",
+  "album": "Purple Rain",
+  "isrc": null,
+  "duration_seconds": 313,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Lost in My Mind",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 259,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Sounds Like Hallelujah",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 190,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Cats and Dogs",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 115,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Heaven Go Easy on Me",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 340,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Ghosts",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 258,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Down in the Valley",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 303,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Coeur d'Alene",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 261,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Rivers and Roads",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 284,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Honey Come Home",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 201,
+  "category": "and"
+ },
+ {
+  "artist": "The Head and the Heart",
+  "title": "Winter Song",
+  "album": "The Head and the Heart",
+  "isrc": null,
+  "duration_seconds": 163,
+  "category": "and"
+ },
+ {
+  "artist": "Eminem feat. Dr. Dre, Snoop Dogg, Xzibit & Nate Dogg",
+  "title": "Bitch Please II",
+  "album": "The Marshall Mathers LP",
+  "isrc": "USIR10000591",
+  "duration_seconds": 288,
+  "category": "listed"
+ },
+ {
+  "artist": "Ghostface Killah feat. Raekwon & Theodore Unit (Trife Diesel, Cappadonna & Sun God)",
+  "title": "Dogs of War",
+  "album": "Fishscale",
+  "isrc": "USUM70601549",
+  "duration_seconds": 244,
+  "category": "listed"
+ },
+ {
+  "artist": "Ghostface Killah feat. Theodore Unit (Cappadonna, Shawn Wigs & Trife Diesel)",
+  "title": "Jellyfish",
+  "album": "Fishscale",
+  "isrc": "USUM70601446",
+  "duration_seconds": 230,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Alicia Keys",
+  "title": "Empire State of Mind",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900031",
+  "duration_seconds": 276,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Drake",
+  "title": "Off That",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900034",
+  "duration_seconds": 246,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + J. Cole",
+  "title": "A Star Is Born",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900034;USJZ10900035",
+  "duration_seconds": 228,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Kanye West",
+  "title": "Hate",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900038",
+  "duration_seconds": 151,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Kid Cudi",
+  "title": "Already Home",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900036;USJZ10900037",
+  "duration_seconds": 269,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Luke Steele",
+  "title": "What We Talkin' About",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900029",
+  "duration_seconds": 243,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Mr Hudson",
+  "title": "Young Forever",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900041",
+  "duration_seconds": 253,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Pharrell Williams",
+  "title": "So Ambitious",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900040",
+  "duration_seconds": 252,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Rihanna + Kanye West",
+  "title": "Run This Town",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900010",
+  "duration_seconds": 267,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Swizz Beatz",
+  "title": "On to the Next One",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900033",
+  "duration_seconds": 257,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z + Young Jeezy",
+  "title": "Real as It Gets",
+  "album": "The Blueprint 3",
+  "isrc": "USJZ10900032",
+  "duration_seconds": 252,
+  "category": "listed"
+ },
+ {
+  "artist": "JAY Z feat. Beanie Sigel, Memphis Bleek & Amil",
+  "title": "Pop 4 Roc",
+  "album": "Vol. 3... Life and Times of S. Carter",
+  "isrc": "USDJ29905318",
+  "duration_seconds": 275,
+  "category": "listed"
+ },
+ {
+  "artist": "Kanye West feat. JAY Z, Pusha T, Cyhi the Prynce, Swizz Beatz & RZA",
+  "title": "So Appalled",
+  "album": "My Beautiful Dark Twisted Fantasy",
+  "isrc": "USUM71027275",
+  "duration_seconds": 398,
+  "category": "listed"
+ },
+ {
+  "artist": "Kanye West feat. JAY Z, Rick Ross, Nicki Minaj & Bon Iver",
+  "title": "Monster",
+  "album": "My Beautiful Dark Twisted Fantasy",
+  "isrc": "USUM71026158",
+  "duration_seconds": 378,
+  "category": "listed"
+ },
+ {
+  "artist": "Kanye West feat. Mos Def, Freeway & The Boys Choir of Harlem",
+  "title": "Two Words",
+  "album": "The College Dropout",
+  "isrc": "USDJ20300915",
+  "duration_seconds": 266,
+  "category": "listed"
+ },
+ {
+  "artist": "OutKast feat. Konkrete, Big Gipp & Ludacris",
+  "title": "Tomb of the Boom",
+  "album": "Speakerboxxx / The Love Below",
+  "isrc": "USAR10301021",
+  "duration_seconds": 286,
+  "category": "listed"
+ },
+ {
+  "artist": "OutKast feat. Slimm Calhoun, Lil Jon & The East Side Boyz & Mello",
+  "title": "Last Call",
+  "album": "Speakerboxxx / The Love Below",
+  "isrc": "USAR10301029",
+  "duration_seconds": 237,
+  "category": "listed"
+ },
+ {
+  "artist": "Q-Tip feat. Korn / Q-Tip",
+  "title": "End of Time / Do It, See It, Be It",
+  "album": "Amplified",
+  "isrc": "USAR19900516",
+  "duration_seconds": 513,
+  "category": "listed"
+ },
+ {
+  "artist": "SpongeBob, Patrick & The Monsters",
+  "title": "Now That We're Men",
+  "album": "The SpongeBob SquarePants Movie: Music From the Movie and More...",
+  "isrc": "USWB10403630",
+  "duration_seconds": 110,
+  "category": "listed"
+ },
+ {
+  "artist": "Björk",
+  "title": "There's More to Life Than This (recorded live at the Milk Bar toilets)",
+  "album": "Debut",
+  "isrc": "GBBTF9300120",
+  "duration_seconds": 201,
+  "category": "version"
+ },
+ {
+  "artist": "De La Soul",
+  "title": "Plug Tunin' (original 12\" version)",
+  "album": "3 Feet High and Rising",
+  "isrc": "USTB10250143",
+  "duration_seconds": 223,
+  "category": "version"
+ },
+ {
+  "artist": "Elvis Presley",
+  "title": "The Wonder of You (live)",
+  "album": "The Top Ten Hits",
+  "isrc": "USRC17007752",
+  "duration_seconds": 156,
+  "category": "version"
+ },
+ {
+  "artist": "Eminem feat. Elton John",
+  "title": "Stan (live)",
+  "album": "Curtain Call: The Hits",
+  "isrc": "USIR10110256",
+  "duration_seconds": 380,
+  "category": "version"
+ },
+ {
+  "artist": "Fugees",
+  "title": "Fu-Gee-La (Refugee Camp remix)",
+  "album": "The Score",
+  "isrc": "USSM19501948",
+  "duration_seconds": 264,
+  "category": "version"
+ },
+ {
+  "artist": "Fugees",
+  "title": "Fu-Gee-La (Sly & Robbie mix)",
+  "album": "The Score",
+  "isrc": "USSM19501951",
+  "duration_seconds": 327,
+  "category": "version"
+ },
+ {
+  "artist": "James Brown",
+  "title": "I Don't Mind (live)",
+  "album": "Star Time (disc 1: Mr. Dynamite)",
+  "isrc": "USF066325050",
+  "duration_seconds": 150,
+  "category": "version"
+ },
+ {
+  "artist": "James Brown",
+  "title": "There Was a Time (live)",
+  "album": "Star Time (disc 2: The Hardest Working Man in Show Business)",
+  "isrc": "USPR39882337",
+  "duration_seconds": 298,
+  "category": "version"
+ },
+ {
+  "artist": "James Brown",
+  "title": "Brother Rapp / Ain't It Funky Now (live)",
+  "album": "Star Time (disc 3: Soul Brother No. 1)",
+  "isrc": "USUR10200482",
+  "duration_seconds": 465,
+  "category": "version"
+ },
+ {
+  "artist": "James Brown",
+  "title": "It's a New Day (live)",
+  "album": "Star Time (disc 3: Soul Brother No. 1)",
+  "isrc": "USPR37180236",
+  "duration_seconds": 229,
+  "category": "version"
+ },
+ {
+  "artist": "Johnny Cash",
+  "title": "Sunday Morning Coming Down (live)",
+  "album": "The Essential Johnny Cash",
+  "isrc": "USSM17000572",
+  "duration_seconds": 249,
+  "category": "version"
+ },
+ {
+  "artist": "Johnny Cash",
+  "title": "Folsom Prison Blues (live)",
+  "album": "The Essential Johnny Cash",
+  "isrc": "USSM16800410",
+  "duration_seconds": 164,
+  "category": "version"
+ },
+ {
+  "artist": "Johnny Cash",
+  "title": "A Boy Named Sue (live)",
+  "album": "The Essential Johnny Cash",
+  "isrc": "USSM16900746",
+  "duration_seconds": 226,
+  "category": "version"
+ },
+ {
+  "artist": "Kanye West",
+  "title": "Pinocchio Story (freestyle live from Singapore)",
+  "album": "808s & Heartbreak",
+  "isrc": "USUM70846838",
+  "duration_seconds": 361,
+  "category": "version"
+ },
+ {
+  "artist": "Kanye West feat. JAY Z",
+  "title": "Diamonds From Sierra Leone (remix)",
+  "album": "Late Registration",
+  "isrc": "USUM70502927",
+  "duration_seconds": 233,
+  "category": "version"
+ },
+ {
+  "artist": "King Crimson",
+  "title": "I Talk to the Wind (duo version)",
+  "album": "In the Court of the Crimson King",
+  "isrc": "GBCTX0900297",
+  "duration_seconds": 285,
+  "category": "version"
+ },
+ {
+  "artist": "LCD Soundsystem",
+  "title": "Yeah (pretentious version)",
+  "album": "LCD Soundsystem",
+  "isrc": "US4GE0400038",
+  "duration_seconds": 666,
+  "category": "version"
+ },
+ {
+  "artist": "LCD Soundsystem",
+  "title": "Yeah (crass version)",
+  "album": "LCD Soundsystem",
+  "isrc": "US4GE0400037",
+  "duration_seconds": 561,
+  "category": "version"
+ },
+ {
+  "artist": "LCD Soundsystem",
+  "title": "Yr City's a Sucker (full version)",
+  "album": "LCD Soundsystem",
+  "isrc": "US4GE0400044",
+  "duration_seconds": 562,
+  "category": "version"
+ },
+ {
+  "artist": "N.W.A",
+  "title": "Dopeman (remix)",
+  "album": "Straight Outta Compton",
+  "isrc": "USPO10000882",
+  "duration_seconds": 320,
+  "category": "version"
+ },
+ {
+  "artist": "N.W.A",
+  "title": "8 Ball (remix)",
+  "album": "Straight Outta Compton",
+  "isrc": "USPO10000877",
+  "duration_seconds": 292,
+  "category": "version"
+ },
+ {
+  "artist": "N.W.A",
+  "title": "Compton's N the House (remix)",
+  "album": "Straight Outta Compton",
+  "isrc": "USPO10000880",
+  "duration_seconds": 320,
+  "category": "version"
+ }
+]

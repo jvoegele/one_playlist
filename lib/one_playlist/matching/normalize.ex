@@ -126,12 +126,17 @@ defmodule OnePlaylist.Matching.Normalize do
   # collaboration — a recording neither artist made alone — and a credit one
   # service spells out where another does not.
   #
-  # `with` is grouped with the featuring markers rather than the co-billing
-  # ones, matching how `@featuring_markers` reads it inside a title, and
-  # because being wrong in that direction costs a tolerated match rather than a
-  # wrong one.
-  @featuring_separators ~r/(?<=\S)\s(?:feat|ft|featuring|with)\s(?=\S)/u
-  @cobilling_separators ~r/(?<=\S)\s(?:x|and|vs)\s(?=\S)/u
+  # `with` co-bills here, and is a *guest* marker inside a title — the two are
+  # genuinely different and `@featuring_markers` above is right for its own job.
+  # "Song (with X)" names a guest on one artist's recording. "A with B", as a
+  # credit, names a recording the two made together: Neil Young *with* Pearl Jam
+  # is the Mirror Ball collaboration, not a Neil Young track Pearl Jam appear on.
+  #
+  # This was the other way round for an afternoon, and a local library spelling
+  # the same collaboration "with" where a Roon export spelled it "&" is what
+  # caught it.
+  @featuring_separators ~r/(?<=\S)\s(?:feat|ft|featuring)\s(?=\S)/u
+  @cobilling_separators ~r/(?<=\S)\s(?:x|and|with|vs)\s(?=\S)/u
 
   @doc """
   Case-, accent- and punctuation-insensitive form of a string.
