@@ -29,6 +29,11 @@ defmodule OnePlaylistWeb.TransferLive.Index do
               <span class="hidden sm:inline">Import a file</span>
             </.link>
 
+            <.link navigate={~p"/exports/new"} class="btn btn-ghost">
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+              <span class="hidden sm:inline">Export</span>
+            </.link>
+
             <.link navigate={~p"/transfers/new"} class="btn btn-primary">
               <.icon name="hero-plus" class="w-4 h-4" /> New transfer
             </.link>

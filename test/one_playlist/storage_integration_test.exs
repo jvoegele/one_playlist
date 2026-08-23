@@ -52,7 +52,7 @@ defmodule OnePlaylist.StorageIntegrationTest do
     test "can be handed to a browser as a signed URL", %{alice: alice, path: path} do
       # The bucket is private, so this is the only way to give a browser the file
       # without proxying every byte through Phoenix.
-      assert {:ok, url} = Storage.signed_url(alice, path, 60)
+      assert {:ok, url} = Storage.signed_url(alice, path, expires_in: 60)
       assert url =~ "token="
       assert url =~ "playlists"
     end

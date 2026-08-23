@@ -170,12 +170,30 @@ defmodule OnePlaylist.Storage do
   Signed for an hour by default. Long enough to click, short enough that a URL
   pasted into a chat or captured in a proxy log stops working before it is
   interesting.
+
+  ## Options
+
+    * `:expires_in` — seconds. Defaults to an hour.
+    * `:download` — `true` to make the browser save rather than display the
+      file, or a filename to save it as.
+
+  That last option is what lets an object key and the name a person sees differ,
+  which they should. `path_for/3` reduces a key to characters needing no URL
+  encoding, so a playlist called *Road Trip 2026* is stored as
+  `Road-Trip-2026.csv`; passing `download: "Road Trip 2026.csv"` puts the name
+  they chose in their downloads folder. Supabase carries it as a query
+  parameter, where it is encoded properly.
   """
-  @spec signed_url(Session.t(), String.t(), pos_integer()) ::
+  @spec signed_url(Session.t(), String.t(), keyword()) ::
           {:ok, String.t()} | {:error, Errata.Error.t()}
-  def signed_url(%Session{} = session, path, expires_in \\ 3600) do
+  def signed_url(%Session{} = session, path, opts \\ []) do
+    signing =
+      opts
+      |> Keyword.take([:download])
+      |> Keyword.put(:expires_in, Keyword.get(opts, :expires_in, 3600))
+
     with {:ok, storage} <- storage(session) do
-      StorageFile.create_signed_url(storage, path, expires_in: expires_in)
+      StorageFile.create_signed_url(storage, path, signing)
     end
     |> classified(:signed_url)
   end
