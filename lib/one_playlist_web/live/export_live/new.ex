@@ -29,33 +29,52 @@ defmodule OnePlaylistWeb.ExportLive.New do
 
   alias OnePlaylist.Exports
   alias OnePlaylist.Providers
+  alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Storage
 
   @impl true
   def mount(_params, _session, socket) do
-    user_id = socket.assigns.current_user_id
-    connections = Providers.list_connections(user_id)
+    connections = Providers.list_connections(socket.assigns.current_user_id)
+    source = default_provider(connections)
 
     {:ok,
      socket
      |> assign(:page_title, "Export a playlist")
      |> assign(:connections, connections)
+     |> assign(:source, source)
      |> assign(:exporting, nil)
      |> assign(:ready, nil)
      |> assign(:error, nil)
-     |> assign_async(:playlists, fn -> load_playlists(user_id) end)}
+     |> load_playlists(source)}
+  end
+
+  @impl true
+  def handle_event("source", %{"provider" => provider}, socket) do
+    source = String.to_existing_atom(provider)
+    true = Enum.any?(socket.assigns.connections, &(&1.provider == source))
+
+    {:noreply,
+     socket
+     |> assign(:source, source)
+     # A signed URL for the previous service's playlist is still valid, but
+     # showing it under a different service's list reads as if it came from
+     # there.
+     |> assign(:ready, nil)
+     |> assign(:error, nil)
+     |> load_playlists(source)}
   end
 
   @impl true
   def handle_event("export", %{"id" => id, "name" => name}, socket) do
     session = socket.assigns.current_session
+    source = socket.assigns.source
 
     {:noreply,
      socket
      |> assign(:exporting, id)
      |> assign(:ready, nil)
      |> assign(:error, nil)
-     |> start_async(:export, fn -> export(session, id, name) end)}
+     |> start_async(:export, fn -> export(session, source, id, name) end)}
   end
 
   @impl true
@@ -118,6 +137,23 @@ defmodule OnePlaylistWeb.ExportLive.New do
           </a>
         </div>
 
+        <div :if={@connections != []} class="mb-6">
+          <label class="label" for="source">
+            <span class="label-text">Export from</span>
+          </label>
+          <form id="source-form" phx-change="source">
+            <select id="source" name="provider" class="select select-bordered w-full">
+              <option
+                :for={connection <- @connections}
+                value={connection.provider}
+                selected={connection.provider == @source}
+              >
+                {Connection.label(connection)}
+              </option>
+            </select>
+          </form>
+        </div>
+
         <.async_result :let={playlists} assign={@playlists}>
           <:loading>
             <div class="text-center py-16 opacity-70">
@@ -169,17 +205,29 @@ defmodule OnePlaylistWeb.ExportLive.New do
 
   # Runs off the socket, so it takes the session rather than reaching for
   # assigns: the task has no socket, and closing over one would copy it.
-  defp export(session, playlist_id, name) do
-    with {:ok, exported} <- Exports.export(session, :tidal, playlist_id, name: name),
+  defp export(session, provider, playlist_id, name) do
+    with {:ok, exported} <- Exports.export(session, provider, playlist_id, name: name),
          {:ok, url} <-
            Storage.signed_url(session, exported.path, download: exported.filename) do
       {:ok, Map.put(exported, :url, url)}
     end
   end
 
-  defp load_playlists(user_id) do
-    with {:ok, connection} <- Providers.fetch_usable_connection(user_id, :tidal),
-         {:ok, adapter} <- Providers.adapter(:tidal),
+  defp load_playlists(socket, nil),
+    do: assign_async(socket, :playlists, fn -> {:ok, %{playlists: []}} end)
+
+  defp load_playlists(socket, provider) do
+    user_id = socket.assigns.current_user_id
+
+    assign_async(socket, :playlists, fn -> read_playlists(user_id, provider) end)
+  end
+
+  defp default_provider([]), do: nil
+  defp default_provider([connection | _rest]), do: connection.provider
+
+  defp read_playlists(user_id, provider) do
+    with {:ok, connection} <- Providers.fetch_usable_connection(user_id, provider),
+         {:ok, adapter} <- Providers.adapter(provider),
          {:ok, stream} <- adapter.stream_playlists(connection, []) do
       # Bounded for the same reason `TransferLive.New` bounds it: this is a
       # picker, not a library browser.

@@ -132,6 +132,36 @@ defmodule OnePlaylist.Providers.Connection do
   @spec display_name(atom()) :: String.t()
   def display_name(provider), do: Map.get(@display_names, provider, to_string(provider))
 
+  @doc """
+  How to name one *connection* in a picker.
+
+  The service first, because that is what a person is choosing. The account
+  after it, and only when it says something the service name does not: with one
+  connection per provider the account is usually noise, but two Navidrome
+  servers are indistinguishable without it.
+
+      iex> alias OnePlaylist.Providers.Connection
+      iex> Connection.label(%Connection{provider: :tidal, display_name: "jason"})
+      "TIDAL (jason)"
+      iex> Connection.label(%Connection{provider: :tidal, display_name: nil})
+      "TIDAL"
+      iex> Connection.label(%Connection{provider: :tidal, display_name: "TIDAL"})
+      "TIDAL"
+  """
+  # Reads two fields and builds no connection, so there is nothing for the
+  # invariant to check on the way out.
+  @bond_warn_skipped_invariants false
+  @spec label(t()) :: String.t()
+  def label(%__MODULE__{} = connection) do
+    service = display_name(connection.provider)
+
+    case connection.display_name do
+      nil -> service
+      ^service -> service
+      account -> "#{service} (#{account})"
+    end
+  end
+
   @doc "Every provider this application knows how to connect to."
   # No connection to check: this answers what the `provider` field may hold,
   # which is a fact about the type rather than about a value of it.

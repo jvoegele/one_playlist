@@ -435,12 +435,13 @@ A fresh session should read this before proposing what to build.
 | Providers | **TIDAL** (OAuth + PKCE, encrypted tokens, refresh) and **any Subsonic server** (Navidrome) |
 | Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto, a duration conflict that makes the text rung decline, and a confidence threshold |
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
-| UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
+| UI | LiveView: connect a service, list transfers, pick a source and destination from your connections, watch the report fill in row by row |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
 | Files | CSV playlists read and written, round-trip property tested; a private Supabase Storage bucket with per-user policies |
 | Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
 | Export | Download a playlist as CSV at `/exports/new`, via a signed URL |
 | Pruning | Four nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, old export files, and uploads no transfer refers to. The last two call the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
+| Limits | A source playlist over `max_tracks` (10,000 by default) is refused with `PlaylistTooLarge`, before a track is read past the limit. The worker cancels rather than retries any error whose `retryable?/1` says not to |
 | Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 

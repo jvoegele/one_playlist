@@ -173,7 +173,7 @@ defmodule OnePlaylistWeb.ImportLive.New do
             </label>
             <select id="destination" name="destination" class="select select-bordered w-full">
               <option :for={connection <- @connections} value={connection.provider}>
-                {destination_label(connection)}
+                {Connection.label(connection)}
               </option>
             </select>
           </div>
@@ -192,20 +192,6 @@ defmodule OnePlaylistWeb.ImportLive.New do
       </div>
     </Layouts.app>
     """
-  end
-
-  # The service first, because that is what the person is choosing. The account
-  # second and only when it says something the service name does not — with one
-  # connection per provider it is usually noise, but two Navidrome servers are
-  # indistinguishable without it.
-  defp destination_label(connection) do
-    service = Connection.display_name(connection.provider)
-
-    case connection.display_name do
-      nil -> service
-      ^service -> service
-      account -> "#{service} (#{account})"
-    end
   end
 
   defp default_destination([]), do: nil
