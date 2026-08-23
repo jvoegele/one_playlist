@@ -10,6 +10,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   use OnePlaylistWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import Req.Test, only: [set_req_test_from_context: 1]
 
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Repo
@@ -17,6 +18,8 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
+
+  setup :set_req_test_from_context
 
   setup %{conn: conn} do
     user_id = AuthFixtures.user_id_fixture()
@@ -201,6 +204,172 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   defp with_status(transfer, status) do
     {:ok, updated} = OnePlaylist.Transfers.record_progress(transfer, %{status: status})
     updated
+  end
+
+  describe "correcting a match by hand" do
+    # The candidates are stored on the report row, so this needs no provider
+    # stub to render — which is the point of storing them.
+    defp report_with_alternatives(user_id) do
+      transfer = transfer_fixture(user_id)
+
+      candidates = [
+        %{
+          "provider_id" => "d-live",
+          "title" => "Corduroy (Live)",
+          "artist" => "Pearl Jam",
+          "album" => "Live On Two Legs",
+          "score" => 0.94,
+          "confidence" => "high",
+          "strategy" => "text",
+          "version_conflict" => true,
+          "duration_conflict" => false,
+          "editorial_conflict" => false,
+          "duration_delta_seconds" => 41
+        },
+        %{
+          "provider_id" => "d-studio",
+          "title" => "Corduroy",
+          "artist" => "Pearl Jam",
+          "album" => "Vitalogy",
+          "score" => 0.71,
+          "confidence" => "low",
+          "strategy" => "text",
+          "version_conflict" => false,
+          "duration_conflict" => false,
+          "editorial_conflict" => false,
+          "duration_delta_seconds" => 1
+        }
+      ]
+
+      items = [
+        %{
+          transfer_id: transfer.id,
+          user_id: user_id,
+          source_track_id: "s0",
+          position: 0,
+          source_title: "Corduroy",
+          source_artist: "Pearl Jam",
+          outcome: :unmatched,
+          destination_track_id: nil,
+          confidence: nil,
+          score: nil,
+          strategy: nil,
+          reason: "below_threshold",
+          candidates: candidates
+        }
+      ]
+
+      counted = %{
+        transfer
+        | total_tracks: 1,
+          matched_count: 0,
+          added_count: 0,
+          unmatched_count: 1
+      }
+
+      {:ok, finished} = Transfers.record_run(transfer, counted, items)
+      {:ok, finished} = Transfers.record_progress(finished, %{status: :completed})
+      finished
+    end
+
+    test "an unmatched row offers what was rejected, and why", %{conn: conn, user_id: user_id} do
+      transfer = report_with_alternatives(user_id)
+
+      {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ "Corduroy (Live)", "the alternatives should be behind a click"
+      assert html =~ "Fix this"
+
+      html = view |> element("button[phx-value-position='0']", "Fix this") |> render_click()
+
+      assert html =~ "Corduroy (Live)"
+      assert html =~ "Vitalogy"
+
+      # The reason is the whole value of showing them. A list of rejected tracks
+      # with no explanation reads as though the engine were simply broken.
+      assert html =~ "a different version", "the veto outranks the score and is reported first"
+      assert html =~ "scored 0.71"
+    end
+
+    test "a row that matched exactly offers nothing, because there is nothing to decide", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      transfer = report_fixture(user_id, 3)
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ "Fix this"
+    end
+
+    test "choosing one adds it, and the report says a person decided", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      {:ok, _connection} =
+        OnePlaylist.Providers.connect(user_id, :tidal, %{
+          provider_user_id: "67373615",
+          access_token: "at",
+          refresh_token: "rt",
+          access_token_expires_at: DateTime.add(DateTime.utc_now(), 3600),
+          country: "US"
+        })
+
+      added = start_supervised!({Agent, fn -> [] end})
+
+      Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        Agent.update(added, &[body | &1])
+
+        Req.Test.json(conn, %{})
+      end)
+
+      transfer = report_with_alternatives(user_id)
+
+      {:ok, transfer} =
+        Transfers.record_progress(transfer, %{destination_playlist_id: "dest-1"})
+
+      conn = log_in_user(conn, AuthFixtures.session_fixture(user_id: user_id))
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      _ = view |> element("button[phx-value-position='0']", "Fix this") |> render_click()
+
+      html =
+        view
+        |> element("button[phx-value-candidate='1']")
+        |> render_click()
+
+      assert Agent.get(added, & &1) != [], "the chosen track has to reach the destination"
+      assert hd(Agent.get(added, & &1)) =~ "d-studio"
+
+      assert html =~ "Added Corduroy"
+
+      # The counters move together, and the row now says who decided.
+      assert html =~ "manual"
+
+      assert [%{outcome: :matched} = fixed] = Transfers.items(transfer)
+      assert fixed.destination_track_id == "d-studio"
+      assert fixed.strategy == "manual"
+
+      assert {:ok, updated} = Transfers.fetch(user_id, transfer.id)
+      assert updated.unmatched_count == 0
+      assert updated.matched_count == 1
+      assert updated.added_count == 1
+    end
+
+    test "a forged candidate index cannot add an arbitrary track", %{conn: conn, user_id: user_id} do
+      # The index arrives from the browser. The row's own candidate list is the
+      # authority on what may be chosen, so an index outside it must resolve to
+      # nothing rather than to something.
+      transfer = report_with_alternatives(user_id)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+      _ = view |> element("button[phx-value-position='0']", "Fix this") |> render_click()
+
+      html = render_hook(view, "choose", %{"position" => "0", "candidate" => "99"})
+
+      assert html =~ "no longer among the alternatives"
+    end
   end
 
   describe "a report too big for one page" do

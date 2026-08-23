@@ -432,10 +432,25 @@ defmodule OnePlaylist.TransfersTest do
       assert "ds2" in Agent.get(state, & &1.added),
              "a correction that does not reach the destination is a report that lies"
 
+      # Re-read rather than trusting the returned struct. `Repo.update/1` answers
+      # with its changeset's data merged with its changes, so a changeset that
+      # carried the corrected counters as *data* and none of them as *changes*
+      # returns exactly the right numbers and writes none of them. That is not a
+      # hypothetical: it is what this did until the LiveView test re-read the
+      # row and found the summary unchanged.
+      assert {:ok, corrected} = Transfers.fetch(corrected.user_id, corrected.id)
+
       assert corrected.unmatched_count == transfer.unmatched_count - 1
       assert corrected.matched_count == transfer.matched_count + 1
       assert corrected.added_count == transfer.added_count + 1
       assert corrected.total_tracks == transfer.total_tracks
+
+      # The law `record_run/3` enforces before every write, checked at the one
+      # point where no run is involved and so nothing else enforces it: the
+      # summary and the report have to describe the same transfer.
+      assert Transfer.tally(corrected) ==
+               corrected |> Transfers.items() |> OnePlaylist.Transfers.TransferItem.tally(),
+             "a correction must leave the counters agreeing with the report"
 
       assert [%{outcome: :matched} = fixed] =
                Transfers.items(corrected) |> Enum.filter(&(&1.position == item.position))

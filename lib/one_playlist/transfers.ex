@@ -255,7 +255,19 @@ defmodule OnePlaylist.Transfers do
           transfer
       end
 
-    changeset = Transfer.progress_changeset(counted, %{status: counted.status})
+    # The counters go through `attrs`, not through the struct. `record_correction/1`
+    # returns an updated `%Transfer{}`, but `progress_changeset/2` builds its
+    # changes by casting the map — so passing the corrected struct as the *data*
+    # and only `status` as the attrs writes the status and silently discards
+    # every counter. The report then shows a matched row above a summary still
+    # claiming it is unmatched.
+    changeset =
+      Transfer.progress_changeset(transfer, %{
+        status: counted.status,
+        matched_count: counted.matched_count,
+        added_count: counted.added_count,
+        unmatched_count: counted.unmatched_count
+      })
 
     repo.update(changeset)
   end
@@ -408,33 +420,18 @@ defmodule OnePlaylist.Transfers do
   `:outcome` is the column worth filtering on: `:unmatched` is the list a person
   resolves by hand, and `:already_present` is what a re-run looks like.
 
+  `:position` narrows to one row, which is what a correction needs: the
+  candidate list on that row is the authority on what a person may choose.
+
   `:limit` and `:offset` take a window. Unwindowed by default, which is right
   for a CSV export and wrong for a page — see `OnePlaylistWeb.TransferLive.Show`.
   """
   @spec items(Transfer.t(), keyword()) :: [TransferItem.t()]
   def items(%Transfer{} = transfer, opts \\ []) do
-    query = from(i in TransferItem, where: i.transfer_id == ^transfer.id, order_by: i.position)
-
     query =
-      case Keyword.get(opts, :outcome) do
-        nil -> query
-        outcome -> where(query, [i], i.outcome == ^outcome)
-      end
+      from(i in TransferItem, where: i.transfer_id == ^transfer.id, order_by: i.position)
 
-    # A window rather than everything. A report is ordered by `position` and its
-    # rows never move once written, so offset paging cannot skip or repeat a row
-    # the way it can over a table somebody is still inserting into.
-    query =
-      case Keyword.get(opts, :limit) do
-        nil -> query
-        value when is_integer(value) and value >= 0 -> limit(query, ^value)
-      end
-
-    query =
-      case Keyword.get(opts, :offset) do
-        nil -> query
-        value when is_integer(value) and value >= 0 -> offset(query, ^value)
-      end
+    query = Enum.reduce(opts, query, &narrow/2)
 
     # Scoped by `transfer_id`, and scoped again by the policy on
     # `transfer_items`. The owner comes from the transfer rather than a separate
@@ -444,6 +441,19 @@ defmodule OnePlaylist.Transfers do
 
     items
   end
+
+  defp narrow({_option, nil}, query), do: query
+  defp narrow({:outcome, outcome}, query), do: where(query, [i], i.outcome == ^outcome)
+  defp narrow({:position, position}, query), do: where(query, [i], i.position == ^position)
+
+  # A window rather than everything. A report is ordered by `position` and its
+  # rows never move once written, so offset paging cannot skip or repeat a row
+  # the way it can over a table somebody is still inserting into.
+  defp narrow({:limit, value}, query) when is_integer(value) and value >= 0,
+    do: limit(query, ^value)
+
+  defp narrow({:offset, value}, query) when is_integer(value) and value >= 0,
+    do: offset(query, ^value)
 
   @doc "How many report rows a transfer has."
   @spec count_items(Transfer.t()) :: non_neg_integer()

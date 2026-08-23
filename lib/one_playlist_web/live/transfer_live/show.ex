@@ -33,6 +33,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   alias OnePlaylist.Providers.Connection
 
   alias OnePlaylist.Transfers
+  alias OnePlaylist.Transfers.Candidate
   alias OnePlaylist.Transfers.Transfer
 
   require Logger
@@ -76,6 +77,9 @@ defmodule OnePlaylistWeb.TransferLive.Show do
          # yet persisted. Assigned before `assign_transfer/2`, which reads it,
          # and bounded to `@live_window` by `remember/2`.
          |> assign(:provisional, %{})
+         # The position of the row whose alternatives are showing, if any.
+         |> assign(:expanded, nil)
+         |> assign(:correcting, nil)
          |> assign_transfer(transfer)}
 
       :error ->
@@ -134,6 +138,23 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   def handle_event("load-more", _params, socket) do
     {:noreply, load_next_page(socket)}
+  end
+
+  # Which row is open. One at a time: this is a decision that wants attention,
+  # and a report with nine expanded rows is a wall rather than a choice.
+  def handle_event("expand", %{"position" => position}, socket) do
+    position = String.to_integer(position)
+    previously = socket.assigns.expanded
+    expanded = if previously == position, do: nil, else: position
+
+    {:noreply, socket |> assign(:expanded, expanded) |> refresh_rows([previously, position])}
+  end
+
+  def handle_event("choose", %{"position" => position, "candidate" => index}, socket) do
+    position = String.to_integer(position)
+    chosen = candidate_at(socket, position, String.to_integer(index))
+
+    {:noreply, apply_override(socket, position, chosen)}
   end
 
   @impl true
@@ -259,13 +280,34 @@ defmodule OnePlaylistWeb.TransferLive.Show do
               </thead>
               <tbody id="items" phx-update="stream">
                 <tr :for={{dom_id, item} <- @streams.items} id={dom_id}>
-                  <td class="tabular-nums opacity-50">{item.position + 1}</td>
+                  <td class="tabular-nums opacity-50 align-top">{item.position + 1}</td>
                   <td>
                     <div class="font-medium">{item.source_title || item.source_track_id}</div>
                     <div class="text-xs opacity-60">{item.source_artist}</div>
+
+                    <%!-- The alternatives, inside the row they belong to
+                          rather than in a modal. What is being compared is
+                          this track against those ones, and a dialog would
+                          hide the thing being compared against. --%>
+                    <.alternatives
+                      :if={@expanded == item.position}
+                      item={item}
+                      correcting={@correcting}
+                    />
                   </td>
-                  <td><.outcome outcome={item.outcome} /></td>
-                  <td class="text-xs opacity-70"><.why item={item} /></td>
+                  <td class="align-top"><.outcome outcome={item.outcome} /></td>
+                  <td class="text-xs opacity-70 align-top">
+                    <.why item={item} />
+
+                    <button
+                      :if={correctable?(item)}
+                      phx-click="expand"
+                      phx-value-position={item.position}
+                      class="btn btn-ghost btn-xs mt-1"
+                    >
+                      {if @expanded == item.position, do: "Close", else: "Fix this"}
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -287,6 +329,65 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     </Layouts.app>
     """
   end
+
+  attr :item, :map, required: true
+  attr :correcting, :any, default: nil
+
+  # What the engine found and refused, with the reason for each. This is the
+  # part that makes a correction a *decision* rather than a guess: the engine
+  # usually refused for a reason the reader would agree with, and saying so is
+  # what stops the report reading as though it were simply broken.
+  defp alternatives(assigns) do
+    assigns =
+      assign(assigns, :candidates, Enum.map(assigns.item.candidates, &Candidate.from_map/1))
+
+    ~H"""
+    <div class="mt-3 rounded-box bg-base-200 p-3">
+      <p class="text-xs opacity-70 mb-2">
+        {length(@candidates)} considered on the destination. Pick the right one and we
+        will add it.
+      </p>
+
+      <ul class="space-y-1">
+        <li :for={{candidate, index} <- Enum.with_index(@candidates)}>
+          <button
+            phx-click="choose"
+            phx-value-position={@item.position}
+            phx-value-candidate={index}
+            disabled={@correcting != nil}
+            class="w-full text-left rounded-btn px-2 py-1.5 hover:bg-base-300 transition-colors disabled:opacity-50"
+          >
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="font-medium text-sm truncate">{candidate.title}</span>
+              <span class="text-xs opacity-60 shrink-0">{rejection(candidate)}</span>
+            </div>
+            <div class="text-xs opacity-60 truncate">
+              {candidate.artist}<span :if={candidate.album}> · {candidate.album}</span>
+            </div>
+          </button>
+        </li>
+      </ul>
+    </div>
+    """
+  end
+
+  # Why this candidate was not chosen, in the order that decides it. A veto is
+  # absolute and outranks any score, so it is reported first even when the score
+  # was high — otherwise "0.94" would read as though the engine had merely been
+  # fussy.
+  defp rejection(%Candidate{version_conflict: true}), do: "a different version"
+  defp rejection(%Candidate{editorial_conflict: true}), do: "explicit or clean differs"
+
+  defp rejection(%Candidate{duration_conflict: true, duration_delta_seconds: delta})
+       when is_integer(delta),
+       do: "#{if delta > 0, do: "+", else: ""}#{delta}s"
+
+  defp rejection(%Candidate{duration_conflict: true}), do: "a different length"
+
+  defp rejection(%Candidate{score: score}) when is_float(score),
+    do: "scored #{Float.round(score, 2)}"
+
+  defp rejection(_candidate), do: ""
 
   attr :label, :string, required: true
   attr :value, :integer, required: true
@@ -461,6 +562,76 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # life of the page: first as a provisional result broadcast during the run,
   # then as the persisted `TransferItem` that replaces it.
   defp row_id(item), do: "item-#{item.position}"
+
+  # Read from the row on screen rather than from the params. The index arrives
+  # from the browser, so trusting it to name a track would let a crafted event
+  # add any id at all to somebody's playlist — the candidate list is the
+  # authority on what may be chosen.
+  defp candidate_at(socket, position, index) do
+    socket.assigns.transfer
+    |> Transfers.items(position: position)
+    |> List.first()
+    |> case do
+      %{candidates: candidates} -> Enum.at(candidates, index)
+      nil -> nil
+    end
+  end
+
+  # A stream does not re-render an item it already holds when an assign changes:
+  # the markup for a row was computed when that row was inserted, and nothing
+  # about `@expanded` changing reaches it. So the rows whose appearance depends
+  # on it are re-inserted by hand — the one opening, and the one closing.
+  #
+  # Worth knowing rather than working around blindly. Without this the click
+  # updates the assign, the server is perfectly correct, and the page does
+  # nothing at all, which reads as a dead button.
+  defp refresh_rows(socket, positions) do
+    positions
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.reduce(socket, fn position, socket ->
+      case Transfers.items(socket.assigns.transfer, position: position) do
+        [item] -> stream_insert(socket, :items, item)
+        _gone -> socket
+      end
+    end)
+  end
+
+  defp apply_override(socket, _position, nil) do
+    put_flash(socket, :error, "That track is no longer among the alternatives.")
+  end
+
+  defp apply_override(socket, position, chosen) do
+    case Transfers.override(
+           socket.assigns.current_session,
+           socket.assigns.transfer,
+           position,
+           chosen
+         ) do
+      {:ok, transfer} ->
+        socket
+        |> put_flash(:info, "Added #{chosen["title"] || "that track"}.")
+        |> assign(:expanded, nil)
+        |> assign_transfer(transfer)
+
+      {:error, reason} ->
+        put_flash(socket, :error, describe_failure(reason))
+    end
+  end
+
+  # A correction that failed is worth naming: the destination refused the write,
+  # or the connection expired, and either way nothing was recorded.
+  defp describe_failure(reason) when is_exception(reason),
+    do:
+      "That track could not be added: #{Errata.display_message(reason) || Exception.message(reason)}"
+
+  defp describe_failure(:no_such_track), do: "That track is not part of this transfer any more."
+  defp describe_failure(_reason), do: "That track could not be added."
+
+  # Only where there is a decision to make. A track that matched exactly has no
+  # stored alternatives, which is deliberate rather than an omission.
+  defp correctable?(%{candidates: [_ | _]}), do: true
+  defp correctable?(_item), do: false
 
   # One provisional row: remembered so a filter change does not lose it, and
   # appended to the table if the current filter admits it.

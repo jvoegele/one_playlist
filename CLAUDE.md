@@ -441,6 +441,7 @@ A fresh session should read this before proposing what to build.
 | Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
 | Export | Download a playlist as CSV at `/exports/new`, via a signed URL |
 | Pruning | Four nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, old export files, and uploads no transfer refers to. The last two call the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
+| Correcting | An unmatched row shows the candidates the engine rejected and why each lost, and one click adds the right one. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry |
 | Limits | A source playlist over `max_tracks` (10,000 by default) is refused with `PlaylistTooLarge`, before a track is read past the limit. The worker cancels rather than retries any error whose `retryable?/1` says not to |
 | Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |

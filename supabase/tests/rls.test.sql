@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(21);
 
 -- Two users, written straight into auth.users. Fine here: this is a test
 -- fixture inside a doomed transaction, not a sign-up path.
@@ -37,6 +37,26 @@ values
    'secret-a', '{}', 'active', now(), now()),
   (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'tidal', 'b', 'bob tidal',
    'secret-b', '{}', 'active', now(), now());
+
+-- A transfer each, and a correction against alice's. `transfer_overrides` is
+-- the table a person's hand-made match lives in, so somebody else reading or
+-- rewriting one would be editing another user's playlist by proxy.
+insert into public.transfers
+  (id, user_id, source_provider, source_playlist_id, destination_provider, threshold,
+   status, inserted_at, updated_at)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111',
+   'tidal', 'alice-src', 'tidal', 0.75, 'completed', now(), now()),
+  ('bbbbbbbb-0000-4000-8000-000000000002', '22222222-2222-4222-8222-222222222222',
+   'tidal', 'bob-src', 'tidal', 0.75, 'completed', now(), now());
+
+insert into public.transfer_overrides
+  (id, transfer_id, user_id, position, destination_track_id, destination_title, inserted_at)
+values
+  (gen_random_uuid(), 'aaaaaaaa-0000-4000-8000-000000000001',
+   '11111111-1111-4111-8111-111111111111', 0, 'alice-pick', 'Alice''s choice', now()),
+  (gen_random_uuid(), 'bbbbbbbb-0000-4000-8000-000000000002',
+   '22222222-2222-4222-8222-222222222222', 0, 'bob-pick', 'Bob''s choice', now());
 
 -- ---------------------------------------------------------------------------
 -- The starting position: protection is opt-in, so assert it was opted into.
@@ -57,13 +77,19 @@ select ok(
   'transfer_items has row level security enabled'
 );
 
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.transfer_overrides'::regclass),
+  'transfer_overrides has row level security enabled'
+);
+
 -- A missing grant fails with 42501 *before* any policy runs, so the revoke is
 -- the outer wall and the policies are the inner one. Both are load-bearing.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'anon' and table_schema = 'public'
-      and table_name in ('provider_connections', 'transfers', 'transfer_items')),
+      and table_name in ('provider_connections', 'transfers', 'transfer_items',
+                         'transfer_overrides')),
   0,
   'anon has been granted nothing on the user-owned tables'
 );
@@ -148,6 +174,34 @@ select is(
   'authenticated may only select from transfer_items, never write'
 );
 
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated' and table_schema = 'public'
+      and table_name = 'transfer_overrides' and privilege_type <> 'SELECT'),
+  0,
+  'authenticated may only select from transfer_overrides, never write'
+);
+
+-- The application writes an override only after the destination has accepted
+-- the track. A client able to insert one directly could claim a track had been
+-- added that never was, and the next run would trust it over the engine.
+select throws_ok(
+  $$insert into public.transfer_overrides
+      (id, transfer_id, user_id, position, destination_track_id, inserted_at)
+    values (gen_random_uuid(), 'aaaaaaaa-0000-4000-8000-000000000001',
+            '11111111-1111-4111-8111-111111111111', 5, 'forged', now())$$,
+  '42501',
+  'permission denied for table transfer_overrides',
+  'a user cannot record a correction directly, grant refused before any policy runs'
+);
+
+select is(
+  (select destination_track_id from public.transfer_overrides),
+  'alice-pick',
+  'alice sees her own correction and not bob''s'
+);
+
 select throws_ok(
   $$insert into public.transfers
       (id, user_id, source_provider, source_playlist_id, destination_provider, threshold,
@@ -178,6 +232,12 @@ select is(
   'and bob''s row was never renamed'
 );
 
+select is(
+  (select destination_track_id from public.transfer_overrides),
+  'bob-pick',
+  'and bob sees only his own correction'
+);
+
 -- ---------------------------------------------------------------------------
 -- With no identity at all.
 -- ---------------------------------------------------------------------------
@@ -188,6 +248,12 @@ select is(
   (select count(*)::int from public.provider_connections),
   0,
   'an authenticated session with no sub claim sees nothing'
+);
+
+select is(
+  (select count(*)::int from public.transfer_overrides),
+  0,
+  'and no corrections either'
 );
 
 reset role;
