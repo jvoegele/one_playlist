@@ -18,6 +18,7 @@ commits 2026-07-28) and both are now filed:
 | | Issue |
 | --- | --- |
 | `Storage.File.list/3` | [storage-ex#36](https://github.com/supabase-community/storage-ex/issues/36) |
+| Object paths are not URL encoded | [storage-ex#37](https://github.com/supabase-community/storage-ex/issues/37) |
 | `get_claims/3` | [auth-ex#97](https://github.com/supabase-community/auth-ex/issues/97) |
 
 The packages live in three separate repositories, which is worth knowing before looking for the
@@ -67,6 +68,36 @@ both — which is presumably why this was never caught: the first error masks th
 unimplementable, and removed.
 
 ---
+
+## `supabase_storage` — object paths are not URL encoded
+
+**Version:** 0.6.0, and `main` as of 2026-07-28 · **Filed:** [storage-ex#37](https://github.com/supabase-community/storage-ex/issues/37)
+
+An object whose name contains a space cannot be uploaded. The name goes into the request URI
+unencoded, and the request never reaches Storage as a valid one.
+
+```elixir
+Supabase.Storage.File.upload(storage, "/tmp/local.csv", "u/imports/simple.csv")
+# {:ok, ...}
+Supabase.Storage.File.upload(storage, "/tmp/local.csv", "u/imports/Pearl Jam.csv")
+# {:error, %Supabase.Error{code: :bad_request, message: "Unexpected"}}
+```
+
+Storage is not the problem. Against the same local stack, with the space encoded:
+
+```
+POST /storage/v1/object/playlists/probe/enc%20space.csv  ->  200
+POST /storage/v1/object/playlists/probe/raw space.csv    ->  curl will not send it
+```
+
+`Supabase.Storage.File.upload/4`'s `clean_path` only strips and collapses slashes, so anything outside the
+unreserved set survives into the URI. The same construction appears in `update/4`, `move/2`,
+`copy/2` and `create_signed_url/3`.
+
+**Impact here:** `OnePlaylist.Storage.path_for/3` reduces every object name to the RFC 3986
+unreserved set, and carries a postcondition saying so. That is a defensible design on its own
+merits, since a storage key and a filename a person reads are different things, but the reason
+it exists now rather than later is this bug.
 
 ## `supabase_auth` — `get_claims/3` raises on most malformed tokens
 

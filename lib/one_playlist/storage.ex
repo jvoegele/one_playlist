@@ -64,9 +64,16 @@ defmodule OnePlaylist.Storage do
   The first segment is the user id because that is what the storage policies
   compare `auth.uid()` against. Nothing else may assemble one.
 
+  The name is reduced to characters that need no URL encoding. That is partly
+  principle — an object key and a filename a person reads are different things,
+  and a key should be boring — and partly a workaround: `supabase_storage` does
+  not encode the object path it builds, so a space produces a request Storage
+  rejects. Verified directly against the API, where `%20` is accepted and a raw
+  space is not. See `docs/supabase-sdk-issues.md`.
+
       iex> alias OnePlaylist.Storage
       iex> Storage.path_for("11111111-1111-4111-8111-111111111111", :imports, "Road Trip.csv")
-      "11111111-1111-4111-8111-111111111111/imports/Road Trip.csv"
+      "11111111-1111-4111-8111-111111111111/imports/Road-Trip.csv"
   """
   # Not a restatement of the implementation. The law is that the *first segment
   # is the user id* — which is the entire access control model for these
@@ -77,9 +84,30 @@ defmodule OnePlaylist.Storage do
   @pre user_is_identified: is_binary(user_id) and user_id != ""
   @pre known_kind: kind in @kinds
   @post owner_is_the_first_segment: hd(String.split(result, "/")) == user_id
+  # Stated rather than left to the sanitiser, because the consequence of getting
+  # it wrong is a request Storage rejects with a message about nothing in
+  # particular. `~r/[A-Za-z0-9._~\/-]/` is the unreserved set from RFC 3986 plus
+  # the separator, so nothing in a key ever needs escaping.
+  @post needs_no_url_encoding:
+          result == URI.encode(result, &(URI.char_unreserved?(&1) or &1 == ?/))
   @spec path_for(String.t(), kind(), String.t()) :: String.t()
   def path_for(user_id, kind, name) when is_binary(name) do
-    Path.join([user_id, to_string(kind), name])
+    Path.join([user_id, to_string(kind), safe_name(name)])
+  end
+
+  # Everything outside the unreserved set becomes a hyphen, and runs of hyphens
+  # collapse so a name does not turn into punctuation. A name reduced to nothing
+  # gets one, because an empty final segment is a path ending in `/`, which
+  # addresses the folder rather than an object.
+  defp safe_name(name) do
+    name
+    |> String.replace(~r/[^A-Za-z0-9._~-]/, "-")
+    |> String.replace(~r/-{2,}/, "-")
+    |> String.trim("-")
+    |> case do
+      "" -> "file"
+      safe -> safe
+    end
   end
 
   @doc """

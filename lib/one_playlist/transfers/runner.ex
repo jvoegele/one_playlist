@@ -45,6 +45,8 @@ defmodule OnePlaylist.Transfers.Runner do
 
   alias OnePlaylist.Matching
   alias OnePlaylist.Providers
+  alias OnePlaylist.Transfers.Source
+  alias OnePlaylist.Transfers.SourceMissing
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
   alias OnePlaylist.Transfers.WriteNotConfirmed
@@ -91,12 +93,10 @@ defmodule OnePlaylist.Transfers.Runner do
     reported_every_track: item_count(completed) == completed.total_tracks
   @spec run(Transfer.t()) :: {:ok, Transfer.t()} | {:error, Exception.t()}
   def run(%Transfer{} = transfer) do
-    with {:ok, source_connection} <- connection(transfer.user_id, transfer.source_provider),
-         {:ok, destination_connection} <-
+    with {:ok, destination_connection} <-
            connection(transfer.user_id, transfer.destination_provider),
-         {:ok, source_adapter} <- Providers.adapter(transfer.source_provider),
          {:ok, destination_adapter} <- Providers.adapter(transfer.destination_provider),
-         {:ok, tracks} <- read_source(source_adapter, source_connection, transfer),
+         {:ok, tracks} <- read_source(transfer),
          {:ok, transfer, destination} <-
            ensure_destination(transfer, destination_adapter, destination_connection),
          {:ok, present} <-
@@ -142,8 +142,31 @@ defmodule OnePlaylist.Transfers.Runner do
     end
   end
 
-  defp read_source(adapter, connection, transfer) do
-    with {:ok, stream} <- adapter.stream_tracks(connection, transfer.source_playlist_id, []) do
+  # The one place the two kinds of source differ. Everything after this point —
+  # matching, the destination snapshot, the write, the report — is the same
+  # whether the tracks came from a catalogue or from somebody's spreadsheet,
+  # which is the argument for importing through this pipeline at all.
+  defp read_source(%Transfer{source_provider: :file} = transfer) do
+    # Already parsed, in the request that received the upload. This worker has
+    # no session and therefore no way to read Storage without the service key;
+    # see `OnePlaylist.Transfers.Source`.
+    case OnePlaylist.Repo.get(Source, transfer.id) do
+      %Source{} = source ->
+        {:ok, Source.tracks(source)}
+
+      nil ->
+        {:error,
+         Errata.create(SourceMissing,
+           reason: :not_parsed,
+           context: %{transfer_id: transfer.id}
+         )}
+    end
+  end
+
+  defp read_source(%Transfer{} = transfer) do
+    with {:ok, connection} <- connection(transfer.user_id, transfer.source_provider),
+         {:ok, adapter} <- Providers.adapter(transfer.source_provider),
+         {:ok, stream} <- adapter.stream_tracks(connection, transfer.source_playlist_id, []) do
       {:ok, Enum.to_list(stream)}
     end
   rescue

@@ -236,6 +236,10 @@ exist **only** there — a freshly created database inherits none of them from `
 them and `auth.uid()` does not exist, which would make RLS untestable.
 
 Test isolation therefore comes from the **Ecto SQL sandbox** rather than a separate database.
+One consequence to keep in mind when writing assertions: **never assert on a global row count**.
+The sandbox rolls back what a test writes; it does not hide the dev data already sitting in the
+same tables, so `Repo.aggregate(Transfer, :count) == 0` fails against a database somebody has
+been using. Scope the count to the test's own user.
 Verified empirically: a test that runs `create table` + `insert` leaves nothing behind, and
 repeated runs do not accumulate. The trade-off is that a test escaping the sandbox would be
 visible in dev; the gain is that tests see the real `auth` schema, the real
@@ -405,6 +409,7 @@ A fresh session should read this before proposing what to build.
 | UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
 | Files | CSV playlists read and written, round-trip property tested; a private Supabase Storage bucket with per-user policies |
+| Import / export | A CSV upload becomes a queued transfer (`OnePlaylist.Imports`); a provider playlist becomes a stored CSV (`OnePlaylist.Exports`). No UI yet |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and

@@ -99,7 +99,17 @@ defmodule OnePlaylist.Transfers.Transfer do
   schema "transfers" do
     field :user_id, Ecto.UUID
 
-    field :source_provider, Ecto.Enum, values: Connection.providers()
+    # `:file` is a source and never a destination, and the asymmetry is the
+    # design rather than an omission. Importing a file means matching sparse
+    # metadata against a real catalogue, which is what this pipeline is for.
+    # Exporting to a file means no matching at all — no catalogue to search,
+    # nothing to be idempotent about, a report that would say `matched` on every
+    # row — so it lives in `OnePlaylist.Exports` instead.
+    #
+    # Not in `Connection.providers()`, because a file is not something a user
+    # connects to. The column is plain `text` with no check constraint, so this
+    # list is enforced by Ecto alone and needed no migration.
+    field :source_provider, Ecto.Enum, values: Connection.providers() ++ [:file]
     field :source_playlist_id, :string
     field :source_playlist_name, :string
 

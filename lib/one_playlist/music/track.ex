@@ -207,4 +207,72 @@ defmodule OnePlaylist.Music.Track do
   """
   @spec primary_artist(t()) :: String.t() | nil
   def primary_artist(%__MODULE__{} = track), do: List.first(track.artists)
+
+  @doc """
+  The track as a plain map, for storing in a `jsonb` column.
+
+  Exists because an uploaded playlist file is parsed in the request and the
+  tracks are handed to a background worker through the database — see
+  `OnePlaylist.Transfers.Source`. Every field is either a string, a number, a
+  boolean, a list of strings, or nil, except `provider`, which is an atom and is
+  written as a string.
+
+      iex> alias OnePlaylist.Music.Track
+      iex> Track.to_map(%Track{provider: :file, provider_id: "1", title: "Corduroy"})["provider"]
+      "file"
+  """
+  @spec to_map(t()) :: map()
+  def to_map(%__MODULE__{} = track) do
+    track
+    |> Map.from_struct()
+    |> Map.new(fn
+      {:provider, provider} -> {"provider", to_string(provider)}
+      {key, value} -> {to_string(key), value}
+    end)
+  end
+
+  @doc """
+  Rebuilds a track from `to_map/1`.
+
+      iex> alias OnePlaylist.Music.Track
+      iex> track = %Track{provider: :file, provider_id: "7", title: "Corduroy", artists: ["Pearl Jam"]}
+      iex> Track.from_map(Track.to_map(track)) == track
+      true
+  """
+  # `String.to_existing_atom/1` rather than `String.to_atom/1`: these maps come
+  # back out of the database, and a row is data from outside however it got
+  # there. `to_atom` on stored input is how an atom table is exhausted.
+  #
+  # It raises for a provider this build has never heard of, which can only
+  # happen to a row written by a version that supported one this one does not.
+  # Raising is right: the alternative is a track whose `provider` is nil, which
+  # violates `Track`'s own `identifiable` invariant a moment later and blames
+  # whatever function it reached first.
+  @spec from_map(map()) :: t()
+  def from_map(attrs) when is_map(attrs) do
+    %__MODULE__{
+      provider: attrs |> fetch(:provider) |> String.to_existing_atom(),
+      provider_id: fetch(attrs, :provider_id),
+      isrc: fetch(attrs, :isrc),
+      title: fetch(attrs, :title),
+      album: fetch(attrs, :album),
+      album_upc: fetch(attrs, :album_upc),
+      track_number: fetch(attrs, :track_number),
+      volume_number: fetch(attrs, :volume_number),
+      version: fetch(attrs, :version),
+      duration_seconds: fetch(attrs, :duration_seconds),
+      explicit: fetch(attrs, :explicit),
+      popularity: fetch(attrs, :popularity),
+      artists: fetch(attrs, :artists) || []
+    }
+  end
+
+  # Ecto hands back string keys; a map built in Elixir has atom ones. Accepting
+  # both means a caller need not know which side of the database it is on.
+  defp fetch(attrs, key) do
+    case Map.fetch(attrs, to_string(key)) do
+      {:ok, value} -> value
+      :error -> Map.get(attrs, key)
+    end
+  end
 end
