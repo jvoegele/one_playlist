@@ -231,6 +231,8 @@ defmodule OnePlaylist.Transfers do
             set: [
               outcome: :matched,
               destination_track_id: track.provider_id,
+              destination_title: track.title,
+              destination_artist: List.first(track.artists),
               strategy: "manual",
               confidence: "chosen",
               score: 1.0,

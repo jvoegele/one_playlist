@@ -504,22 +504,41 @@ defmodule OnePlaylistWeb.TransferLiveTest do
     )
   end
 
+  # Fills in every field a report row is drawn by, so the literal maps below can
+  # name only what each test is about. The *real* shape is guaranteed by
+  # `Runner.provisional_item/3`'s `shaped_like_a_report_row` postcondition, not
+  # by these fixtures — which is the right place for it, since a fixture that
+  # kept itself correct would not have caught anything.
   defp report(transfer, items, total) do
+    blank = Map.new(TransferItem.display_fields(), &{&1, nil})
+    items = Enum.map(items, &Map.merge(blank, &1))
+
     Transfers.report_progress(transfer, tallied(items, total), items)
   end
 
+  # Every field the report row is drawn by, matching what
+  # `Runner.provisional_item/3` really sends. Built from
+  # `TransferItem.display_fields/0` so a new column cannot leave this fixture
+  # passing while the real thing crashes.
   defp matched_item(position, title \\ nil) do
-    %{
+    defaults = Map.new(TransferItem.display_fields(), &{&1, nil})
+
+    Map.merge(defaults, %{
       position: position,
+      source_track_id: "s#{position}",
       source_title: title || "Track #{position}",
       source_artist: "Somebody",
+      source_album: "An Album",
       outcome: :matched,
       destination_track_id: "d#{position}",
+      destination_title: title || "Track #{position}",
+      destination_artist: "Somebody",
       confidence: "exact",
       score: 1.0,
       strategy: "isrc",
+      candidates: [],
       reason: nil
-    }
+    })
   end
 
   describe "progress" do

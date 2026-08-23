@@ -57,6 +57,10 @@ defmodule OnePlaylist.Transfers.TransferItem do
           position: non_neg_integer() | nil,
           source_track_id: String.t() | nil,
           candidates: [map()],
+          source_album: String.t() | nil,
+          destination_title: String.t() | nil,
+          destination_artist: String.t() | nil,
+          destination_album: String.t() | nil,
           outcome: outcome() | nil
         }
 
@@ -72,9 +76,17 @@ defmodule OnePlaylist.Transfers.TransferItem do
     field :source_track_id, :string
     field :source_title, :string
     field :source_artist, :string
+    field :source_album, :string
 
     field :outcome, Ecto.Enum, values: @outcomes
     field :destination_track_id, :string
+
+    # What was chosen, in the form a person reads. The id above is the identity;
+    # these answer "is that the right recording?", which is the only question
+    # anybody asks of a match.
+    field :destination_title, :string
+    field :destination_artist, :string
+    field :destination_album, :string
     field :confidence, :string
     field :score, :float
     field :strategy, :string
@@ -92,6 +104,28 @@ defmodule OnePlaylist.Transfers.TransferItem do
   @doc "The outcomes an item can record."
   @spec outcomes() :: [outcome()]
   def outcomes, do: @outcomes
+
+  # Set when a row is written, and meaningless before it is.
+  @persistence_only ~w(id transfer_id user_id inserted_at candidates_considered)a
+
+  @doc """
+  The fields a report row is *shown* by, as opposed to stored with.
+
+  Exists so that `OnePlaylist.Transfers.Runner`'s provisional rows can be held
+  to the same shape. Those are drawn by the same template as a persisted row,
+  so a field added here and forgotten there is a `KeyError` in the middle of a
+  running transfer — which is where it happened, when the destination's title
+  and album were added.
+
+  Derived from the schema rather than listed, so a new column is required of
+  provisional rows automatically. Over-including slightly is harmless: it costs
+  a `nil`, where under-including costs a crash.
+  """
+  # Nothing to check on the way out: this answers what the *type* has, not what
+  # any value of it holds.
+  @bond_warn_skipped_invariants false
+  @spec display_fields() :: [atom()]
+  def display_fields, do: __schema__(:fields) -- @persistence_only
 
   @doc """
   Counts a set of report rows by what happened to them.
@@ -166,6 +200,9 @@ defmodule OnePlaylist.Transfers.TransferItem do
     |> Map.merge(%{
       outcome: if(added?, do: :matched, else: :already_present),
       destination_track_id: match.track.provider_id,
+      destination_title: match.track.title,
+      destination_artist: List.first(match.track.artists),
+      destination_album: match.track.album,
       confidence: to_string(match.confidence),
       score: match.score,
       strategy: to_string(match.strategy)
@@ -229,7 +266,8 @@ defmodule OnePlaylist.Transfers.TransferItem do
       position: position,
       source_track_id: source.provider_id,
       source_title: source.title,
-      source_artist: Track.primary_artist(source)
+      source_artist: Track.primary_artist(source),
+      source_album: source.album
     })
   end
 end

@@ -309,14 +309,36 @@ defmodule OnePlaylist.Transfers.Runner do
   # `:already_present` is not known yet: it depends on what the destination
   # already holds, which is compared after every track has been resolved. The
   # final report corrects it.
+  # A provisional row is drawn by the same template as a persisted one, so it
+  # has to carry the same fields. Asserted rather than commented, because the
+  # failure mode is a `KeyError` in the middle of a running transfer and the
+  # thing that causes it is a migration in a different file — adding the
+  # destination's title and album to the report is exactly what broke it.
+  #
+  # `TransferItem.display_fields/0` is derived from the schema, so a column
+  # added later is required here without anyone remembering to come back.
+  @post shaped_like_a_report_row:
+          Enum.all?(TransferItem.display_fields(), &Map.has_key?(result, &1))
   defp provisional_item(position, track, outcome) do
-    base = %{position: position, source_title: track.title, source_artist: primary_artist(track)}
+    base = %{
+      position: position,
+      source_title: track.title,
+      source_artist: primary_artist(track),
+      source_album: track.album,
+      source_track_id: track.provider_id,
+      # Nothing is stored mid-run, so there is nothing to offer yet. The
+      # persisted report brings the alternatives with it.
+      candidates: []
+    }
 
     case outcome do
       {:ok, match} ->
         Map.merge(base, %{
           outcome: :matched,
           destination_track_id: match.track.provider_id,
+          destination_title: match.track.title,
+          destination_artist: List.first(match.track.artists),
+          destination_album: match.track.album,
           confidence: to_string(match.confidence),
           score: match.score,
           strategy: to_string(match.strategy),
@@ -327,6 +349,9 @@ defmodule OnePlaylist.Transfers.Runner do
         Map.merge(base, %{
           outcome: :unmatched,
           destination_track_id: nil,
+          destination_title: nil,
+          destination_artist: nil,
+          destination_album: nil,
           confidence: nil,
           score: nil,
           strategy: nil,

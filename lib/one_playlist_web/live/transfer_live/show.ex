@@ -280,11 +280,39 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                 </tr>
               </thead>
               <tbody id="items" phx-update="stream">
-                <tr :for={{dom_id, item} <- @streams.items} id={dom_id}>
+                <%!-- A row needing attention is tinted, so the rows worth
+                      looking at are findable by scrolling rather than by
+                      reading every "Why" cell. --%>
+                <tr
+                  :for={{dom_id, item} <- @streams.items}
+                  id={dom_id}
+                  class={correctable?(item) && "bg-warning/5"}
+                >
                   <td class="tabular-nums opacity-50 align-top">{item.position + 1}</td>
                   <td>
                     <div class="font-medium">{item.source_title || item.source_track_id}</div>
-                    <div class="text-xs opacity-60">{item.source_artist}</div>
+                    <div class="text-xs opacity-60">
+                      {item.source_artist}<span :if={item.source_album}> · {item.source_album}</span>
+                    </div>
+
+                    <%!-- What it actually chose. A row used to carry only the
+                          destination's opaque id, so a matched row said
+                          "isrc · exact" and nothing about *what* it matched —
+                          which is the one question a person asks of a match.
+                          The album is what answers it: Vitalogy against Live On
+                          Two Legs settles in a glance what a score does not. --%>
+                    <div
+                      :if={item.destination_title}
+                      class="text-xs mt-1 pl-3 border-l-2 border-base-300"
+                    >
+                      <div class="opacity-80">{item.destination_title}</div>
+                      <div class="opacity-50">
+                        {item.destination_artist}
+                        <span :if={item.destination_album}>
+                          · {item.destination_album}
+                        </span>
+                      </div>
+                    </div>
 
                     <%!-- The alternatives, inside the row they belong to
                           rather than in a modal. What is being compared is
@@ -298,14 +326,31 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                   </td>
                   <td class="align-top"><.outcome outcome={item.outcome} /></td>
                   <td class="text-xs opacity-70 align-top">
-                    <.why item={item} />
+                    <div><.why item={item} /></div>
 
+                    <%!-- Outlined and coloured rather than a ghost button. This
+                          is the only action on the page and it was being read
+                          as decoration. --%>
                     <button
                       :if={correctable?(item)}
                       phx-click="expand"
                       phx-value-position={item.position}
-                      class="btn btn-ghost btn-xs mt-1"
+                      class={[
+                        "btn btn-xs mt-2 gap-1",
+                        if(@expanded == item.position,
+                          do: "btn-warning",
+                          else: "btn-outline btn-warning"
+                        )
+                      ]}
                     >
+                      <.icon
+                        name={
+                          if @expanded == item.position,
+                            do: "hero-x-mark",
+                            else: "hero-wrench-screwdriver"
+                        }
+                        class="w-3 h-3"
+                      />
                       {if @expanded == item.position, do: "Close", else: "Fix this"}
                     </button>
                   </td>
@@ -363,7 +408,9 @@ defmodule OnePlaylistWeb.TransferLive.Show do
               <span class="text-xs opacity-60 shrink-0">{rejection(candidate)}</span>
             </div>
             <div class="text-xs opacity-60 truncate">
-              {candidate.artist}<span :if={candidate.album}> · {candidate.album}</span>
+              {candidate.artist}<span :if={candidate.album}> · {candidate.album}</span><span :if={
+                candidate.duration_seconds
+              }> · {duration(candidate.duration_seconds)}</span>
             </div>
           </button>
         </li>
@@ -376,6 +423,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # absolute and outranks any score, so it is reported first even when the score
   # was high — otherwise "0.94" would read as though the engine had merely been
   # fussy.
+  # Minutes and seconds. A duration is one of the two things that tells three
+  # recordings of a song apart, and "278" is not a length anybody reads.
+  defp duration(seconds) when is_integer(seconds) and seconds >= 0,
+    do: "#{div(seconds, 60)}:#{String.pad_leading(to_string(rem(seconds, 60)), 2, "0")}"
+
+  defp duration(_seconds), do: nil
+
   defp rejection(%Candidate{version_conflict: true}), do: "a different version"
   defp rejection(%Candidate{editorial_conflict: true}), do: "explicit or clean differs"
 
