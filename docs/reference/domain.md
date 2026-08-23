@@ -741,6 +741,82 @@ build step and a shipped dataset. Revisit it when a corpus shows it earning more
 heavier in non-Latin scripts or in artists who have renamed would be the case that changes the
 arithmetic.
 
+### MusicBrainz: the useful question is ISRC equivalence, not artist aliases
+
+Investigated because "use MusicBrainz" kept coming up, and the first two framings of it were
+both wrong.
+
+**Not an alias table.** Measured above: worth one or two cases in a hundred, most of which came
+free from reading partial credit overlap as ambiguous.
+
+**Not a live lookup per track.** 1 request/second means a 5,000-track playlist would spend 90
+minutes on MusicBrainz alone.
+
+**The thing it is actually good for is the reissue problem.** An ISRC names a recording *as
+issued*, so the same master carries a different code on every reissue — this is what
+`Tidal.by_isrc/4` had to be fixed for. MusicBrainz groups them:
+
+    /ws/2/isrc/USJY50700001?fmt=json&inc=isrcs
+    → recording ea8c7b4c…  "Setting Forth"  isrcs: [USJY50700001, USJY51700100]
+
+Roon's 2007 code and TIDAL's 2017 code, one call, one recording. That is the exact bug that
+reported *Setting Forth* as "nothing found on the destination".
+
+#### What it would buy, measured
+
+Against the credit corpus, resolving a missed ISRC through its MusicBrainz family:
+
+| | |
+| --- | --- |
+| Currently-missed cases rescued | **5 of 7** |
+| Agreed with the human label | 6 |
+| **Contradicted a human label** | **0** |
+| Ambiguous (several candidates in one family) | 1 |
+| Family known, no offered candidate in it | 2 |
+
+Five of the seven remaining misses is the entire live-recording backlog — Johnny Cash's
+"Jackson", both James Browns, the Kanye freestyle. And they return as **identifier** matches,
+which sidesteps the version veto rather than fighting it. That is the same class of problem the
+rejected same-release exception tried and failed to solve by string comparison.
+
+#### What it would cost
+
+  * **One call per tricky track**, and only where the identifier rung already missed — 14 of 97
+    ISRC-bearing corpus cases, about one in seven.
+  * **1 request/second**, reported as 1200 per window in `X-RateLimit-Limit`.
+  * **Cacheable forever.** An ISRC-to-recording mapping is a stable fact, so this belongs in the
+    two-tier cache beside `catalogue_release_lookups`, with the same `pg_cron` pruning. A row is
+    an ISRC, a recording id and a small array — call it 100 bytes. A million of them is 100 MB,
+    which Supabase holds without noticing.
+  * **The full dump is a different proposition entirely**: 4–5 GB compressed, tens of GB
+    expanded. That does not belong in Supabase and is not needed for any of this.
+
+#### The concerns worth naming before building it
+
+  1. **An identifier match skips the veto.** That is correct for a real ISRC and a risk for a
+     borrowed one: MusicBrainz is user-edited, and a wrongly grouped family would produce a
+     confident wrong match, which is the one outcome this project is organised against. A
+     MusicBrainz-mediated match should keep the duration check and carry its own strategy name,
+     so the report can say where the certainty came from.
+  2. **Ambiguity is real but rare** — one case in nine had three candidates in one family, and
+     needs a tie-break rather than a coin toss.
+  3. **A third party in the transfer path**, mitigated by where it sits: a fallback after the
+     identifier rung has already missed, so an outage degrades to today's behaviour rather than
+     failing a transfer.
+  4. **Citizenship.** A contactful `User-Agent` is required and the rate limit is real. This is
+     a natural `ExternalService` module — its own breaker, its own 1/sec limiter, `Retry-After`
+     honoured.
+  5. **Licensing needs checking before shipping**, not assuming. The core data is understood to
+     be public domain, but that should be confirmed against MetaBrainz's current terms rather
+     than taken from memory.
+
+#### A finding that came free
+
+Five corpus tracks carry **two ISRCs in one tag**, semicolon-separated, because Picard wrote the
+equivalence into the file. `Music.Isrc.normalize/1` rejects a 25-character value, so a future
+tag-based import would drop the identifier entirely rather than gaining two. The CSV path is
+unaffected — Roon writes one — but a library importer would need to split on the separator.
+
 ### Query construction is not the recall problem
 
 Worth recording as a *negative* result, because it is the obvious next move and it does not work.
