@@ -358,7 +358,7 @@ defmodule OnePlaylist.TransfersTest do
 
       assert :ok = perform_job(TransferWorker, %{transfer_id: transfer.id})
 
-      {:ok, completed} = Transfers.fetch(transfer.id)
+      {:ok, completed} = Transfers.fetch_unscoped(transfer.id)
       assert completed.status == :completed
       assert completed.started_at
       assert completed.completed_at
@@ -389,6 +389,56 @@ defmodule OnePlaylist.TransfersTest do
       assert_postcondition_violation(Transfer.record_matched(transfer, true),
         label: :ledger_balances
       )
+    end
+  end
+
+  describe "fetch/2" do
+    test "returns a user's own transfer", %{user: user} do
+      transfer = transfer_for(user)
+
+      assert {:ok, ^transfer} = Transfers.fetch(user, transfer.id)
+    end
+
+    test "will not return somebody else's", %{user: user} do
+      transfer = transfer_for(user)
+      stranger = AuthFixtures.user_id_fixture()
+
+      assert Transfers.fetch(stranger, transfer.id) == :error
+    end
+
+    test "answers the same for a stranger's transfer and a missing one", %{user: user} do
+      transfer = transfer_for(user)
+      stranger = AuthFixtures.user_id_fixture()
+
+      assert Transfers.fetch(stranger, transfer.id) ==
+               Transfers.fetch(stranger, Ecto.UUID.generate())
+    end
+
+    test "fetch_unscoped/1 deliberately does not care", %{user: user} do
+      # The escape hatch the worker needs, tested so its behaviour is a decision
+      # on the record rather than an accident nobody looks at.
+      transfer = transfer_for(user)
+
+      assert {:ok, ^transfer} = Transfers.fetch_unscoped(transfer.id)
+    end
+
+    test "the ownership property holds for every transfer a user can reach", %{user: user} do
+      # `belongs_to_the_caller` cannot be provoked through the public API —
+      # correct code cannot return somebody else's row — so it is mutation
+      # verified (see the commit: dropping `user_id` from the `get_by` makes it
+      # fire) and pinned here, the same way `every_track_accounted_for` is.
+      #
+      # What this adds over the two tests above is *quantification*: they check
+      # one stranger against one transfer, and this checks the property across
+      # everything the user actually owns.
+      mine = Enum.map(1..3, fn n -> transfer_for(user, %{source_playlist_id: "src-#{n}"}) end)
+      stranger = AuthFixtures.user_id_fixture()
+
+      for transfer <- mine do
+        assert {:ok, fetched} = Transfers.fetch(user, transfer.id)
+        assert fetched.user_id == user
+        assert Transfers.fetch(stranger, transfer.id) == :error
+      end
     end
   end
 end

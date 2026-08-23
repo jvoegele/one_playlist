@@ -193,4 +193,53 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       assert {:error, {:redirect, %{to: "/sign-in"}}} = live(conn, ~p"/transfers")
     end
   end
+
+  describe "authorisation" do
+    # These are about a *signed-in* user reaching something that is not theirs,
+    # which is a different question from being signed in at all — and the one
+    # this application got wrong. Ecto connects as `postgres`, which holds
+    # BYPASSRLS, so the `auth.uid()` policies in the migrations do not catch a
+    # query that forgets to scope. Nothing does, except a test like this.
+
+    test "a transfer belonging to somebody else is not readable", %{conn: conn} do
+      # The regression. `TransferLive.Show.mount/3` used to fetch by id alone
+      # and render whatever came back, so any signed-in user could read any
+      # transfer at /transfers/<uuid> — playlist name, providers, status, and
+      # the whole per-track report. Confirmed against the running application
+      # before it was fixed, not hypothesised.
+      victim = AuthFixtures.user_id_fixture()
+      theirs = transfer_fixture(victim, %{source_playlist_name: "Victim's private playlist"})
+
+      attacker = AuthFixtures.user_id_fixture()
+      conn = log_in_user(conn, attacker)
+
+      assert {:error, {:live_redirect, %{to: "/transfers"}}} =
+               live(conn, ~p"/transfers/#{theirs.id}")
+    end
+
+    test "somebody else's transfer is indistinguishable from one that does not exist", %{
+      conn: conn
+    } do
+      # Answering differently would confirm that an id names a real transfer,
+      # which is the only thing an attacker needs to learn from this endpoint.
+      victim = AuthFixtures.user_id_fixture()
+      theirs = transfer_fixture(victim)
+
+      conn = log_in_user(conn, AuthFixtures.user_id_fixture())
+
+      real = live(conn, ~p"/transfers/#{theirs.id}")
+      imaginary = live(conn, ~p"/transfers/#{Ecto.UUID.generate()}")
+
+      assert real == imaginary
+    end
+
+    test "a user can still read their own transfer", %{conn: conn, user_id: user_id} do
+      # The other half: a veto that also blocks the legitimate case is not a fix.
+      mine = transfer_fixture(user_id, %{source_playlist_name: "My playlist"})
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{mine.id}")
+
+      assert html =~ "My playlist"
+    end
+  end
 end

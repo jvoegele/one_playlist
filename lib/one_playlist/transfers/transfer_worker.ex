@@ -46,7 +46,7 @@ defmodule OnePlaylist.Transfers.TransferWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"transfer_id" => transfer_id}}) do
-    case Transfers.fetch(transfer_id) do
+    case Transfers.fetch_unscoped(transfer_id) do
       {:ok, transfer} ->
         run(transfer)
 

@@ -23,7 +23,10 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    case Transfers.fetch(id) do
+    # Scoped to the signed-in user. `Transfers.fetch/2` answers `:error` for
+    # somebody else's transfer just as it does for one that does not exist, so
+    # the branch below covers both without telling the two apart.
+    case Transfers.fetch(socket.assigns.current_user_id, id) do
       {:ok, transfer} ->
         if connected?(socket), do: watch(id)
 

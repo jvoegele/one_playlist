@@ -85,9 +85,49 @@ defmodule OnePlaylist.Transfers do
     end
   end
 
-  @doc "Fetches a transfer by id."
-  @spec fetch(Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
-  def fetch(id) do
+  @doc """
+  Fetches one of a user's own transfers.
+
+  Answers `:error` for a transfer belonging to somebody else, exactly as it does
+  for one that does not exist. The two are deliberately indistinguishable: a
+  distinct "not yours" would confirm that a given id names a real transfer, and
+  a report's id is the only thing an attacker needs to guess.
+
+  This is what any request carrying a user should call. `fetch_unscoped/1` is
+  for callers that genuinely have no user.
+  """
+  # The security property, stated as a specification rather than left implicit
+  # in a `where` clause. It is not a restatement of the query: `Repo.get_by/2`
+  # would satisfy the *type* while returning anybody's row if the `user_id` key
+  # were dropped in a refactor, and this is the assertion that notices.
+  #
+  # Written because it was violated. `TransferLive.Show.mount/3` called the
+  # unscoped fetch and rendered whatever came back, so any signed-in user could
+  # read any transfer — playlist name, providers, status and the whole per-track
+  # report — from `/transfers/<uuid>`. See the regression test.
+  @post whenever({:ok, transfer} <- result, belongs_to_the_caller: transfer.user_id == user_id)
+  @spec fetch(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
+  def fetch(user_id, id) do
+    case Repo.get_by(Transfer, id: id, user_id: user_id) do
+      nil -> :error
+      transfer -> {:ok, transfer}
+    end
+  end
+
+  @doc """
+  Fetches a transfer without regard to who owns it.
+
+  **Only for callers with no user to check against**, of which there are two:
+  `OnePlaylist.Transfers.TransferWorker`, which runs from a queue rather than a
+  request, and `finished/1`, which backs the `await/2` wait.
+
+  Named to be conspicuous at the call site. The scoped `fetch/2` is the one
+  almost everything should reach for, and making the dangerous form the longer
+  name is the whole point — the bug this pair replaced was a user-facing
+  LiveView calling a function that looked like the ordinary way to load a row.
+  """
+  @spec fetch_unscoped(Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
+  def fetch_unscoped(id) do
     case Repo.get(Transfer, id) do
       nil -> :error
       transfer -> {:ok, transfer}
@@ -175,7 +215,7 @@ defmodule OnePlaylist.Transfers do
   """
   @spec finished(Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
   def finished(id) do
-    with {:ok, transfer} <- fetch(id),
+    with {:ok, transfer} <- fetch_unscoped(id),
          true <- Transfer.finished?(transfer) do
       {:ok, transfer}
     else
