@@ -20,6 +20,7 @@ defmodule OnePlaylist.Matching.Signals do
 
   alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Matching.Similarity
+  alias OnePlaylist.Music.Barcode
   alias OnePlaylist.Music.Track
 
   # Every default is the "nothing to say" value, and every one of them satisfies
@@ -158,32 +159,6 @@ defmodule OnePlaylist.Matching.Signals do
   def editorial_penalty(%__MODULE__{editorial_conflict: true}), do: 0.0
   def editorial_penalty(%__MODULE__{}), do: nil
 
-  @doc """
-  Normalizes a UPC or EAN for comparison.
-
-  Leading zeros are stripped because the same release is a 12-digit UPC on one
-  service and the same number zero-padded to a 13-digit EAN on another — TIDAL
-  reports `"00602547670052"` for a barcode catalogues elsewhere print as
-  `"602547670052"`. Comparing them as written makes every cross-service UPC
-  match fail, silently and completely.
-  """
-  # Bond is right, and it is pointing at something real: this function has
-  # nothing to do with the struct. It is a string utility that lives here
-  # because barcode comparison was first needed here, and it now has callers in
-  # `Catalogue`, `Providers.Tidal` and `Strategy.UpcPosition` — one of which
-  # names it in a precondition. Suppressed rather than moved, because moving it
-  # is a rename across five modules and a contract, which is its own change.
-  @bond_warn_skipped_invariants false
-  @spec normalize_barcode(String.t() | nil) :: String.t() | nil
-  def normalize_barcode(nil), do: nil
-
-  def normalize_barcode(value) when is_binary(value) do
-    case value |> String.replace(~r/\D/, "") |> String.trim_leading("0") do
-      "" -> nil
-      digits -> digits
-    end
-  end
-
   # A title's own artists, plus anyone the title credited as a guest.
   defp artist_set(%Track{} = track, parsed_title) do
     track.artists
@@ -255,8 +230,8 @@ defmodule OnePlaylist.Matching.Signals do
   end
 
   defp upc_agrees?(left, right) do
-    with left when is_binary(left) <- normalize_barcode(left),
-         right when is_binary(right) <- normalize_barcode(right) do
+    with left when is_binary(left) <- Barcode.normalize(left),
+         right when is_binary(right) <- Barcode.normalize(right) do
       left == right
     else
       _absent -> nil

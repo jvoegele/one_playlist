@@ -56,8 +56,8 @@ defmodule OnePlaylist.Matching.Strategy.UpcPosition do
 
   use Bond, behaviours: [OnePlaylist.Matching.Strategy]
 
-  alias OnePlaylist.Matching.Signals
   alias OnePlaylist.Matching.Similarity
+  alias OnePlaylist.Music.Barcode
   alias OnePlaylist.Music.Track
 
   @impl true
@@ -72,9 +72,9 @@ defmodule OnePlaylist.Matching.Strategy.UpcPosition do
       )
       when is_binary(source_upc) and is_binary(candidate_upc) and
              is_integer(source_number) and is_integer(candidate_number) do
-    barcode = Signals.normalize_barcode(source_upc)
+    barcode = Barcode.normalize(source_upc)
 
-    same_release? = barcode != nil and barcode == Signals.normalize_barcode(candidate_upc)
+    same_release? = barcode != nil and barcode == Barcode.normalize(candidate_upc)
     same_position? = source_number == candidate_number and same_volume?(source, candidate)
     duration = Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds)
 

@@ -24,7 +24,7 @@ defmodule OnePlaylist.Providers.Tidal do
   use Errata
 
   alias OnePlaylist.Catalogue
-  alias OnePlaylist.Matching.Signals
+  alias OnePlaylist.Music.Barcode
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers
@@ -184,7 +184,7 @@ defmodule OnePlaylist.Providers.Tidal do
   end
 
   defp by_release_position(connection, %Track{} = track, opts) do
-    barcode = Signals.normalize_barcode(track.album_upc)
+    barcode = Barcode.normalize(track.album_upc)
     token = connection.access_token
     lookup_opts = Keyword.put(opts, :barcode, track.album_upc)
 

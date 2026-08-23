@@ -128,7 +128,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   Verified live on 2026-08-22: `GET /v2/albums?filter[barcodeId]=…` returns the
   release. Barcodes are normalized before use because TIDAL reports them
   zero-padded to 13 digits where other catalogues print 12 — see
-  `OnePlaylist.Matching.Signals.normalize_barcode/1`.
+  `OnePlaylist.Music.Barcode.normalize/1`.
 
   Returns the album's id only. Nothing else about the album is wanted: the
   caller has the barcode already, and what it actually needs is the item list.
