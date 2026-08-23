@@ -939,3 +939,99 @@ documenting a non-trivial assumption at a call site where you have *deliberately
 a call, because you are convinced the callee's precondition holds and the reason is not
 obvious from the surrounding code (§11.11). A paragraph in `writing-contracts.md` would
 probably double its usage.
+
+## `bond` — a wrapped assertion breaks out of its code block in generated docs
+
+**Found:** 2026-08-23, reading the generated docs after `mix docs`. **Presentational, not a
+correctness problem — but it damages the feature that makes contracts-as-specification work.**
+
+### What it looks like
+
+`OnePlaylist.Providers.Tokens`' `## Invariants` section renders as three lines of code, then a
+stray paragraph, then a fresh code block:
+
+```
+    access_token_present: is_binary(subject.access_token) and subject.access_token != ""
+    expiry_is_a_timestamp: is_struct(subject.expires_at, DateTime)
+    refresh_token_absent_or_real: is_nil(subject.refresh_token) or
+  (is_binary(subject.refresh_token) and subject.refresh_token != "")     ← escapes the block
+    scopes_are_a_list: is_list(subject.scopes)
+```
+
+In HTML that middle line becomes `<p>  (is_binary(…))</p>` sandwiched between two
+`<pre><code class="makeup elixir">` blocks: unhighlighted, in the body font, and reading as
+prose in the middle of a specification.
+
+### The cause
+
+`Bond.Compiler.ContractDocs` emits contract sections as **4-space indented** code blocks, and
+indents each *assertion*:
+
+```elixir
+# contract_docs.ex:260 (moduledoc_invariants_section/3)
+|> Enum.map(&("    " <> &1))
+
+# contract_docs.ex:195 (the per-function path)
+[header | lines] |> Enum.intersperse("\n    ")
+```
+
+Both assume one assertion is one line. But the rendered `code` comes from `Macro.to_string/1`,
+which runs the formatter — so any assertion wider than the formatter's line length **wraps**,
+and only its first line gets the four spaces. The continuation arrives carrying
+`Macro.to_string`'s own indentation, which is 0 or 2 spaces, below Markdown's 4-space
+threshold. The code block ends there.
+
+That single cause has two quite different-looking symptoms, which is what made it look like two
+bugs:
+
+| Continuation indent | Symptom |
+| --- | --- |
+| 2 spaces | Renders as an indented paragraph; a *new* code block opens for the next assertion |
+| 0 spaces | Markdown folds it into the preceding paragraph line **with no separator** |
+
+The second is the more misleading. `OnePlaylist.Matching.match/3` displays
+
+```
+veto_respected: (match.strategy in [:text, :fuzzy])~> not Signals.vetoed?(…)
+```
+
+— which reads like a whitespace bug around `~>` and is not one. The newline was simply eaten by
+paragraph folding.
+
+### Scope in this project
+
+Five contracts, across five modules, and the discriminator is exactly "does the rendered form
+wrap":
+
+| Module | Assertion |
+| --- | --- |
+| `OnePlaylist.Providers.Tokens` | `refresh_token_absent_or_real` (invariant) |
+| `OnePlaylist.Matching.Signals` | `similarities_are_proportions` (invariant, `forall`) |
+| `OnePlaylist.Matching` | `veto_respected` (postcondition) |
+| `OnePlaylist.Providers` | `query_agrees_with_predicate` (postcondition, `forall`) |
+| `OnePlaylist.Providers.Tidal.OAuth` | `challenge_is_hashed` (postcondition) |
+
+Every single-line assertion in the project renders correctly. `forall`/`exists` are
+over-represented above because they are verbose enough to wrap almost by construction.
+
+### Why it is worth fixing rather than living with
+
+The previous entry in this file argues that Bond's generated `#### Preconditions` /
+`#### Postconditions` sections are the library's strongest and most under-sold asset — they are
+Eiffel's `short` form, and they are what makes it reasonable to treat a contract as the
+published specification rather than as a test aid. A specification that renders as broken prose
+undercuts precisely that argument, and it does so on the *longest* assertions, which are the
+ones a reader most needs rendered legibly.
+
+**Suggested fix,** either of:
+
+1. **Indent every line.** Split the rendered assertion on `\n` and prefix each line, rather than
+   prefixing the assertion. Smallest change, keeps the existing indented-block style.
+2. **Emit a fenced block instead** — ```` ```elixir ```` … ```` ``` ````. Immune to indentation
+   entirely, guarantees the `elixir` lexer regardless of what the expression contains, and
+   removes this class of bug rather than this instance of it. It would also make the contract
+   sections match how `@spec` is already rendered on the same page, which currently uses a
+   fence while the contracts beneath it use indentation.
+
+Option 2 looks strictly better here, at the cost of one line of visual difference for anyone
+who has grown used to the current output.
