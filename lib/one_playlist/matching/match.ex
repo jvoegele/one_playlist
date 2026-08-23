@@ -97,11 +97,33 @@ defmodule OnePlaylist.Matching.Match do
   documentation should reference something a reader can look up.
 
   A strategy with no band is a violation rather than an error: it means a rung
-  reported a name that `confidence_for/2` cannot interpret, and the resulting
-  match would have no meaningful confidence at all.
+  reported a name that `Confidence.for_score/2` cannot interpret, and the
+  resulting match would have no meaningful confidence at all.
+
+      iex> alias OnePlaylist.Matching.Match
+      iex> Match.score_in_band?(struct(Match, score: 0.9, strategy: :text))
+      true
+      iex> Match.score_in_band?(struct(Match, score: 0.2, strategy: :text))
+      false
   """
+  # Takes a bare parameter rather than `%__MODULE__{} = match`, and that is the
+  # whole point rather than an oversight.
+  #
+  # A pattern-matched head gets an entry check, and the entry check evaluates
+  # the invariant — which is *this function*. So the predicate would raise on
+  # precisely the matches it exists to identify: its `false` branch would be
+  # unreachable at every call site outside an assertion, and a public function
+  # documented as answering a question could only ever answer `true`. Measured:
+  # before this changed, `score_in_band?/1` on an out-of-band match raised
+  # `Bond.InvariantError` instead of returning `false`.
+  #
+  # This is not the Assertion Evaluation rule at work — that rule handles the
+  # call *from* the invariant correctly on its own. It is the narrower conflict
+  # between an invariant and a predicate that tests the same invariant. See
+  # `docs/reference/contracts.md`.
+  @bond_warn_skipped_invariants false
   @spec score_in_band?(t()) :: boolean()
-  def score_in_band?(%__MODULE__{score: score, strategy: strategy}) do
+  def score_in_band?(%{score: score, strategy: strategy}) do
     if strategy in Confidence.strategies() do
       {floor, ceiling} = Confidence.band(strategy)
 

@@ -641,12 +641,43 @@ both are on `Providers.Tokens`:
 
   * **One-hop delegation.** `from_oauth_response/2` builds nothing itself; it normalizes and
     calls `new/1`, whose exit check fires. The linter reasons per function and cannot see that.
-  * **Deliberately contract-free.** `well_formed?/1` takes a bare parameter *so that* it has no
-    entry check to suppress — a predicate meant to be called from other modules' assertions
-    must carry no contracts of its own, by the Assertion Evaluation rule.
+  * **A predicate over its own module's invariant.** `well_formed?/1` takes a bare parameter so
+    that it can answer `false` rather than raise — see the next section. Not, as this file once
+    claimed, because of the Assertion Evaluation rule.
 
 Both are documented at the suppression. A suppression without a reason written beside it is the
 one to go back to.
+
+### An invariant and a predicate over that invariant cannot share a pattern-matched head
+
+If a module declares an `@invariant` and also exposes a predicate testing that same invariant,
+the predicate must take a **bare parameter**. A `%__MODULE__{} = value` head gets an entry
+check; the entry check evaluates the invariant; and the invariant is the very thing the
+predicate exists to test. So it raises on exactly the values it is meant to identify, and its
+`false` branch is unreachable at every call site outside an assertion.
+
+Measured on `Match.score_in_band?/1`, which is public and documented as answering a question:
+
+```elixir
+Match.score_in_band?(struct(Match, score: 0.2, strategy: :text))
+#=> ** (Bond.InvariantError) score_within_its_strategys_band     # before
+#=> false                                                        # after
+```
+
+A public function that can only ever answer `true` is a documentation lie, and the doctests
+that show it returning `false` would have raised.
+
+Note what this is *not*. The invariant's own call to the predicate is fine either way — the
+Assertion Evaluation rule suppresses the nested check, so no recursion and no spurious raise.
+The problem is only the **direct** call, which is the one a reader of the docs will make.
+
+Bond's `warn_skipped_invariants` linter fires on the bare-parameter form. Suppress it, with the
+reason written beside it; this is the third distinct shape of legitimate suppression, alongside
+one-hop delegation and a function genuinely unrelated to the struct.
+
+The rule is narrow. It applies to a predicate that tests *the invariant itself*, not to every
+predicate on the type: `Tokens.fresh?/2` and `Signals.vetoed?/1` take pattern-matched heads and
+should, because a malformed argument to either really is the caller's bug.
 
 ### Duplicated private helpers are a missing module, and the module is where the contract goes
 
@@ -850,20 +881,16 @@ reached from another module's assertion. `Adapter.refresh_tokens/1`'s postcondit
 the behaviour boundary. It does not, and the gap was real: an adapter hand-building a
 `%Tokens{}` with a blank access token returned through that contract without complaint.
 
-The fix generalises. A predicate written to be **called from** contracts in other modules must
-itself be **contract-free**, so that it answers the same way in both places:
+The fix is to state the law a second time in a form other modules' assertions can call —
+`Tokens.well_formed?/1` beside the invariant that says the same thing.
 
-```elixir
-# Deliberately a bare parameter, not `%__MODULE__{} = tokens`: Bond attaches no
-# entry check, so there is nothing to suppress.
-def well_formed?(tokens) do
-  is_struct(tokens, __MODULE__) and is_binary(tokens.access_token) and ...
-end
-```
-
-Bond's `warn_skipped_invariants` linter fires on such a function. That is the right prompt and
-the wrong conclusion — suppress it with a comment saying why, rather than adding the pattern
-match that would silently disarm the predicate at its most important call site.
+**A correction, since this file got the reason wrong once.** That predicate takes a bare
+parameter rather than `%__MODULE__{} = tokens`, and the Assertion Evaluation rule is *not* why.
+The rule handles the assertion case correctly on its own: a suppressed entry check simply lets
+the predicate answer, and the caller's postcondition then fails cleanly. Measured — a guarded
+predicate called from a `@post` returned `false` and produced a `Bond.PostconditionError`, which
+is exactly the wanted outcome. The real reason is
+[the next section](#an-invariant-and-a-predicate-over-that-invariant-cannot-share-a-pattern-matched-head).
 
 ### The Non-Redundancy principle
 

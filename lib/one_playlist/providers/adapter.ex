@@ -98,8 +98,8 @@ defmodule OnePlaylist.Providers.Adapter do
       and stale hours later without changing. Only the producer can promise it.
 
   So the two surfaces need two assertions. `Tokens.well_formed?/1` is what keeps
-  that from being two *copies*: it is deliberately contract-free, so it answers
-  the same way in both places. An adapter that hand-builds `%Tokens{}` rather
+  that from being two *copies*: it states the structural law once, in a form that
+  answers rather than raises. An adapter that hand-builds `%Tokens{}` rather
   than going through `Tokens.new/1` is exactly the case this covers — and the
   case the previous arrangement silently did not.
   """
