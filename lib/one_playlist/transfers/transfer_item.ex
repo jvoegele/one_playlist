@@ -24,6 +24,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
   """
 
   use Ecto.Schema
+  use Bond
 
   import Ecto.Changeset
 
@@ -119,6 +120,23 @@ defmodule OnePlaylist.Transfers.TransferItem do
   is copied off the `OnePlaylist.Matching.Match` so the report can explain the
   decision without re-running it.
   """
+  # A report row is this application's product. `docs/reference/domain.md` argues
+  # that explaining *what happened to every track* is what distinguishes it from
+  # the incumbents, so a row that records an outcome without the evidence for it
+  # is the feature failing quietly rather than a cosmetic problem.
+  #
+  # `names_what_it_matched` is the one that can fail on data. `provider_id` comes
+  # from a mapper, and `to_string(nil)` is `""` — a provider that omits an id on
+  # one entry yields a row saying "matched" while naming nothing, which is
+  # exactly the shape `ids_are_usable_keys` guards on the adapter boundary.
+  #
+  # `outcome_is_a_resolution` is the specification of `added?`: a resolved track
+  # is `:matched` when this run wrote it and `:already_present` when the
+  # destination already had it, and never anything else. That distinction is what
+  # makes a re-run legible in the report, per the table above.
+  @post outcome_is_a_resolution: result.outcome in [:matched, :already_present],
+        names_what_it_matched:
+          is_binary(result.destination_track_id) and result.destination_track_id != ""
   @spec matched(map(), non_neg_integer(), Match.t(), boolean()) :: map()
   def matched(base, position, %Match{} = match, added?) do
     base
@@ -140,6 +158,13 @@ defmodule OnePlaylist.Transfers.TransferItem do
   different problems with different fixes — and only the second is worth
   offering the user a manual choice for.
   """
+  # The claim the docstring above makes, stated where it can be checked. An
+  # unmatched row whose `reason` is blank renders as a track that failed for no
+  # stated cause — which is precisely the row a user opens the report to read,
+  # and the difference between "nothing was found" and "four were found and none
+  # was good enough" is the difference between a dead end and a manual choice.
+  @post outcome_is_unresolved: result.outcome == :unmatched,
+        says_why: is_binary(result.reason) and result.reason != ""
   @spec unmatched(map(), non_neg_integer(), Track.t(), Exception.t()) :: map()
   def unmatched(base, position, %Track{} = source, error) do
     context = Errata.context(error)

@@ -24,6 +24,7 @@ defmodule OnePlaylist.Providers.SubsonicCredentials do
   """
 
   use Ecto.Schema
+  use Bond
 
   import Ecto.Changeset
 
@@ -68,12 +69,67 @@ defmodule OnePlaylist.Providers.SubsonicCredentials do
   validating on every keystroke would mean sending the password on every
   keystroke.
   """
+  # This module is a **filter** in Meyer's sense (*OOSC* §11.6): it faces the
+  # outside world, so it has no preconditions — a typo is the expected input, not
+  # a caller's bug, and it comes back as a changeset rather than a violation.
+  #
+  # What a filter owes the processing modules behind it is the other half of that
+  # arrangement: *its postconditions must match or exceed their preconditions*.
+  # These two are that debt, stated.
+  #
+  # `usable_base_url` is what `OnePlaylist.Providers.Subsonic.Client` assumes
+  # when it builds the request URL by concatenating `/rest/<endpoint>`. A trailing slash yields
+  # `//rest/...`, which some Subsonic servers answer and others do not — a
+  # failure that depends on which server the user happens to run. `Client` trims
+  # defensively too, and that is belt-and-braces rather than the guarantee.
+  #
+  # `credentials_are_present` mirrors `Tokens`' `access_token_present`, and for
+  # the same reason: the password becomes `Connection.access_token`, and
+  # `Connection.usable?/1` answers `true` for `""` because an empty string is a
+  # binary. A blank one therefore produces a connection that looks healthy and
+  # 401s on every call — the exact shape this project is organised against.
+  @post whenever(
+          {:ok, credentials} <- result,
+          usable_base_url: usable_base_url?(credentials.server_url),
+          credentials_are_present:
+            credentials.username != "" and credentials.password not in [nil, ""]
+        )
   @spec apply(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
   def apply(attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> apply_action(:insert)
   end
+
+  @doc """
+  Whether a string is a server address `OnePlaylist.Providers.Subsonic.Client`
+  can concatenate a path onto.
+
+  Public because `apply/1` names it in a postcondition, and an assertion
+  rendered into the documentation should reference something a reader can look
+  up. It is also the honest statement of what this module promises the rest of
+  the application about a validated server address.
+
+      iex> alias OnePlaylist.Providers.SubsonicCredentials
+      iex> SubsonicCredentials.usable_base_url?("http://music.local:4533")
+      true
+      iex> SubsonicCredentials.usable_base_url?("http://music.local:4533/")
+      false
+      iex> SubsonicCredentials.usable_base_url?("ftp://music.local")
+      false
+  """
+  @spec usable_base_url?(term()) :: boolean()
+  def usable_base_url?(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host} when scheme in ["http", "https"] ->
+        is_binary(host) and host != "" and not String.ends_with?(url, "/")
+
+      _otherwise ->
+        false
+    end
+  end
+
+  def usable_base_url?(_url), do: false
 
   @doc """
   A name for the connection when the user did not supply one.

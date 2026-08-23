@@ -179,7 +179,7 @@ exists to serve.
 What *is* assertable is the boundary, and it turned out to be the valuable part anyway:
 
 ```elixir
-@pre normalized_barcode: barcode == Signals.normalize_barcode(barcode)
+@pre normalized_barcode: barcode == Barcode.normalize(barcode)
 ```
 
 An unnormalized barcode is not a wrong answer. It is a **different cache key for the same
@@ -587,6 +587,61 @@ value ever travels.
 So when deciding where an assertion goes, ask which party can actually be at fault if it breaks.
 A law about a function's own output belongs on that function, even when a caller's precondition
 would happen to trip over the violation first.
+
+### Size a generator-coverage guard from a distribution, not from one sample
+
+The guards that keep a property test honest — "this generator actually reaches the interesting
+branch" — are themselves statistical, and they need sizing like one.
+
+`NormalizePropertyTest` asserted `collapsed_to_nothing > 2` over 300 samples, on the strength of
+having measured 4 once. The true minimum at that size, over 40 independent draws, is **exactly
+2** — so the guard failed about one suite run in thirty, in a test whose name gives no hint that
+randomness is involved.
+
+Measure the range before choosing the bound, and buy the headroom with **sample size** rather
+than by lowering the threshold — a lower threshold on the same sample is a weaker guard that is
+still flaky:
+
+| Samples | `collapsed_to_nothing`, 40 draws | Safe bound |
+| --- | --- | --- |
+| 300 | 2 … 15 | none worth having |
+| 1000 | 8 … 40 | `> 3` |
+
+Record the measured range in a comment next to the assertion. The next person to see the guard
+fail needs to know whether they broke the generator or drew badly, and only the range answers
+that.
+
+### An `@invariant` is only as reachable as its own module's API
+
+Bond checks a struct invariant on entry to and exit from **that struct module's** public
+functions, and nowhere else. Two consequences fall out, and a codebase-wide sweep hit both.
+
+**A pure data definition cannot carry a useful invariant.** `Music.Track` is the core domain
+struct and the obvious place to state that `duration_seconds` is never negative — the poisonous
+value from shape 4. But `Track`'s only public function is `parse_iso8601_duration/1`, which
+neither takes nor returns a `%Track{}`. An invariant there would never fire on entry, never fire
+on exit, and draw a `warn_skipped_invariants` warning for its trouble. Inventing a
+Track-accepting function to hang it on would be arranging the code around the contract.
+
+The law belongs at the **producers** instead, and both mappers are where a Track is built. That
+also settles where to state it once: `Tidal.Mapper` gets it free from
+`Track.parse_iso8601_duration/1`'s own postcondition, while `Subsonic.Mapper` filters an integer
+through a private helper, so only the second needs it spelled out.
+
+**An invariant reached only from an assertion is inert**, by the Assertion Evaluation rule.
+`TransferItem.tally/1` and `Transfer.tally/1` return the same four-field map, and lifting it to a
+`Tally` struct is tempting: the ledger law (`matched + unmatched <= total`, `added <= matched`)
+would become a real invariant, which `Transfer` cannot have because
+[`@invariant` does not compile on an `Ecto.Schema`](../library-feedback.md).
+
+It would also never run. The only production caller of either `tally/1` is
+`record_run/3`'s precondition, and contracts are suppressed while an assertion is being
+evaluated — so the invariant would be checked exactly nowhere. The law stays where it already
+works: `Transfer.balanced?/1`, named in the `@post`s that guard the counters.
+
+**Before lifting a map to a struct for an invariant's sake, ask where the invariant would fire.**
+If the answer is "at functions this module does not have" or "inside somebody else's assertion",
+the lift buys a name and nothing more — which may still be worth it, but not for that reason.
 
 ### Two guards mean the contract cannot earn its place
 

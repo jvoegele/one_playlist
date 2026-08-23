@@ -36,7 +36,19 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
   # application compares against.
   @post identity_preserved: result.provider_id == to_string(resource["id"]),
         isrc_is_scalar: is_nil(result.isrc) or is_binary(result.isrc),
-        artists_are_names: forall(artist <- result.artists, is_binary(artist))
+        artists_are_names: forall(artist <- result.artists, is_binary(artist)),
+        # A recording cannot be of negative length, so a negative value is not a
+        # shorter track — it is one that scores as a *near miss* against real
+        # durations in `OnePlaylist.Matching.Similarity`, quietly nudging the
+        # wrong candidate over the threshold.
+        #
+        # `OnePlaylist.Providers.Tidal.Mapper` states the same law one level
+        # down, on `Track.parse_iso8601_duration/1`, and so does not repeat it
+        # here. This mapper has no such parser — Subsonic sends seconds as an
+        # integer and a private helper filters it — so without this the law is
+        # written nowhere a caller can see.
+        duration_is_never_negative:
+          is_nil(result.duration_seconds) or result.duration_seconds >= 0
   @spec track(map()) :: Track.t()
   def track(resource) when is_map(resource) do
     %Track{

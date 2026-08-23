@@ -222,7 +222,23 @@ defmodule OnePlaylist.Matching.NormalizePropertyTest do
       # The guard SimilarityPropertyTest taught this codebase to write. Without
       # it the generator could drift to alphanumerics and the properties above
       # would pass over text that needed no normalizing at all.
-      samples = Enum.take(text_generator(), 300)
+      # Both thresholds are set from the *measured distribution* over 40
+      # independent draws, not from one sample. The first version of this guard
+      # asserted `> 2` at 300 samples after observing 4 once — and the true
+      # minimum at that size is exactly 2, so it failed roughly one suite run in
+      # thirty. A statistical guard sized from a single observation is a flaky
+      # test with a delayed fuse.
+      #
+      # At 1000 samples, measured over 40 runs:
+      #
+      #   * needed_folding:      754 … 818   → assert > 500
+      #   * collapsed_to_nothing:  8 …  40   → assert > 3
+      #
+      # The rarer of the two is rare because a joined run of up to five
+      # fragments is seldom *all* punctuation. Sampling more is what buys the
+      # headroom; lowering the threshold alone would only have made the guard
+      # weaker without making it stable.
+      samples = Enum.take(text_generator(), 1000)
 
       needed_folding =
         Enum.count(samples, fn raw ->
@@ -231,15 +247,11 @@ defmodule OnePlaylist.Matching.NormalizePropertyTest do
 
       collapsed_to_nothing = Enum.count(samples, &(Normalize.text(&1) == "" and &1 != ""))
 
-      assert needed_folding > 100,
-             "only #{needed_folding}/300 generated strings actually needed normalizing"
+      assert needed_folding > 500,
+             "only #{needed_folding}/1000 generated strings actually needed normalizing"
 
-      # Deliberately a low bar. A joined run of up to five fragments is rarely
-      # *all* punctuation, so this lands around 4 in 300 — enough to know the
-      # "normalizes away to nothing" path is exercised, and a threshold set from
-      # the measured distribution rather than from an optimistic guess.
-      assert collapsed_to_nothing > 2,
-             "only #{collapsed_to_nothing}/300 generated strings normalized away entirely"
+      assert collapsed_to_nothing > 3,
+             "only #{collapsed_to_nothing}/1000 generated strings normalized away entirely"
     end
   end
 end
