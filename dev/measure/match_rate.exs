@@ -133,7 +133,13 @@ results =
 
     case Tidal.search_tracks(connection, source, limit: 25) do
       {:ok, candidates} ->
-        classify.(row, candidates, Matching.match(source, candidates))
+        row
+        |> classify.(candidates, Matching.match(source, candidates))
+        # Every candidate TIDAL offered, kept so a change to the ladder can be
+        # evaluated against this corpus **offline** instead of spending another
+        # hundred searches. The same reasoning as
+        # `test/support/fixtures/tidal_isrc_corpus.json`.
+        |> Map.put(:offered_candidates, Enum.map(candidates, &Map.from_struct/1))
 
       {:error, error} ->
         %{

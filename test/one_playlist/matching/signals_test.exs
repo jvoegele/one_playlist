@@ -13,6 +13,8 @@ defmodule OnePlaylist.Matching.SignalsTest do
   alias OnePlaylist.Matching.Signals
   alias OnePlaylist.Music.Track
 
+  import OnePlaylist.MusicFixtures, only: [track: 1]
+
   doctest OnePlaylist.Matching.Signals
 
   describe "the invariant" do
@@ -97,6 +99,31 @@ defmodule OnePlaylist.Matching.SignalsTest do
       # would earn a point for having nothing to say.
       assert Signals.editorial_penalty(%Signals{editorial_conflict: true}) == 0.0
       assert Signals.editorial_penalty(%Signals{editorial_conflict: false}) == nil
+    end
+  end
+
+  describe "duration_conflict" do
+    test "far-apart lengths are a conflict, not a weak signal" do
+      # The distinction `Similarity.duration_proximity/2` already drew and the
+      # weighted mean was throwing away: `nil` means one length is missing,
+      # `0.0` means they are far apart. Only the second is evidence.
+      near = Signals.compare(track(duration_seconds: 300), track(duration_seconds: 302))
+      far = Signals.compare(track(duration_seconds: 300), track(duration_seconds: 480))
+      unknown = Signals.compare(track(duration_seconds: 300), track(duration_seconds: nil))
+
+      refute near.duration_conflict
+      assert far.duration_conflict
+      refute unknown.duration_conflict, "absent evidence is not contrary evidence"
+    end
+
+    test "it does not veto every rung" do
+      # Deliberately outside `vetoed?`: it stops the text rung, which cannot
+      # express doubt, and leaves fuzzy to score the candidate low. See the
+      # note on `vetoed?/1`.
+      far = Signals.compare(track(duration_seconds: 300), track(duration_seconds: 480))
+
+      assert far.duration_conflict
+      refute Signals.vetoed?(far)
     end
   end
 end

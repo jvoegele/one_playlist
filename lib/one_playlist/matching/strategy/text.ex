@@ -47,7 +47,23 @@ defmodule OnePlaylist.Matching.Strategy.Text do
   def score(%Track{} = source, %Track{} = candidate) do
     signals = Signals.compare(source, candidate)
 
-    if signals.title_exact and signals.artists_agree and not Signals.vetoed?(signals) do
+    # `duration_conflict` gates this rung specifically, and it is the fix for the
+    # only genuine errors the cross-service measurement found.
+    #
+    # Kraftwerk's "Neonlicht" is 535 seconds; TIDAL lists a "Neonlicht" of 344.
+    # Same title, same artist, same album, and neither catalogue labels either
+    # one — so there is no version marker for `vetoed?` to fire on, and the
+    # title gate below passes. The duration signal *did* say `0.0`, and the
+    # weighted mean then buried it: this rung's band floor is `0.80`, above the
+    # default `:medium` threshold, so every match it returns is confident by
+    # construction. A rung that cannot express doubt must decline instead.
+    #
+    # Declining hands the candidate to `Fuzzy`, whose band is `0.0`–`0.79` and
+    # which can score it low rather than discard it. Measured over the
+    # hundred-track MusicBrainz corpus: wrong matches fell from 4 to 1, with no
+    # correct match lost. See `docs/reference/domain.md`.
+    if signals.title_exact and signals.artists_agree and not Signals.vetoed?(signals) and
+         not signals.duration_conflict do
       {corroboration(signals), evidence(signals)}
     end
   end

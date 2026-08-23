@@ -355,11 +355,11 @@ A fresh session should read this before proposing what to build.
 | | |
 | --- | --- |
 | Providers | **TIDAL** (OAuth + PKCE, encrypted tokens, refresh) and **any Subsonic server** (Navidrome) |
-| Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto and a confidence threshold |
+| Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto, a duration conflict that makes the text rung decline, and a confidence threshold |
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
 | UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
-| Match quality | **82–94% correct** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
+| Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
 ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer whose
@@ -367,12 +367,13 @@ report matched what actually landed in the destination.
 
 **Not built yet**, roughly in value order:
 
-  * **A better tie-break between unlabelled versions.** The one place the honest measurement
-    found real errors: two catalogues each carry several versions of a Kraftwerk track, neither
-    labels them, and the text rung sees identical titles by one artist. Duration should
-    discriminate there rather than merely contribute a signal. See `docs/reference/domain.md`.
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
+  * **Search recall, not the ladder.** With the duration fix in, the engine picks correctly from
+    what it is offered; the binding constraint is that TIDAL's text search returns an
+    ISRC-matching candidate for only 86% of the corpus. A better query or a second lookup is
+    worth more than any further work on scoring. `bin/remote dev/measure/replay.exs` scores an
+    engine change against the captured candidates without an API call.
   * A third provider. Apple Music needs $99/yr and a browser flow; Qobuz is partner-only
     (email `api@qobuz.com`); Spotify is self-serve but permanently capped at 5 users.
 

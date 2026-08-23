@@ -417,20 +417,27 @@ catalogue, with the ISRC withheld from the engine.** Two organisations catalogue
 recordings independently, over twenty years, with no shared source — which is what every
 earlier measurement here lacked.
 
-| | Share of 100 |
-| --- | --- |
-| Certainly right — TIDAL's ISRC is one MusicBrainz records for that recording | **82%** |
-| Probably right — identifier differs, duration agrees within 3s | **94%** cumulative |
-| Possibly wrong — duration disagrees materially | 4% |
-| Found nothing | 2% |
+| | At measurement | After the duration fix |
+| --- | --- | --- |
+| Certainly right — TIDAL's ISRC is one MusicBrainz records for that recording | **82%** | **82%** |
+| Probably right — identifier differs, duration agrees within 3s | **94%** cumulative | **94%** cumulative |
+| Possibly wrong — duration disagrees materially | 4% | **1%** |
+| Found nothing | 2% | 5% |
 
 So the honest claim is a **band, 82%–94%**, on the *hard* path: identifiers withheld, text and
 fuzzy carrying the whole match. It is not comparable to Soundiiz's and TuneMyMusic's advertised
 97–99%, which are whole-catalogue figures dominated by ISRC hits — and this project's own
 ISRC path measured 60/60 and 30/30 in earlier runs.
 
-**Reproduce with** `dev/measure/fetch_musicbrainz.exs` then
-`bin/remote dev/measure/match_rate.exs`. The corpus and the per-track results are committed.
+The second column is the same corpus re-scored after the change described under *the genuine
+errors* below. Three confidently wrong answers became honest misses and **no correct match was
+lost** — which is the trade this engine is supposed to make, and the reason the top two rows do
+not move.
+
+**Reproduce with** `dev/measure/fetch_musicbrainz.exs` then `bin/remote dev/measure/match_rate.exs`
+for a live run, or `bin/remote dev/measure/replay.exs` to re-score the captured candidates
+against the engine as it stands — no API calls, and the only way to tell whether an engine change
+helped or merely moved the failures around. The corpus and the per-track results are committed.
 
 #### Why it is a band and not a number
 
@@ -453,14 +460,36 @@ only **86%** of the corpus. Where the right recording *was* among the candidates
 picked it 95% of the time. Improving the ladder cannot fix the other 14%; only a better query
 or a second lookup can.
 
-**The genuine errors cluster on unlabelled versions.** Three of the four contradicted matches
-are Kraftwerk — `Die Roboter` at 373s matched to a 463s recording, `Neonlicht` at 535s to 344s.
-Both catalogues carry several versions of each and **neither labels them**, so the
-discriminating-tag veto has nothing to fire on and the text rung sees two identical titles by
-one artist. This is the clearest direction for the engine: when several candidates share a
-normalized title and artist, duration should discriminate between them rather than merely
-contribute a signal. The fourth, `Blue in Green` at 328s against 324s, is a tolerance artefact
-rather than an error.
+**The genuine errors clustered on unlabelled versions — and this has since been fixed.** Three of
+the four contradicted matches were Kraftwerk: `Die Roboter` at 373s matched to a 463s recording,
+`Neonlicht` at 535s to 344s. Both catalogues carry several versions of each and **neither labels
+them**, so the discriminating-tag veto had nothing to fire on and the text rung saw two identical
+titles by one artist.
+
+The first instinct was that duration should *discriminate* between such candidates rather than
+merely contribute a signal. Scoring the real candidate lists showed that was the wrong diagnosis:
+in every one of the three cases the correct recording was **not among the candidates at all**, so
+there was nothing for a tie-break to choose. The problem was not ranking, it was that a match had
+to be returned.
+
+The actual cause is structural. `Similarity.duration_proximity/2` already distinguished *missing*
+(`nil`) from *far apart* (`0.0`), and the weighted mean was throwing that distinction away — a
+saturated `0.0` is just one low term among four. Worse, the text rung's band is `0.80`–`0.98`,
+entirely **above** the default `:medium` threshold of `0.75`, so *every* match that rung returns
+is confident by construction. A rung that cannot express doubt has to decline instead.
+
+So `Signals` now carries a `duration_conflict` flag, and it stops the text rung specifically. It
+is deliberately **not** part of `Signals.vetoed?/1`: vetoing everywhere would discard the
+candidate, and the fuzzy rung — whose band is `0.0`–`0.79` — can score it low instead, which is
+strictly more informative. The rung that cannot express degrees declines; the rung that can scores
+it. Both surviving behaviours are pinned by tests, including the reissue case that must *not*
+be rejected.
+
+Result on this corpus: wrong matches 4 → 1, with `certain` and `probably right` unchanged. The
+single survivor, `Blue in Green` at 328s against 324s, looks like an oracle artefact rather than
+an engine error — the chosen track is the same performance on a licensed compilation, which
+carries its own ISRC and a 4-second-different master, so it falls outside both the ISRC set and
+the 3-second window. Neither test the oracle has can resolve it.
 
 **One recall failure worth understanding.** `Freddie Freeloader` returned no match although an
 ISRC-matching candidate was among the twenty offered — the ladder rejected the right answer.

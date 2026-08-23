@@ -287,8 +287,15 @@ defmodule OnePlaylist.Providers.Tidal.ReleaseLookupTest do
     end
 
     test "the candidate is still scored on its merits after the claim is withdrawn" do
-      # Withdrawing the exact claim must not discard the candidate: the text
-      # and fuzzy rungs still see it, and the title still agrees.
+      # Withdrawing the exact claim must not discard the candidate: the lower
+      # rungs still see it, and the title still agrees.
+      #
+      # Which rung catches it is the policy `Strategy.Text` documents. A
+      # duration this far apart is a `duration_conflict`, so the text rung —
+      # whose band floor is above the default threshold, leaving it no way to
+      # express doubt — declines, and fuzzy scores it in the `0.0`–`0.79` band
+      # instead. Hence `threshold: :low` here: at the default this is correctly
+      # *not* a match.
       counter = :counters.new(3, [])
       stub_release(counter)
 
@@ -302,7 +309,7 @@ defmodule OnePlaylist.Providers.Tidal.ReleaseLookupTest do
       assert {:ok, candidates} = Tidal.search_tracks(connection(), source)
       assert {:ok, match} = Matching.match(source, candidates, threshold: :low)
 
-      assert match.strategy in [:text, :fuzzy]
+      assert match.strategy == :fuzzy
     end
 
     test "an unknown duration does not withdraw the claim" do

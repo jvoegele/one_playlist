@@ -17,7 +17,6 @@ defmodule OnePlaylist.Providers.Tidal.MapperPropertyTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Payload
   alias OnePlaylist.Providers.Tidal.Mapper
 

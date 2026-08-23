@@ -454,4 +454,58 @@ defmodule OnePlaylist.MatchingTest do
       )
     end
   end
+
+  describe "unlabelled versions of one song" do
+    # The only genuine errors the cross-service measurement found, reproduced
+    # from the data that produced them. Kraftwerk's catalogue carries several
+    # versions of each track under one title, and *neither* MusicBrainz nor
+    # TIDAL labels them — so there is no `(Live)` or `(Radio Edit)` for the
+    # discriminating veto to fire on, and title, artist and album all agree.
+    #
+    # Real numbers: MusicBrainz has "Neonlicht" at 535s, TIDAL lists one at
+    # 344s. Before this, that scored `:medium` and was accepted by default.
+
+    test "a 191-second disagreement is not a confident match" do
+      source = track(title: "Neonlicht", artists: ["Kraftwerk"], duration_seconds: 535)
+      other_version = track(title: "Neonlicht", artists: ["Kraftwerk"], duration_seconds: 344)
+
+      assert {:error, error} = Matching.match(source, [other_version])
+
+      # `:below_threshold`, not `:no_match` — the distinction is the whole
+      # design. The text rung declines, but the candidate is not discarded:
+      # fuzzy still scores it, and the report can show the user the near miss
+      # and its score rather than "nothing found".
+      assert error.reason == :below_threshold
+    end
+
+    test "the right version is still chosen when it is offered" do
+      # The veto must not cost a correct match. Given both versions, the ladder
+      # takes the one whose length agrees.
+      source = track(title: "Neonlicht", artists: ["Kraftwerk"], duration_seconds: 535)
+      wrong = track(title: "Neonlicht", artists: ["Kraftwerk"], duration_seconds: 344)
+      right = track(title: "Neonlicht", artists: ["Kraftwerk"], duration_seconds: 533)
+
+      assert {:ok, match} = Matching.match(source, [wrong, right])
+      assert match.track.duration_seconds == 533
+    end
+
+    test "a remaster's few seconds of difference still matches" do
+      # The line has to fall between "different master" and "different
+      # recording". Two seconds is the former.
+      source = track(title: "Das Model", artists: ["Kraftwerk"], duration_seconds: 218)
+      remaster = track(title: "Das Model", artists: ["Kraftwerk"], duration_seconds: 220)
+
+      assert {:ok, match} = Matching.match(source, [remaster])
+      assert match.strategy == :text
+    end
+
+    test "an unknown duration does not reject anything" do
+      # Absent evidence is not contrary evidence — the same rule rung 2 follows.
+      source = track(title: "Die Roboter", artists: ["Kraftwerk"], duration_seconds: 373)
+      untimed = track(title: "Die Roboter", artists: ["Kraftwerk"], duration_seconds: nil)
+
+      assert {:ok, match} = Matching.match(source, [untimed])
+      assert match.strategy == :text
+    end
+  end
 end

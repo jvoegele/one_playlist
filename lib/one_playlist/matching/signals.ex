@@ -7,6 +7,19 @@ defmodule OnePlaylist.Matching.Signals do
   interprets the result. That also means a signal is defined in exactly one
   place: if "do these artists agree?" is wrong, it is wrong in one function.
 
+  ## A length disagreement is a conflict, not a weak signal
+
+  `duration` carries the proximity score; `duration_conflict` carries the
+  separate fact that the two lengths are far enough apart for
+  `Similarity.duration_proximity/2` to have nothing left to say.
+
+  The distinction already existed in that function's return — `nil` for "one of
+  them is missing" against `0.0` for "these are far apart" — and was being
+  thrown away by the weighted mean, which treats `0.0` as a poor score rather
+  than as contrary evidence. That is what let a text match survive a
+  191-second disagreement at `:medium` confidence; see the cross-service
+  measurement in `docs/reference/domain.md`.
+
   ## Featured artists are moved before comparing
 
   `Normalize.title/2` pulls `(feat. X)` out of a title and returns it as an
@@ -34,6 +47,7 @@ defmodule OnePlaylist.Matching.Signals do
             album: nil,
             duration: nil,
             upc_agrees: nil,
+            duration_conflict: false,
             discriminating_conflict: false,
             editorial_conflict: false
 
@@ -46,6 +60,7 @@ defmodule OnePlaylist.Matching.Signals do
           album: float() | nil,
           duration: float() | nil,
           upc_agrees: boolean() | nil,
+          duration_conflict: boolean(),
           discriminating_conflict: boolean(),
           editorial_conflict: boolean()
         }
@@ -103,6 +118,8 @@ defmodule OnePlaylist.Matching.Signals do
       duration:
         Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds),
       upc_agrees: upc_agrees?(source.album_upc, candidate.album_upc),
+      duration_conflict:
+        Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds) == 0.0,
       discriminating_conflict:
         conflict?(Normalize.discriminating(left.tags), Normalize.discriminating(right.tags)),
       editorial_conflict:
@@ -123,10 +140,24 @@ defmodule OnePlaylist.Matching.Signals do
   spelled three slightly different ways, and because `discriminating_conflict`
   describes the data while `vetoed?` describes what to do about it.
 
+  > #### `duration_conflict` is deliberately not here {: .info}
+  >
+  > A length disagreement is evidence of a different performance too, and
+  > stronger evidence than a label — but it stops the **text** rung only, in
+  > `OnePlaylist.Matching.Strategy.Text`, rather than vetoing every rung.
+  >
+  > The asymmetry follows from the bands. The text rung's floor is `0.80`, above
+  > the default `:medium` threshold, so *any* text match is inherently a
+  > confident claim and there is no way for it to express doubt. The fuzzy rung
+  > spans `0.0`–`0.79` and can say "probably not" numerically. So the rung that
+  > cannot express degrees declines, and the rung that can scores it low — which
+  > leaves the candidate visible to a caller who deliberately lowered the
+  > threshold, instead of discarding it.
+
       iex> alias OnePlaylist.Matching.Signals
       iex> Signals.vetoed?(%Signals{discriminating_conflict: true})
       true
-      iex> Signals.vetoed?(%Signals{title: 1.0})
+      iex> Signals.vetoed?(%Signals{duration_conflict: true, title: 1.0})
       false
   """
   @spec vetoed?(t()) :: boolean()
