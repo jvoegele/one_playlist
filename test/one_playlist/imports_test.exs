@@ -74,7 +74,9 @@ defmodule OnePlaylist.ImportsTest do
 
       assert first.title == "Release (Brendan O'Brien Mix)"
       assert first.artists == ["Pearl Jam"]
-      assert first.isrc == "ussm10805339"
+      # Canonical, not as the file wrote it. Roon writes ISRCs in lower case and
+      # TIDAL rejects those, so the codec normalises on the way in.
+      assert first.isrc == "USSM10805339"
     end
 
     test "a job is queued in the same transaction", %{session: session, csv: csv} do
