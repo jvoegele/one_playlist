@@ -211,13 +211,52 @@ defmodule OnePlaylist.Transfers.Runner do
     tracks
     |> Enum.with_index()
     |> Enum.map(fn {track, position} ->
-      resolution = {position, track, resolve(track, adapter, connection, threshold)}
+      outcome = resolve(track, adapter, connection, threshold)
 
-      _ = OnePlaylist.Transfers.report_progress(transfer, position + 1, total)
+      _ =
+        OnePlaylist.Transfers.report_progress(
+          transfer,
+          position + 1,
+          total,
+          provisional_item(position, track, outcome)
+        )
 
-      resolution
+      {position, track, outcome}
     end)
   end
+
+  # What a watcher can be shown before the writes happen. Deliberately says
+  # `:matched` for anything resolved, because the difference between that and
+  # `:already_present` is not known yet: it depends on what the destination
+  # already holds, which is compared after every track has been resolved. The
+  # final report corrects it.
+  defp provisional_item(position, track, outcome) do
+    base = %{position: position, source_title: track.title, source_artist: primary_artist(track)}
+
+    case outcome do
+      {:ok, match} ->
+        Map.merge(base, %{
+          outcome: :matched,
+          destination_track_id: match.track.provider_id,
+          confidence: to_string(match.confidence),
+          score: match.score,
+          strategy: to_string(match.strategy),
+          reason: nil
+        })
+
+      {:error, error} ->
+        Map.merge(base, %{
+          outcome: :unmatched,
+          destination_track_id: nil,
+          confidence: nil,
+          score: nil,
+          strategy: nil,
+          reason: to_string(Errata.reason(error))
+        })
+    end
+  end
+
+  defp primary_artist(track), do: List.first(track.artists)
 
   defp resolve(track, adapter, connection, threshold) do
     if Matching.searchable?(track) do

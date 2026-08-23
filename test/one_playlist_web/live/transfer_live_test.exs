@@ -220,6 +220,165 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       assert html =~ "40%"
     end
 
+    test "rows appear as their tracks resolve", %{conn: conn, user_id: user_id} do
+      # The point: a 58 track import used to show an empty table for the whole
+      # matching pass, then every row at once.
+      transfer = user_id |> transfer_fixture() |> with_status(:running)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      OnePlaylist.Transfers.report_progress(transfer, 1, 2, %{
+        position: 0,
+        source_title: "Corduroy",
+        source_artist: "Pearl Jam",
+        outcome: :matched,
+        destination_track_id: "t1",
+        confidence: "exact_isrc",
+        score: 1.0,
+        strategy: "isrc",
+        reason: nil
+      })
+
+      html = render(view)
+
+      assert html =~ "Corduroy"
+      assert html =~ "Pearl Jam"
+    end
+
+    test "a provisional row is replaced, not duplicated", %{conn: conn, user_id: user_id} do
+      # Both are keyed on the track's position in the source playlist, so the
+      # persisted report lands on the same DOM element the live row created.
+      transfer = user_id |> transfer_fixture() |> with_status(:running)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      for _ <- 1..3 do
+        OnePlaylist.Transfers.report_progress(transfer, 1, 1, %{
+          position: 0,
+          source_title: "Corduroy",
+          source_artist: "Pearl Jam",
+          outcome: :matched,
+          destination_track_id: "t1",
+          confidence: "exact_isrc",
+          score: 1.0,
+          strategy: "isrc",
+          reason: nil
+        })
+      end
+
+      html = render(view)
+
+      assert html |> String.split("Corduroy") |> length() == 2, "one row, not three"
+    end
+
+    test "the persisted report replaces the live rows rather than joining them", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      transfer = user_id |> transfer_fixture() |> with_status(:running)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      # What a run reports as it goes. `provisional_item/3` says `:matched` for
+      # anything that resolved, because whether the track was already in the
+      # destination is not known until every track has resolved.
+      OnePlaylist.Transfers.report_progress(transfer, 1, 1, %{
+        position: 0,
+        source_title: "Corduroy",
+        source_artist: "Pearl Jam",
+        outcome: :matched,
+        destination_track_id: "t1",
+        confidence: "exact",
+        score: 1.0,
+        strategy: "isrc",
+        reason: nil
+      })
+
+      assert render(view) =~ "Corduroy"
+
+      # And what the run turns out to have found: it was there already.
+      counted = %{
+        transfer
+        | total_tracks: 1,
+          matched_count: 1,
+          added_count: 0,
+          unmatched_count: 0
+      }
+
+      {:ok, finished} =
+        OnePlaylist.Transfers.record_run(transfer, counted, [
+          %{
+            transfer_id: transfer.id,
+            user_id: user_id,
+            source_track_id: "s1",
+            position: 0,
+            source_title: "Corduroy",
+            source_artist: "Pearl Jam",
+            outcome: :already_present,
+            destination_track_id: "t1",
+            confidence: "exact",
+            score: 1.0,
+            strategy: "isrc",
+            reason: nil
+          }
+        ])
+
+      {:ok, finished} = OnePlaylist.Transfers.record_progress(finished, %{status: :completed})
+      send(view.pid, {:transfer_updated, finished})
+
+      html = render(view)
+
+      # Both rows are keyed on the position, so a report that joined the
+      # provisional row instead of replacing it shows the track twice.
+      assert length(String.split(html, ~s(id="item-0"))) == 2,
+             "the report should replace the provisional row, not sit beside it"
+
+      # The filter the real row belongs to, which the provisional one did not.
+      _ = view |> element("button[phx-value-outcome='matched']") |> render_click()
+      refute render(view) =~ "Corduroy", "a stale provisional row would still be here"
+    end
+
+    test "a live row respects the filter", %{conn: conn, user_id: user_id} do
+      # Watching "unmatched" during a run should show the failures, not
+      # everything that happens to resolve.
+      transfer = user_id |> transfer_fixture() |> with_status(:running)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      # A first result, so the table and its tabs exist. Before anything has
+      # resolved there is nothing to filter, and the tabs are correctly absent.
+      OnePlaylist.Transfers.report_progress(transfer, 1, 3, %{
+        position: 0,
+        source_title: "A Miss",
+        source_artist: "Somebody",
+        outcome: :unmatched,
+        destination_track_id: nil,
+        confidence: nil,
+        score: nil,
+        strategy: nil,
+        reason: "no_match"
+      })
+
+      _ = view |> element("button[phx-value-outcome='unmatched']") |> render_click()
+
+      OnePlaylist.Transfers.report_progress(transfer, 2, 3, %{
+        position: 1,
+        source_title: "A Match",
+        source_artist: "Somebody",
+        outcome: :matched,
+        destination_track_id: "t1",
+        confidence: "high",
+        score: 0.9,
+        strategy: "text",
+        reason: nil
+      })
+
+      html = render(view)
+
+      assert html =~ "A Miss", "the failures are what this filter is for"
+      refute html =~ "A Match"
+    end
+
     test "a finished transfer shows counters instead", %{conn: conn, user_id: user_id} do
       # A full bar says less than "54 matched, 4 not found" does.
       transfer = user_id |> transfer_fixture() |> with_status(:completed)

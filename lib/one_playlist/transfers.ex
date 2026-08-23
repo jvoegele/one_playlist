@@ -72,13 +72,22 @@ defmodule OnePlaylist.Transfers do
   This is what makes a progress bar possible at all: before it, the only thing
   broadcast between "queued" and "completed" was the destination playlist being
   created.
+
+  `item` carries the row a watcher can show straight away — the same shape
+  `OnePlaylist.Transfers.TransferItem.matched/4` builds, minus the fields that
+  are only known once the writes are done. It is *provisional*: whether a
+  matched track was `:matched` or `:already_present` depends on what the
+  destination turns out to hold, which is decided after every track has been
+  resolved. So a row shown here can change when the run finishes, and the final
+  report replaces it.
   """
-  @spec report_progress(Transfer.t(), non_neg_integer(), non_neg_integer()) :: :ok
-  def report_progress(%Transfer{} = transfer, resolved, total) do
+  @spec report_progress(Transfer.t(), non_neg_integer(), non_neg_integer(), map() | nil) :: :ok
+  def report_progress(%Transfer{} = transfer, resolved, total, item \\ nil) do
     Phoenix.PubSub.broadcast(
       OnePlaylist.PubSub,
       "#{@topic}:#{transfer.id}",
-      {:transfer_progress, %{transfer_id: transfer.id, resolved: resolved, total: total}}
+      {:transfer_progress,
+       %{transfer_id: transfer.id, resolved: resolved, total: total, item: item}}
     )
     |> case do
       :ok ->

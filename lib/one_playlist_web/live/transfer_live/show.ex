@@ -34,11 +34,14 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
         {:ok,
          socket
-         |> assign_transfer(transfer)
          |> assign(:filter, :all)
          # `nil` until the first report arrives, which reads as "Starting…"
          # rather than as zero of zero.
-         |> assign(:progress, nil)}
+         |> assign(:progress, nil)
+         # Position => provisional row, for the rows a run has reported but not
+         # yet persisted. Assigned before `assign_transfer/2`, which reads it.
+         |> assign(:provisional, %{})
+         |> assign_transfer(transfer)}
 
       :error ->
         {:ok,
@@ -49,12 +52,32 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   end
 
   @impl true
-  def handle_info({:transfer_progress, %{resolved: resolved, total: total}}, socket) do
-    {:noreply, assign(socket, :progress, %{resolved: resolved, total: total})}
+  def handle_info({:transfer_progress, progress}, socket) do
+    socket = assign(socket, :progress, %{resolved: progress.resolved, total: progress.total})
+
+    # The row appears the moment its track resolves, rather than every row
+    # appearing at once when the run ends. Keyed on position, so the persisted
+    # report replaces these in place instead of doubling the table.
+    #
+    # Kept in an assign as well as streamed, because changing the filter
+    # re-streams from the database with `reset: true` — and during a run the
+    # database has nothing, so without this a filter click would wipe every row
+    # the watcher had seen.
+    if progress.item do
+      {:noreply,
+       socket
+       |> assign(
+         :provisional,
+         Map.put(socket.assigns.provisional, progress.item.position, progress.item)
+       )
+       |> insert_if_shown(progress.item)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:transfer_updated, transfer}, socket) do
-    {:noreply, assign_transfer(socket, transfer)}
+    {:noreply, socket |> forget_provisional_once_final(transfer) |> assign_transfer(transfer)}
   end
 
   @impl true
@@ -77,10 +100,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   def handle_event("filter", %{"outcome" => outcome}, socket) do
     filter = String.to_existing_atom(outcome)
 
+    shown = items(socket.assigns.transfer, filter)
+
     {:noreply,
      socket
      |> assign(:filter, filter)
-     |> stream(:items, items(socket.assigns.transfer, filter), reset: true)}
+     |> stream(:items, shown, reset: true, dom_id: &row_id/1)
+     |> restore_provisional(shown)}
   end
 
   @impl true
@@ -178,7 +204,10 @@ defmodule OnePlaylistWeb.TransferLive.Show do
           />
         </div>
 
-        <div :if={@transfer.total_tracks > 0}>
+        <%!-- `@progress` as well as the counters, because `total_tracks` is not
+              persisted until the run finishes: gating on it alone kept the
+              table hidden for exactly the period the live rows are for. --%>
+        <div :if={@transfer.total_tracks > 0 or @progress}>
           <div role="tablist" class="tabs tabs-bordered mb-2">
             <button
               :for={{value, label} <- filters(@transfer)}
@@ -313,7 +342,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     socket
     |> assign(:transfer, transfer)
     |> assign(:page_title, transfer.source_playlist_name || "Transfer")
-    |> stream(:items, items(transfer, filter), reset: true)
+    |> then(fn socket ->
+      shown = items(transfer, filter)
+
+      socket
+      |> stream(:items, shown, reset: true, dom_id: &row_id/1)
+      |> restore_provisional(shown)
+    end)
   end
 
   # Only on the connected mount: the static render has no channel to deliver a
@@ -327,6 +362,44 @@ defmodule OnePlaylistWeb.TransferLive.Show do
       {:error, reason} -> Logger.warning("not watching transfer #{id}: #{inspect(reason)}")
     end
   end
+
+  # A track's position in the source playlist identifies its row for the whole
+  # life of the page: first as a provisional result broadcast during the run,
+  # then as the persisted `TransferItem` that replaces it.
+  defp row_id(item), do: "item-#{item.position}"
+
+  defp insert_if_shown(socket, item) do
+    if shown?(item, socket.assigns.filter),
+      do: stream_insert(socket, :items, item, at: -1),
+      else: socket
+  end
+
+  # A finished run has persisted a real `TransferItem` for every position, so the
+  # provisional rows are not merely redundant — they are potentially wrong.
+  # `provisional_item/3` reports `:matched` for anything that resolved, and a
+  # track that turns out to be in the destination already is recorded as
+  # `:already_present`. Keeping it would leave a stale row visible under a filter
+  # the real one does not belong to.
+  defp forget_provisional_once_final(socket, %Transfer{status: status} = _transfer)
+       when status in [:pending, :running],
+       do: socket
+
+  defp forget_provisional_once_final(socket, _transfer), do: assign(socket, :provisional, %{})
+
+  # Provisional rows that the persisted report has not superseded, in position
+  # order, so a mid-run filter change does not wipe what the watcher has seen.
+  defp restore_provisional(socket, persisted) do
+    covered = MapSet.new(persisted, & &1.position)
+
+    socket.assigns.provisional
+    |> Map.values()
+    |> Enum.reject(&MapSet.member?(covered, &1.position))
+    |> Enum.sort_by(& &1.position)
+    |> Enum.reduce(socket, &insert_if_shown(&2, &1))
+  end
+
+  defp shown?(_item, :all), do: true
+  defp shown?(item, outcome), do: item.outcome == outcome
 
   defp items(transfer, :all), do: Transfers.items(transfer)
   defp items(transfer, outcome), do: Transfers.items(transfer, outcome: outcome)
