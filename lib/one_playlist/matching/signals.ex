@@ -101,8 +101,11 @@ defmodule OnePlaylist.Matching.Signals do
     left = Normalize.title(source.title, source.version)
     right = Normalize.title(candidate.title, candidate.version)
 
-    left_artists = artist_set(source, left)
-    right_artists = artist_set(candidate, right)
+    left_credits = credits(source, left)
+    right_credits = credits(candidate, right)
+
+    left_artists = all_names(left_credits)
+    right_artists = all_names(right_credits)
 
     left_words = artist_words(left_artists)
     right_words = artist_words(right_artists)
@@ -112,7 +115,7 @@ defmodule OnePlaylist.Matching.Signals do
       title_exact: left.title != "" and left.title == right.title,
       artists: artist_similarity(left_artists, right_artists, left_words, right_words),
       artists_agree:
-        artists_agree?(left_artists, right_artists) or
+        artists_agree?(left_credits, right_credits) or
           words_agree?(left_words, right_words),
       album: album_similarity(source.album, candidate.album),
       duration:
@@ -191,11 +194,16 @@ defmodule OnePlaylist.Matching.Signals do
   def editorial_penalty(%__MODULE__{}), do: nil
 
   # A title's own artists, plus anyone the title credited as a guest.
-  defp artist_set(%Track{} = track, parsed_title) do
-    track.artists
-    |> Normalize.artists()
-    |> MapSet.union(MapSet.new(parsed_title.featuring))
+  # Who made the recording, and who guested on it. A `(feat. X)` in the *title*
+  # is a guest credit like any other, so it joins the featured side rather than
+  # the set of names that has to agree.
+  defp credits(%Track{} = track, parsed_title) do
+    credits = Normalize.credits(track.artists)
+
+    %{credits | featured: MapSet.union(credits.featured, MapSet.new(parsed_title.featuring))}
   end
+
+  defp all_names(credits), do: MapSet.union(credits.primary, credits.featured)
 
   # Two untitled tracks are not similar, they are unknown. Without this,
   # `jaro_distance("", "")` returns 1.0 and every track missing a title matches
@@ -245,12 +253,28 @@ defmodule OnePlaylist.Matching.Signals do
   # to credit far more often than they disagree about who the artists are, so
   # requiring the same set would reject true matches wholesale. What must not
   # happen is a *disjoint* credit — that is a different recording.
+  # The **primary** credits must be the same set. Guests may differ freely.
+  #
+  # This used to accept a subset in either direction, over every name at once,
+  # and that is how a live Neil Young & Pearl Jam recording matched the studio
+  # "Powderfinger" credited to Neil Young alone: `{neil young}` is a subset of
+  # `{neil young, pearl jam}`, so the gate opened, and this rung's band floor of
+  # 0.80 then reported it at `medium` on an album similarity near zero.
+  #
+  # Subsetting was there for a real case — one service spelling out a feature
+  # credit another omits — and that case is now handled by where the name goes
+  # rather than by how loosely the sets are compared. "Pearl Jam feat. Eddie
+  # Vedder" and "Pearl Jam" still agree, because Eddie Vedder is a guest on one
+  # side and absent on the other, and neither is primary.
+  #
+  # Equality rather than "the source's primaries are a subset": a collaboration
+  # is a different recording whichever side has the extra name. Where two
+  # services genuinely disagree about co-billing — "Neil Young" against "Neil
+  # Young & Crazy Horse" — this rung declines and `Fuzzy` scores it instead,
+  # which is the behaviour the duration gate above already chose for the same
+  # reason. A rung that cannot express doubt must decline.
   defp artists_agree?(left, right) do
-    cond do
-      MapSet.size(left) == 0 or MapSet.size(right) == 0 -> false
-      MapSet.size(left) <= MapSet.size(right) -> MapSet.subset?(left, right)
-      true -> MapSet.subset?(right, left)
-    end
+    MapSet.size(left.primary) > 0 and MapSet.equal?(left.primary, right.primary)
   end
 
   defp album_similarity(nil, _right), do: nil

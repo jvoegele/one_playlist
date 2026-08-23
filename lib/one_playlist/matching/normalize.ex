@@ -118,6 +118,21 @@ defmodule OnePlaylist.Matching.Normalize do
   # so a second pass over an already-split credit happens on a real path.
   @word_separators ~r/(?<=\S)\s(?:x|and|feat|ft|featuring|with|vs)\s(?=\S)/u
 
+  # The same list, split by what the word actually *means* about the credit.
+  #
+  # `credits/1` needs the distinction that `artists/1` deliberately throws away.
+  # "Neil Young & Pearl Jam" and "Pearl Jam feat. Eddie Vedder" both flatten to
+  # a two-name set, and the difference between them is the difference between a
+  # collaboration — a recording neither artist made alone — and a credit one
+  # service spells out where another does not.
+  #
+  # `with` is grouped with the featuring markers rather than the co-billing
+  # ones, matching how `@featuring_markers` reads it inside a title, and
+  # because being wrong in that direction costs a tolerated match rather than a
+  # wrong one.
+  @featuring_separators ~r/(?<=\S)\s(?:feat|ft|featuring|with)\s(?=\S)/u
+  @cobilling_separators ~r/(?<=\S)\s(?:x|and|vs)\s(?=\S)/u
+
   @doc """
   Case-, accent- and punctuation-insensitive form of a string.
 
@@ -311,6 +326,99 @@ defmodule OnePlaylist.Matching.Normalize do
     |> Enum.flat_map(&String.split(&1, @word_separators, trim: true))
     |> MapSet.new()
   end
+
+  @doc """
+  A credit taken apart into who *made* the recording and who guested on it.
+
+  `artists/1` answers "which names appear", which is the right question for a
+  graded similarity and the wrong one for deciding whether two tracks are the
+  same recording. These are different claims:
+
+      Neil Young & Pearl Jam    →  primary: neil young, pearl jam
+      Pearl Jam feat. Eddie Vedder  →  primary: pearl jam · featured: eddie vedder
+
+  The first is a recording neither artist made alone. The second is one artist's
+  recording, described more fully by one service than another. Flattened
+  together — which is what `artists/1` does — "Neil Young" looks like a subset
+  of the first, and a studio track gets matched to a live collaboration.
+
+      iex> alias OnePlaylist.Matching.Normalize
+      iex> credits = Normalize.credits(["Neil Young & Pearl Jam"])
+      iex> Enum.sort(credits.primary)
+      ["neil young", "pearl jam"]
+      iex> credits = Normalize.credits(["Pearl Jam feat. Eddie Vedder"])
+      iex> {Enum.sort(credits.primary), Enum.sort(credits.featured)}
+      {["pearl jam"], ["eddie vedder"]}
+  """
+  # Every name goes to exactly one side. A credit that landed in neither would
+  # be a collaborator silently dropped, which is the bug this exists to prevent
+  # wearing different clothes.
+  # The two sides together are exactly what `artists/1` reports, which is the
+  # useful form of "no name was lost": the separator lists have to stay a
+  # partition of `@word_separators`, and nothing else checks that. Adding a
+  # marker to one list and forgetting the other silently drops a collaborator,
+  # which is the very bug this function exists to fix wearing other clothes.
+  #
+  # Two implementations of one rule, cross-checked, in the shape
+  # `docs/reference/contracts.md` recommends looking for.
+  @post loses_no_name: MapSet.union(result.primary, result.featured) == artists(values)
+  @spec credits([String.t()] | String.t() | nil) :: %{
+          primary: MapSet.t(String.t()),
+          featured: MapSet.t(String.t())
+        }
+  def credits(values) do
+    values
+    |> List.wrap()
+    |> Enum.filter(&is_binary/1)
+    # Punctuation first, and before normalization, exactly as `artists/1` does:
+    # "&" separates co-billed names and `text/1` would strip it.
+    |> Enum.flat_map(&String.split(&1, @punctuation_separators, trim: true))
+    |> Enum.map(&text/1)
+    |> Enum.flat_map(fn name ->
+      case String.split(name, @featuring_separators, parts: 2) do
+        [lead] -> tagged(:primary, lead)
+        [lead, guest] -> tagged(:primary, lead) ++ tagged(:featured, guest)
+      end
+    end)
+    |> classify()
+  end
+
+  defp tagged(tag, part) do
+    part
+    |> String.split(@cobilling_separators, trim: true)
+    |> Enum.map(&{tag, &1})
+  end
+
+  # "X and the Ys" is a backing band; "X & Y" is two headline acts. The definite
+  # article is the marker, and it is why `text/1` keeps leading articles rather
+  # than stripping them.
+  #
+  # This is the difference between Bruce Springsteen and the E Street Band —
+  # which every service also lists as plain Bruce Springsteen, for the same
+  # recording — and Neil Young & Pearl Jam, which is a recording neither of them
+  # made alone. Without it, one rule has to be wrong about one of them.
+  #
+  # Only past the first name. A lone "The Beatles" is the act, not a backing
+  # band for nobody.
+  defp classify(names) do
+    {primary, featured} =
+      names
+      |> Enum.with_index()
+      |> Enum.reduce({[], []}, fn {{tag, name}, index}, {primary, featured} ->
+        if tag == :featured or (index > 0 and backing_band?(name)) do
+          {primary, [name | featured]}
+        else
+          {[name | primary], featured}
+        end
+      end)
+
+    %{primary: MapSet.new(primary), featured: MapSet.new(featured)}
+  end
+
+  # The trailing space matters: "Beatles, The" splits to a bare "the", which is
+  # half a scrambled name rather than a band, and belongs with the primary names
+  # where `words_agree?` can still put it back together.
+  defp backing_band?(name), do: String.starts_with?(name, "the ")
 
   @doc """
   The distinct words of a normalized string, as a set.

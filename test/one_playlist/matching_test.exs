@@ -208,16 +208,59 @@ defmodule OnePlaylist.MatchingTest do
     end
 
     test "a backing-band credit still matches the frontman alone" do
-      # Deliberate, and the reason `artists_agree?/2` uses containment rather
-      # than equality: this is one recording credited two ways, which services
-      # disagree about constantly. Requiring the same set would reject true
-      # matches wholesale.
+      # One recording credited two ways, which services disagree about
+      # constantly. The definite article is what identifies it: "X and **the**
+      # Ys" is a backing band, so the band goes beside the featured credits and
+      # only "bruce springsteen" has to agree.
       #
-      # The cost is real — it also matches a genuine solo recording to a band
-      # one — which is why duration and album still have to corroborate, and
-      # why a *disjoint* credit is rejected outright (see the test below).
+      # This used to work because `artists_agree?/2` accepted a subset in either
+      # direction, over every name at once. That was too generous — see the
+      # collaboration test below — and the cost was noted in this comment at the
+      # time: "it also matches a genuine solo recording to a band one, which is
+      # why duration and album still have to corroborate". They cannot. This
+      # rung's band floor is 0.80, above the default threshold, so corroboration
+      # only moves a match between 0.80 and 0.98 and can never decline one.
       source = track(artists: ["Bruce Springsteen and the E Street Band"], title: "Badlands")
       candidate = track(artists: ["Bruce Springsteen"], title: "Badlands", provider_id: "c1")
+
+      assert {:ok, match} = Matching.match(source, [candidate])
+      assert match.strategy == :text
+    end
+
+    test "a collaboration does not match either artist's solo recording" do
+      # From a real transfer. A live "Powderfinger" credited to Neil Young &
+      # Pearl Jam matched the studio recording on Rust Never Sleeps, credited to
+      # Neil Young alone, and landed in a Pearl Jam playlist at `medium`.
+      #
+      # Nothing else could have caught it. The source came from a CSV with no
+      # duration and no barcode, and album similarity was 0.53 — higher than the
+      # 0.50 of a legitimate Vitalogy-to-greatest-hits pairing, so no album rule
+      # can separate them. The credit is the only signal that distinguishes a
+      # collaboration from a solo take.
+      source =
+        track(
+          artists: ["Neil Young & Pearl Jam"],
+          title: "Powderfinger",
+          album: "1995-06-24: Broken Mirror: Golden Gate Park"
+        )
+
+      candidate =
+        track(
+          artists: ["Neil Young"],
+          title: "Powderfinger",
+          album: "Rust Never Sleeps",
+          provider_id: "c1"
+        )
+
+      assert {:error, _error} = Matching.match(source, [candidate])
+    end
+
+    test "a guest credit one service spells out and another omits still matches" do
+      # The case the subset rule existed for, kept without it: a guest is
+      # recorded as a guest rather than as a second headline act, so the names
+      # that have to agree are the same on both sides.
+      source = track(artists: ["Pearl Jam feat. Eddie Vedder"], title: "Corduroy")
+      candidate = track(artists: ["Pearl Jam"], title: "Corduroy", provider_id: "c1")
 
       assert {:ok, match} = Matching.match(source, [candidate])
       assert match.strategy == :text

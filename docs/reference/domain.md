@@ -563,6 +563,67 @@ what made the answer safe; it only made a findable track unfindable.
 **The general lesson**: an identifier rung's miss is evidence about the *identifier*, not about
 the recording. Treat it as a reason to try the next rung, never as an answer.
 
+### The text rung is a gate, and its corroboration cannot decline a match
+
+The most important structural fact about the matching engine, learned from a false positive
+rather than from reading it.
+
+`Strategy.Text` is **gate, then corroborate**: `title_exact and artists_agree and not vetoed and
+not duration_conflict` opens the gate, and duration, album, barcode and editorial signals then
+place the score inside the rung's band. That band is `0.80`–`0.98`, and the default threshold is
+`:medium` — **0.75**. So the *lowest* score the rung can return is above the threshold, and
+passing the gate is the same thing as matching. Corroboration only chooses how confident the
+answer sounds.
+
+Every safety property therefore lives in the gate. A comment in the tests once said a permissive
+artist rule was safe "because duration and album still have to corroborate" — they cannot, and
+had not for as long as the comment existed.
+
+This is also why the two fixes the measurement produced were both *gates*:
+`duration_conflict` (Kraftwerk's "Neonlicht", 535s against 344s) and the credit rule below. When
+this rung has doubt, the only thing it can do with it is decline and let `Fuzzy` — whose band is
+`0.0`–`0.79` and which therefore *can* fall below a threshold — score the candidate instead.
+
+**Before adding a signal to the corroboration, ask whether it needs to be a gate.** A signal that
+should be able to prevent a match cannot do it from there.
+
+### Co-billing, backing bands and guest credits are three different things
+
+A live "Powderfinger" credited to *Neil Young & Pearl Jam* matched the studio recording on *Rust
+Never Sleeps*, credited to *Neil Young* alone, and landed in a Pearl Jam playlist at `medium`.
+
+`artists_agree?/2` accepted a subset in either direction over a flat set of every name, and
+`Normalize.artists/1` builds that set by splitting on `,&/+` and on `x|and|feat|ft|featuring|
+with|vs` alike — so the conjunction is gone before anything compares them. `{neil young}` is a
+subset of `{neil young, pearl jam}`, and the gate opened.
+
+Nothing else could have caught it. The source was a CSV with no duration and no barcode, and
+album similarity was **0.53** — *higher* than the **0.50** of a legitimate *Vitalogy* against
+*Rearviewmirror: Greatest Hits* pairing. No album rule can separate those two.
+
+`Normalize.credits/1` keeps the distinction the flat set destroys:
+
+| Credit | Primary | Guest |
+| --- | --- | --- |
+| `Neil Young & Pearl Jam` | neil young, pearl jam | — |
+| `Bruce Springsteen and the E Street Band` | bruce springsteen | the e street band |
+| `Pearl Jam feat. Eddie Vedder` | pearl jam | eddie vedder |
+
+The gate compares **primary sets for equality**. The definite article is what marks a backing
+band: "X and *the* Ys" is one act, "X & Y" is two. That is why `Normalize.text/1` keeping
+leading articles is load-bearing rather than incidental.
+
+Known cost: a backing band with no article — *Neil Young & Crazy Horse* against *Neil Young* —
+declines rather than matching. It falls to `Fuzzy`, lands below the threshold, and appears as an
+unmatched row **with the candidate offered**, which one click resolves. That trade is only
+acceptable because match override exists.
+
+Measured on the hundred-track corpus, before and after: `certain` 82 → 80, `duration_corroborated`
+12 → 14, `none` 5 → 5, wrong 1 → 1. No match gained or lost. The two that moved are *All Blues*
+and *Flamenco Sketches*, which now resolve to *The Complete Miles Davis Featuring John Coltrane*
+within 1s and 2s of the source — the same recording on a different compilation, whose ISRC
+MusicBrainz does not list. A change in how those two are *verified*, not in what they matched.
+
 ### What has actually been measured about match quality
 
 Match quality is the product, so it is worth being precise about which numbers mean what.
