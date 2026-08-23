@@ -183,4 +183,88 @@ defmodule OnePlaylist.Matching.NormalizeTest do
       assert Normalize.artists(nil) == MapSet.new()
     end
   end
+
+  describe "an artist whose name is also a separator" do
+    test "a band called X is not split into nothing" do
+      # Found by a property test, not by anyone reading the regex. The separator
+      # list carries `x` for the "Sonny x Cher" convention, and a `\b` boundary
+      # is satisfied by the start of the string — so the name was its own
+      # separator and split away entirely.
+      assert Normalize.artists(["X"]) |> MapSet.to_list() == ["x"]
+      assert Normalize.artists(["x"]) |> MapSet.to_list() == ["x"]
+      assert Normalize.artists(["X Japan"]) |> MapSet.to_list() == ["x japan"]
+    end
+
+    test "a featured artist called X survives being pulled out of the title" do
+      # The path that made it reachable rather than theoretical:
+      # `featured_names/1` normalizes — and so lowercases — before splitting, so
+      # the uppercase spelling that accidentally protected the artist field was
+      # already gone by the time the credit was split.
+      assert Normalize.title("Song (feat. X)").featuring == ["x"]
+
+      assert Normalize.title("Song (feat. X & Alicia Keys)").featuring ==
+               ["alicia keys", "x"]
+    end
+
+    test "a band whose name starts with a separator word is not split" do
+      assert Normalize.artists(["And Also The Trees"]) |> MapSet.to_list() ==
+               ["and also the trees"]
+    end
+
+    test "the collaboration convention still splits" do
+      assert Normalize.artists(["Sonny x Cher"]) |> MapSet.to_list() == ["cher", "sonny"]
+    end
+  end
+
+  describe "capitalization does not decide how many artists there are" do
+    test "a separator word is recognised whatever case the provider used" do
+      # The split runs on the raw credit, and every separator alternative was
+      # lowercase, so "Simon and Garfunkel" gave two artists and "Simon AND
+      # Garfunkel" gave one. Two providers spelling the same credit differently
+      # would disagree about the artist set, which is the one thing this module
+      # exists to prevent.
+      for credit <- ["Simon and Garfunkel", "Simon AND Garfunkel", "Simon And Garfunkel"] do
+        assert Normalize.artists([credit]) |> MapSet.to_list() |> Enum.sort() ==
+                 ["garfunkel", "simon"],
+               "#{credit} was split differently"
+      end
+    end
+
+    test "a marker with a trailing dot is still a marker" do
+      assert Normalize.artists(["Queen feat. David Bowie"]) |> MapSet.to_list() ==
+               ["david bowie", "queen"]
+    end
+  end
+
+  describe "the tag tables agree with each other" do
+    test "every tag the patterns can produce is classified as one kind or the other" do
+      # Three module attributes — @tag_patterns, @discriminating, @editorial —
+      # and nothing but this holds them in step. A tag recognised but classified
+      # as neither is dropped by `discriminating/1` *and* by `editorial/1`, so
+      # `Signals.compare/2` never sees it: the marker parses, and the veto it
+      # exists to trigger silently does not happen.
+      #
+      # A test rather than a contract because the tables are compile-time
+      # constants. `title/2` carries the runtime half — see
+      # `every_tag_is_classified` there — which is what catches a phrase no test
+      # happens to use.
+      known = MapSet.new(Normalize.known_tags())
+
+      classified =
+        MapSet.union(
+          Normalize.discriminating(known),
+          Normalize.editorial(known)
+        )
+
+      assert MapSet.equal?(classified, known),
+             "unclassified: #{inspect(MapSet.difference(known, classified) |> MapSet.to_list())}"
+    end
+
+    test "no tag is both a different performance and a different master" do
+      assert MapSet.disjoint?(
+               Normalize.discriminating(MapSet.new(Normalize.known_tags())),
+               Normalize.editorial(MapSet.new(Normalize.known_tags()))
+             )
+    end
+  end
 end

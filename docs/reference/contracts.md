@@ -441,6 +441,49 @@ and a mutation of `Enum.max/1` to `Enum.sum/1` that no example catches).
 `Tokens.from_oauth_response/2` barely does — four optional keys is sixteen combinations, and
 example tests can nearly enumerate that on their own.
 
+### A postcondition on a pure function is a *production* assertion, not a test assertion
+
+`Normalize.text/1` carries three postconditions. None of them can be made to fail by data, and
+that was measured rather than assumed: every codepoint in the BMP and the first astral plane
+was pushed through it alone, embedded between letters, and doubled — 128,992 codepoints,
+~387,000 inputs — with **zero violations**. All three are provable only by mutating the code.
+
+That is not a reason to delete them, but it does mean their value is somewhere other than the
+test suite. `text/1` is the single point where every string from every provider arrives, and
+postconditions are compiled in and gated off in production (see `config/prod.exs`). So "is
+normalization why this user's matches are bad?" becomes a question answerable from a remote
+console during an incident, over that user's real library, rather than a rebuild.
+
+The practical consequence: **`⚠ never failed` is the expected steady state for this class of
+assertion**, and the checklist's step 7 has to be read as "prove it by mutation" rather than
+"write a test that makes it fail". Distinguish the two cases when reading the coverage table:
+
+| Assertion fires on… | Example | `⚠ never failed` means |
+| --- | --- | --- |
+| Data the application really sees | `Transfer.ledger_balances` | Look for the missing test |
+| Only a code change | `Normalize.case_folded` | Expected; mutation is the proof |
+
+`every_tag_is_classified` on `Normalize.title/2` sits between the two and is worth the
+distinction. Adding a `:acapella` pattern without classifying it does **not** fail any test —
+nothing in the suite normalizes a title containing that word — but it fires the first time a
+real title does. A test cannot catch it and the contract can, which is the clearest case in
+this codebase for a contract over an example.
+
+### Two guards mean the contract cannot earn its place
+
+While proving the above by mutation, `no_empty_names` on `Normalize.artists/1` refused to fire
+under any single edit. The reason was that the property was guaranteed twice: `trim: true` on
+the split *and* an explicit `Enum.reject(&(&1 == ""))` after it. Removing either left the other
+holding, so only a double mutation could falsify the assertion — which is another way of saying
+it was decoration.
+
+The fix was to delete the redundant guard, not to weaken the contract. The `Enum.reject` had
+become unreachable when the split was restructured, and removing it made a single plausible
+edit — dropping the `trim: true` — fail loudly.
+
+Worth doing deliberately: when an assertion will not fire under mutation, check whether the
+body defends the property more than once before concluding the assertion is wrong.
+
 ## Mechanics learned the hard way
 
 | Thing | What actually happens |

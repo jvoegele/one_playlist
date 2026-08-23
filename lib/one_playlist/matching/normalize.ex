@@ -41,6 +41,8 @@ defmodule OnePlaylist.Matching.Normalize do
   else match the original.
   """
 
+  use Bond
+
   @typedoc "A recognised version marker."
   @type tag ::
           :live
@@ -85,9 +87,36 @@ defmodule OnePlaylist.Matching.Normalize do
 
   @featuring_markers ["feat", "ft", "featuring", "with", "w"]
 
-  # Splits an artist credit into individual names. `feat` is included because a
-  # provider may put the whole credit in one string.
-  @artist_separators ~r/\s*(?:,|&|\/|\+|\bx\b|\band\b|\bfeat\b|\bft\b|\bfeaturing\b|\bwith\b|\bvs\b)\s*/u
+  # Splitting an artist credit happens in two stages, at two different points in
+  # the pipeline, and that is the fix for a bug a property test found
+  # (`normalize_property_test.exs`, "artists/1 is idempotent through its own
+  # output").
+  #
+  # **Punctuation separates, and must be split on the raw credit.** `text/1`
+  # turns "," and "&" into spaces, so splitting after normalizing would merge
+  # "JAY-Z, Alicia Keys" into a single name.
+  @punctuation_separators ~r/\s*[,&\/+]\s*/u
+
+  # **Separator words are split on the normalized form instead**, which is what
+  # makes them reliable. By then the text is lowercased — so the provider's
+  # capitalization cannot change the answer, as it did when "Simon and
+  # Garfunkel" gave two artists and "Simon AND Garfunkel" gave one — and stripped
+  # of punctuation, so "(feat. X)" has become "feat x" and the marker is no
+  # longer hidden behind a bracket.
+  #
+  # The lookarounds are the other half. The previous version used `\bx\b`, for
+  # the "Sonny x Cher" convention, and a `\b` boundary is satisfied by the start
+  # of the string — so an artist *named* X was its own separator and split into
+  # nothing at all. `Normalize.title("Song (feat. X)")` returned `featuring: []`:
+  # a credited artist silently dropped, taking the text rung with it, since
+  # `artists_agree?/2` answers `false` for an empty set. Requiring a non-space on
+  # both sides is what makes a name a name — and it is `\s` rather than `\s+`
+  # because `text/1` has already guaranteed single spacing.
+  #
+  # Splitting in this order is also what makes `artists/1` idempotent, which is
+  # load-bearing: `featured_names/1` normalizes a segment and then hands it here,
+  # so a second pass over an already-split credit happens on a real path.
+  @word_separators ~r/(?<=\S)\s(?:x|and|feat|ft|featuring|with|vs)\s(?=\S)/u
 
   @doc """
   Case-, accent- and punctuation-insensitive form of a string.
@@ -104,6 +133,37 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> Normalize.text(nil)
       ""
   """
+  # Three claims about the *output*, not three restatements of the pipeline — and
+  # the distinction is the plausible rewrite. Every step below is still present
+  # under a reordering, and reordering is what breaks them: strip `\p{Mn}`
+  # before the NFKD decomposition and nothing is decomposed yet, so accent
+  # folding silently stops; collapse whitespace before turning punctuation into
+  # spaces and doubled spaces come back.
+  #
+  # None of that raises. Each one degrades comparison quietly — a lower Jaro
+  # score, a token set that does not intersect — so a transfer reports "no match
+  # found" for tracks that are plainly the same, and the match rate drops without
+  # anything appearing in a log.
+  #
+  # These earn their place over the example tests for a reason particular to this
+  # function: it is the one place where **every** string from **every** provider
+  # arrives. Examples cover the spellings someone thought of; a postcondition
+  # covers the Vietnamese stacked diacritic, the Turkish dotted capital and the
+  # Arabic harakat in a real user's library. Postconditions are compiled in and
+  # gated off in production (see `config/prod.exs`), so "is normalization the
+  # reason this user's matches are bad?" is a question answerable from a remote
+  # console mid-incident rather than a rebuild.
+  #
+  # There were four of these. A `decomposed: not Regex.match?(~r/\p{Mn}/u, ...)`
+  # sat between the first and second, naming the accent-folding bug directly —
+  # until an exhaustive scan showed that no combining mark is also a letter, a
+  # digit or a space, so `only_letters_digits_and_spaces` already implies it and
+  # it could never fail first. Dropped: a marginally better error message is not
+  # worth an assertion that cannot fail independently, evaluated 70,000 times a
+  # test run. A leftover combining mark still fails the assertion below.
+  @post case_folded: result == String.downcase(result)
+  @post only_letters_digits_and_spaces: not Regex.match?(~r/[^\p{L}\p{N} ]/u, result)
+  @post single_spaced: result == String.trim(result) and not String.contains?(result, "  ")
   @spec text(String.t() | nil) :: String.t()
   def text(nil), do: ""
 
@@ -143,6 +203,27 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> {parsed.title, MapSet.to_list(parsed.tags)}
       {"hey jude", [:remaster]}
   """
+  # The most valuable assertion in this module, and the one nothing else states.
+  #
+  # `tags_in/1` builds from `@tag_patterns`; `discriminating/1` and `editorial/1`
+  # partition using `@discriminating` and `@editorial`. Three lists, and nothing
+  # holds them in step. Add a pattern for `:acapella` and forget to classify it,
+  # and the tag is recognised, parsed, returned — and then dropped by *both*
+  # partitions, because it is in neither. `Signals.compare/2` asks only those two
+  # questions, so an acapella version compares as a perfect match to the studio
+  # recording, which is precisely the failure the whole tag mechanism exists to
+  # prevent. Nothing raises, no test fails, and the veto is simply gone.
+  @post every_tag_is_classified: MapSet.subset?(result.tags, MapSet.new(known_tags()))
+  # Stated as a fixed point rather than as `result.title == text(core)`, which
+  # would restate the body. It catches the omission — returning the raw core —
+  # and it leans on `text/1` being idempotent, which is a property test rather
+  # than a contract because seeing it takes two runs.
+  @post title_is_normalized: result.title == text(result.title)
+  # A featured artist is pulled out of the title precisely so it can be compared
+  # against the *other* provider's artist list. Un-normalized, it never matches
+  # one; blank, it is a phantom credit that `dice/2` counts as a member.
+  @post featured_artists_are_comparable:
+          forall(name <- result.featuring, name == text(name) and name != "")
   @spec title(String.t() | nil, String.t() | nil) :: parsed_title()
   def title(raw, version \\ nil)
 
@@ -180,6 +261,14 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> Normalize.artists(["JAY-Z", "Alicia Keys"]) |> MapSet.to_list() |> Enum.sort()
       ["alicia keys", "jay z"]
   """
+  # `no_empty_names` is the one that catches a false *positive* rather than a
+  # missed match, which makes it the more dangerous direction. Drop the
+  # `Enum.reject(&(&1 == ""))` and a track whose artist credit is punctuation —
+  # `"???"`, `"-"`, a stray separator — normalizes to `""` and yields the set
+  # `#MapSet<[""]>`. Two such tracks then score `dice/2` = 1.0 on artists: a
+  # perfect artist match between two recordings that named nobody at all.
+  @post names_are_normalized: forall(name <- result, name == text(name))
+  @post no_empty_names: forall(name <- result, name != "")
   @spec artists([String.t()] | String.t() | nil) :: MapSet.t(String.t())
   def artists(nil), do: MapSet.new()
   def artists(value) when is_binary(value), do: artists([value])
@@ -187,9 +276,15 @@ defmodule OnePlaylist.Matching.Normalize do
   def artists(values) when is_list(values) do
     values
     |> Enum.filter(&is_binary/1)
-    |> Enum.flat_map(&String.split(&1, @artist_separators, trim: true))
+    |> Enum.flat_map(&String.split(&1, @punctuation_separators, trim: true))
     |> Enum.map(&text/1)
-    |> Enum.reject(&(&1 == ""))
+    # No `Enum.reject(&(&1 == ""))` after this, and its absence is deliberate.
+    # It was here, and the two-stage split made it unreachable — `trim: true`
+    # already drops the empty that a credit like "???" normalizes to. Keeping it
+    # would have left `no_empty_names` guarded twice over and falsifiable only by
+    # a double mutation, which is another way of saying the contract could never
+    # earn its place. Removed, so that losing the `trim: true` above is caught.
+    |> Enum.flat_map(&String.split(&1, @word_separators, trim: true))
     |> MapSet.new()
   end
 
@@ -204,6 +299,13 @@ defmodule OnePlaylist.Matching.Normalize do
     value |> text() |> String.split(" ", trim: true) |> MapSet.new()
   end
 
+  # `discriminating/1` and `editorial/1` carry no contract on purpose. The only
+  # thing to assert about `MapSet.intersection/2` is that the result is a subset
+  # of its input, which restates the body — and the law that actually matters,
+  # that the two partitions between them cover every known tag, is fixed at
+  # compile time by three module attributes. That is a test, not a contract:
+  # nothing about it can vary at runtime, so an assertion checked on every call
+  # would answer the same way forever. See `normalize_test.exs`.
   @doc "The tags that mean a genuinely different performance."
   @spec discriminating(MapSet.t(tag())) :: MapSet.t(tag())
   def discriminating(tags), do: MapSet.intersection(tags, MapSet.new(@discriminating))
