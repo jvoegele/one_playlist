@@ -18,6 +18,7 @@ defmodule OnePlaylist.Providers.RefreshTest do
   import OnePlaylist.AuthFixtures
 
   alias OnePlaylist.Providers
+  alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.ConnectionUnusable
   alias OnePlaylist.Providers.Tidal
   alias OnePlaylist.Providers.TokenRefreshFailed
@@ -170,6 +171,42 @@ defmodule OnePlaylist.Providers.RefreshTest do
 
   defp stub_token_response(body) do
     Req.Test.stub(Tidal, fn conn -> Req.Test.json(conn, body) end)
+  end
+
+  describe "the caller that was missing" do
+    test "fetch_usable_connection/2 hands back a token that actually works", %{user_id: user_id} do
+      # `ensure_fresh/2` was thoroughly tested and had **no callers at all**, so
+      # every test above passed while a real TIDAL connection stopped working an
+      # hour after it was made — every call answering `unauthorized` until
+      # somebody reconnected by hand.
+      #
+      # `Connection.usable?/1` answers `true` throughout, which is what the bug
+      # hid behind: it asks whether there are credentials, not whether they
+      # still work.
+      stub_token_response(%{"access_token" => "at-fresh", "expires_in" => 3600})
+
+      {:ok, expired} = connect(user_id, expires_in: -60)
+
+      assert Connection.usable?(expired), "the state the bug hid behind"
+
+      assert {:ok, fresh} = Providers.fetch_usable_connection(user_id, :tidal)
+
+      assert fresh.access_token == "at-fresh"
+
+      refute Connection.needs_refresh?(fresh, DateTime.utc_now()),
+             "a caller asking for a usable connection should not have to check the clock"
+    end
+
+    test "and spends no request when there is time left", %{user_id: user_id} do
+      # The common case has to stay free. A request per provider call to
+      # discover that nothing needed doing is rate limit spent on nothing.
+      Req.Test.stub(Tidal, fn _conn -> flunk("refreshed a token with an hour left") end)
+
+      {:ok, _} = connect(user_id, expires_in: 3600)
+
+      assert {:ok, %Connection{access_token: "at-original"}} =
+               Providers.fetch_usable_connection(user_id, :tidal)
+    end
   end
 
   defp connect(user_id, opts) do

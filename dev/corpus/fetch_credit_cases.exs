@@ -31,12 +31,19 @@ alias OnePlaylist.Music.Track
 # and harder to get wrong.
 import Ecto.Query
 
-connection =
+# Through `fetch_usable_connection/2`, not a raw query: it refreshes a token
+# that is close to expiry. Reading the row directly works right up until the
+# hour it does not, and then every search fails with "Expired token" and the
+# corpus quietly comes back empty.
+owner =
   OnePlaylist.Repo.one!(
     from c in OnePlaylist.Providers.Connection,
       where: c.provider == :tidal and c.status == :active,
+      select: c.user_id,
       limit: 1
   )
+
+{:ok, connection} = Providers.fetch_usable_connection(owner, :tidal)
 
 sources = "dev/corpus/credit_sources.json" |> File.read!() |> Jason.decode!()
 

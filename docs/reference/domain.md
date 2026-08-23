@@ -646,6 +646,47 @@ moves none.
 from the evidence, do not pick a side. Make the ambiguous one carry a higher burden of proof, and
 let the absence of proof be the answer.
 
+### The credit corpus, and what it found
+
+`dev/corpus/` holds 120 cases harvested from a real library and filtered to the credits the
+engine finds hard. `test/one_playlist/matching/credit_cases_test.exs` replays them on every
+`mix test`; `dev/corpus/replay_credit_cases.exs` prints the breakdown.
+
+Current standing: **94 correct, 11 equivalent, 10 missed, 0 wrong** of 115 judged, and **5 of 5**
+hand-labelled decline cases correctly declined.
+
+  * `equivalent` is the `duration_corroborated` allowance under another name: the engine chose a
+    different release of the same recording, within three seconds and the same normalized title.
+    Prince's *Purple Rain* forced it — the engine's pick is one second from the source and the
+    ISRC-labelled answer is seven.
+  * The 10 misses are the backlog. **Six share one cause**: the source's version marker lives in
+    its *album* — *At Folsom Prison*, *Live at Leeds* — and the veto only reads version tags out
+    of the **title**, so a correctly-labelled live candidate is refused by a source that is
+    equally live. That is the same root as the Powderfinger false positive from the other
+    direction, where the source's liveness being album-borne meant nothing caught the mismatch.
+
+Two methodological things this corpus taught, both of which cost a wrong answer first:
+
+  * **A review sheet must show every candidate.** An earlier one showed five of ten and asked
+    "is any of these right"; the replay then scored the engine against that answer using all ten.
+    One label said "none of these" about a list that did not contain the answer.
+  * **An ISRC oracle can only produce should-match cases.** It says which candidate is right,
+    never that none is — so a corpus built from it is structurally blind to a false positive.
+    Only hand-written `decline` labels catch those, and they are the reason this corpus can
+    defend against the bug that motivated it.
+
+### Query construction is not the recall problem
+
+Worth recording as a *negative* result, because it is the obvious next move and it does not work.
+
+Text search queries `title + every credited name`, which for
+*"2Pac feat. Danny Boy, Big Syke & CPO-Boss Hog"* is a long and polluted string. The obvious fix
+is to query the primary credit only, which `Normalize.credits/1` now makes easy.
+
+Measured over the 97 corpus cases carrying an ISRC: **81 recalled with the whole credit, 81 with
+the primary only, and not one case rescued by the change.** The 16 that neither query finds are
+catalogue limits rather than query construction. Do not spend time here without new evidence.
+
 ### What has actually been measured about match quality
 
 Match quality is the product, so it is worth being precise about which numbers mean what.

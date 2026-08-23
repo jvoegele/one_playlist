@@ -42,7 +42,11 @@ def render():
             print("    answer: 0\n")
             continue
 
-        for number, candidate in enumerate(case["candidates"][:5], start=1):
+        # Every candidate, not a top few. Showing five of ten made a reviewer
+        # answer "none of these" about a list that did not contain the answer,
+        # and the replay then scored the engine against that label using all
+        # ten. A judgment is only worth as much as the evidence it was given.
+        for number, candidate in enumerate(case["candidates"], start=1):
             artists = ", ".join(candidate.get("artists") or []) or "?"
             print(f"    [{number}] {artists} — {candidate['title']}")
             print(f"        {candidate['album']}   {candidate['duration_seconds']}s")
@@ -55,7 +59,7 @@ def propose(case):
     source_title = (case["title"] or "").lower()
     source_artist = (case["artist"] or "").lower().split()[0] if case["artist"] else ""
 
-    for number, candidate in enumerate(case["candidates"][:5], start=1):
+    for number, candidate in enumerate(case["candidates"], start=1):
         title = (candidate["title"] or "").lower()
         artists = " ".join(candidate.get("artists") or []).lower()
         # Same title and the lead artist's first word appears: almost always it.

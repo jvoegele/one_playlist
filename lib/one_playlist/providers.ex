@@ -94,9 +94,22 @@ defmodule OnePlaylist.Providers do
   situations that a bare fetch conflates: no connection at all, a connection
   that needs the user to reconnect, and a usable one.
 
-  It does **not** refresh an expired access token — refreshing needs an HTTP
-  call to the provider, which belongs behind `ExternalService`, in the
-  provider adapter. This answers the question the adapter asks first.
+  It **does** refresh an access token at or near expiry, via `ensure_fresh/2`.
+
+  That reverses an earlier decision, which was that refreshing needs an HTTP
+  call and therefore belonged in the adapter. The layering was tidier and the
+  refresh never happened: `ensure_fresh/2` is documented as "the function every
+  provider call should go through" and had **no callers at all**. A TIDAL
+  connection stopped working an hour after it was made, every call answering
+  `unauthorized`, until somebody reconnected by hand — which is what
+  `docs/reference/domain.md` calls the highest-risk component failing silently.
+
+  The HTTP call still goes through `ExternalService`, because `refresh/1`
+  reaches the provider through `adapter.refresh_tokens/1`. What changed is only
+  *who asks*, and this is where everything already comes.
+
+  Cheap in the common case: a token with more than the skew left is returned
+  untouched, with no request.
   """
   @spec fetch_usable_connection(user_id(), Connection.provider()) ::
           {:ok, Connection.t()}
@@ -104,7 +117,10 @@ defmodule OnePlaylist.Providers do
   def fetch_usable_connection(user_id, provider) do
     with {:ok, connection} <- fetch_connection(user_id, provider) do
       if Connection.usable?(connection) do
-        {:ok, connection}
+        # `usable?/1` asks whether there are credentials at all; it says nothing
+        # about whether they still work. A connection can be active, hold a
+        # token, and have been expired for an hour.
+        ensure_fresh(connection)
       else
         {:error,
          Errata.create(ConnectionUnusable,

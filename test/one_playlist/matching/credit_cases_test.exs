@@ -39,30 +39,28 @@ defmodule OnePlaylist.Matching.CreditCasesTest do
   use ExUnit.Case, async: true
 
   alias OnePlaylist.Matching
+  alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Music.Track
 
   @corpus "dev/corpus/credit_cases.json"
 
-  # Chosen the wrong candidate. Every one of these is a real defect and a
-  # candidate for the next round of work.
-  @wrong [
-    "2Pac feat. Danny Boy - I Ain't Mad at Cha",
-    "Beastie Boys feat. Santigold - Don't Play No Game That I Can't Win",
-    "JAY Z + Young Jeezy - Real as It Gets",
-    "JAY Z feat. Beanie Sigel, Memphis Bleek & Amil - Pop 4 Roc",
-    "Johnny Cash with June Carter Cash - Give My Love to Rose"
-  ]
-
   # Declined a candidate that was offered and correct. Less bad than a wrong
-  # match — the report says so and the track can be corrected by hand — but
-  # still a miss.
+  # match — the report says so, and the row can be corrected by hand — but still
+  # the backlog. Six of the ten share one cause: the source's version marker
+  # lives in its *album* ("At Folsom Prison", "Live at Leeds") and the veto only
+  # reads version tags out of the title, so a correctly-labelled live candidate
+  # is refused by a source that is equally live.
   @missed [
+    "2Pac feat. Jewell, Dramacydal & Storm - Thug Passion",
+    "De La Soul with Jungle Brothers and Q-Tip - Buddy",
     "Ghostface Killah feat. Raekwon & Theodore Unit (Trife Diesel, Cappadonna & Sun God) - Dogs of War",
     "Ghostface Killah feat. Theodore Unit (Cappadonna, Shawn Wigs & Trife Diesel) - Jellyfish",
     "James Brown - Brother Rapp / Ain't It Funky Now (live)",
     "James Brown - It's a New Day (live)",
+    "Johnny Cash with June Carter Cash - Jackson",
     "Kanye West - Pinocchio Story (freestyle live from Singapore)",
-    "SpongeBob, Patrick & The Monsters - Now That We're Men"
+    "SpongeBob, Patrick & The Monsters - Now That We're Men",
+    "The Doors with Eddie Vedder - Break on Through"
   ]
 
   defp cases do
@@ -96,14 +94,37 @@ defmodule OnePlaylist.Matching.CreditCasesTest do
     }
   end
 
+  # `:equivalent` is the allowance `dev/measure/replay.exs` makes as
+  # `duration_corroborated`, and it is not generosity. An ISRC names a recording
+  # *as issued*, so a catalogue holding the same recording on two releases has
+  # two of them and the oracle can only name one. Prince's "Purple Rain" forced
+  # it: the engine chose a candidate one second from the source where the
+  # labelled answer is seven seconds off. Scoring that as wrong would measure
+  # the label's arbitrariness, not the engine.
+  #
+  # The bar is tight on purpose — same normalized title, within three seconds —
+  # because a loose one absorbs the errors this corpus exists to find.
   defp classify(kase) do
     wanted = kase["expect"]["match"]
+    source = source(kase)
 
-    case Matching.match(source(kase), Enum.map(kase["candidates"], &candidate/1)) do
+    case Matching.match(source, Enum.map(kase["candidates"], &candidate/1)) do
       {:ok, %{track: %{provider_id: ^wanted}}} -> :correct
-      {:ok, _other} -> :wrong
+      {:ok, %{track: chosen}} -> if equivalent?(source, chosen), do: :equivalent, else: :wrong
       {:error, _reason} -> :missed
     end
+  end
+
+  defp equivalent?(source, chosen) do
+    same_title =
+      Normalize.title(source.title, source.version).title ==
+        Normalize.title(chosen.title, chosen.version).title
+
+    close? =
+      is_integer(source.duration_seconds) and is_integer(chosen.duration_seconds) and
+        abs(source.duration_seconds - chosen.duration_seconds) <= 3
+
+    same_title and close?
   end
 
   defp label(kase), do: "#{kase["artist"]} - #{kase["title"]}"
@@ -117,16 +138,38 @@ defmodule OnePlaylist.Matching.CreditCasesTest do
 
       graded = Enum.group_by(judged, &classify/1, &label/1)
 
-      assert Enum.sort(graded[:wrong] || []) == Enum.sort(@wrong),
+      assert graded[:wrong] == nil,
              """
-             The set of wrongly-matched credit cases changed.
+             A credit case now resolves to the wrong recording.
+
+             This is the failure the corpus was built to catch, and there were
+             none: #{inspect(graded[:wrong])}
+             """
+
+      assert Enum.sort(graded[:missed] || []) == Enum.sort(@missed),
+             """
+             The set of missed credit cases changed.
 
              A name that appeared is a regression. A name that disappeared is an
              improvement, and this list should be updated to claim it.
              """
+    end
 
-      assert Enum.sort(graded[:missed] || []) == Enum.sort(@missed),
-             "The set of missed credit cases changed."
+    test "nothing matches a recording a person said was not there" do
+      # The cases an ISRC oracle cannot produce, and the only ones that can
+      # catch a match that should never have happened. Every one of these was
+      # looked at by hand against the *whole* candidate list — an earlier
+      # review sheet showed five of ten and produced a "none of these" about a
+      # list that did not contain the answer.
+      declines = Enum.filter(cases(), &(&1["expect"] == "decline"))
+
+      assert length(declines) >= 5, "the decline labels are what make this test possible"
+
+      for kase <- declines do
+        assert {:error, _reason} =
+                 Matching.match(source(kase), Enum.map(kase["candidates"], &candidate/1)),
+               "matched something for #{label(kase)}, which has no counterpart on the destination"
+      end
     end
 
     test "the corpus still covers every category it was built to cover" do
