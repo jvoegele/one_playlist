@@ -114,10 +114,16 @@ better code.
 - **The session cookie is encrypted, not merely signed**, because it carries the GoTrue
   refresh token. That is a departure from the Phoenix default and `OnePlaylistWeb.Endpoint`
   says why.
-- **RLS is written but not yet in force.** Ecto connects as `postgres`, which holds
-  `BYPASSRLS`, and nothing sets `request.jwt.claims` — so today's row scoping is the `user_id`
-  in the Ecto queries, not the policies. Sign-in was the prerequisite for fixing that; the
-  remaining piece is a per-transaction `set local role authenticated`.
+- **RLS applies to this application's own reads**, via `OnePlaylist.Repo.as_user/3`: a
+  transaction that steps down from `postgres` (which holds `BYPASSRLS`) to `authenticated`
+  and sets the claims `auth.uid()` reads. The user-facing reads in `Providers` and
+  `Transfers` run inside it, so a forgotten `where user_id` returns nothing rather than
+  everybody's rows. Writes and background work stay privileged — `authenticated` has no
+  access to the `oban` schema and only `select` on transfers, which is the grants saying
+  users read their transfers while the system writes them.
+  Two traps, both documented in `docs/reference/supabase.md`: `auth.uid()` prefers the
+  *singular* `request.jwt.claim.sub`, so set and clear both; and `SET LOCAL` is not undone by
+  releasing a savepoint, which is what the Ecto sandbox gives you.
 - **Provider connections** (`provider`, `user_id`, encrypted access + refresh token, expiry,
   scopes) are a first-class context with proactive refresh. This is the highest-risk component.
 - **One `ExternalService` module per provider**, each with its own breaker / rate limit /
@@ -320,6 +326,7 @@ coverage.
 | `mix deps.audit` | Dependencies against the Elixir security advisory database. |
 | `mix coveralls.html` | Test coverage report. |
 | `mix docs` | ExDoc, including the `docs/reference/` material as extras. |
+| `mix test.rls` | pgTAP tests for the RLS policies themselves, run inside Postgres. Needs the Docker stack up, so it is outside `precommit`. |
 
 **First run on a fresh checkout:** `mix dialyzer --plt` builds the PLT (~30s, one-off). It is
 stored under `priv/plts/`, which is gitignored — kept out of `_build` so `mix clean` or an env
@@ -388,8 +395,10 @@ report matched what actually landed in the destination.
     same spine that email+password already proved. Magic link adds the `/auth/callback` code
     exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
     magic-link iteration painful until raised in `supabase/config.toml`.
-  * **Make RLS actually apply** — see the architecture note above. This is the highest-value
-    Supabase-learning item now that a verified token exists on every request.
+  * **Extend RLS to the write paths.** Reads are covered; `Providers.connect/3` and the
+    other user-initiated writes still run privileged. `authenticated` already holds the
+    grants and policies for `provider_connections`, so those could move; `transfers` writes
+    deliberately cannot, and would need a grant and a policy first if that ever changed.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.

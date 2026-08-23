@@ -108,7 +108,14 @@ defmodule OnePlaylist.Transfers do
   @post whenever({:ok, transfer} <- result, belongs_to_the_caller: transfer.user_id == user_id)
   @spec fetch(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
   def fetch(user_id, id) do
-    case Repo.get_by(Transfer, id: id, user_id: user_id) do
+    # Under `Repo.as_user/3` the `user_id` in the `get_by` stops being the only
+    # thing enforcing ownership: Postgres applies `own transfers select` to the
+    # same query. That is the layer whose absence let the original bug ship — a
+    # forgotten scope here now returns nothing rather than somebody else's row.
+    {:ok, found} =
+      Repo.as_user(user_id, fn -> Repo.get_by(Transfer, id: id, user_id: user_id) end)
+
+    case found do
       nil -> :error
       transfer -> {:ok, transfer}
     end
@@ -137,7 +144,14 @@ defmodule OnePlaylist.Transfers do
   @doc "A user's transfers, most recent first."
   @spec list(Ecto.UUID.t()) :: [Transfer.t()]
   def list(user_id) do
-    Repo.all(from(t in Transfer, where: t.user_id == ^user_id, order_by: [desc: t.inserted_at]))
+    {:ok, transfers} =
+      Repo.as_user(user_id, fn ->
+        Repo.all(
+          from(t in Transfer, where: t.user_id == ^user_id, order_by: [desc: t.inserted_at])
+        )
+      end)
+
+    transfers
   end
 
   @doc """
@@ -156,7 +170,13 @@ defmodule OnePlaylist.Transfers do
         outcome -> where(query, [i], i.outcome == ^outcome)
       end
 
-    Repo.all(query)
+    # Scoped by `transfer_id`, and scoped again by the policy on
+    # `transfer_items`. The owner comes from the transfer rather than a separate
+    # argument: a caller holding a `%Transfer{}` has already been through
+    # `fetch/2`, so its `user_id` is the authority here.
+    {:ok, items} = Repo.as_user(transfer.user_id, fn -> Repo.all(query) end)
+
+    items
   end
 
   @doc "How many report rows a transfer has."

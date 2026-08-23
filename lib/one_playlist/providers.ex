@@ -35,13 +35,25 @@ defmodule OnePlaylist.Providers do
 
   @type user_id :: Ecto.UUID.t()
 
-  @doc "Lists a user's connections, most recently connected first."
+  @doc """
+  Lists a user's connections, most recently connected first.
+
+  Runs under `OnePlaylist.Repo.as_user/3`, so the `where` below is not the only
+  thing standing between one user and another's credentials — Postgres applies
+  the `own connections select` policy to the same query. Belt and braces, on the
+  path that reads encrypted access tokens.
+  """
   @spec list_connections(user_id()) :: [Connection.t()]
   def list_connections(user_id) do
-    Connection
-    |> where(user_id: ^user_id)
-    |> order_by(desc: :inserted_at)
-    |> Repo.all()
+    {:ok, connections} =
+      Repo.as_user(user_id, fn ->
+        Connection
+        |> where(user_id: ^user_id)
+        |> order_by(desc: :inserted_at)
+        |> Repo.all()
+      end)
+
+    connections
   end
 
   @doc """
@@ -53,7 +65,16 @@ defmodule OnePlaylist.Providers do
   @spec fetch_connection(user_id(), Connection.provider()) ::
           {:ok, Connection.t()} | {:error, ConnectionNotFound.t()}
   def fetch_connection(user_id, provider) do
-    case Repo.get_by(Connection, user_id: user_id, provider: provider) do
+    # Scoped twice, for the reason `list_connections/1` gives. Safe to call from
+    # the Oban runner as well as from a request: `as_user/3` is self-contained,
+    # reverting the role before it returns, so the privileged work either side of
+    # it is unaffected.
+    {:ok, found} =
+      Repo.as_user(user_id, fn ->
+        Repo.get_by(Connection, user_id: user_id, provider: provider)
+      end)
+
+    case found do
       nil ->
         {:error,
          Errata.create(ConnectionNotFound,

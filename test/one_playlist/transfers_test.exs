@@ -414,6 +414,29 @@ defmodule OnePlaylist.TransfersTest do
                Transfers.fetch(stranger, Ecto.UUID.generate())
     end
 
+    test "the query that shipped the bug is now refused by Postgres", %{user: user} do
+      # The original defect, reproduced deliberately: `get_by` with no `user_id`,
+      # which is what `TransferLive.Show.mount/3` effectively did. Run inside
+      # `Repo.as_user/3` it comes back `nil`, because the `own transfers select`
+      # policy filters the row before Ecto ever sees it.
+      #
+      # This is the difference the RLS work bought. Verified by mutation too:
+      # deleting `user_id:` from `fetch/2`'s real query leaves every test in this
+      # file and in transfer_live_test.exs passing.
+      transfer = transfer_for(user)
+      stranger = AuthFixtures.user_id_fixture()
+
+      {:ok, leaked} =
+        Repo.as_user(stranger, fn -> Repo.get_by(Transfer, id: transfer.id) end)
+
+      assert leaked == nil
+
+      # And the same unscoped query as the owner still finds it, so this is
+      # authorisation rather than the table being unreadable.
+      {:ok, found} = Repo.as_user(user, fn -> Repo.get_by(Transfer, id: transfer.id) end)
+      assert found.id == transfer.id
+    end
+
     test "fetch_unscoped/1 deliberately does not care", %{user: user} do
       # The escape hatch the worker needs, tested so its behaviour is a decision
       # on the record rather than an accident nobody looks at.

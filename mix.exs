@@ -195,6 +195,10 @@ defmodule OnePlaylist.MixProject do
       # is the safe equivalent: it rebuilds the Supabase base schemas and
       # re-applies supabase/migrations, after which our Ecto migrations go on top.
       "ecto.reset": ["cmd supabase db reset", "ecto.migrate", "run priv/repo/seeds.exs"],
+      # RLS policies are enforced by Postgres, so they are tested in Postgres.
+      # Deliberately *not* part of `precommit`: it needs the Docker stack up,
+      # which `mix test` does not. See supabase/tests/rls.test.sql.
+      "test.rls": ["cmd supabase test db"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind one_playlist", "esbuild one_playlist"],

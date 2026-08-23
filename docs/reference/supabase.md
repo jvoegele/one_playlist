@@ -246,34 +246,43 @@ The heart of Supabase. Two sequential checks: **grants** (may this role do this 
 **policies** (which rows?). A missing grant fails with `42501` before any policy runs, and
 adding a policy does not remove a grant.
 
-> #### In this application, none of it is currently in force {: .warning}
+> #### Which door RLS is guarding here {: .info}
 >
-> Measured, 2026-08-23. `one_playlist` reaches Postgres through Ecto as the `postgres` role:
+> Measured 2026-08-23. There are two ways into these tables and they are protected by
+> different things:
 >
-> ```
-> select rolname, rolbypassrls from pg_roles;
->  postgres      | t
->  service_role  | t
->  authenticated | f
->  anon          | f
-> ```
+> | | PostgREST | Ecto |
+> | --- | --- | --- |
+> | Connects as | `anon` / `authenticated` | `postgres` (`BYPASSRLS`) |
+> | Exposed at | `:54321` locally, the public internet on a hosted project | localhost |
+> | Protected by | grants, then policies | `Repo.as_user/3`, then the `where` clause |
 >
-> `rolbypassrls` is `true`, and nothing in `lib/` sets `request.jwt.claims` or switches role.
-> So every `auth.uid()`-based policy written across the migrations is enforced **only against
-> PostgREST**, which this application does not use — from the application's own point of view
-> they are inert.
+> The policies were never inert — an earlier draft of this note said so and was wrong.
+> Verified by signing up two users and asking as each: B gets `[]` from a table holding
+> three rows, even when naming A's `user_id` explicitly. On the PostgREST door they have
+> been doing real work all along.
 >
-> That is not an argument against writing them: they are correct, and they are what any future
-> PostgREST, Realtime or Edge Function access will run under. It is an argument for knowing
-> which of your defences is actually load-bearing today. Today it is the `user_id` scoping in
-> the Ecto queries, and nothing else.
+> What they did *not* do was constrain this application's own queries, because `postgres`
+> holds `rolbypassrls`. That gap shipped a real bug: `TransferLive.Show.mount/3` fetched a
+> transfer by id with no owner check, so any signed-in user could read any transfer.
 >
-> Signing in was the prerequisite for changing that, and it now exists: a verified access
-> token with `sub` and `role: "authenticated"` is available on every request
-> (`OnePlaylist.Accounts.claims/1`). The remaining work is a `Repo` wrapper that, per
-> transaction, runs `set local role authenticated` and
-> `set local request.jwt.claims = '<claims>'` — at which point the policies become real and
-> pgTAP tests against them start meaning something.
+> `OnePlaylist.Repo.as_user/3` closes it, by making the Ecto door use the same policies as
+> the PostgREST one — `set local role authenticated` plus the claims `auth.uid()` reads,
+> per transaction. The read paths that serve a user now run inside it. Verified by
+> mutation: deleting `user_id` from `Transfers.fetch/2`'s query leaves the whole suite
+> passing, because Postgres refuses to return the row.
+>
+> Two things that cost time and are worth knowing before you build this:
+>
+>   * **`auth.uid()` is `coalesce(request.jwt.claim.sub, request.jwt.claims->>'sub')`.**
+>     The *singular* legacy setting wins. Set only the plural one and anything that touched
+>     the singular one silently redirects your queries to the wrong user. Set both, clear
+>     both.
+>   * **`SET LOCAL` is undone at transaction end, and under the Ecto sandbox there is no
+>     such end.** The sandbox holds one transaction per test; `Repo.transaction/2` inside it
+>     opens a *savepoint*, and releasing a savepoint does not undo a `SET LOCAL` made
+>     within it. Without an explicit revert the connection stays `authenticated` for the
+>     rest of the test and some unrelated later query fails.
 
 ```sql
 alter table public.playlists enable row level security;
