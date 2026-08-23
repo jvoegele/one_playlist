@@ -9,6 +9,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
 
   use OnePlaylistWeb.ConnCase, async: false
 
+  import Ecto.Query, only: [from: 2]
   import Phoenix.LiveViewTest
   import Req.Test, only: [set_req_test_from_context: 1]
 
@@ -355,6 +356,35 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       assert updated.unmatched_count == 0
       assert updated.matched_count == 1
       assert updated.added_count == 1
+    end
+
+    test "a row that already matched offers no correction, because the wrong track stays", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # There is no `remove_tracks/4` on the adapter, so adding the right track
+      # to a row that already matched would leave both in the playlist. Checked
+      # server-side rather than only by hiding the button.
+      transfer = report_with_alternatives(user_id)
+
+      [item] = Transfers.items(transfer)
+
+      {1, _} =
+        OnePlaylist.Repo.update_all(
+          from(i in OnePlaylist.Transfers.TransferItem, where: i.id == ^item.id),
+          set: [outcome: :matched, destination_track_id: "d-live"]
+        )
+
+      {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ "Fix this"
+
+      html = render_hook(view, "choose", %{"position" => "0", "candidate" => "1"})
+
+      assert html =~ "no longer among the alternatives"
+
+      assert [%{destination_track_id: "d-live"}] = Transfers.items(transfer),
+             "the row must be untouched"
     end
 
     test "a forged candidate index cannot add an arbitrary track", %{conn: conn, user_id: user_id} do

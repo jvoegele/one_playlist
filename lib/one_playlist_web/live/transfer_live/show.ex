@@ -152,7 +152,8 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   def handle_event("choose", %{"position" => position, "candidate" => index}, socket) do
     position = String.to_integer(position)
-    chosen = candidate_at(socket, position, String.to_integer(index))
+    item = item_at(socket, position)
+    chosen = if correctable?(item), do: Enum.at(item.candidates, String.to_integer(index))
 
     {:noreply, apply_override(socket, position, chosen)}
   end
@@ -563,18 +564,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # then as the persisted `TransferItem` that replaces it.
   defp row_id(item), do: "item-#{item.position}"
 
-  # Read from the row on screen rather than from the params. The index arrives
-  # from the browser, so trusting it to name a track would let a crafted event
-  # add any id at all to somebody's playlist — the candidate list is the
-  # authority on what may be chosen.
-  defp candidate_at(socket, position, index) do
-    socket.assigns.transfer
-    |> Transfers.items(position: position)
-    |> List.first()
-    |> case do
-      %{candidates: candidates} -> Enum.at(candidates, index)
-      nil -> nil
-    end
+  # Read from the stored row rather than from the params. Both halves of the
+  # event arrive from the browser: the index, which must not be trusted to name
+  # a track, and the position, whose row must still be one this page would offer
+  # a button for. `correctable?/1` is therefore checked here and not only in the
+  # template — hiding a button is not a rule.
+  defp item_at(socket, position) do
+    socket.assigns.transfer |> Transfers.items(position: position) |> List.first()
   end
 
   # A stream does not re-render an item it already holds when an assign changes:
@@ -628,9 +624,18 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   defp describe_failure(:no_such_track), do: "That track is not part of this transfer any more."
   defp describe_failure(_reason), do: "That track could not be added."
 
-  # Only where there is a decision to make. A track that matched exactly has no
-  # stored alternatives, which is deliberate rather than an omission.
-  defp correctable?(%{candidates: [_ | _]}), do: true
+  # Unmatched rows only, and that is a real restriction rather than an accident
+  # of the UI.
+  #
+  # Correcting a row that already matched means the wrong track is *in* the
+  # destination playlist. Adding the right one would leave both, and there is
+  # currently no way to take one out: `OnePlaylist.Providers.Adapter` has
+  # `add_tracks/4` and no counterpart. Offering the button anyway would turn one
+  # wrong track into two, which is worse than the problem it set out to fix.
+  #
+  # A track that matched exactly also has no stored alternatives, so the second
+  # clause covers that case for free.
+  defp correctable?(%{outcome: :unmatched, candidates: [_ | _]}), do: true
   defp correctable?(_item), do: false
 
   # One provisional row: remembered so a filter change does not lose it, and
