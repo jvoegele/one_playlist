@@ -46,7 +46,20 @@ defmodule OnePlaylist.Matching.Strategy do
   surface much later, as a `KeyError` from a band lookup, or — worse — as a
   match whose confidence silently failed to derive.
   """
-  @post known_to_match: result in [:isrc, :upc_position, :text, :fuzzy]
+  # Asked of `Confidence` rather than listed here, because the list here was
+  # wrong the first time a rung was added: `Strategy.IsrcFamily` reported a name
+  # `Confidence` knew and this assertion did not, and the failure arrived from
+  # `strategy/0` while the mistake was in a literal three files away.
+  #
+  # `Confidence.strategies/0` is derived from the band table, which is the thing
+  # that would actually break — a rung with no band cannot have a confidence
+  # derived at all. So this now names the real requirement instead of a copy of
+  # it that has to be kept in step.
+  # Fully qualified, and it has to be: an inherited contract's expression is
+  # resolved in the *implementing* module's aliases, not this one's. Written as
+  # `Confidence.strategies()` it compiles here and fails in every rung that does
+  # not happen to alias it. Recorded in `docs/library-feedback.md`.
+  @post known_to_match: result in OnePlaylist.Matching.Confidence.strategies()
   @callback strategy() :: Match.strategy()
 
   @doc """

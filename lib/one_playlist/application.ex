@@ -25,6 +25,11 @@ defmodule OnePlaylist.Application do
       # wrong for one of them. See Tidal.WriteService.
       {OnePlaylist.Providers.Tidal.WriteService,
        Application.get_env(:one_playlist, :tidal_service_opts, [])},
+      # A volunteer-run project that asks for one request a second and means it.
+      # Consulted only when an identifier lookup has already missed, and cached
+      # in two tiers — see OnePlaylist.MusicBrainz.
+      {OnePlaylist.MusicBrainz.Service,
+       Application.get_env(:one_playlist, :musicbrainz_service_opts, [])},
       # A user's own server, so this one is sized to protect us from it rather
       # than it from us. See Subsonic.Service.
       {OnePlaylist.Providers.Subsonic.Service,

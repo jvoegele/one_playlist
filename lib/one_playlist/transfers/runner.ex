@@ -45,6 +45,8 @@ defmodule OnePlaylist.Transfers.Runner do
 
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Match
+  alias OnePlaylist.Music.Track
+  alias OnePlaylist.MusicBrainz
   alias OnePlaylist.Providers
   alias OnePlaylist.Transfers.Candidate
   alias OnePlaylist.Transfers.PlaylistTooLarge
@@ -397,8 +399,40 @@ defmodule OnePlaylist.Transfers.Runner do
   defp decide(track, candidates, threshold) do
     opts = [threshold: threshold]
 
-    {Matching.match(track, candidates, opts), Matching.rank(track, candidates, opts)}
+    case Matching.match(track, candidates, opts) do
+      {:ok, _match} = matched -> {matched, Matching.rank(track, candidates, opts)}
+      {:error, _reason} = failed -> retry_with_isrc_family(track, candidates, opts, failed)
+    end
   end
+
+  # The second chance an ISRC deserves, and only ever a second chance.
+  #
+  # An ISRC names a recording *as issued*, so the same master carries a
+  # different code on every reissue: Roon exports Eddie Vedder's "Setting Forth"
+  # as the 2007 soundtrack's code and TIDAL holds the 2017 reissue's. The direct
+  # lookup finds nothing and the track is reported missing while sitting in the
+  # catalogue under another number.
+  #
+  # `MusicBrainz.family/2` says which codes name one recording, and the
+  # candidates are the ones already in hand — so this costs **one** MusicBrainz
+  # request and no provider call at all. It runs only after a match has already
+  # failed, which measured at about one ISRC-bearing track in seven, and every
+  # answer is cached in two tiers.
+  defp retry_with_isrc_family(%Track{isrc: isrc} = track, candidates, opts, failed)
+       when is_binary(isrc) do
+    case MusicBrainz.family(isrc) do
+      [] ->
+        {failed, Matching.rank(track, candidates, opts)}
+
+      family ->
+        enriched = %{track | isrc_family: family}
+
+        {Matching.match(enriched, candidates, opts), Matching.rank(enriched, candidates, opts)}
+    end
+  end
+
+  defp retry_with_isrc_family(track, candidates, opts, failed),
+    do: {failed, Matching.rank(track, candidates, opts)}
 
   # Adds only what the destination does not already have, in batches. Returns
   # the set of source positions that were actually written, which is what tells

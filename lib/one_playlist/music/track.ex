@@ -59,6 +59,10 @@ defmodule OnePlaylist.Music.Track do
     # the qualifier that matters: an image needing its own authenticated request
     # per track is a different feature.
     :artwork_url,
+    # Other ISRCs known to name this same recording, from MusicBrainz. Empty
+    # unless something has looked them up, which happens only after an
+    # identifier lookup has already missed — see `OnePlaylist.MusicBrainz`.
+    isrc_family: [],
     artists: []
   ]
 
@@ -76,6 +80,7 @@ defmodule OnePlaylist.Music.Track do
           explicit: boolean() | nil,
           popularity: number() | nil,
           artwork_url: String.t() | nil,
+          isrc_family: [String.t()],
           artists: [String.t()]
         }
 
@@ -270,6 +275,7 @@ defmodule OnePlaylist.Music.Track do
       explicit: fetch(attrs, :explicit),
       popularity: fetch(attrs, :popularity),
       artwork_url: fetch(attrs, :artwork_url),
+      isrc_family: fetch(attrs, :isrc_family) || [],
       artists: fetch(attrs, :artists) || []
     }
   end

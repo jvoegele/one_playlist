@@ -43,10 +43,10 @@ defmodule OnePlaylist.Matching.Confidence do
   shape. Giving it a name of its own is what stops a hand-picked track being
   reported as though an algorithm had found it.
   """
-  @type strategy :: :isrc | :upc_position | :text | :fuzzy | :manual
+  @type strategy :: :isrc | :isrc_family | :upc_position | :text | :fuzzy | :manual
 
   @typedoc "The coarse name for a score."
-  @type t :: :exact_isrc | :exact_upc | :chosen | :high | :medium | :low | :none
+  @type t :: :exact_isrc | :linked_isrc | :exact_upc | :chosen | :high | :medium | :low | :none
 
   # Ordered worst-to-best so `Enum.find/2` from the top reads naturally, and so
   # `rank/1` can use the index directly.
@@ -54,11 +54,26 @@ defmodule OnePlaylist.Matching.Confidence do
   # `:chosen` sits at the top, above the identifier rungs. Not flattery: a
   # threshold exists to decide what a person should look at, and there is
   # nothing to review about a track they picked themselves.
-  @ordering [:none, :low, :medium, :high, :exact_upc, :exact_isrc, :chosen]
+  # `:linked_isrc` sits below `:exact_isrc` and above `:exact_upc`. Below,
+  # because the identifier came from a third party's judgment that two codes
+  # name one recording rather than from the codes agreeing. Above, because that
+  # judgment is still an identifier claim, and stronger than a barcode plus a
+  # track number.
+  @ordering [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen]
 
   @bands %{
     isrc: {1.0, 1.0},
     upc_position: {1.0, 1.0},
+    # Its own band, below an exact identifier and above a barcode. Not 1.0: the
+    # two ISRCs are not the same string, and MusicBrainz is edited by
+    # volunteers.
+    #
+    # A *range* rather than a point, because a recording is commonly linked to
+    # several releases and the rung has to choose between them. 2Pac's "How Do U
+    # Want It" is in a family of four, three of which TIDAL offers; scored
+    # identically, the winner was whichever the sort happened to put first, and
+    # it was not the copy on the source's own album.
+    isrc_family: {0.95, 0.99},
     text: {0.80, 0.98},
     fuzzy: {0.0, 0.79},
     # A person is certain in a way no rung can be. The band exists so that
@@ -72,7 +87,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Confidence.all()
-      [:none, :low, :medium, :high, :exact_upc, :exact_isrc, :chosen]
+      [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen]
   """
   @spec all() :: [t()]
   def all, do: @ordering
@@ -82,7 +97,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Enum.sort(Confidence.strategies())
-      [:fuzzy, :isrc, :manual, :text, :upc_position]
+      [:fuzzy, :isrc, :isrc_family, :manual, :text, :upc_position]
   """
   @spec strategies() :: [strategy()]
   def strategies, do: Map.keys(@bands)
@@ -109,6 +124,10 @@ defmodule OnePlaylist.Matching.Confidence do
   @spec for_score(float(), strategy()) :: t()
   def for_score(1.0, :isrc), do: :exact_isrc
   def for_score(1.0, :upc_position), do: :exact_upc
+  # Anywhere in the band means the same thing qualitatively: an identifier
+  # somebody else says is equivalent. The position within it orders releases of
+  # one recording and is not a different kind of claim.
+  def for_score(score, :isrc_family) when is_float(score), do: :linked_isrc
   def for_score(1.0, :manual), do: :chosen
 
   def for_score(score, _strategy) when is_float(score) do

@@ -18,6 +18,7 @@ defmodule OnePlaylist.Matching do
   | Rung | Module | Evidence |
   | --- | --- | --- |
   | 1 | `OnePlaylist.Matching.Strategy.Isrc` | Recording identifier |
+  | 1b | `OnePlaylist.Matching.Strategy.IsrcFamily` | Another identifier for the same recording |
   | 2 | `OnePlaylist.Matching.Strategy.UpcPosition` | Release barcode plus position |
   | 3 | `OnePlaylist.Matching.Strategy.Text` | Exact after normalization |
   | 5 | `OnePlaylist.Matching.Strategy.Fuzzy` | Approximate similarity |
@@ -59,6 +60,10 @@ defmodule OnePlaylist.Matching do
 
   @strategies [
     Strategy.Isrc,
+    # Between the two identifier rungs on purpose: a code the recording is also
+    # known by outranks a barcode plus a track number, and is outranked by the
+    # code agreeing outright. See `Strategy.IsrcFamily`.
+    Strategy.IsrcFamily,
     Strategy.UpcPosition,
     Strategy.Text,
     Strategy.Fuzzy
