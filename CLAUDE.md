@@ -19,6 +19,18 @@ worse for its users.
 Real, load-bearing use — not token usage. The libraries live in sibling directories and should
 be depended on **by path** during development so improvements flow both ways.
 
+> #### Depended on from Hex, not by path {: .warning}
+>
+> `mix.exs` pins all four to Hex releases. The path deps described below are the
+> dogfooding mechanism and this is a deliberate step back from them, taken 2026-08-23 after a
+> mid-refactor in a sibling checkout stopped work here twice — the second time by renaming a
+> compiler function whose caller had not been updated, which failed every module in this
+> project carrying a precondition.
+>
+> Switch a single dependency back to `path:` when actively working on that library together
+> with this application. That is a one-line change, and it is why they are listed one per line.
+> The intent below is unchanged: improvements still flow both ways, just through a release.
+
 | Library | Local path | Where it belongs in this app |
 | --- | --- | --- |
 | [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.0.0-rc.4) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
@@ -27,11 +39,11 @@ be depended on **by path** during development so improvements flow both ways.
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.4.0) | `Transfers.await/2` waits on an Oban-run transfer with `case_wait`. Deeper use still ahead: scheduled sync, and polling providers with genuinely async jobs. |
 
 ```elixir
-# mix.exs, during development — this is the working configuration
-{:external_service, path: "../external_service"},
-{:errata, path: "../errata", override: true},   # external_service also requires it from Hex
-{:bond, path: "../bond"},
-{:wait_for_it, path: "../wait_for_it"}
+# mix.exs — the working configuration
+{:external_service, "3.0.0-rc.4"},   # exact: `~>` does not match a pre-release
+{:errata, "~> 1.7"},
+{:bond, "~> 1.15"},                  # 1.15.0 or later: earlier cannot compile
+{:wait_for_it, "~> 2.4"}             # an @invariant on an Ecto.Schema
 ```
 
 Verified against Elixir 1.20.3 / OTP 29: all four compile and interoperate. `external_service`
@@ -392,6 +404,7 @@ A fresh session should read this before proposing what to build.
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
 | UI | LiveView: connect a service, list transfers, pick a playlist, watch the report |
 | Caching | Two tiers — Nebulex L1, Postgres L2 — with request coalescing |
+| Files | CSV playlists read and written, round-trip property tested; a private Supabase Storage bucket with per-user policies |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and

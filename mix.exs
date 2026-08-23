@@ -148,10 +148,21 @@ defmodule OnePlaylist.MixProject do
       # JWT claims into Postgres for RLS. See docs/reference/supabase.md.
       {:supabase_potion, "~> 0.8"},
       {:supabase_auth, "~> 1.0"},
+      {:supabase_storage, "~> 0.6"},
 
-      # First-party libraries, depended on by path so that improvements can flow
-      # in both directions while this project dogfoods them. See CLAUDE.md.
-      # `:errata` is overridden because `:external_service` also requires it from Hex.
+      # First-party libraries, from Hex rather than by path. See CLAUDE.md: the
+      # path deps are the dogfooding mechanism and this is a deliberate step
+      # back from them, taken because a mid-refactor in a sibling checkout twice
+      # stopped work here — the second time by renaming a function whose caller
+      # had not been updated, which failed every module in this project carrying
+      # a precondition.
+      #
+      # Switch a single dep back to `path:` when actively working on that
+      # library with this application; that is a one-line change and the reason
+      # these are listed one per line.
+      #
+      # `external_service` is a release candidate, so the version is exact: `~>`
+      # does not match pre-releases from a non-pre-release requirement.
       # L1 of the catalogue cache. Chosen for `Nebulex.Adapters.Local`'s
       # generational eviction, which bounds memory without the flush-everything
       # cliff a hand-rolled cap produces. See OnePlaylist.Cache.
@@ -161,10 +172,10 @@ defmodule OnePlaylist.MixProject do
       {:oban, "~> 2.23"},
       {:nebulex, "~> 3.0"},
       {:nebulex_local, "~> 3.0"},
-      {:external_service, path: "../external_service"},
-      {:errata, path: "../errata", override: true},
-      {:bond, path: "../bond"},
-      {:wait_for_it, path: "../wait_for_it"},
+      {:external_service, "3.0.0-rc.4"},
+      {:errata, "~> 1.7"},
+      {:bond, "~> 1.15"},
+      {:wait_for_it, "~> 2.4"},
 
       # Property-based testing. Not just for our own properties: it is what
       # unlocks `Bond.PropertyTest`, which uses the contracts we have already

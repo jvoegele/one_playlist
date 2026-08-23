@@ -224,6 +224,58 @@ on — the likely production setting — it returns the user and a `nil` session
 is not signed in until the link is clicked. Handle both, or development quietly diverges from
 production on the one flow every user takes.
 
+### Storage: `Supabase.Storage.File.list/3` cannot be called at all
+
+`supabase_storage` 0.6.0. `SearchOptions.parse/1` puts `:sort_by` in the `cast/4` field list,
+and `:sort_by` is an `embeds_one` — so every call raises before reaching the network:
+
+```
+** (RuntimeError) casting embeds with cast/4 for :sort_by field is not supported,
+   use cast_embed/3 instead
+```
+
+There is a second bug beside it: the function then calls `cast_embed(:search_by, …)`, and no
+embed by that name exists. Listing is simply unavailable in this version; this project does
+without it.
+
+### Storage answers HTTP 400 for everything
+
+The real status is in the body:
+
+```
+resp_status: 400
+resp_body: {"statusCode": "404", "error": "not_found", "message": "Object not found"}
+resp_body: {"statusCode": "403", "error": "Unauthorized",
+            "message": "new row violates row-level security policy"}
+```
+
+So `Supabase.Error.code` is `:bad_request` for a missing object, a forbidden one, and a genuine
+malformed request alike. Classifying on it reports a file that is simply not there as a
+retryable infrastructure fault. Read `metadata.resp_body` — decoded or raw depending on content
+type, exactly as GoTrue's errors arrive.
+
+### `storage.objects` refuses direct DELETE
+
+A `protect_objects_delete` trigger: *"Direct deletion from storage tables is not allowed. Use
+the Storage API instead."* It fires on DELETE only — INSERT and UPDATE go straight through — so
+a pgTAP test can set up objects by hand but cannot exercise the delete policy. That half is
+covered through the real API in `test/one_playlist/storage_integration_test.exs`.
+
+### The grant/policy balance is the opposite of `public`
+
+Worth knowing before designing around it. On a table in `public` a missing grant is an outer
+wall that fails with `42501` before any policy runs, so `revoke all` and the policies are two
+independent defences. On `storage.objects`, Supabase has already granted `authenticated`
+**every** privilege — INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER — and there
+is no owner column to key on either. The path convention *is* the access control model: the
+policies compare `auth.uid()` against `(storage.foldername(name))[1]`.
+
+Two consequences this project acts on. Objects are only ever addressed through
+`OnePlaylist.Storage.path_for/3`, whose postcondition states that the first segment is the owner
+— a rewrite that reordered the segments would satisfy the type and file every upload where no
+policy can match it. And the storage calls use the **user's access token**, not the service key,
+which would bypass all four policies at once.
+
 ### Testing: `Req.Test` cannot reach it
 
 The SDK selects its HTTP client per request, inside itself, so the `Req.Test` stubs used for
