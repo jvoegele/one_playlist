@@ -86,6 +86,23 @@ defmodule OnePlaylist.Providers.ConnectionTest do
   # Bond's guide is emphatic that an assertion you have never seen fail is an
   # assertion you have not tested — a vacuous contract is worse than none,
   # because it looks like coverage. These prove each contract can actually fire.
+  describe "the invariant" do
+    test "a negative failure counter is rejected" do
+      # The counter is how "this connection keeps failing" is eventually
+      # noticed. A negative one means no threshold ever triggers and nothing
+      # raises — the signal simply never arrives, which is the quietest way for
+      # a monitoring value to fail.
+      #
+      # The changeset validates it on the write path; this catches the struct
+      # that never went through one, which since bond 1.15.0 an `Ecto.Schema`
+      # can finally say.
+      assert_invariant_violation(
+        Connection.usable?(%Connection{status: :active, consecutive_failures: -1}),
+        label: :failures_never_negative
+      )
+    end
+  end
+
   describe "contracts" do
     test "expired?/2 rejects a non-DateTime clock" do
       assert_precondition_violation(Connection.expired?(connection(), :not_a_datetime),

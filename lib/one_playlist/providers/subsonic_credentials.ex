@@ -21,6 +21,21 @@ defmodule OnePlaylist.Providers.SubsonicCredentials do
   Every other provider's base URL is a compile-time constant. This one is
   whatever the user pastes, which makes it the one place where validation is
   doing real work rather than restating the type.
+
+  > #### Why there is no `@invariant` here {: .info}
+  >
+  > This is a **filter** in Meyer's sense (*OOSC* §11.6), and its whole purpose
+  > is to hold input that has not been validated yet. An invariant describing the
+  > validated form — a usable base URL, a password present — would be false of
+  > `%SubsonicCredentials{}`, which is exactly what `changeset/2` is handed by
+  > default, so it would fail on the way *into* the function whose job is to
+  > establish it.
+  >
+  > That is the base-case rule, and it is not a limitation to work around: a type
+  > whose invalid state is its starting state cannot have that state as an
+  > invariant. The guarantees belong on `apply/1`, which is the boundary where
+  > the value stops being input and starts being a credential — and they are
+  > postconditions there.
   """
 
   use Ecto.Schema

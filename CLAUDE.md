@@ -345,11 +345,14 @@ Two configuration decisions worth not re-litigating, both recorded in place:
 - Dialyzer's `:extra_return` flag is off. It fires on every Errata-generated `code/1` and
   `retryable?/1`, and the count would grow with each error type we define.
 
+Depends on **bond 1.15.0 or later**: earlier versions cannot compile an `@invariant` on an
+`Ecto.Schema`, which is where three of this project's domain types keep their laws.
+
 **Bond contract coverage** prints after every `mix test` run (`config :bond, coverage: true`).
 An assertion marked `⚠ never failed` is a prompt: either write a test proving it can fail, or
 delete it. Before adding or changing any contract, read **`docs/reference/contracts.md`** — it
-is the house style, and every rule in it was learned by getting something wrong first. `test/test_helper.exs` carries a workaround for a Bond bug — see
-`docs/library-feedback.md`.
+is the house style, and every rule in it was learned by getting something wrong first. (The `:ets.new/2` workaround `test/test_helper.exs` used to carry for this is gone as of
+bond 1.15.0.)
 
 ## Working agreements
 

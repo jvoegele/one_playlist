@@ -21,6 +21,22 @@ defmodule OnePlaylist.Transfers.TransferItem do
   `:already_present` and adds nothing — and a user looking at the report can
   see that is what happened, rather than wondering why the second run "did
   nothing".
+
+  > #### Why there is no `@invariant` here {: .info}
+  >
+  > Not a Bond limitation — since 1.15.0 an `Ecto.Schema` can carry one, and
+  > `OnePlaylist.Transfers.Transfer` does. It would simply fire on nothing.
+  >
+  > `matched/4` and `unmatched/4` return **maps**, not structs: rows reach the
+  > database through `Repo.insert_all/3`, so `changeset/2` is never called from
+  > `lib/` at all. The only public function that takes a `%TransferItem{}` is
+  > therefore unused, and an invariant would have no value to check on the way
+  > in or out of anything.
+  >
+  > The two laws that matter — a resolved row names a destination track, an
+  > unresolved one says why — are asserted as postconditions on the two
+  > functions that build those maps, which is where the values actually come
+  > from. Moving them would weaken them.
   """
 
   use Ecto.Schema

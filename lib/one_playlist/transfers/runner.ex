@@ -71,11 +71,20 @@ defmodule OnePlaylist.Transfers.Runner do
   #
   # Strictly stronger than the `@invariant` on `Transfer`, which must use `<=`
   # because a transfer legitimately passes through partial states while running.
-  # Here the run is over, so equality is the honest claim.
+  # Here the run is over, so equality is the honest claim, and that difference is
+  # the whole reason this assertion exists separately.
+  #
+  # `added_at_most_matched` used to sit here beside it and was removed when the
+  # invariant landed: unlike the equality above it is *identical* to the
+  # invariant, and every counter this function returns passes through
+  # `Transfer.reset_counters/1`, `with_total/2`, `record_matched/2` or
+  # `record_unmatched/1` — each of which now checks it on the way out. Meyer's
+  # Non-Redundancy principle, and the invariant is also the better locus: it
+  # names the counter update that broke the law rather than the run that
+  # contained it.
   @post whenever({:ok, completed} <- result),
     every_track_accounted_for:
       completed.matched_count + completed.unmatched_count == completed.total_tracks,
-    added_at_most_matched: completed.added_count <= completed.matched_count,
     # The database half of the same promise. The counters could agree with each
     # other and still disagree with the report a user actually reads; this is
     # the one place both are in scope at once.

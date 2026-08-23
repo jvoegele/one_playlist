@@ -130,9 +130,20 @@ defmodule OnePlaylist.ContractsTest do
       # The re-run accumulation bug that actually happened here: six matched of
       # three total. It would render as "200% of the source" on the transfer
       # page. Falsifiable by data — no mutation needed.
-      assert_postcondition_violation(
+      #
+      # Caught by the `@invariant` on entry since bond 1.15.0 made invariants
+      # usable on an `Ecto.Schema`, rather than by `match_rate/1`'s own
+      # `is_a_proportion` postcondition on the way out. That is a strict
+      # improvement and worth stating rather than merely accommodating: the value
+      # is rejected before the division instead of after it, so the label names
+      # the ledger that is wrong rather than the percentage derived from it.
+      #
+      # `is_a_proportion` is kept. It is a different claim — that this function's
+      # arithmetic produces a proportion — and it would still catch a rewrite
+      # that divided by the wrong field on a perfectly balanced transfer.
+      assert_invariant_violation(
         Transfer.match_rate(%Transfer{total_tracks: 3, matched_count: 6}),
-        label: :is_a_proportion
+        label: :ledger_balances
       )
     end
 

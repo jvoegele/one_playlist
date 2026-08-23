@@ -383,10 +383,32 @@ defmodule OnePlaylist.TransfersTest do
       assert Transfers.count_items(completed) == completed.total_tracks
     end
 
+    test "a transfer cannot have added more tracks than it matched" do
+      # The second law, and not implied by the first: `added` counts what was
+      # *written*, so a matched track already present at the destination is
+      # matched but not added. More added than matched would mean the report
+      # claims to have written tracks it never matched — which is what a re-run
+      # accumulating on top of a completed transfer would look like.
+      impossible = %Transfer{total_tracks: 3, matched_count: 1, added_count: 2}
+
+      assert_invariant_violation(Transfer.finished?(impossible),
+        label: :added_at_most_matched
+      )
+    end
+
     test "counters cannot be advanced without their opposite number" do
+      # An `@invariant` since Bond 1.15.0, which made invariants usable on an
+      # `Ecto.Schema` at all. It was three duplicated postconditions before that,
+      # and the law is about every value of the type rather than about the
+      # functions that happen to build one — so this is now an invariant
+      # violation, and it also fires for a transfer read back from the database
+      # or built by hand, which no postcondition could reach.
+      #
+      # The struct below satisfies the invariant on the way *in* — 2 counted of 2
+      # total — and breaks it on the way out, at 3 of 2.
       transfer = %Transfer{total_tracks: 2, matched_count: 2, unmatched_count: 0}
 
-      assert_postcondition_violation(Transfer.record_matched(transfer, true),
+      assert_invariant_violation(Transfer.record_matched(transfer, true),
         label: :ledger_balances
       )
     end

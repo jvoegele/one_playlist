@@ -27,17 +27,25 @@ defmodule OnePlaylist.Transfers.Transfer do
   arithmetic would live at each call site — which is how two of these four
   numbers end up disagreeing.
 
-  > #### This wants to be an `@invariant`, and cannot be {: .info}
-  >
-  > A struct `@invariant` is the natural home: the law is about every value of
-  > the type, not about three particular functions. But Bond weaves invariant
-  > checks into *every* public function of the declaring module, and on an
-  > `Ecto.Schema` that includes the generated `__schema__/2` — which then fails
-  > to compile with `undefined variable "bond_arg_1"`.
-  >
-  > So the law is stated as postconditions on the three functions that produce a
-  > transfer, which covers the same ground for anything this module builds. See
-  > `docs/library-feedback.md`.
+  ## Value laws are invariants; transition laws are postconditions
+
+  The two laws above are about **every value** of this type, so they are an
+  `@invariant` — including for a transfer read back from the database or built
+  by a test, neither of which passes through the functions below.
+
+  `balanced?/1` uses `<=` rather than `==` precisely so that it is true of an
+  in-flight transfer as well as a finished one. The stronger equality is not a
+  property of the type — a half-run transfer would violate it — so it lives
+  where the run is over, on `OnePlaylist.Transfers.Runner.run/1`.
+
+  What stays a postcondition is `counted_exactly_one`, which is a claim about a
+  *transition* rather than a value: it relates the result to the argument, which
+  is something no invariant can see.
+
+  (Until Bond 1.15.0 the invariant was impossible here — weaving reached
+  `Ecto.Schema`'s generated `__schema__/2` and failed to compile. The laws were
+  stated as postconditions on the three producing functions instead. See
+  `docs/library-feedback.md`.)
   """
 
   use Ecto.Schema
@@ -46,6 +54,25 @@ defmodule OnePlaylist.Transfers.Transfer do
   import Ecto.Changeset
 
   alias OnePlaylist.Providers.Connection
+
+  # The conservation law this application is organised around, stated where it
+  # belongs: on the type, not on the three functions that happen to build one.
+  #
+  # `balanced?/1` is deliberately reachable from here. Meyer's Assertion
+  # Evaluation rule means its own woven invariant is suppressed while this
+  # assertion runs, so there is no recursion — and the predicate stays public
+  # because an assertion rendered into the documentation should name something a
+  # reader can look up.
+  #
+  # A bare `%Transfer{}` satisfies both: every counter defaults to zero, which is
+  # Meyer's base case for a struct invariant and the thing most often gotten
+  # wrong.
+  @invariant ledger_balances: balanced?(subject),
+             # Not implied by the first. `added` counts what was *written*, and a
+             # matched track already present at the destination is matched but
+             # not added — which is what idempotency means here, and why a re-run
+             # adds nothing while still matching everything.
+             added_at_most_matched: subject.added_count <= subject.matched_count
 
   @statuses ~w(pending running completed failed)a
 
@@ -96,6 +123,10 @@ defmodule OnePlaylist.Transfers.Transfer do
   end
 
   @doc "The statuses a transfer can be in."
+  # Genuinely not about a transfer: it answers what the `status` field may hold,
+  # which is a fact about the type rather than about any value of it. There is no
+  # struct to check on the way in or out, so the invariant has nothing to say.
+  @bond_warn_skipped_invariants false
   @spec statuses() :: [status()]
   def statuses, do: @statuses
 
@@ -105,7 +136,7 @@ defmodule OnePlaylist.Transfers.Transfer do
 
   @doc "Changeset for creating a transfer."
   @spec create_changeset(t(), map()) :: Ecto.Changeset.t()
-  def create_changeset(transfer, attrs) do
+  def create_changeset(%__MODULE__{} = transfer, attrs) do
     transfer
     |> cast(attrs, [
       :user_id,
@@ -149,7 +180,6 @@ defmodule OnePlaylist.Transfers.Transfer do
   Separate from creation because a transfer is queued before anything has read
   the source, and the count is the first thing the run establishes.
   """
-  @post ledger_balances: balanced?(result)
   @spec with_total(t(), non_neg_integer()) :: t()
   def with_total(%__MODULE__{} = transfer, total) when is_integer(total) and total >= 0,
     do: %{transfer | total_tracks: total}
@@ -161,9 +191,10 @@ defmodule OnePlaylist.Transfers.Transfer do
   difference between a first run and a re-run, and the reason `added_count` is
   not simply `matched_count`.
   """
-  @post ledger_balances: balanced?(result),
-        added_at_most_matched: result.added_count <= result.matched_count,
-        counted_exactly_one: result.matched_count == transfer.matched_count + 1
+  # `ledger_balances` and `added_at_most_matched` are the module `@invariant` and
+  # are not repeated here. What is left is the transition claim, which an
+  # invariant cannot express: it relates the result to the argument.
+  @post counted_exactly_one: result.matched_count == transfer.matched_count + 1
   @spec record_matched(t(), boolean()) :: t()
   def record_matched(%__MODULE__{} = transfer, added?) do
     %{
@@ -174,8 +205,7 @@ defmodule OnePlaylist.Transfers.Transfer do
   end
 
   @doc "Records one track that could not be resolved confidently."
-  @post ledger_balances: balanced?(result),
-        counted_exactly_one: result.unmatched_count == transfer.unmatched_count + 1
+  @post counted_exactly_one: result.unmatched_count == transfer.unmatched_count + 1
   @spec record_unmatched(t()) :: t()
   def record_unmatched(%__MODULE__{} = transfer),
     do: %{transfer | unmatched_count: transfer.unmatched_count + 1}
@@ -256,7 +286,7 @@ defmodule OnePlaylist.Transfers.Transfer do
 
   @doc "Changeset for persisting the counters and status a run produced."
   @spec progress_changeset(t(), map()) :: Ecto.Changeset.t()
-  def progress_changeset(transfer, attrs) do
+  def progress_changeset(%__MODULE__{} = transfer, attrs) do
     transfer
     |> cast(attrs, [
       :status,

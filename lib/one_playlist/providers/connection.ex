@@ -23,6 +23,23 @@ defmodule OnePlaylist.Providers.Connection do
 
   alias OnePlaylist.Encrypted
 
+  # Possible since Bond 1.15.0, which made `@invariant` usable on an
+  # `Ecto.Schema` at all.
+  #
+  # Deliberately one assertion, and deliberately not the obvious ones. The
+  # field-presence laws — a `user_id`, a non-blank `access_token` — are true of
+  # every *persisted* connection and false of `%Connection{}`, which is exactly
+  # what `Providers.connect/3` hands to `changeset/2`. An invariant that fails on
+  # the module's own construction path is the base-case mistake Meyer warns
+  # about, and no amount of it being "morally true of real rows" fixes that.
+  #
+  # What is left is genuinely a property of every value. The counter is how "this
+  # connection keeps failing" is eventually noticed; a negative one means no
+  # threshold ever triggers, and nothing raises — the signal simply never
+  # arrives. `record_failure/2`'s `counter_advances_by_one` is the matching
+  # *transition* law and stays where it is.
+  @invariant failures_never_negative: subject.consecutive_failures >= 0
+
   @providers ~w(spotify apple_music youtube_music tidal deezer plex jellyfin navidrome subsonic)a
   @statuses ~w(active expired revoked reauth_required)a
 
@@ -78,6 +95,9 @@ defmodule OnePlaylist.Providers.Connection do
   end
 
   @doc "Every provider this application knows how to connect to."
+  # No connection to check: this answers what the `provider` field may hold,
+  # which is a fact about the type rather than about a value of it.
+  @bond_warn_skipped_invariants false
   @spec providers() :: [provider()]
   def providers, do: @providers
 
@@ -91,7 +111,7 @@ defmodule OnePlaylist.Providers.Connection do
   Note what is *not* validated here: that the tokens work. That is only knowable
   by calling the provider, so it is the refresh path's job, not the changeset's.
   """
-  def changeset(connection, attrs) do
+  def changeset(%__MODULE__{} = connection, attrs) do
     connection
     |> cast(attrs, @required ++ @optional)
     |> validate_required(@required)
@@ -213,7 +233,21 @@ defmodule OnePlaylist.Providers.Connection do
   which is a different situation from a revoked one.
   """
   @spec usable?(connection :: %__MODULE__{}) :: boolean()
-  def usable?(%__MODULE__{status: :active, access_token: token}) when is_binary(token), do: true
+  # `token != ""` is load-bearing, not defensive. An empty string is a binary, so
+  # the guard alone answered `true` for a connection carrying no credential at
+  # all — `fetch_usable_connection/2` handed it back as healthy and every call
+  # 401'd, blaming the provider.
+  #
+  # This is deliberately *not* an `@invariant` forbidding a blank token. Such a
+  # row is reachable — `OnePlaylist.Providers.SubsonicCredentials` documents the
+  # same hazard from the other side, and `providers_test.exs` pins that a blank
+  # refresh token must fail cleanly rather than crash, because "a contract does
+  # not retroactively clean a database". Answering `false` sends the user down
+  # the reconnect path; raising would take the request down instead.
+  def usable?(%__MODULE__{status: :active, access_token: token})
+      when is_binary(token) and token != "",
+      do: true
+
   def usable?(%__MODULE__{}), do: false
 
   @doc """
@@ -260,6 +294,13 @@ defmodule OnePlaylist.Providers.Connection do
   #
   # `inserted_at` is nil for a connection that was never persisted, which is a
   # legitimate state, so it is satisfied rather than rejected.
+  # The bare parameter is deliberate and must stay: this predicate is named by
+  # the preconditions on `expired?/2` and `needs_refresh?/3`, and a function
+  # written to be called *from* an assertion has to answer rather than raise.
+  # Matching `%__MODULE__{}` here would earn the entry check Bond is asking for
+  # and cost the ability to return `false` — see the same note on
+  # `OnePlaylist.Providers.Tokens.well_formed?/1`.
+  @bond_warn_skipped_invariants false
   @spec now_after_creation?(t(), DateTime.t()) :: boolean()
   def now_after_creation?(connection, now) do
     (is_struct(now, DateTime) and is_struct(connection.inserted_at, DateTime))

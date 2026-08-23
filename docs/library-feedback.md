@@ -7,6 +7,25 @@ whether or not they are acted on.
 
 Format: what was hit, why it mattered, and a suggested fix.
 
+Entries are kept after they are fixed, marked **Resolved**, because the reasoning is the
+useful part and a fixed bug still explains why the code around it looks the way it does.
+
+> #### bond 1.15.0 closed seven of these {: .info}
+>
+> Released 2026-08-23, from a sweep of this log. What changed here as a result:
+>
+>   * `@invariant` now works on an `Ecto.Schema`, so the transfer ledger law moved from three
+>     duplicated postconditions to one invariant on the type — and `OnePlaylist.Providers.Connection`
+>     gained one it could not have had.
+>   * The `:ets.new/2` workaround in `test/test_helper.exs` is deleted; `install_reporter/0`
+>     creates the coverage table itself.
+>   * Server invariants appear in coverage, and rows are attributed to the module that ran them.
+>   * Generated contract sections are fenced, so a wrapped assertion stays inside its code block.
+>
+> Still open below: one-hop delegation in `warn_skipped_invariants`, the
+> `@doc false` Precondition Availability case, contracts orphaned by `:purge`, multi-clause
+> parameter names, and the missing-`use Bond` diagnostic.
+
 ---
 
 ## `external_service` — no `:export` block in `.formatter.exs`
@@ -80,6 +99,9 @@ Tesla's `Tesla.Middleware.Retry` and Finch's own behaviour deserve the same one-
 cheap to document and expensive to discover.
 
 ## `bond` — `Bond.Coverage`'s ETS table dies with the first test that writes to it
+
+**Resolved in bond 1.15.0.** `install_reporter/0` now creates the table, so it is owned by the
+process running `test/test_helper.exs` and outlives the suite. The workaround below is deleted.
 
 **Found:** 2026-08-22, wiring up contract coverage. **This one is a bug**, and it silently
 disables the feature.
@@ -293,6 +315,12 @@ reasonable in isolation, invisible from inside `call/1`, and wrong for the wrapp
 
 ## `bond` — `@invariant` cannot be used on an `Ecto.Schema` module
 
+**Resolved in bond 1.15.0.** The cause was hygiene rather than anything Ecto-specific: a clause
+head built with `unquote_splicing/1` carries the `quote`-introduced context, and the wrapper bound
+its canonical name there while referencing it from the body in `nil`. `OnePlaylist.Transfers.Transfer`
+now states its ledger law as one `@invariant` instead of three duplicated postconditions, which also
+catches a transfer read back from the database — something no postcondition could reach.
+
 **Found:** 2026-08-22, putting the transfer ledger law on `OnePlaylist.Transfers.Transfer`.
 **This one is a bug**, and it rules out invariants on the most common struct type in a Phoenix
 application.
@@ -457,6 +485,9 @@ API looks like consistency and produced two bugs here.
 
 ## `bond` — `Bond.Server` invariants never appear in `Bond.Coverage`
 
+**Resolved in bond 1.15.0.** `OnePlaylist.Cache.Singleflight`'s state invariants now report, under
+a `(every callback)` heading rather than a bare `nil`.
+
 **Found:** 2026-08-22, adding `server_invariants_hold/2` for
 `OnePlaylist.Cache.Singleflight`.
 
@@ -498,6 +529,9 @@ never ran.
 
 ## `bond` — inherited-contract coverage is aggregated under one arbitrary implementation
 
+**Resolved in bond 1.15.0.** Rows are keyed on the assertion together with module, function, kind
+and label, so each implementation gets its own row and a `✓` is earned by the module it names.
+
 **Found:** 2026-08-22, adding a fourth implementation of `OnePlaylist.Matching.Strategy`.
 
 `Bond.Coverage` reports a contract inherited from a `Bond.Behaviour` under a **single**
@@ -536,6 +570,11 @@ This is separate from the ETS-table issue recorded above, and survives it: the c
 correct in total, only the attribution is wrong.
 
 ## `bond` — the all-inside `whenever`/`where` form is rejected on `Bond.Behaviour` callbacks
+
+**Resolved in bond 1.15.0.** `Bond.Protocol` was affected too. The prefix form is still what
+`OnePlaylist.Providers.Adapter` uses, for an unrelated reason documented there: an inherited
+contract's expression resolves in the *implementing* module's alias scope, which is a separate
+entry below and is not a bug.
 
 **Found:** 2026-08-22, declaring a contract on `c:OnePlaylist.Matching.Strategy.score/2`.
 
@@ -942,6 +981,10 @@ probably double its usage.
 
 ## `bond` — a wrapped assertion breaks out of its code block in generated docs
 
+**Resolved in bond 1.15.0.** Both sections are emitted as fenced ```` ```elixir ```` blocks now.
+Verified here: the `Invariants` section of `OnePlaylist.Providers.Tokens` renders as a single code
+block, and `refresh_token_absent_or_real` no longer leaks into the surrounding prose.
+
 **Found:** 2026-08-23, reading the generated docs after `mix docs`. **Presentational, not a
 correctness problem — but it damages the feature that makes contracts-as-specification work.**
 
@@ -1039,6 +1082,8 @@ who has grown used to the current output.
 ---
 
 ## Bond — the coverage ETS table, again
+
+**Resolved in bond 1.15.0**, by the same change as the original entry.
 
 **Version:** 1.14.1 · **Found:** 2026-08-23, adding Supabase Auth
 
