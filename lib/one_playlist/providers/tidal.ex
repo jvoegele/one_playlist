@@ -169,7 +169,7 @@ defmodule OnePlaylist.Providers.Tidal do
   # is really complaining about.
   defp text_candidates(connection, %Track{} = track, opts) do
     if "search.read" in (connection.scopes || []) do
-      Client.search_tracks(connection.access_token, search_query(track), opts)
+      Client.search_tracks(connection.access_token, Track.search_query(track), opts)
     else
       {:error,
        Errata.create(ConnectionUnusable,
@@ -194,7 +194,7 @@ defmodule OnePlaylist.Providers.Tidal do
              Client.album_by_barcode(token, barcode, opts)
            end),
          {:ok, tracks} <- items_or_forget(token, album_id, barcode, lookup_opts) do
-      {:ok, Enum.filter(tracks, &same_position?(&1, track))}
+      {:ok, Enum.filter(tracks, &Track.same_position?(&1, track))}
     else
       # A barcode TIDAL does not carry, or a release that lists nothing at that
       # position. Both are misses, not failures.
@@ -217,25 +217,6 @@ defmodule OnePlaylist.Providers.Tidal do
 
         failure
     end
-  end
-
-  defp same_position?(candidate, source) do
-    candidate.track_number == source.track_number and
-      (candidate.volume_number || 1) == (source.volume_number || 1)
-  end
-
-  # Title and artists, as a person would type it.
-  #
-  # Deliberately the raw title rather than the normalized one: normalization
-  # exists to compare two strings that already describe the same recording, and
-  # stripping `(Live)` here would ask TIDAL for the studio version and then
-  # reject everything it sent back. The matching engine applies its own rules
-  # to whatever comes back.
-  defp search_query(%Track{} = track) do
-    [track.title | track.artists]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" ")
-    |> String.trim()
   end
 
   defp limit_to({:ok, tracks}, limit), do: {:ok, Enum.take(tracks, limit)}

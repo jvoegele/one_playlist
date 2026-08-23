@@ -278,13 +278,11 @@ defmodule OnePlaylist.Matching do
     matched = Enum.map(report.matched, & &1.source)
     unmatched = Enum.map(report.unmatched, &Errata.context(&1).source)
 
-    Enum.map(matched ++ unmatched, &identify/1)
+    Enum.map(matched ++ unmatched, &Track.identity/1)
   end
 
   def source_ids(pairs) when is_list(pairs),
-    do: Enum.map(pairs, fn {source, _candidates} -> identify(source) end)
-
-  defp identify(%Track{} = track), do: {track.provider, track.provider_id}
+    do: Enum.map(pairs, fn {source, _candidates} -> Track.identity(source) end)
 
   defp opinions(strategy, source, candidates) do
     Enum.flat_map(candidates, fn candidate ->

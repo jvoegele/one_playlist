@@ -206,9 +206,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
       position: position,
       source_track_id: source.provider_id,
       source_title: source.title,
-      # The first credited artist only. The report is a list a person scans;
-      # the full credit is on the source track if anyone needs it.
-      source_artist: List.first(source.artists || [])
+      source_artist: Track.primary_artist(source)
     })
   end
 end

@@ -616,17 +616,31 @@ that.
 Bond checks a struct invariant on entry to and exit from **that struct module's** public
 functions, and nowhere else. Two consequences fall out, and a codebase-wide sweep hit both.
 
-**A pure data definition cannot carry a useful invariant.** `Music.Track` is the core domain
-struct and the obvious place to state that `duration_seconds` is never negative — the poisonous
-value from shape 4. But `Track`'s only public function is `parse_iso8601_duration/1`, which
-neither takes nor returns a `%Track{}`. An invariant there would never fire on entry, never fire
-on exit, and draw a `warn_skipped_invariants` warning for its trouble. Inventing a
-Track-accepting function to hang it on would be arranging the code around the contract.
+**A struct module with no operations cannot carry a useful invariant — and that is usually a
+smell about the *code*, not the contract.** `Music.Track` is the core domain struct, and its only
+public function was `parse_iso8601_duration/1`, which neither takes nor returns a `%Track{}`. An
+invariant would have fired nowhere.
 
-The law belongs at the **producers** instead, and both mappers are where a Track is built. That
-also settles where to state it once: `Tidal.Mapper` gets it free from
-`Track.parse_iso8601_duration/1`'s own postcondition, while `Subsonic.Mapper` filters an integer
-through a private helper, so only the second needs it spelled out.
+The first conclusion drawn from that was "so `Track` gets no invariant". The better question is
+why a struct that central had no operations, and the answer was that they were scattered: the
+*same four lines* of `search_query/1` in `Providers.Tidal` and `Providers.Navidrome`,
+`same_position?/2` private to TIDAL although Subsonic already carries the fields it needs, and
+`identity/1` private to `Matching`. Each is a pure question about a track's own fields, and none
+was reusable or contracted where it sat.
+
+Gathering them onto `Track` removed a duplication, gave three modules one place to ask, and made
+the invariant reachable — three clauses that now fire from ordinary tests rather than only under
+mutation. **This is the same reasoning that moved `normalize_barcode/1` out of `Signals`, run in
+the opposite direction**: there, a function had no business in the module it sat in; here, a
+module had been emptied of functions that belonged to it.
+
+So when an invariant looks unreachable, check which of the two situations you are in before
+concluding the invariant is unwarranted.
+
+A caveat learned in the same change: `parse_iso8601_duration/1` still draws the linter's warning
+and is still right where it is. A parser for one of the struct's **own fields** is what a struct
+module is for — `Date.from_iso8601/1` lives on `Date`. The warning distinguishes "unrelated to
+this type" from "does not happen to take this type", and only the first is a misplacement.
 
 **An invariant reached only from an assertion is inert**, by the Assertion Evaluation rule.
 `TransferItem.tally/1` and `Transfer.tally/1` return the same four-field map, and lifting it to a

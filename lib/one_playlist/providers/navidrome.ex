@@ -104,7 +104,7 @@ defmodule OnePlaylist.Providers.Navidrome do
     limit = Adapter.limit(opts)
 
     with {:ok, candidates} <-
-           Client.search(connection, query(track), limit: @search_candidates) do
+           Client.search(connection, Track.search_query(track), limit: @search_candidates) do
       {:ok, Enum.take(candidates, limit)}
     end
   end
@@ -138,16 +138,5 @@ defmodule OnePlaylist.Providers.Navidrome do
     with {:ok, tracks} <- Client.playlist_tracks(connection, playlist) do
       {:ok, Enum.map(tracks, & &1.provider_id)}
     end
-  end
-
-  # Title and artists, as a person would type it — the same shape TIDAL's text
-  # search gets, and for the same reason: version markers are kept, because
-  # asking for the studio version and then rejecting everything that comes back
-  # is worse than asking for what the source actually is.
-  defp query(%Track{} = track) do
-    [track.title | track.artists]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" ")
-    |> String.trim()
   end
 end
