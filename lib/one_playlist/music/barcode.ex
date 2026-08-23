@@ -75,11 +75,34 @@ defmodule OnePlaylist.Music.Barcode do
   # structurally fine, and it belongs to the example tests; see the division of
   # labour in `docs/reference/contracts.md`.
   #
-  # Idempotence is not asserted separately because this implies it: a value
-  # matching the pattern below is unchanged by every step of the body. That
-  # matters, because `Catalogue`'s `normalized_barcode` precondition is exactly
-  # the claim that normalizing twice is normalizing once.
   @post normalized_form: is_nil(result) or Regex.match?(~r/^[1-9][0-9]*$/, result)
+  # `normalize/1` is a **projection**, and that is a different claim from the
+  # shape above rather than a consequence of it — checked rather than assumed,
+  # because it was first left out on exactly that assumption.
+  #
+  # A plausible edit separates them: deciding the trailing check digit is not
+  # part of a release's identity and slicing it off. On a real barcode —
+  # `"00602547670052"` — that yields `"60254767005"`, which satisfies
+  # `normalized_form` perfectly, and normalizing again yields `"6025476700"`.
+  # Only idempotence notices.
+  #
+  # (`normalized_form` does catch the same edit on inputs short enough that
+  # slicing empties the string, so across the whole suite both fire. The
+  # separation is real for the twelve- and thirteen-digit values this function
+  # exists to handle, which is the case that matters.)
+  #
+  # The reason it belongs *here* rather than being left to the caller is
+  # Meyer's Assertion Violation rule. `Catalogue.album_id/3` requires
+  # `barcode == Barcode.normalize(barcode)`, so a non-idempotent `normalize/1`
+  # makes that precondition unsatisfiable — and it fires as a **precondition**
+  # violation, which by definition accuses the client. The client would be
+  # innocent: it normalized exactly once, as instructed. Stating the law where
+  # it is owed puts the blame on the supplier that broke it.
+  #
+  # Last in the list because it re-enters the function. Bond suppresses contract
+  # checking during assertion evaluation, so this terminates and the three
+  # cheaper checks above get to fail first.
+  @post idempotent: normalize(result) == result
   @spec normalize(String.t() | nil) :: String.t() | nil
   def normalize(nil), do: nil
 

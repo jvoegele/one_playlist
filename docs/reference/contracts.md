@@ -549,6 +549,45 @@ nothing in the suite normalizes a title containing that word — but it fires th
 real title does. A test cannot catch it and the contract can, which is the clearest case in
 this codebase for a contract over an example.
 
+### "Implied by another assertion" needs checking, not assuming
+
+The rule below — delete an assertion its neighbour already implies — is right,
+and it is easy to apply to something that only *looks* implied.
+
+`Music.Barcode.normalize/1` asserts `normalized_form` (the result is `nil` or a leading-zero-free
+digit string). An `idempotent: normalize(result) == result` was left out as a consequence of it,
+by the reasoning that a value of that shape is unchanged by every step of the body. True of the
+body *as written*, and not a property of the specification.
+
+The edit that separates them is one somebody might genuinely make: deciding a trailing check
+digit is not part of a release's identity and slicing it off. `"00602547670052"` then normalizes
+to `"60254767005"` — perfectly well-formed — and normalizing *that* gives `"6025476700"`. The
+shape assertion is satisfied at every step; only idempotence notices.
+
+The two say different kinds of thing, which is the tell. `normalized_form` describes the
+**shape of the output**; `idempotent` describes the **character of the function** — that it is a
+projection. Assertions on different dimensions are worth checking for independence rather than
+eliminating by inspection.
+
+### Put a law where it is owed, or an innocent client gets the blame
+
+The stronger argument for that idempotence assertion is not that it catches an extra bug — it is
+*where* it catches it.
+
+`Catalogue.album_id/3` requires `barcode == Barcode.normalize(barcode)`. A non-idempotent
+`normalize/1` makes that precondition **unsatisfiable**, and it fires as a *precondition*
+violation — which, by Meyer's Assertion Violation rule, means a bug in the client. The client
+would be innocent: it normalized exactly once, as instructed, and has no way to do better.
+
+Confirmed by mutation: with only the caller's precondition in place, that edit surfaces as
+`normalized_barcode` failing in `Catalogue`, pointing at the wrong module. With the
+postcondition on `normalize/1`, the supplier is named at the point of production, before the
+value ever travels.
+
+So when deciding where an assertion goes, ask which party can actually be at fault if it breaks.
+A law about a function's own output belongs on that function, even when a caller's precondition
+would happen to trip over the violation first.
+
 ### Two guards mean the contract cannot earn its place
 
 While proving the above by mutation, `no_empty_names` on `Normalize.artists/1` refused to fire
