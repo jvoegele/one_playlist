@@ -14,6 +14,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Repo
   alias OnePlaylist.Transfers
+  alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
 
@@ -288,6 +289,40 @@ defmodule OnePlaylistWeb.TransferLiveTest do
     end
   end
 
+  # The state a real run's `Progress` would be in after resolving these, so a
+  # test asserting on the tab counts is asserting on the numbers the Runner
+  # would actually send rather than on numbers the test made up. The batch and
+  # interval are set high enough that nothing flushes: what is broadcast is
+  # chosen by the caller, not by the batching rules, which have their own tests.
+  defp tallied(items, total) do
+    Enum.reduce(
+      items,
+      Progress.new(total, batch: 1_000_000, interval: 1_000_000, now: 0),
+      fn item, progress ->
+        {[], progress} = Progress.add(progress, item, 0)
+        progress
+      end
+    )
+  end
+
+  defp report(transfer, items, total) do
+    Transfers.report_progress(transfer, tallied(items, total), items)
+  end
+
+  defp matched_item(position, title \\ nil) do
+    %{
+      position: position,
+      source_title: title || "Track #{position}",
+      source_artist: "Somebody",
+      outcome: :matched,
+      destination_track_id: "d#{position}",
+      confidence: "exact",
+      score: 1.0,
+      strategy: "isrc",
+      reason: nil
+    }
+  end
+
   describe "progress" do
     test "a running transfer shows a bar that moves", %{conn: conn, user_id: user_id} do
       # Before this the page said only "running" for the whole matching pass,
@@ -298,7 +333,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
 
       assert html =~ "Starting…", "no report yet reads as starting, not as zero of zero"
 
-      OnePlaylist.Transfers.report_progress(transfer, 23, 58)
+      Transfers.report_progress(transfer, tallied(Enum.map(0..22, &matched_item/1), 58), [])
 
       html = render(view)
 
@@ -313,19 +348,23 @@ defmodule OnePlaylistWeb.TransferLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
 
-      OnePlaylist.Transfers.report_progress(transfer, 1, 2, [
-        %{
-          position: 0,
-          source_title: "Corduroy",
-          source_artist: "Pearl Jam",
-          outcome: :matched,
-          destination_track_id: "t1",
-          confidence: "exact_isrc",
-          score: 1.0,
-          strategy: "isrc",
-          reason: nil
-        }
-      ])
+      report(
+        transfer,
+        [
+          %{
+            position: 0,
+            source_title: "Corduroy",
+            source_artist: "Pearl Jam",
+            outcome: :matched,
+            destination_track_id: "t1",
+            confidence: "exact_isrc",
+            score: 1.0,
+            strategy: "isrc",
+            reason: nil
+          }
+        ],
+        2
+      )
 
       html = render(view)
 
@@ -341,19 +380,23 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
 
       for _ <- 1..3 do
-        OnePlaylist.Transfers.report_progress(transfer, 1, 1, [
-          %{
-            position: 0,
-            source_title: "Corduroy",
-            source_artist: "Pearl Jam",
-            outcome: :matched,
-            destination_track_id: "t1",
-            confidence: "exact_isrc",
-            score: 1.0,
-            strategy: "isrc",
-            reason: nil
-          }
-        ])
+        report(
+          transfer,
+          [
+            %{
+              position: 0,
+              source_title: "Corduroy",
+              source_artist: "Pearl Jam",
+              outcome: :matched,
+              destination_track_id: "t1",
+              confidence: "exact_isrc",
+              score: 1.0,
+              strategy: "isrc",
+              reason: nil
+            }
+          ],
+          1
+        )
       end
 
       html = render(view)
@@ -372,19 +415,23 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       # What a run reports as it goes. `provisional_item/3` says `:matched` for
       # anything that resolved, because whether the track was already in the
       # destination is not known until every track has resolved.
-      OnePlaylist.Transfers.report_progress(transfer, 1, 1, [
-        %{
-          position: 0,
-          source_title: "Corduroy",
-          source_artist: "Pearl Jam",
-          outcome: :matched,
-          destination_track_id: "t1",
-          confidence: "exact",
-          score: 1.0,
-          strategy: "isrc",
-          reason: nil
-        }
-      ])
+      report(
+        transfer,
+        [
+          %{
+            position: 0,
+            source_title: "Corduroy",
+            source_artist: "Pearl Jam",
+            outcome: :matched,
+            destination_track_id: "t1",
+            confidence: "exact",
+            score: 1.0,
+            strategy: "isrc",
+            reason: nil
+          }
+        ],
+        1
+      )
 
       assert render(view) =~ "Corduroy"
 
@@ -430,6 +477,95 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       refute render(view) =~ "Corduroy", "a stale provisional row would still be here"
     end
 
+    test "the tabs count what the run has found, not what it has persisted", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # The counters on the transfer row are written once, at the end. Reading
+      # the tabs from them meant "All 0 / Unmatched 0 / Added 0" sitting above a
+      # progress bar that said 3 of 10.
+      transfer = user_id |> transfer_fixture() |> with_status(:running)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      resolved = [
+        matched_item(0),
+        matched_item(1),
+        %{matched_item(2) | outcome: :unmatched, reason: "no_candidates"}
+      ]
+
+      report(transfer, resolved, 10)
+
+      html = render(view)
+
+      assert html =~ "All 10", "the tab should count the playlist, not the empty report"
+      assert html =~ "Matched 2"
+      assert html =~ "Unmatched 1"
+
+      # "Added" would be a lie while a run is matching: nothing has been written
+      # to the destination yet, and some of these may turn out to be there
+      # already.
+      refute html =~ "Added", "nothing has been added yet"
+    end
+
+    test "a finished report counts what was already at the destination", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      transfer = transfer_fixture(user_id)
+
+      items = [
+        %{
+          transfer_id: transfer.id,
+          user_id: user_id,
+          source_track_id: "s0",
+          position: 0,
+          source_title: "Written",
+          source_artist: "Somebody",
+          outcome: :matched,
+          destination_track_id: "d0",
+          confidence: "exact",
+          score: 1.0,
+          strategy: "isrc",
+          reason: nil
+        },
+        %{
+          transfer_id: transfer.id,
+          user_id: user_id,
+          source_track_id: "s1",
+          position: 1,
+          source_title: "Skipped",
+          source_artist: "Somebody",
+          outcome: :already_present,
+          destination_track_id: "d1",
+          confidence: "exact",
+          score: 1.0,
+          strategy: "isrc",
+          reason: nil
+        }
+      ]
+
+      counted = %{
+        transfer
+        | total_tracks: 2,
+          matched_count: 2,
+          added_count: 1,
+          unmatched_count: 0
+      }
+
+      {:ok, finished} = Transfers.record_run(transfer, counted, items)
+      {:ok, finished} = Transfers.record_progress(finished, %{status: :completed})
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{finished.id}")
+
+      assert html =~ "All 2"
+      assert html =~ "Added 1"
+
+      # `matched - added`, which is the only place this number exists: there is
+      # no `already_present_count` column, because it is derivable.
+      assert html =~ "Already there 1", "the tab carried no number at all before"
+    end
+
     test "a long run does not grow the page without bound", %{conn: conn, user_id: user_id} do
       transfer = user_id |> transfer_fixture() |> with_status(:running)
 
@@ -437,23 +573,13 @@ defmodule OnePlaylistWeb.TransferLiveTest do
 
       # 150 tracks resolving, delivered the way `Progress` delivers them. This
       # is the shape of the 5,000 track case, at a size a test can afford.
+      # Delivered the way `Progress` delivers them, with the tallies carrying
+      # everything resolved so far rather than restarting at each batch.
       for batch <- Enum.chunk_every(0..149, 25) do
-        items =
-          for position <- batch do
-            %{
-              position: position,
-              source_title: "Track #{position}",
-              source_artist: "Somebody",
-              outcome: :matched,
-              destination_track_id: "d#{position}",
-              confidence: "exact",
-              score: 1.0,
-              strategy: "isrc",
-              reason: nil
-            }
-          end
+        resolved_so_far = Enum.map(0..List.last(batch), &matched_item/1)
+        items = Enum.map(batch, &matched_item/1)
 
-        Transfers.report_progress(transfer, List.last(batch) + 1, 150, items)
+        Transfers.report_progress(transfer, tallied(resolved_so_far, 150), items)
       end
 
       html = render(view)
@@ -472,7 +598,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       assigns = :sys.get_state(view.pid).socket.assigns
 
       assert map_size(assigns.provisional) <= 100
-      assert assigns.progress == %{resolved: 150, total: 150}
+      assert assigns.progress == %{resolved: 150, total: 150, matched: 150, unmatched: 0}
     end
 
     test "a live row respects the filter", %{conn: conn, user_id: user_id} do
@@ -484,35 +610,43 @@ defmodule OnePlaylistWeb.TransferLiveTest do
 
       # A first result, so the table and its tabs exist. Before anything has
       # resolved there is nothing to filter, and the tabs are correctly absent.
-      OnePlaylist.Transfers.report_progress(transfer, 1, 3, [
-        %{
-          position: 0,
-          source_title: "A Miss",
-          source_artist: "Somebody",
-          outcome: :unmatched,
-          destination_track_id: nil,
-          confidence: nil,
-          score: nil,
-          strategy: nil,
-          reason: "no_match"
-        }
-      ])
+      report(
+        transfer,
+        [
+          %{
+            position: 0,
+            source_title: "A Miss",
+            source_artist: "Somebody",
+            outcome: :unmatched,
+            destination_track_id: nil,
+            confidence: nil,
+            score: nil,
+            strategy: nil,
+            reason: "no_match"
+          }
+        ],
+        3
+      )
 
       _ = view |> element("button[phx-value-outcome='unmatched']") |> render_click()
 
-      OnePlaylist.Transfers.report_progress(transfer, 2, 3, [
-        %{
-          position: 1,
-          source_title: "A Match",
-          source_artist: "Somebody",
-          outcome: :matched,
-          destination_track_id: "t1",
-          confidence: "high",
-          score: 0.9,
-          strategy: "text",
-          reason: nil
-        }
-      ])
+      report(
+        transfer,
+        [
+          %{
+            position: 1,
+            source_title: "A Match",
+            source_artist: "Somebody",
+            outcome: :matched,
+            destination_track_id: "t1",
+            confidence: "high",
+            score: 0.9,
+            strategy: "text",
+            reason: nil
+          }
+        ],
+        3
+      )
 
       html = render(view)
 

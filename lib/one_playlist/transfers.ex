@@ -17,6 +17,7 @@ defmodule OnePlaylist.Transfers do
   alias OnePlaylist.Accounts.Session
   alias OnePlaylist.Repo
   alias OnePlaylist.Storage
+  alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
   alias OnePlaylist.Transfers.TransferWorker
@@ -83,15 +84,24 @@ defmodule OnePlaylist.Transfers do
 
   A list rather than one row, because a per-track broadcast is fine for a 58
   track import and not for a 5,000 track one. `OnePlaylist.Transfers.Progress`
-  decides how many arrive together and how often.
+  decides how many arrive together and how often, and carries the running
+  tallies so a watcher that joins mid-run gets the same numbers as one that was
+  there from the start.
   """
-  @spec report_progress(Transfer.t(), non_neg_integer(), non_neg_integer(), [map()]) :: :ok
-  def report_progress(%Transfer{} = transfer, resolved, total, items \\ []) do
+  @spec report_progress(Transfer.t(), Progress.t(), [map()]) :: :ok
+  def report_progress(%Transfer{} = transfer, %Progress{} = progress, items \\ []) do
     Phoenix.PubSub.broadcast(
       OnePlaylist.PubSub,
       "#{@topic}:#{transfer.id}",
       {:transfer_progress,
-       %{transfer_id: transfer.id, resolved: resolved, total: total, items: items}}
+       %{
+         transfer_id: transfer.id,
+         resolved: progress.resolved,
+         total: progress.total,
+         matched: progress.matched,
+         unmatched: progress.unmatched,
+         items: items
+       }}
     )
     |> case do
       :ok ->

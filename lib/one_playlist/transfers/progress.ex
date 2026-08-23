@@ -49,6 +49,8 @@ defmodule OnePlaylist.Transfers.Progress do
     :last_flush_at,
     resolved: 0,
     reported: 0,
+    matched: 0,
+    unmatched: 0,
     buffer: []
   ]
 
@@ -61,6 +63,8 @@ defmodule OnePlaylist.Transfers.Progress do
           last_flush_at: integer(),
           resolved: non_neg_integer(),
           reported: non_neg_integer(),
+          matched: non_neg_integer(),
+          unmatched: non_neg_integer(),
           buffer: [item()]
         }
 
@@ -75,8 +79,29 @@ defmodule OnePlaylist.Transfers.Progress do
   # Reads `⚠ never failed` in the coverage table and should: no input can
   # falsify it, so it is verified by mutation instead. Dropping the
   # `+ length(items)` from `drain/2` fires this and nothing else.
-  @invariant every_track_accounted_for:
-               subject.resolved == subject.reported + length(subject.buffer)
+  @invariant every_track_accounted_for: accounted_for?(subject)
+
+  # The running tallies are what the report's filter tabs count while a run is
+  # in flight, and a tab that disagrees with the progress bar beside it is the
+  # kind of wrong a person notices immediately and cannot explain.
+  #
+  # Not implied by the first invariant, which counts tracks through the buffer
+  # and never looks at what any of them says. This one counts the same tracks by
+  # outcome, so it also catches the case that motivates it: a provisional item
+  # carrying an outcome that is neither — `:already_present`, which a run cannot
+  # know yet — falls out of both tallies and is silently uncounted.
+  @invariant outcomes_partition_the_resolved: partitioned?(subject)
+
+  # The two laws above, in one place each, so that the `@invariant` and the
+  # postconditions that cover for it below cannot drift apart. Private, and so
+  # not subject to the trap in `docs/reference/contracts.md` where a *public*
+  # predicate over an invariant raises on exactly the values it exists to
+  # identify.
+  defp accounted_for?(%__MODULE__{} = progress),
+    do: progress.resolved == progress.reported + length(progress.buffer)
+
+  defp partitioned?(%__MODULE__{} = progress),
+    do: progress.resolved == progress.matched + progress.unmatched
 
   @doc """
   A buffer for a run of `total` tracks.
@@ -99,12 +124,36 @@ defmodule OnePlaylist.Transfers.Progress do
   Returns the batch to broadcast, which is empty unless this track is the one
   that made a batch due, and the buffer to carry forward.
   """
+  # Bond checks an `@invariant` on entry and on a result that *is* a struct of
+  # the module. This returns the struct inside a tuple, so the exit check finds
+  # nothing to look at and a violation introduced here is caught only by the
+  # next call's entry check — which for the last call of a run never comes.
+  # Verified: with the outcome tally broken, `add/3` returned a bad struct
+  # without raising, and only the following `flush/2` noticed.
+  #
+  # So the laws are restated where they can see the value the caller actually
+  # gets. The predicates are shared with the invariant, so this is one law in
+  # two places rather than two statements of one law.
+  @post whenever(
+          {_batch, updated} <- result,
+          every_track_accounted_for: accounted_for?(updated),
+          outcomes_partition_the_resolved: partitioned?(updated)
+        )
   @spec add(t(), item(), integer()) :: {[item()], t()}
   def add(%__MODULE__{} = progress, item, now \\ now()) do
-    progress = %{progress | resolved: progress.resolved + 1, buffer: [item | progress.buffer]}
+    progress = %{
+      progress
+      | resolved: progress.resolved + 1,
+        buffer: [item | progress.buffer],
+        matched: progress.matched + count_of(item, :matched),
+        unmatched: progress.unmatched + count_of(item, :unmatched)
+    }
 
     if due?(progress, now), do: drain(progress, now), else: {[], progress}
   end
+
+  defp count_of(%{outcome: outcome}, outcome), do: 1
+  defp count_of(_item, _outcome), do: 0
 
   @doc """
   Hands back everything still waiting, however little that is.
@@ -120,7 +169,13 @@ defmodule OnePlaylist.Transfers.Progress do
   # satisfy: a `flush/2` that returns the items but hands back the buffer
   # untouched *and* leaves `reported` alone keeps the ledger balanced and fires
   # only this. Verified by exactly that mutation.
-  @post whenever({_items, drained} <- result, nothing_held_back: drained.buffer == [])
+  @post whenever(
+          {_items, drained} <- result,
+          nothing_held_back: drained.buffer == [],
+          # Same tuple gap as `add/3`.
+          every_track_accounted_for: accounted_for?(drained),
+          outcomes_partition_the_resolved: partitioned?(drained)
+        )
   @spec flush(t(), integer()) :: {[item()], t()}
   def flush(%__MODULE__{} = progress, now \\ now()), do: drain(progress, now)
 

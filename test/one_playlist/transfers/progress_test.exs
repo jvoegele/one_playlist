@@ -5,7 +5,7 @@ defmodule OnePlaylist.Transfers.ProgressTest do
 
   # Times are passed rather than slept, so these assert the batching rules
   # themselves instead of asserting that the machine is fast enough.
-  defp item(position), do: %{position: position, outcome: :matched}
+  defp item(position, outcome \\ :matched), do: %{position: position, outcome: outcome}
 
   defp add_all(progress, positions, now) do
     Enum.reduce(positions, {[], progress}, fn position, {sent, progress} ->
@@ -81,6 +81,32 @@ defmodule OnePlaylist.Transfers.ProgressTest do
       {[_, _], progress} = add_all(progress, [0, 1], 0)
 
       assert {[], _progress} = Progress.flush(progress, 0)
+    end
+  end
+
+  describe "the running tallies" do
+    test "count each outcome, and together account for everything resolved" do
+      progress = Progress.new(10, batch: 99, interval: 99_999, now: 0)
+
+      {[], progress} = Progress.add(progress, item(0, :matched), 0)
+      {[], progress} = Progress.add(progress, item(1, :unmatched), 0)
+      {[], progress} = Progress.add(progress, item(2, :matched), 0)
+
+      assert progress.matched == 2
+      assert progress.unmatched == 1
+      assert progress.resolved == 3
+    end
+
+    test "an outcome a run cannot know yet is refused rather than uncounted" do
+      # `:already_present` is decided after every track has resolved, so a
+      # provisional item must never carry it. Without the tally invariant it
+      # would simply fall out of both counts, and the tabs would quietly
+      # disagree with the progress bar.
+      progress = Progress.new(10, batch: 99, interval: 99_999, now: 0)
+
+      assert_raise Bond.PostconditionError, fn ->
+        Progress.add(progress, item(0, :already_present), 0)
+      end
     end
   end
 

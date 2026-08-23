@@ -1169,3 +1169,61 @@ still the easier of the two mistakes to make, because `@behaviour` is what Elixi
 for and the result is silently uncontracted rather than an error. A note in the behaviour's
 `@moduledoc` output — "implementers must `use Bond, behaviours: [...]`" — would be seen at
 exactly the moment somebody is writing one.
+
+## `bond` — an `@invariant` cannot see a struct returned inside a tuple
+
+`OnePlaylist.Transfers.Progress` is a plain struct with two `@invariant`s. Its two
+state-changing functions return `{batch_to_broadcast, updated_struct}`, because the caller
+needs both.
+
+Bond checks an invariant on entry, and on a result that *is* a struct of the module. A tuple
+is neither, so the exit check has nothing to look at, and a violation introduced by the call is
+caught only by the **next** call's entry check. Verified directly, with the outcome tally
+deliberately broken:
+
+```elixir
+p = Progress.new(3, batch: 99, interval: 99_999, now: 0)
+
+{_, bad} = Progress.add(p, %{position: 0, outcome: :unmatched}, 0)
+#=> no raise; `bad` is %Progress{resolved: 1, matched: 0, unmatched: 0}
+
+Progress.flush(bad, 0)
+#=> ** (Bond.InvariantError) outcomes_partition_the_resolved
+```
+
+The gap is narrow but lands in the worst place: the **last** call of a run has no next call, so
+the final state — the one the caller keeps — is never checked. Here that is the value the
+progress broadcast is built from.
+
+### Why this is not just "hold it differently"
+
+The obvious answer is to return the struct and let the caller ask for the batch separately, but
+that trades a real API for a contract mechanism, and the tuple is the honest shape: a `add/3`
+either hands you a batch or does not.
+
+The workaround is to restate the laws as postconditions that destructure the result:
+
+```elixir
+@post whenever({_batch, updated} <- result,
+        every_track_accounted_for: accounted_for?(updated),
+        outcomes_partition_the_resolved: partitioned?(updated))
+```
+
+That works, and sharing private predicates with the `@invariant` keeps it one law in two
+places rather than two statements of one law. But it is the module restating its own invariant
+because the tool could not find it, which is exactly the kind of duplication the invariant
+exists to remove — and nothing warns you that you need to, so the natural version of this
+module is silently half-checked.
+
+### What would fix it
+
+Searching a tuple result for a struct of the module would cover this case and the common
+`{:ok, struct}` shape at once. If that is too magical — a function returning *two* structs of
+the module has no obvious answer — then the linter is the next best thing:
+`warn_skipped_invariants` already knows which functions took an invariant check and which did
+not, and "this function's result contains a `%__MODULE__{}` that was not checked" is the same
+kind of observation it already makes well.
+
+Failing both, it is worth a line in the invariants guide. The rule "checked on entry and on a
+struct result" is accurate but reads as complete coverage, and the tuple case is common enough
+in Elixir that most stateful structs will hit it.

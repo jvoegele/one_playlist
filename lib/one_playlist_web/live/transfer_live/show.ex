@@ -42,6 +42,16 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # dominated by rows nobody scrolls to.
   @page_size 100
 
+  # The order of the tabs, and the word in front of each count. `:matched` reads
+  # "Added" once a run is over because by then it is the number of tracks
+  # actually written to the destination.
+  @final_labels [
+    all: "All",
+    unmatched: "Unmatched",
+    matched: "Added",
+    already_present: "Already there"
+  ]
+
   # The live window is the same size deliberately: a run showing more rows than
   # a page holds would shrink when the report replaced it, which reads as rows
   # being lost.
@@ -78,7 +88,13 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   @impl true
   def handle_info({:transfer_progress, progress}, socket) do
-    socket = assign(socket, :progress, %{resolved: progress.resolved, total: progress.total})
+    socket =
+      assign(socket, :progress, %{
+        resolved: progress.resolved,
+        total: progress.total,
+        matched: progress.matched,
+        unmatched: progress.unmatched
+      })
 
     # Rows appear as their tracks resolve, rather than every row appearing at
     # once when the run ends. Keyed on position, so the persisted report replaces
@@ -221,7 +237,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
         <div :if={@transfer.total_tracks > 0 or @progress}>
           <div role="tablist" class="tabs tabs-bordered mb-2">
             <button
-              :for={{value, label} <- filters(@transfer)}
+              :for={{value, label} <- filters(@transfer, @progress)}
               role="tab"
               phx-click="filter"
               phx-value-outcome={value}
@@ -360,13 +376,32 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   defp shown_total(%Transfer{} = transfer, :already_present),
     do: transfer.matched_count - transfer.added_count
 
-  defp filters(%Transfer{} = transfer) do
+  # While a run is in flight the transfer's own counters are all zero — they are
+  # written once, at the end, by `record_run/3` — so the tabs read "All 0" over
+  # a progress bar saying 40 of 150. The running tallies come from the broadcast
+  # instead, and they are computed by `Transfers.Progress` rather than counted
+  # from the rows on screen, which are windowed and would undercount.
+  defp filters(%Transfer{status: status}, progress) when status in [:pending, :running] do
+    live = progress || %{total: 0, matched: 0, unmatched: 0}
+
     [
-      {:all, "All #{transfer.total_tracks}"},
-      {:unmatched, "Unmatched #{transfer.unmatched_count}"},
-      {:matched, "Added #{transfer.added_count}"},
+      {:all, "All #{live.total}"},
+      {:unmatched, "Unmatched #{live.unmatched}"},
+      # "Matched", not "Added". Nothing has been written to the destination yet:
+      # the writes happen after every track has resolved, and the gap between
+      # what matched and what was added is exactly what `already_present` means.
+      {:matched, "Matched #{live.matched}"},
+      # No number, because there cannot be one yet. Whether a matched track was
+      # already at the destination is decided after the run resolves everything.
       {:already_present, "Already there"}
     ]
+  end
+
+  # Built from `shown_total/2` so that a tab's count and the "Showing 100 of
+  # 4,812" line below the table are the same number by construction rather than
+  # by two expressions that happen to agree.
+  defp filters(%Transfer{} = transfer, _progress) do
+    for {value, word} <- @final_labels, do: {value, "#{word} #{shown_total(transfer, value)}"}
   end
 
   defp assign_transfer(socket, transfer) do

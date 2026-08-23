@@ -236,7 +236,7 @@ defmodule OnePlaylist.Transfers.Runner do
   defp report(_transfer, [], _progress), do: :ok
 
   defp report(transfer, batch, %Progress{} = progress) do
-    OnePlaylist.Transfers.report_progress(transfer, progress.resolved, progress.total, batch)
+    OnePlaylist.Transfers.report_progress(transfer, progress, batch)
   end
 
   # What a watcher can be shown before the writes happen. Deliberately says
