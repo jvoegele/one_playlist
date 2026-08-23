@@ -6,7 +6,6 @@ defmodule OnePlaylist.Providers.Tidal.OAuthTest do
   import Req.Test, only: [set_req_test_from_context: 1]
 
   alias OnePlaylist.Providers.Tidal
-  alias OnePlaylist.Providers.Tidal.NotConfigured
   alias OnePlaylist.Providers.Tidal.OAuth
   alias OnePlaylist.Providers.TokenRefreshFailed
 
@@ -151,19 +150,6 @@ defmodule OnePlaylist.Providers.Tidal.OAuthTest do
       assert %ExternalService.RetriesExhausted{} = error
       assert %TokenRefreshFailed{} = Errata.cause(error)
       assert Errata.retryable?(Errata.cause(error))
-    end
-  end
-
-  describe "config/0" do
-    test "reports missing credentials as a configuration error" do
-      original = Application.get_env(:one_playlist, Tidal)
-      on_exit(fn -> Application.put_env(:one_playlist, Tidal, original) end)
-
-      Application.put_env(:one_playlist, Tidal, Keyword.put(original, :client_id, nil))
-
-      assert {:error, %NotConfigured{} = error} = OAuth.authorization_url()
-      assert Errata.http_status(error) == 501
-      refute Errata.retryable?(error)
     end
   end
 end

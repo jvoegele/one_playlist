@@ -212,6 +212,30 @@ visible in dev; the gain is that tests see the real `auth` schema, the real
   services already hold ~32 of the cluster's 100 connections.
 - Ecto's `public.schema_migrations` coexists fine with Supabase's `supabase_migrations` schema.
 
+### A test that writes global state cannot be `async: true`
+
+Cost a day's worth of confusion twice now, in two different disguises, and the symptom is the
+same both times: **an unrelated test fails, about one run in seven.**
+
+  * `Req.Test` stubs registered under the same name by several `async: true` files, without
+    per-test ownership. Fixed with `setup :set_req_test_from_context`.
+  * `Application.put_env/3` in an `async: true` test, nulling out `client_id` to prove
+    `OAuth.config/0` reports it missing. Every concurrent TIDAL test in that window got
+    `NotConfigured`. Fixed by moving that one test to its own `async: false` file — ExUnit runs
+    sync tests after every async one has finished, so nothing is left running to see the
+    mutation.
+
+Diagnosing these is worth a checklist, because the failing test is never the guilty one:
+
+1. Run the suspect file **alone**, repeatedly. Clean in isolation and flaky in the suite means
+   cross-file shared state, full stop.
+2. Read the actual failure message rather than theorising from the test's name. The second bug
+   above was mistaken for circuit-breaker exhaustion — a plausible story, since
+   `Tidal.Service` tolerates 5 failures within 30s and the suite finishes in 3 — and the fix
+   built on it changed twelve files and did nothing. The message said `NotConfigured`, which
+   named the real cause immediately.
+3. `grep -rn "put_env\|delete_env" test/` before anything else.
+
 ### Migration convention: RLS is not on by default
 
 Tables created in `public` are **not** protected until you say so, and Supabase's default
