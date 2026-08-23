@@ -230,6 +230,40 @@ defmodule OnePlaylist.Transfers.Transfer do
     do: %{transfer | unmatched_count: transfer.unmatched_count + 1}
 
   @doc """
+  Moves one track from unmatched to matched and added.
+
+  What a correction does to the ledger. The track was reported as unmatched, a
+  person chose a destination track for it by hand, and that track has been
+  written — so all three counters move at once and the total does not.
+
+  Only for a track that was genuinely unmatched. Correcting one that already
+  matched changes *which* track was added rather than how many were, and moves
+  no counter at all.
+  """
+  # The three counters are separate columns, so nothing but this makes them move
+  # together. Stated as two postconditions rather than one because they fail
+  # separately: forgetting the decrement leaves the summary claiming an
+  # unmatched track that the report now shows as matched, and forgetting the
+  # increment loses the added track from the count of what was written.
+  #
+  # The module invariant catches neither on its own — `matched + unmatched` is
+  # unchanged by moving one from one to the other, which is precisely why it
+  # balances either way.
+  @post one_fewer_unmatched: result.unmatched_count == transfer.unmatched_count - 1
+  @post one_more_matched_and_added:
+          result.matched_count == transfer.matched_count + 1 and
+            result.added_count == transfer.added_count + 1
+  @spec record_correction(t()) :: t()
+  def record_correction(%__MODULE__{} = transfer) do
+    %{
+      transfer
+      | unmatched_count: transfer.unmatched_count - 1,
+        matched_count: transfer.matched_count + 1,
+        added_count: transfer.added_count + 1
+    }
+  end
+
+  @doc """
   The proportion of the source that reached the destination.
 
   A transfer with nothing in it rates `1.0`: nothing was asked for and nothing
@@ -299,7 +333,12 @@ defmodule OnePlaylist.Transfers.Transfer do
   def balanced?(%__MODULE__{} = transfer) do
     counted = transfer.matched_count + transfer.unmatched_count
 
-    counted >= 0 and transfer.added_count >= 0 and transfer.total_tracks >= 0 and
+    # Each term, not only the sum. `counted >= 0` is satisfied by one matched
+    # and minus one unmatched, which is not a transfer — it is a counter that
+    # was decremented once too often. `record_correction/1` moves a track from
+    # one column to another and is exactly the shape that can do it.
+    transfer.matched_count >= 0 and transfer.unmatched_count >= 0 and
+      transfer.added_count >= 0 and transfer.total_tracks >= 0 and
       (transfer.total_tracks == 0 or counted <= transfer.total_tracks)
   end
 

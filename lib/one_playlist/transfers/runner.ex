@@ -44,13 +44,16 @@ defmodule OnePlaylist.Transfers.Runner do
   use Errata
 
   alias OnePlaylist.Matching
+  alias OnePlaylist.Matching.Match
   alias OnePlaylist.Providers
+  alias OnePlaylist.Transfers.Candidate
   alias OnePlaylist.Transfers.PlaylistTooLarge
   alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Source
   alias OnePlaylist.Transfers.SourceMissing
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
+  alias OnePlaylist.Transfers.TransferOverride
   alias OnePlaylist.Transfers.WriteNotConfirmed
 
   # Large enough that a long playlist is a handful of calls, small enough that
@@ -103,7 +106,7 @@ defmodule OnePlaylist.Transfers.Runner do
            ensure_destination(transfer, destination_adapter, destination_connection),
          {:ok, present} <-
            destination_adapter.playlist_track_ids(destination_connection, destination),
-         resolutions =
+         {resolutions, candidates} =
            resolve_all(
              transfer,
              tracks,
@@ -127,7 +130,7 @@ defmodule OnePlaylist.Transfers.Runner do
              destination_connection,
              destination
            ) do
-      finish(transfer, tracks, resolutions, added)
+      finish(transfer, tracks, resolutions, added, candidates)
     end
   end
 
@@ -251,23 +254,47 @@ defmodule OnePlaylist.Transfers.Runner do
   defp resolve_all(transfer, tracks, adapter, connection, threshold) do
     total = length(tracks)
 
-    {resolutions, progress} =
+    overrides = OnePlaylist.Transfers.overrides(transfer)
+
+    {resolved, {progress, candidates}} =
       tracks
       |> Enum.with_index()
-      |> Enum.map_reduce(Progress.new(total), fn {track, position}, progress ->
-        outcome = resolve(track, adapter, connection, threshold)
+      |> Enum.map_reduce({Progress.new(total), %{}}, fn {track, position},
+                                                        {progress, candidates} ->
+        {outcome, ranked} =
+          resolve(track, adapter, connection, threshold, Map.get(overrides, position))
+
         {batch, progress} = Progress.add(progress, provisional_item(position, track, outcome))
 
         _ = report(transfer, batch, progress)
 
-        {{position, track, outcome}, progress}
+        {{position, track, outcome}, {progress, remember(candidates, position, outcome, ranked)}}
       end)
 
     {batch, progress} = Progress.flush(progress)
     _ = report(transfer, batch, progress)
 
-    resolutions
+    {resolved, candidates}
   end
+
+  # How many alternatives a person is offered for one track. Enough to choose
+  # between three recordings of a song and few enough that a report full of them
+  # stays a reasonable row.
+  @candidate_limit 5
+
+  # Kept only where somebody might act on them. An exact identifier match is not
+  # overridden by anyone, and keeping five candidates for every track of a
+  # 5,000 track transfer is megabytes of rows nobody opens. A track that matched
+  # inexactly, or failed to match at all, is exactly the one worth showing the
+  # alternatives for.
+  defp remember(candidates, _position, {:ok, %Match{strategy: strategy}}, _ranked)
+       when strategy in [:isrc, :upc_position],
+       do: candidates
+
+  defp remember(candidates, _position, _outcome, []), do: candidates
+
+  defp remember(candidates, position, _outcome, ranked),
+    do: Map.put(candidates, position, Candidate.top(ranked, @candidate_limit))
 
   # An empty batch is the ordinary case between flushes, and broadcasting it
   # would undo the batching.
@@ -310,18 +337,39 @@ defmodule OnePlaylist.Transfers.Runner do
 
   defp primary_artist(track), do: List.first(track.artists)
 
-  defp resolve(track, adapter, connection, threshold) do
+  # Returns the outcome *and* the ranking behind it, because the alternatives
+  # are what a person needs to correct a wrong answer and they are gone the
+  # moment this returns otherwise.
+  defp resolve(track, adapter, connection, threshold, override)
+
+  defp resolve(track, _adapter, connection, _threshold, %TransferOverride{} = override) do
+    chosen = TransferOverride.as_track(override, connection.provider)
+
+    {{:ok, Match.chosen_by_hand(track, chosen)}, []}
+  end
+
+  # A correction the user already made. Consulted before the ladder rather than
+  # applied to its output, because `record_run/3` rewrites every report row and
+  # a correction living there would be destroyed by the next retry. See the
+  # migration that creates `transfer_overrides`.
+  defp resolve(track, adapter, connection, threshold, nil) do
     if Matching.searchable?(track) do
       case adapter.search_tracks(connection, track, []) do
-        {:ok, candidates} -> Matching.match(track, candidates, threshold: threshold)
-        {:error, _reason} = error -> error
+        {:ok, candidates} -> decide(track, candidates, threshold)
+        {:error, _reason} = error -> {error, []}
       end
     else
       # Skipping the search rather than letting the adapter's precondition fire:
       # an unsearchable track is a normal thing to find in a playlist, not a
       # caller's bug.
-      Matching.match(track, [], threshold: threshold)
+      {Matching.match(track, [], threshold: threshold), []}
     end
+  end
+
+  defp decide(track, candidates, threshold) do
+    opts = [threshold: threshold]
+
+    {Matching.match(track, candidates, opts), Matching.rank(track, candidates, opts)}
   end
 
   # Adds only what the destination does not already have, in batches. Returns
@@ -409,7 +457,7 @@ defmodule OnePlaylist.Transfers.Runner do
      )}
   end
 
-  defp finish(transfer, tracks, resolutions, added_positions) do
+  defp finish(transfer, tracks, resolutions, added_positions, candidates) do
     # Reset first: a run recomputes the whole ledger, so a re-run must not add
     # to the previous one's numbers.
     base = transfer |> Transfer.reset_counters() |> Transfer.with_total(length(tracks))
@@ -425,7 +473,11 @@ defmodule OnePlaylist.Transfers.Runner do
 
     items =
       Enum.map(resolutions, fn {position, source, outcome} ->
-        base = %{transfer_id: transfer.id, user_id: transfer.user_id}
+        base = %{
+          transfer_id: transfer.id,
+          user_id: transfer.user_id,
+          candidates: Map.get(candidates, position, [])
+        }
 
         case outcome do
           {:ok, match} ->

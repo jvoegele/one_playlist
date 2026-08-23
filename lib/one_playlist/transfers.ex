@@ -15,11 +15,14 @@ defmodule OnePlaylist.Transfers do
   import Ecto.Query
 
   alias OnePlaylist.Accounts.Session
+  alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers
   alias OnePlaylist.Repo
   alias OnePlaylist.Storage
   alias OnePlaylist.Transfers.Progress
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
+  alias OnePlaylist.Transfers.TransferOverride
   alias OnePlaylist.Transfers.TransferWorker
 
   use Bond
@@ -112,6 +115,149 @@ defmodule OnePlaylist.Transfers do
         Logger.warning("transfer #{transfer.id} progress not broadcast: #{inspect(reason)}")
         :ok
     end
+  end
+
+  @doc """
+  Every correction made against a transfer, keyed by the track's position.
+
+  Read by `OnePlaylist.Transfers.Runner` before it matches anything, which is
+  what makes a correction survive a re-run. A map rather than a list because
+  that is how the runner uses it: one lookup per track, against a table that is
+  usually empty and never large.
+  """
+  @spec overrides(Transfer.t()) :: %{non_neg_integer() => TransferOverride.t()}
+  def overrides(%Transfer{} = transfer) do
+    query = from(o in TransferOverride, where: o.transfer_id == ^transfer.id)
+
+    {:ok, found} = Repo.as_user(transfer.user_id, fn -> Repo.all(query) end)
+
+    Map.new(found, &{&1.position, &1})
+  end
+
+  @doc """
+  Records a correction, and puts the chosen track in the destination.
+
+  The order matters and is not the obvious one. The track is written to the
+  destination playlist **first**, and only a confirmed write is recorded. The
+  other way round produces a report claiming a track was added that never was,
+  which is the exact failure this application exists to make impossible.
+
+  Both halves then happen together: the override row, the report row, and the
+  transfer's counters move in one transaction, so a report can never disagree
+  with the summary above it.
+
+  Re-running the transfer afterwards is safe and is the point. The runner reads
+  the override before matching, resolves the track to the same destination id,
+  finds it already in the playlist, and records `:already_present` — the same
+  answer a re-run gives for anything it added last time.
+  """
+  # `already_added?` is the one thing worth asserting here and it cannot be
+  # asserted: whether the destination accepted the write is a fact about a
+  # remote service. What *can* be stated is that this function never invents an
+  # outcome for a track the caller did not name.
+  @pre position_is_real: is_integer(position) and position >= 0
+  @spec override(Session.t(), Transfer.t(), non_neg_integer(), map()) ::
+          {:ok, Transfer.t()} | {:error, term()}
+  def override(%Session{} = session, %Transfer{} = transfer, position, chosen) do
+    with {:ok, connection} <-
+           Providers.fetch_usable_connection(session.user_id, transfer.destination_provider),
+         {:ok, adapter} <- Providers.adapter(transfer.destination_provider),
+         {:ok, track} <- chosen_track(transfer, chosen),
+         {:ok, _count} <-
+           adapter.add_tracks(connection, transfer.destination_playlist_id, [track], []) do
+      persist_override(transfer, position, track)
+    end
+  end
+
+  defp chosen_track(%Transfer{} = transfer, %{"provider_id" => id} = chosen)
+       when is_binary(id) and id != "" do
+    {:ok,
+     %Track{
+       provider: transfer.destination_provider,
+       provider_id: id,
+       title: chosen["title"],
+       artists: List.wrap(chosen["artist"])
+     }}
+  end
+
+  defp chosen_track(_transfer, _chosen), do: :error
+
+  defp persist_override(%Transfer{} = transfer, position, %Track{} = track) do
+    attrs = %{
+      transfer_id: transfer.id,
+      user_id: transfer.user_id,
+      position: position,
+      destination_track_id: track.provider_id,
+      destination_title: track.title,
+      destination_artist: List.first(track.artists)
+    }
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(
+      :override,
+      TransferOverride.changeset(%TransferOverride{}, attrs),
+      on_conflict: {:replace, [:destination_track_id, :destination_title, :destination_artist]},
+      conflict_target: [:transfer_id, :position]
+    )
+    |> Ecto.Multi.run(:item, fn repo, _changes ->
+      update_item_to_manual(repo, transfer, position, track)
+    end)
+    |> Ecto.Multi.run(:transfer, fn repo, %{item: previous_outcome} ->
+      recount(repo, transfer, previous_outcome)
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{transfer: updated}} -> {:ok, broadcast(updated)}
+      {:error, _step, reason, _changes} -> {:error, reason}
+    end
+  end
+
+  # Returns the outcome the row *had*, which is what the counters have to be
+  # adjusted from. A correction applied to an already-matched row moves a
+  # different number than one applied to an unmatched row, and getting that
+  # wrong breaks `Transfer`'s ledger invariant rather than silently skewing a
+  # summary — which is exactly what that invariant is for.
+  defp update_item_to_manual(repo, %Transfer{} = transfer, position, %Track{} = track) do
+    query =
+      from(i in TransferItem, where: i.transfer_id == ^transfer.id and i.position == ^position)
+
+    case repo.one(query) do
+      nil ->
+        {:error, :no_such_track}
+
+      %TransferItem{} = item ->
+        {1, _returned} =
+          repo.update_all(from(i in TransferItem, where: i.id == ^item.id),
+            set: [
+              outcome: :matched,
+              destination_track_id: track.provider_id,
+              strategy: "manual",
+              confidence: "chosen",
+              score: 1.0,
+              reason: nil
+            ]
+          )
+
+        {:ok, item.outcome}
+    end
+  end
+
+  defp recount(repo, %Transfer{} = transfer, previous_outcome) do
+    counted =
+      case previous_outcome do
+        # The common case: a track nobody could match is now matched and added.
+        :unmatched ->
+          Transfer.record_correction(transfer)
+
+        # Already counted as matched. The correction changes *which* track was
+        # added, not how many were, so no counter moves.
+        _matched_or_already_present ->
+          transfer
+      end
+
+    changeset = Transfer.progress_changeset(counted, %{status: counted.status})
+
+    repo.update(changeset)
   end
 
   @doc """

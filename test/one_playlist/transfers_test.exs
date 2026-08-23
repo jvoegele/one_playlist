@@ -75,6 +75,24 @@ defmodule OnePlaylist.TransfersTest do
   # claimed the matches were exact.
   defp isrc(id), do: String.pad_trailing("ISRC#{id}", 12, "0")
 
+  # Two plausible-looking tracks, neither of them the one asked for.
+  defp wrong_candidate_document(source_id) do
+    %{
+      "data" =>
+        for suffix <- ~w(a b) do
+          %{
+            "id" => "wrong-#{source_id}#{suffix}",
+            "type" => "tracks",
+            "attributes" => %{
+              "title" => "Something Else #{suffix}",
+              "isrc" => String.pad_trailing("ISRCX#{suffix}", 12, "9")
+            }
+          }
+        end,
+      "included" => []
+    }
+  end
+
   defp candidate_document(source_id) do
     %{
       "data" => [
@@ -94,6 +112,7 @@ defmodule OnePlaylist.TransfersTest do
     # Source ids for which the destination has no candidate at all, so a test can
     # drive the unmatched branch without a second stub.
     unmatchable = Keyword.get(opts, :unmatchable, [])
+    rejected = Keyword.get(opts, :rejected, [])
 
     Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
       conn = Plug.Conn.fetch_query_params(conn)
@@ -122,10 +141,20 @@ defmodule OnePlaylist.TransfersTest do
           source_id =
             isrc |> Kernel.||("") |> String.replace(~r/^ISRC|0+$/, "") |> String.downcase()
 
-          if source_id in unmatchable do
-            Req.Test.json(conn, %{"data" => [], "included" => []})
-          else
-            Req.Test.json(conn, candidate_document(source_id))
+          cond do
+            source_id in unmatchable ->
+              Req.Test.json(conn, %{"data" => [], "included" => []})
+
+            # Found, and none of them right. The ISRC does not match the one
+            # asked for, so rung 1 declines and the text rung scores a title
+            # that has nothing to do with the source. This is the case the
+            # override screen exists for, and it is distinct from finding
+            # nothing at all.
+            source_id in rejected ->
+              Req.Test.json(conn, wrong_candidate_document(source_id))
+
+            true ->
+              Req.Test.json(conn, candidate_document(source_id))
           end
 
         conn.method == "POST" and path == "/v2/playlists" ->
@@ -345,6 +374,109 @@ defmodule OnePlaylist.TransfersTest do
       assert {:ok, completed} = Runner.run(transfer)
       assert completed.status == :completed
       assert completed.total_tracks == 3
+    end
+  end
+
+  describe "correcting a match by hand" do
+    setup %{user: user} do
+      # One track the engine cannot match, so there is something to correct.
+      state = provider_state(rejected: ~w(s2))
+      transfer = transfer_for(user)
+
+      {:ok, completed} = Runner.run(transfer)
+
+      assert completed.unmatched_count == 1
+      assert [item] = Transfers.items(completed, outcome: :unmatched)
+
+      %{
+        state: state,
+        transfer: completed,
+        item: item,
+        session: OnePlaylist.AuthFixtures.session_fixture(user_id: user)
+      }
+    end
+
+    test "the candidates it rejected are kept, so there is something to choose from", %{
+      item: item
+    } do
+      # The whole point of the feature: an unmatched row that offers nothing is
+      # a dead end, and re-searching at review time asks the provider the same
+      # question that already failed.
+      assert item.candidates != [],
+             "an unmatched track should carry what was considered and refused"
+
+      assert [%{"provider_id" => _} | _] = item.candidates
+    end
+
+    test "an exact identifier match keeps none, because nobody overrides those", %{
+      transfer: transfer
+    } do
+      matched = Transfers.items(transfer, outcome: :matched)
+
+      assert matched != []
+
+      assert Enum.all?(matched, &(&1.candidates == [])),
+             "five candidates per track for a 5,000 track transfer is megabytes nobody opens"
+    end
+
+    test "writes the chosen track and moves the counters together", %{
+      session: session,
+      transfer: transfer,
+      item: item,
+      state: state
+    } do
+      chosen = %{"provider_id" => "ds2", "title" => "Song s2", "artist" => "Somebody"}
+
+      assert {:ok, corrected} = Transfers.override(session, transfer, item.position, chosen)
+
+      assert "ds2" in Agent.get(state, & &1.added),
+             "a correction that does not reach the destination is a report that lies"
+
+      assert corrected.unmatched_count == transfer.unmatched_count - 1
+      assert corrected.matched_count == transfer.matched_count + 1
+      assert corrected.added_count == transfer.added_count + 1
+      assert corrected.total_tracks == transfer.total_tracks
+
+      assert [%{outcome: :matched} = fixed] =
+               Transfers.items(corrected) |> Enum.filter(&(&1.position == item.position))
+
+      assert fixed.destination_track_id == "ds2"
+      assert fixed.strategy == "manual"
+      assert fixed.confidence == "chosen"
+      refute fixed.reason
+    end
+
+    test "and the correction survives the next run", %{
+      session: session,
+      transfer: transfer,
+      item: item
+    } do
+      # The reason overrides are a table rather than a column. `record_run/3`
+      # rewrites every report row, so a correction stored on the row it corrects
+      # would be silently destroyed here.
+      chosen = %{"provider_id" => "ds2", "title" => "Song s2", "artist" => "Somebody"}
+      {:ok, corrected} = Transfers.override(session, transfer, item.position, chosen)
+
+      assert {:ok, rerun} = Runner.run(corrected)
+
+      assert [%{} = still_fixed] =
+               Transfers.items(rerun) |> Enum.filter(&(&1.position == item.position))
+
+      assert still_fixed.destination_track_id == "ds2"
+      assert still_fixed.strategy == "manual"
+
+      assert still_fixed.outcome == :already_present,
+             "the track is in the destination now, so a re-run adds nothing"
+
+      assert rerun.unmatched_count == 0
+    end
+
+    test "a correction naming no track is refused", %{
+      session: session,
+      transfer: transfer,
+      item: item
+    } do
+      assert :error = Transfers.override(session, transfer, item.position, %{"provider_id" => ""})
     end
   end
 

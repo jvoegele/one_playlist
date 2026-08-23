@@ -56,6 +56,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
           transfer_id: Ecto.UUID.t() | nil,
           position: non_neg_integer() | nil,
           source_track_id: String.t() | nil,
+          candidates: [map()],
           outcome: outcome() | nil
         }
 
@@ -79,6 +80,11 @@ defmodule OnePlaylist.Transfers.TransferItem do
     field :strategy, :string
     field :reason, :string
     field :candidates_considered, :integer
+
+    # What the winning rung considered and rejected, kept so a person can pick
+    # one without a provider call. Populated only where somebody might act on
+    # it — see `OnePlaylist.Transfers.Candidate`.
+    field :candidates, {:array, :map}, default: []
 
     timestamps(type: :utc_datetime_usec, updated_at: false)
   end
@@ -212,7 +218,8 @@ defmodule OnePlaylist.Transfers.TransferItem do
       :score,
       :strategy,
       :reason,
-      :candidates_considered
+      :candidates_considered,
+      :candidates
     ])
     |> validate_required([:transfer_id, :user_id, :position, :source_track_id, :outcome])
   end

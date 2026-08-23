@@ -91,6 +91,43 @@ defmodule OnePlaylist.Matching.Match do
   end
 
   @doc """
+  A match a person made, having looked at what the engine offered and disagreed.
+
+  Scores `1.0` under the `:manual` strategy, which reads as `:chosen`. That is
+  the honest number rather than a flattering one: the score exists to say how
+  much a *reader* should doubt the answer, and there is nothing to doubt about a
+  track somebody picked by hand. Naming the strategy `:manual` is what keeps it
+  from being mistaken for an identifier match in the report.
+
+  `evidence` says who decided, for the same reason every other rung records what
+  it compared: a wrong track in a playlist is only debuggable if the report says
+  where it came from.
+
+      iex> alias OnePlaylist.Matching.Match
+      iex> alias OnePlaylist.Music.Track
+      iex> source = Track.new(%{provider: :file, provider_id: "0", title: "Corduroy"})
+      iex> chosen = Track.new(%{provider: :tidal, provider_id: "77", title: "Corduroy"})
+      iex> match = Match.chosen_by_hand(source, chosen)
+      iex> {match.strategy, match.confidence, match.score}
+      {:manual, :chosen, 1.0}
+  """
+  # One-hop delegation: `new/1` builds the struct and takes the entry check, and
+  # the exit check on this function's own result still fires — so a `:manual`
+  # band that did not admit 1.0 would be caught here. The third legitimate shape
+  # in `docs/reference/contracts.md`.
+  @bond_warn_skipped_invariants false
+  @spec chosen_by_hand(Track.t(), Track.t()) :: t()
+  def chosen_by_hand(%Track{} = source, %Track{} = chosen) do
+    new(
+      source: source,
+      track: chosen,
+      score: 1.0,
+      strategy: :manual,
+      evidence: [decided_by: :user]
+    )
+  end
+
+  @doc """
   Whether a match's score lies inside the band its strategy is allowed.
 
   Public because the invariant names it, and an assertion rendered into the

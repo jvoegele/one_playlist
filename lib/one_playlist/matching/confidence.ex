@@ -34,21 +34,37 @@ defmodule OnePlaylist.Matching.Confidence do
 
   use Bond
 
-  @typedoc "Which rung of the ladder produced a score."
-  @type strategy :: :isrc | :upc_position | :text | :fuzzy
+  @typedoc """
+  Which rung of the ladder produced a score.
+
+  `:manual` is not a rung. It is here because a person overruling the ladder
+  produces a `%OnePlaylist.Matching.Match{}` like any rung does, and everything
+  downstream — the write, the confirmation, the report — is written against that
+  shape. Giving it a name of its own is what stops a hand-picked track being
+  reported as though an algorithm had found it.
+  """
+  @type strategy :: :isrc | :upc_position | :text | :fuzzy | :manual
 
   @typedoc "The coarse name for a score."
-  @type t :: :exact_isrc | :exact_upc | :high | :medium | :low | :none
+  @type t :: :exact_isrc | :exact_upc | :chosen | :high | :medium | :low | :none
 
   # Ordered worst-to-best so `Enum.find/2` from the top reads naturally, and so
   # `rank/1` can use the index directly.
-  @ordering [:none, :low, :medium, :high, :exact_upc, :exact_isrc]
+  #
+  # `:chosen` sits at the top, above the identifier rungs. Not flattery: a
+  # threshold exists to decide what a person should look at, and there is
+  # nothing to review about a track they picked themselves.
+  @ordering [:none, :low, :medium, :high, :exact_upc, :exact_isrc, :chosen]
 
   @bands %{
     isrc: {1.0, 1.0},
     upc_position: {1.0, 1.0},
     text: {0.80, 0.98},
-    fuzzy: {0.0, 0.79}
+    fuzzy: {0.0, 0.79},
+    # A person is certain in a way no rung can be. The band exists so that
+    # `Match`'s `score_within_its_strategys_band` invariant holds for a
+    # hand-picked match rather than having to be excused for it.
+    manual: {1.0, 1.0}
   }
 
   @doc """
@@ -56,7 +72,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Confidence.all()
-      [:none, :low, :medium, :high, :exact_upc, :exact_isrc]
+      [:none, :low, :medium, :high, :exact_upc, :exact_isrc, :chosen]
   """
   @spec all() :: [t()]
   def all, do: @ordering
@@ -66,7 +82,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Enum.sort(Confidence.strategies())
-      [:fuzzy, :isrc, :text, :upc_position]
+      [:fuzzy, :isrc, :manual, :text, :upc_position]
   """
   @spec strategies() :: [strategy()]
   def strategies, do: Map.keys(@bands)
@@ -93,6 +109,7 @@ defmodule OnePlaylist.Matching.Confidence do
   @spec for_score(float(), strategy()) :: t()
   def for_score(1.0, :isrc), do: :exact_isrc
   def for_score(1.0, :upc_position), do: :exact_upc
+  def for_score(1.0, :manual), do: :chosen
 
   def for_score(score, _strategy) when is_float(score) do
     cond do
