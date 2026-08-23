@@ -1,0 +1,814 @@
+[
+ {
+  "title": "California Love (remix)",
+  "artist": "2Pac",
+  "album": null,
+  "isrc": null,
+  "category": "version_in_title"
+ },
+ {
+  "title": "California Love (remix)",
+  "artist": "2Pac feat. Dr. Dre & Roger Troutman",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "version_in_title"
+ },
+ {
+  "title": "Hate It or Love It (G-Unit remix)",
+  "artist": "50 Cent feat. The Game, Tony Yayo, Young Buck & Lloyd Banks",
+  "album": "The Massacre",
+  "isrc": "USIR10500277",
+  "category": "version_in_title"
+ },
+ {
+  "title": "Tell You Something (Nana's reprise)",
+  "artist": "Alicia Keys",
+  "album": "As I Am",
+  "isrc": "USJAY0700225",
+  "category": "version_in_title"
+ },
+ {
+  "title": "There's More to Life Than This (recorded live at the Milk Bar toilets)",
+  "artist": "Björk",
+  "album": "Debut",
+  "isrc": "GBBTF9300120",
+  "category": "version_in_title"
+ },
+ {
+  "title": "Fame '90 (remix)",
+  "artist": "David Bowie",
+  "album": "Changesbowie",
+  "isrc": null,
+  "category": "version_in_title"
+ },
+ {
+  "title": "Johnny's Dead a.k.a. Vincent Mason (live from the BK Lounge)",
+  "artist": "De La Soul",
+  "album": "De La Soul Is Dead",
+  "isrc": null,
+  "category": "version_in_title"
+ },
+ {
+  "title": "Masters of War (Live)",
+  "artist": "Eddie Vedder & Mike McCready",
+  "album": "Bob Dylan: The 30th Anniversary Concert Celebration (Deluxe Edition) [Remastered]",
+  "isrc": null,
+  "category": "version_in_title"
+ },
+ {
+  "title": "It's My Own Fault",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "Worry, Worry",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "You Upset Me Baby",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "How Blue Can You Get?",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "Help the Poor",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "Every Day I Have the Blues",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "Please Love Me",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "Sweet Little Angel",
+  "artist": "B.B. King",
+  "album": "Live at the Regal",
+  "isrc": null,
+  "category": "live_album_plain_title"
+ },
+ {
+  "title": "Life Goes On",
+  "artist": "2Pac",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Heartz of Men",
+  "artist": "2Pac",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Ambitionz az a Ridah",
+  "artist": "2Pac",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Heaven Ain't Hard 2 Find",
+  "artist": "2Pac",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Wonda Why They Call U Bytch",
+  "artist": "2Pac",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Shorty Wanna Be a Thug",
+  "artist": "2Pac",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Thugz Mansion",
+  "artist": "2Pac feat. Anthony Hamilton",
+  "album": "The Source Presents Hip Hop Hits, Volume 7",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "All Eyez on Me",
+  "artist": "2Pac feat. Big Syke",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "no_isrc"
+ },
+ {
+  "title": "Noah's Dove",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900603;USEE19900921",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "Stockton Gala Days",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900609;USEE19900925",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "How You've Grown",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900612;USEE19900928",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "These Are Days",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900606;USEE19900922",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "Few and Far Between",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900608;USEE19900924",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "Tolerance",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900614;USEE19900930",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "Circle Dream",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900615;USEE19900931",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "I'm Not the Man",
+  "artist": "10,000 Maniacs",
+  "album": "Our Time in Eden",
+  "isrc": "USEE10900617;USEE19900933",
+  "category": "multi_isrc"
+ },
+ {
+  "title": "Diary",
+  "artist": "Alicia Keys feat. Tony! Toni! Toné!",
+  "album": "The Diary of Alicia Keys",
+  "isrc": "USJAY0300445",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Who Is It (Carry My Joy on the Left, Carry My Pain on the Right)",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400287",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Miðvikudags",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400294",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Desired Constellation",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400290",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Sonnets/Unrealities XI",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400289",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Vökuró",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400238",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Submarine",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400288",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Where Is the Line",
+  "artist": "Björk",
+  "album": "Medúlla",
+  "isrc": "GBBTF0400237",
+  "category": "non_ascii_artist"
+ },
+ {
+  "title": "Haïti",
+  "artist": "Arcade Fire",
+  "album": "Funeral",
+  "isrc": null,
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Une année sans lumière",
+  "artist": "Arcade Fire",
+  "album": "Funeral",
+  "isrc": null,
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Neighborhood #2 (Laïka)",
+  "artist": "Arcade Fire",
+  "album": "Funeral",
+  "isrc": null,
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Namasté",
+  "artist": "Beastie Boys",
+  "album": "Check Your Head",
+  "isrc": "USCA29200042",
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Qué onda güero",
+  "artist": "Beck",
+  "album": "Guero",
+  "isrc": "USIR10500093",
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Préludes: no. 10 - La Cathedrale engloutie",
+  "artist": "Claude Debussy",
+  "album": "Images pour Orchestre / Préludes",
+  "isrc": null,
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Préludes: no. 8 - La fille aux chevreux de lin",
+  "artist": "Claude Debussy",
+  "album": "Images pour Orchestre / Préludes",
+  "isrc": null,
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "Préludes: no. 8 - Ce qu'a vu le vent d'Ouest",
+  "artist": "Claude Debussy",
+  "album": "Images pour Orchestre / Préludes",
+  "isrc": null,
+  "category": "non_ascii_title"
+ },
+ {
+  "title": "The Four Seasons - The Spring, Op. 8 No. 1: I. Allegro",
+  "artist": "Antonio Vivaldi",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "The Four Seasons - The Summer, Op. 8 No. 2: I. Allegro non molto",
+  "artist": "Antonio Vivaldi",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "The Four Seasons - The Summer, Op. 8 No. 2: II. Adagio",
+  "artist": "Antonio Vivaldi",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "The Four Seasons - The Spring, Op. 8 No. 1: III. Allegro",
+  "artist": "Antonio Vivaldi",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "Violin Concerto No. 6 in A minor, Op. 3: Allegro moderato e deciso",
+  "artist": "Antonio Vivaldi",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "Concerto for Two Cellos and Orchestra No. 2 in G minor: Allegro",
+  "artist": "Antonio Vivaldi",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "Mandolino Concerto in C major, RV 425: Largo",
+  "artist": "Antonio Vivaldi",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "Organ Concerto in D major, RV 124: Grave",
+  "artist": "Antonio Vivaldi",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "category": "classical"
+ },
+ {
+  "title": "Picture Me Rollin'",
+  "artist": "2Pac feat. Danny Boy, Big Syke & CPO-Boss Hog",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500030",
+  "category": "long_credit"
+ },
+ {
+  "title": "Got My Mind Made Up",
+  "artist": "2Pac feat. Dat Nigga Daz, Kurupt, Redman & Method Man",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "long_credit"
+ },
+ {
+  "title": "Ain't Hard 2 Find",
+  "artist": "2Pac feat. E-40, B-Legit, C-Bo & Richie Rich",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "long_credit"
+ },
+ {
+  "title": "Run tha Streetz",
+  "artist": "2Pac feat. Michel'le, Mutah Beale & Storm",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "long_credit"
+ },
+ {
+  "title": "All Bout U",
+  "artist": "2Pac feat. Snoop Dogg, Nate Dogg & Dru Down",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "long_credit"
+ },
+ {
+  "title": "Joed Out",
+  "artist": "Barbara Manning & The San Francisco Seals",
+  "album": "No Alternative",
+  "isrc": null,
+  "category": "long_credit"
+ },
+ {
+  "title": "Neva Scared",
+  "artist": "Bone Crusher feat. Jadakiss & Busta Rhymes",
+  "album": "The Source Presents Hip Hop Hits, Volume 7",
+  "isrc": null,
+  "category": "long_credit"
+ },
+ {
+  "title": "Buddy",
+  "artist": "De La Soul with Jungle Brothers and Q-Tip",
+  "album": "3 Feet High and Rising",
+  "isrc": "USTB10250137",
+  "category": "long_credit"
+ },
+ {
+  "title": "Choosey Lover (Old School/New School)",
+  "artist": "Aaliyah",
+  "album": "One in a Million",
+  "isrc": null,
+  "category": "medley"
+ },
+ {
+  "title": "Going Down / Love in an Elevator",
+  "artist": "Aerosmith",
+  "album": "Pump",
+  "isrc": null,
+  "category": "medley"
+ },
+ {
+  "title": "Dulcimer Stomp / The Other Side",
+  "artist": "Aerosmith",
+  "album": "Pump",
+  "isrc": null,
+  "category": "medley"
+ },
+ {
+  "title": "Water Song / Janie's Got a Gun",
+  "artist": "Aerosmith",
+  "album": "Pump",
+  "isrc": "USGF19925407",
+  "category": "medley"
+ },
+ {
+  "title": "Hoodoo / Voodoo Medicine Man",
+  "artist": "Aerosmith",
+  "album": "Pump",
+  "isrc": null,
+  "category": "medley"
+ },
+ {
+  "title": "You Oughta Know (Jimmy the Saint Blend) / Your House",
+  "artist": "Alanis Morissette",
+  "album": "Jagged Little Pill",
+  "isrc": "USMV29900100",
+  "category": "medley"
+ },
+ {
+  "title": "If I Was Your Woman / Walk on By",
+  "artist": "Alicia Keys",
+  "album": "The Diary of Alicia Keys",
+  "isrc": "USJAY0300451",
+  "category": "medley"
+ },
+ {
+  "title": "Black Wave/Bad Vibrations",
+  "artist": "Arcade Fire",
+  "album": "Neon Bible",
+  "isrc": null,
+  "category": "medley"
+ },
+ {
+  "title": "What'z Ya Phone #",
+  "artist": "2Pac feat. Danny Boy",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "guest_credit"
+ },
+ {
+  "title": "I Ain't Mad at Cha",
+  "artist": "2Pac feat. Danny Boy",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500011",
+  "category": "guest_credit"
+ },
+ {
+  "title": "Me Against the World",
+  "artist": "2Pac feat. Dramacydal",
+  "album": "Me Against the World",
+  "isrc": "USIR19500003",
+  "category": "guest_credit"
+ },
+ {
+  "title": "Outlaw",
+  "artist": "2Pac feat. Dramacydal",
+  "album": "Me Against the World",
+  "isrc": "USIR19500015",
+  "category": "guest_credit"
+ },
+ {
+  "title": "Tradin War Stories",
+  "artist": "2Pac feat. Dramacydal, C-Bo & Storm",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "guest_credit"
+ },
+ {
+  "title": "Can't C Me",
+  "artist": "2Pac feat. George Clinton",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500027",
+  "category": "guest_credit"
+ },
+ {
+  "title": "Thug Passion",
+  "artist": "2Pac feat. Jewell, Dramacydal & Storm",
+  "album": "All Eyez on Me",
+  "isrc": "GBGHC0500017",
+  "category": "guest_credit"
+ },
+ {
+  "title": "How Do U Want It",
+  "artist": "2Pac feat. K-Ci & JoJo",
+  "album": "All Eyez on Me",
+  "isrc": "DEA450106900",
+  "category": "guest_credit"
+ },
+ {
+  "title": "Check Out Time",
+  "artist": "2Pac feat. Kurupt & Big Syke",
+  "album": "All Eyez on Me",
+  "isrc": null,
+  "category": "co_billed"
+ },
+ {
+  "title": "Two of Us",
+  "artist": "Aimee Mann & Michael Penn",
+  "album": "I Am Sam: Music From and Inspired by the Motion Picture",
+  "isrc": null,
+  "category": "co_billed"
+ },
+ {
+  "title": "We're a Couple of Misfits",
+  "artist": "Billie Mae Richards & Paul Soles",
+  "album": "Rudolph, Frosty and Friends' Favorite Christmas Songs",
+  "isrc": null,
+  "category": "co_billed"
+ },
+ {
+  "title": "Christ for President",
+  "artist": "Billy Bragg & Wilco",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800066",
+  "category": "co_billed"
+ },
+ {
+  "title": "Walt Whitman's Niece",
+  "artist": "Billy Bragg & Wilco",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800058",
+  "category": "co_billed"
+ },
+ {
+  "title": "Eisler on the Go",
+  "artist": "Billy Bragg & Wilco",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800069",
+  "category": "co_billed"
+ },
+ {
+  "title": "Birds and Ships",
+  "artist": "Billy Bragg & Wilco",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800061",
+  "category": "co_billed"
+ },
+ {
+  "title": "One by One",
+  "artist": "Billy Bragg & Wilco",
+  "album": "Mermaid Avenue",
+  "isrc": "USEE19800068",
+  "category": "co_billed"
+ },
+ {
+  "title": "4th of July",
+  "artist": "U2",
+  "album": "The Unforgettable Fire",
+  "isrc": "GBAAN8490006",
+  "category": "shared_title"
+ },
+ {
+  "title": "4th of July",
+  "artist": "Soundgarden",
+  "album": "Superunknown",
+  "isrc": "USAMI9400013",
+  "category": "shared_title"
+ },
+ {
+  "title": "7",
+  "artist": "Prince & The New Power Generation",
+  "album": "The Hits 1",
+  "isrc": "USWB19900599",
+  "category": "shared_title"
+ },
+ {
+  "title": "7",
+  "artist": "Moby",
+  "album": "Play",
+  "isrc": "GBAJH9900043",
+  "category": "shared_title"
+ },
+ {
+  "title": "99 Problems",
+  "artist": "JAY Z",
+  "album": "The Black Album",
+  "isrc": "USDJ20301460",
+  "category": "shared_title"
+ },
+ {
+  "title": "99 Problems",
+  "artist": "Danger Mouse",
+  "album": "The Grey Album",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Airbag",
+  "artist": "The Section Quartet",
+  "album": "Strung Out on OK Computer: The String Quartet Tribute to Radiohead",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Airbag",
+  "artist": "Radiohead",
+  "album": "OK Computer",
+  "isrc": "GBAYE9701274",
+  "category": "shared_title"
+ },
+ {
+  "title": "All Along the Watchtower",
+  "artist": "The Jimi Hendrix Experience",
+  "album": "Electric Ladyland",
+  "isrc": "USMC16856774;USMC19340588",
+  "category": "shared_title"
+ },
+ {
+  "title": "All I Need",
+  "artist": "JAY Z",
+  "album": "The Blueprint",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "All My Friends",
+  "artist": "LCD Soundsystem",
+  "album": "London Sessions",
+  "isrc": "US4GE1000097",
+  "category": "shared_title"
+ },
+ {
+  "title": "Allure",
+  "artist": "JAY Z",
+  "album": "The Black Album",
+  "isrc": "USDJ20301463;USDJ20301464",
+  "category": "shared_title"
+ },
+ {
+  "title": "Angel",
+  "artist": "Pearl Jam",
+  "album": null,
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Are You Lonesome Tonight?",
+  "artist": "Elvis Presley",
+  "album": "The Top Ten Hits",
+  "isrc": "USRC10200340",
+  "category": "shared_title"
+ },
+ {
+  "title": "Auld Lang Syne",
+  "artist": "[unknown]",
+  "album": "25 Christmas Favorites",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Automatic",
+  "artist": "Weezer",
+  "album": "Weezer (The Red Album)",
+  "isrc": "USUM70811672",
+  "category": "shared_title"
+ },
+ {
+  "title": "Ave Maria",
+  "artist": "Ed Starink",
+  "album": "25 Christmas Favorites",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Baba O'Riley",
+  "artist": "Pearl Jam",
+  "album": "2006-06-24: Cincinnati, OH, USA",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Beautiful",
+  "artist": "Eminem",
+  "album": "Relapse",
+  "isrc": "USUM70964089",
+  "category": "shared_title"
+ },
+ {
+  "title": "Big Brother",
+  "artist": "Stevie Wonder",
+  "album": "Talking Book",
+  "isrc": "USMO17282857",
+  "category": "shared_title"
+ },
+ {
+  "title": "Birds",
+  "artist": "Over the Rhine",
+  "album": "Eve",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Bitch",
+  "artist": "Eminem",
+  "album": "The Slim Shady LP",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Black Hole Sun",
+  "artist": "Paul Anka",
+  "album": "Rock Swings",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Blackbird",
+  "artist": "Sarah McLachlan",
+  "album": "I Am Sam: Music From and Inspired by the Motion Picture",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Blood",
+  "artist": "Pearl Jam",
+  "album": "2003-05-03: State College, PA, USA",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Blue",
+  "artist": "R.E.M.",
+  "album": "Collapse Into Now",
+  "isrc": "USWB11004205",
+  "category": "shared_title"
+ },
+ {
+  "title": "Blue Christmas",
+  "artist": "The Platters",
+  "album": "25 Christmas Favorites",
+  "isrc": null,
+  "category": "shared_title"
+ },
+ {
+  "title": "Brain Damage",
+  "artist": "Eminem",
+  "album": "The Slim Shady LP",
+  "isrc": null,
+  "category": "shared_title"
+ }
+]

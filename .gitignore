@@ -48,3 +48,7 @@ npm-debug.log
 # and the compose file are committed; what they produce is not.
 /dev/navidrome/music/
 /dev/navidrome/data/
+
+# Experiment scratch: which playlist and which transfer a dev script is pointed at.
+dev/experiments/PLAYLIST
+dev/experiments/TRANSFER

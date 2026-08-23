@@ -829,6 +829,69 @@ Measured over the 97 corpus cases carrying an ISRC: **81 recalled with the whole
 the primary only, and not one case rescued by the change.** The 16 that neither query finds are
 catalogue limits rather than query construction. Do not spend time here without new evidence.
 
+### Classical music does not work at all
+
+Found by building a playlist designed to fail (`dev/experiments/build_hard_playlist.py`) and
+transferring it. **0 of 8** classical tracks matched, and the diagnosis is three separate
+failures stacked on one track:
+
+    source     Antonio Vivaldi - The Four Seasons - The Spring, Op. 8 No. 1: I. Allegro
+    offered    Joshua Bell    - ...Op. 8 No. 4, RV 297 "Winter": I. Allegro non molto   0.494
+               Nigel Kennedy  - ...Op. 8 No. 1, RV 269 "Spring": I. Allegro             0.425
+               Janine Jansen  - Vivaldi: The Four Seasons: Spring...RV 269, Op. 8 No. 1 0.321
+
+  1. **The credit names different people.** A classical source credits the *composer*; a
+     catalogue credits the *performer*. "Antonio Vivaldi" against "Nigel Kennedy" shares no
+     name, so `credit_match/4` answers `:unrelated` and the text rung refuses outright. The
+     credit model assumes both sides name the same act, and here they never do.
+  2. **The identifying information is inside the title**, as prose, in an order each catalogue
+     chooses for itself. `Op. 8 No. 1`, `RV 269` and `I. Allegro` are *identifiers* - as
+     decisive as an ISRC - and they are being compared as words.
+  3. **Generic similarity ranks the wrong piece first.** Winter scored above Spring for a Spring
+     query, because the strings happen to overlap more. Lowering the threshold would match the
+     wrong concerto, not the right one.
+
+None of this is fixable by tuning. It wants catalogue-number extraction (`Op.`, `RV`, `BWV`,
+`K.`, `D.`) treated as an identifier rung, and a credit model that knows composer and performer
+are different roles. That is a feature rather than a rule change, and it is the largest single
+gap this project has found in its own matching.
+
+### What a deliberately adversarial playlist actually breaks
+
+116 tracks from a real library, eight per category, each category a failure mode this project
+has hit or has never tested. `dev/experiments/hard_playlist.csv`, built to be transferred.
+
+| Category | Result |
+| --- | --- |
+| `non_ascii_artist` | 8/8 by identifier |
+| `multi_isrc` | 8/8 - but every one by **text**, because a two-ISRC tag is 25 characters and `Isrc.normalize/1` rejects it |
+| `medley` | 8/8 |
+| `no_isrc` | 7/8 |
+| `live_album_plain_title` | 8/8 |
+| `guest_credit` | 8/8 |
+| `version_in_title` | 6/8 |
+| `shared_title` | 22/28 |
+| `co_billed` | 5/8 |
+| `long_credit` | 5/8 |
+| `non_ascii_title` | 5/8 |
+| **`classical`** | **0/8** |
+
+**90 of 116 matched, and not one match landed on an artist the source did not name.** That is
+the property worth checking under adversarial input, and it held: of 90 matches, zero had
+credits sharing no name with the source - on a playlist containing 28 tracks whose titles
+several different artists recorded.
+
+Two smaller findings:
+
+  * A semicolon-separated ISRC survives CSV quoting, reaches the parser, and is then discarded
+    by `Isrc.normalize/1` as malformed. Text recovers all eight, so nothing is lost today - but
+    the identifier was there and was thrown away, and splitting on the separator would move
+    eight tracks from a guess to a certainty.
+  * The harvester's `classical` selection is eight Vivaldi tracks from one album, because it
+    sorts by artist and takes the first eight. Enough to expose the category and too narrow to
+    size it; diversifying by artist is worth doing before drawing conclusions about classical
+    beyond "it does not work".
+
 ### What has actually been measured about match quality
 
 Match quality is the product, so it is worth being precise about which numbers mean what.
