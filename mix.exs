@@ -64,7 +64,8 @@ defmodule OnePlaylist.MixProject do
         "docs/reference/jv-libraries.md",
         "docs/reference/supabase.md",
         "docs/reference/domain.md",
-        "docs/library-feedback.md"
+        "docs/library-feedback.md",
+        "docs/supabase-sdk-issues.md"
       ],
       groups_for_extras: [Reference: ~r/docs\/reference\//],
       groups_for_modules: [

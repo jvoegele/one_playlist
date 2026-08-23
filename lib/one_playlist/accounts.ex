@@ -184,11 +184,12 @@ defmodule OnePlaylist.Accounts do
     end
   end
 
-  # `Supabase.Auth.get_claims/3` **raises** on a malformed token rather than
-  # answering an error. Its `decode_jwt_parts/1` is written as though it
-  # returns `{:error, :invalid_jwt_format}`, but the `JOSE.JWT.peek/1` it calls
-  # first throws on input that is not three base64url segments, so that branch
-  # is unreachable. Reported in docs/reference/supabase.md.
+  # `Supabase.Auth.get_claims/3` **raises** on most malformed tokens rather than
+  # answering an error. It does return `{:error, :invalid_jwt_format}` for input
+  # whose three segments decode but do not describe a JWT — so the branch is
+  # reachable, and the failure is worse for being inconsistent: `"abc"` raises
+  # `ArgumentError`, `"a.b.c"` raises `CaseClauseError`, `"aaaa.bbbb.cccc"`
+  # raises `Jason.DecodeError`. See docs/supabase-sdk-issues.md.
   #
   # This function exists precisely to judge tokens whose provenance is not
   # certain, so it must answer rather than raise — a caller cannot be asked to

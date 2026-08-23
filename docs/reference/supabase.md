@@ -206,12 +206,10 @@ unrecognised code is reported loudly rather than as "wrong password".
 service role key; it does not. It is `POST /logout` with the *user's own* access token, and is
 the ordinary way a user signs out.
 
-### `get_claims/3` raises on a malformed token
+### `get_claims/3` raises on most malformed tokens
 
-It looks total — `decode_jwt_parts/1` is written as though it returns
-`{:error, :invalid_jwt_format}` — but the `JOSE.JWT.peek/1` it calls first **throws** on
-anything that is not three base64url segments, so that branch is unreachable. Wrap it if the
-token's provenance is uncertain, which is the only reason to be verifying one.
+Wrap it if the token's provenance is uncertain, which is the only reason to be verifying one.
+Characterised and filed — see `docs/supabase-sdk-issues.md`.
 
 What it does well is the happy path: for a project with asymmetric signing keys it fetches the
 JWKS, caches it, and verifies **in process**, so establishing identity from a token costs no
@@ -226,17 +224,8 @@ production on the one flow every user takes.
 
 ### Storage: `Supabase.Storage.File.list/3` cannot be called at all
 
-`supabase_storage` 0.6.0. `SearchOptions.parse/1` puts `:sort_by` in the `cast/4` field list,
-and `:sort_by` is an `embeds_one` — so every call raises before reaching the network:
-
-```
-** (RuntimeError) casting embeds with cast/4 for :sort_by field is not supported,
-   use cast_embed/3 instead
-```
-
-There is a second bug beside it: the function then calls `cast_embed(:search_by, …)`, and no
-embed by that name exists. Listing is simply unavailable in this version; this project does
-without it.
+Every call raises before reaching the network, so listing is unavailable and this project does
+without it. Reproduction and analysis in `docs/supabase-sdk-issues.md`.
 
 ### Storage answers HTTP 400 for everything
 

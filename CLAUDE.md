@@ -445,3 +445,4 @@ INVALID_RESOURCE_ID` that names neither scopes nor the parameter.
 | `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits |
 | `docs/reference/contracts.md` | **House style for Bond contracts** — read before adding or changing one |
 | `docs/library-feedback.md` | Running log of friction found while dogfooding the four libraries |
+| `docs/supabase-sdk-issues.md` | Defects found in the Supabase Elixir SDK, with offline reproductions and upstream status |
