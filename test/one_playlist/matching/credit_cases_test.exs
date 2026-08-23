@@ -45,11 +45,24 @@ defmodule OnePlaylist.Matching.CreditCasesTest do
   @corpus "dev/corpus/credit_cases.json"
 
   # Declined a candidate that was offered and correct. Less bad than a wrong
-  # match — the report says so, and the row can be corrected by hand — but still
-  # the backlog. Six of the ten share one cause: the source's version marker
-  # lives in its *album* ("At Folsom Prison", "Live at Leeds") and the veto only
-  # reads version tags out of the title, so a correctly-labelled live candidate
-  # is refused by a source that is equally live.
+  # match — the report says so, and the row can be corrected by hand — but this
+  # is the backlog, and two of these are worth naming precisely.
+  #
+  # Johnny Cash's "Jackson" and The Doors' "Break on Through" are live
+  # recordings whose source album names the venue while the *title* says
+  # nothing. TIDAL labels its copy "Live at Folsom State Prison", the veto sees
+  # a marker on one side only, and refuses. The source is equally live.
+  #
+  # An exception for "the releases agree" was written, measured — it recovered
+  # both, gained three cases overall, and cost nothing on the MusicBrainz
+  # corpus — and then **reverted**, because it broke the karaoke, cover,
+  # instrumental and live-vs-studio tests. The premise it rested on, that a
+  # release does not carry two recordings under one title, is simply false: a
+  # deluxe edition carries "Yesterday" and "Yesterday - Live at the BBC". Those
+  # four cases are the product's central promise and outrank three corpus rows.
+  #
+  # Fixing these needs to know that *At Folsom Prison* is a live album, which no
+  # amount of string comparison can tell. See `docs/reference/domain.md`.
   @missed [
     "2Pac feat. Jewell, Dramacydal & Storm - Thug Passion",
     "De La Soul with Jungle Brothers and Q-Tip - Buddy",

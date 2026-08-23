@@ -675,6 +675,36 @@ Two methodological things this corpus taught, both of which cost a wrong answer 
     Only hand-written `decline` labels catch those, and they are the reason this corpus can
     defend against the bug that motivated it.
 
+### Rejected: a strong release agreement overriding the version veto
+
+Recorded because the idea is a good one, the measurement supported it, and it is still wrong.
+
+Johnny Cash's "Jackson" is missed. The source is from *At Folsom Prison*; TIDAL titles the same
+recording "Jackson (with June Carter Cash)" with the version "Live at Folsom State Prison". The
+veto sees a live marker on one side and nothing on the other and refuses — while the albums agree
+at 0.90 and the durations are two seconds apart. The source is *equally live*; its liveness lives
+in the album name, where the veto cannot see it.
+
+The proposed rule: a version marker stops being evidence of a different recording once the
+releases agree, because **a release does not carry two different recordings under one title**.
+
+Measured: the credit corpus went from 94 correct / 10 missed to **97 correct / 8 missed**, with
+no new wrong matches, and the MusicBrainz corpus did not move at all.
+
+It was reverted anyway. The premise is false, and the existing tests say so — a deluxe edition
+carries "Yesterday" *and* "Yesterday - Live at the BBC". Enabling it broke the karaoke, cover,
+instrumental and live-vs-studio cases, which are the product's central promise. Three corpus rows
+do not outrank them.
+
+Two things worth keeping from the attempt:
+
+  * **`Matching.match/3`'s `veto_respected` postcondition caught it**, before any test did. Adding
+    the exception to `Strategy.Text` alone fired the assertion, which is precisely the
+    cross-check it was written to be.
+  * **These misses are not fixable from the metadata.** Knowing that *At Folsom Prison* is a live
+    album is a fact about the world, not a property of the strings. That is the strongest
+    argument in this file for an external catalogue — see below.
+
 ### Query construction is not the recall problem
 
 Worth recording as a *negative* result, because it is the obvious next move and it does not work.
