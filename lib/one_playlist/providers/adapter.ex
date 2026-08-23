@@ -82,20 +82,26 @@ defmodule OnePlaylist.Providers.Adapter do
   refresh: it is stored, looks healthy, and fails at the next call with an error
   that points at the wrong thing.
 
-  It is now two contracts working at different places, which is worth being
-  precise about:
+  Two clauses, and the reason they are both spelled out here rather than
+  delegated to `OnePlaylist.Providers.Tokens`' invariant is worth recording,
+  because an earlier version of this comment got it wrong.
 
-    * **`fresh`, below.** Not an invariant — a token set is fresh when issued
+    * **`well_formed`.** A blank access token, or a blank refresh token that
+      `Providers.refresh/1`'s `||` fallback would store over a working one.
+      `Tokens` states this as an invariant too, but an invariant **cannot be
+      reached from another module's assertion**: Meyer's Assertion Evaluation
+      rule (*OOSC* §11.14) has calls made during assertion evaluation run with
+      their own contracts suppressed, and Bond implements it. Measured, not
+      assumed — `Tokens.fresh?/2` called from inside a `@post` returns a plain
+      boolean where the same call outside one raises `Bond.InvariantError`.
+    * **`fresh`.** Not an invariant at all — a token set is fresh when issued
       and stale hours later without changing. Only the producer can promise it.
-    * **`OnePlaylist.Providers.Tokens`' invariant**, reached through the
-      `Tokens.fresh?/2` call in that postcondition. It covers the blank access
-      token the old `usable` assertion named, plus the blank *refresh* token it
-      never did.
 
-  An adapter that hand-builds `%Tokens{}` rather than going through
-  `Tokens.new/1` is exactly the case this arrangement is for: the struct alone
-  would not check it, because its invariant only fires at its own module's
-  boundary.
+  So the two surfaces need two assertions. `Tokens.well_formed?/1` is what keeps
+  that from being two *copies*: it is deliberately contract-free, so it answers
+  the same way in both places. An adapter that hand-builds `%Tokens{}` rather
+  than going through `Tokens.new/1` is exactly the case this covers — and the
+  case the previous arrangement silently did not.
   """
   #
   # `OnePlaylist.Providers.Tokens` is spelled out rather than using the `Tokens`
@@ -106,6 +112,7 @@ defmodule OnePlaylist.Providers.Adapter do
   # generated function name at a line that is blank.
   @pre present: is_binary(refresh_token) and refresh_token != ""
   @post whenever({:ok, tokens} <- result),
+    well_formed: OnePlaylist.Providers.Tokens.well_formed?(tokens),
     fresh: OnePlaylist.Providers.Tokens.fresh?(tokens)
   @callback refresh_tokens(refresh_token :: String.t()) ::
               {:ok, tokens()} | {:error, Exception.t()}

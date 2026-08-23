@@ -606,6 +606,150 @@ every report however it was built, and it is falsifiable from a plain test rathe
 a bad config. Where the two genuinely *do* coincide, lift the law to the invariant and drop the
 per-function assertion rather than keeping both.
 
+## What Meyer says, and where this project departs from him
+
+Chapter 11 of *Object-Oriented Software Construction* (2nd ed.) is where Design by Contract
+is defined. Bond implements it faithfully enough that most of the chapter transposes; the
+notes below record the parts that changed something here, and the parts that deliberately
+did not.
+
+### The Assertion Evaluation rule — the one that made this codebase wrong
+
+> During the process of evaluating an assertion at run-time, routine calls shall be executed
+> without any evaluation of the associated assertions. — §11.14
+
+Bond implements this. Measured: `Tokens.fresh?/2` called from inside a `@post` returns a
+plain boolean, where the identical call outside one raises `Bond.InvariantError`.
+
+Meyer gives two reasons, and the second is the important one. The obvious reason is that
+nested assertion checking would recurse forever. The real reason is that assertions must sit
+on a *higher plane* than the code they protect: a function used in an assertion has to be
+"beyond reproach" before you use it there, and checking its own contracts while it is
+screening someone else's is too late. His image is a security guard at a nuclear plant — you
+run the background check on the guard in advance, not while he is inspecting the day's
+visitors.
+
+**The consequence is a rule about where a law can be enforced.** An `@invariant` cannot be
+reached from another module's assertion. `Adapter.refresh_tokens/1`'s postcondition called
+`Tokens.fresh?/2` and this file previously claimed that brought `Tokens`' invariant to bear on
+the behaviour boundary. It does not, and the gap was real: an adapter hand-building a
+`%Tokens{}` with a blank access token returned through that contract without complaint.
+
+The fix generalises. A predicate written to be **called from** contracts in other modules must
+itself be **contract-free**, so that it answers the same way in both places:
+
+```elixir
+# Deliberately a bare parameter, not `%__MODULE__{} = tokens`: Bond attaches no
+# entry check, so there is nothing to suppress.
+def well_formed?(tokens) do
+  is_struct(tokens, __MODULE__) and is_binary(tokens.access_token) and ...
+end
+```
+
+Bond's `warn_skipped_invariants` linter fires on such a function. That is the right prompt and
+the wrong conclusion — suppress it with a comment saying why, rather than adding the pattern
+match that would silently disarm the predicate at its most important call site.
+
+### The Non-Redundancy principle
+
+> Under no circumstances shall the body of a routine ever test for the routine's
+> precondition. — §11.6
+
+Read from the *supplier's* side this is about not writing `if x < 0` under a `require x >= 0`;
+the codebase was audited and is clean.
+
+Read from the **client's** side it is sharper, and it found a bug.
+`Adapter.refresh_tokens/1` requires a non-blank token; `Providers.refresh/1` calls it and
+matched only `refresh_token: nil` in its guarding clause. A `""` — reachable from a row
+written before `Tokens`' invariant existed — reached the callee and raised
+`Bond.PreconditionError` out of `ensure_fresh/2`, crashing a transfer where it should have
+told the user to reconnect.
+
+The lesson to carry: **when you add a precondition, audit its call sites.** A contract makes
+an obligation explicit; it does not discharge it. And a contract does not retroactively clean
+a database, so data written before an invariant existed still has to be handled by code.
+
+### The Reasonable Precondition principle
+
+> • The precondition appears in the official documentation distributed to authors of client
+> modules.
+> • It is possible to justify the need for the precondition in terms of the specification
+> only. — §11.7
+
+The first half is Bond's Precondition Availability rule, already enforced (and the reason
+`Connection.now_after_creation?/2`, `Matching.valid_threshold_request?/1` and
+`Transfer.balanced?/1` are public).
+
+The second half is a **test this file did not have**, and it is a good one: *could I justify
+this precondition from what the function promises, or is it only convenient for how I
+happened to implement it?* Meyer allows restrictions that follow from a documented design
+choice — a bounded stack may require `not full` — provided the bound is part of the
+specification rather than an accident of the implementation. Applied here,
+`Catalogue.album_id/3`'s `normalized_barcode` passes: an unnormalized barcode is a different
+cache key for the same release, which is a statement about what the cache *is*, not about how
+it is written.
+
+### Demanding and tolerant styles, and where each belongs
+
+Meyer's answer to "should this have a precondition at all?" is a two-part one that this
+codebase had arrived at by instinct and never named (§11.6–11.7):
+
+  * **Demanding** — a precondition, and the client's job to satisfy it. Correct for
+    software-to-software. "Trying to handle all possible (and impossible) cases is not
+    necessarily the best way to help your clients."
+  * **Tolerant** — no precondition, an error result the caller must inspect. Correct for
+    **filter modules**: those facing the outside world, where "there is no substitute for the
+    usual condition-checking constructs".
+
+The dividing line is that *assertions are not an input checking mechanism*. Our provider
+adapters, clients and mappers are the filter modules: they face servers we do not control, so
+they return `{:error, _}` rather than asserting on what arrived. The domain behind them —
+`Matching`, `Transfers`, `Providers` — is demanding.
+
+Meyer states the seam precisely, and it is worth keeping in mind when adding a provider:
+**the postconditions of the filter modules must match or exceed the preconditions of the
+processing modules.** `Mapper`'s postconditions and `Matching`'s preconditions are the two
+sides of exactly that.
+
+### Where this project departs: restatements of the body
+
+Meyer argues that `full_definition: Result = (count = capacity)` beside a body of
+`Result := (count = capacity)` is **not** redundant — the instruction prescribes, the
+assertion describes, and their agreement is "evidence of consistency between the
+implementation and the specification" (§11.7). His assertions are also the class's published
+documentation, extracted by the `short` tool.
+
+This file says the opposite, and keeps saying it. Three reasons, all specific to the
+environment rather than disagreements with Meyer:
+
+  * **Documentation is carried elsewhere.** `@spec`, `@doc` and doctests do the job `short`
+    does in Eiffel, and doctests are executed.
+  * **`Bond.Coverage` scores assertions on whether they can fail.** An assertion that mirrors
+    the body registers as permanently `⚠ never failed`, and the noise devalues the marker for
+    assertions where it means something.
+  * **The house test is "could a plausible rewrite violate it".** That is a bug-catching
+    criterion, and Meyer's is a specification-capture criterion. Both are coherent; this
+    project has chosen the first.
+
+### What does not transpose
+
+  * **Loop invariants and variants (§11.12).** No loops.
+  * **The Indirect Invariant Effect (§11.14).** Meyer needs invariants checked on entry *and*
+    exit because dynamic aliasing lets one object's operation break another's invariant.
+    Immutable data removes that. Bond checks on entry anyway, for a different and still good
+    reason: Elixir gives no module a monopoly on constructing its struct.
+  * **Assertion Violation rule (§11.6)** transposes exactly and is worth stating plainly,
+    because it answers "where does this assertion go?": *a precondition violation is a bug in
+    the client; a postcondition or invariant violation is a bug in the supplier.*
+
+### `Bond.check/1` exists and is unused here
+
+Meyer's `check` instruction (§11.11) documents an assumption at a point where you have
+*deliberately not* guarded a call, because you are convinced the precondition holds and the
+reason is not obvious from the surrounding code. Bond provides it. Nothing in this codebase
+uses it, and nothing should be changed to create a use — but the next time a call site relies
+on a non-obvious argument, that is what to reach for instead of a comment.
+
 ## Mechanics learned the hard way
 
 | Thing | What actually happens |

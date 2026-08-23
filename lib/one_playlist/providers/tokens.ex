@@ -107,6 +107,48 @@ defmodule OnePlaylist.Providers.Tokens do
              scopes_are_a_list: is_list(subject.scopes)
 
   @doc """
+  Whether a value is a structurally well-formed token set.
+
+  The same law the invariant above states, in a form other modules' assertions
+  can use — and the reason a second form is needed at all is Meyer's **Assertion
+  Evaluation rule** (*OOSC* 2nd ed., §11.14): while an assertion is being
+  evaluated, calls made from it run with their own contracts suppressed.
+
+  So an invariant cannot be reached from somewhere else's assertion. A
+  `@post` on `c:OnePlaylist.Providers.Adapter.refresh_tokens/1` that calls
+  `fresh?/2` gets the boolean and *not* the invariant behind it — measured, not
+  assumed. That is correct behaviour rather than a limitation: Meyer's point is
+  that assertions must sit on a higher plane than the code they protect, and
+  checking the guard's credentials while he is screening today's visitors is too
+  late. The time to establish that a function is fit to appear in an assertion is
+  when you decide to use it there.
+
+  The practical consequence is this function's shape. It deliberately takes a
+  bare parameter rather than `%__MODULE__{} = tokens`, so Bond attaches no entry
+  check and there is nothing to suppress: it answers the same way inside an
+  assertion as outside one. A predicate written to be called *from* contracts has
+  to be contract-free itself.
+
+      iex> alias OnePlaylist.Providers.Tokens
+      iex> Tokens.well_formed?(Tokens.new(access_token: "at", expires_at: ~U[2030-01-01 00:00:00Z]))
+      true
+      iex> Tokens.well_formed?(%Tokens{access_token: "", expires_at: ~U[2030-01-01 00:00:00Z]})
+      false
+      iex> Tokens.well_formed?(:not_a_token_set)
+      false
+  """
+  @bond_warn_skipped_invariants false
+  @spec well_formed?(term()) :: boolean()
+  def well_formed?(tokens) do
+    is_struct(tokens, __MODULE__) and
+      is_binary(tokens.access_token) and tokens.access_token != "" and
+      is_struct(tokens.expires_at, DateTime) and
+      (is_nil(tokens.refresh_token) or
+         (is_binary(tokens.refresh_token) and tokens.refresh_token != "")) and
+      is_list(tokens.scopes)
+  end
+
+  @doc """
   Builds a token set from a keyword list or map.
 
   Raises `Bond.InvariantError` rather than returning an error tuple, because

@@ -419,7 +419,18 @@ defmodule OnePlaylist.Providers do
             is_struct(refreshed.access_token_expires_at, DateTime)
         )
   @spec refresh(Connection.t()) :: {:ok, Connection.t()} | {:error, Errata.error()}
-  def refresh(%Connection{refresh_token: nil} = connection) do
+  # `nil` **or blank**, and the blank half was missing until Meyer's
+  # Non-Redundancy principle was applied to this call site (*OOSC* §11.6): a
+  # client must establish the precondition of what it calls, and
+  # `c:OnePlaylist.Providers.Adapter.refresh_tokens/1` requires a non-blank
+  # token. Matching only `nil` left `""` to reach it and raise
+  # `Bond.PreconditionError` out of `ensure_fresh/2` — so a transfer crashed
+  # where it should have failed cleanly, telling the user to reconnect.
+  #
+  # `Tokens`' `refresh_token_absent_or_real` invariant stops a blank one being
+  # *written* today, but rows persisted before it existed are still out there,
+  # and a contract does not retroactively clean a database.
+  def refresh(%Connection{refresh_token: token} = connection) when token in [nil, ""] do
     error =
       Errata.create(ConnectionUnusable,
         reason: :reauth_required,

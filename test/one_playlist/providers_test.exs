@@ -346,6 +346,31 @@ defmodule OnePlaylist.ProvidersTest do
     end
   end
 
+  describe "refresh/1 establishes the precondition of what it calls" do
+    test "a blank refresh token fails cleanly rather than crashing", %{user_id: user_id} do
+      # Meyer's Non-Redundancy principle read from the client's side: a caller
+      # must establish the precondition of what it calls.
+      # `Adapter.refresh_tokens/1` requires a non-blank token, and this function
+      # matched only `nil` — so `""` reached it and raised
+      # `Bond.PreconditionError` out of `ensure_fresh/2`, crashing a transfer
+      # where it should have told the user to reconnect.
+      #
+      # Reachable from a row written before `Tokens`' invariant existed: a
+      # contract does not retroactively clean a database.
+      {:ok, connection} = connect(user_id, refresh_token: "")
+
+      assert {:error, error} = Providers.refresh(connection)
+      assert Errata.reason(error) == :reauth_required
+    end
+
+    test "and nil still does too", %{user_id: user_id} do
+      {:ok, connection} = connect(user_id, refresh_token: nil)
+
+      assert {:error, error} = Providers.refresh(connection)
+      assert Errata.reason(error) == :reauth_required
+    end
+  end
+
   describe "root_cause/1" do
     test "unwraps to the failure a user can act on" do
       # ExternalService reports that retrying did not help. That is the right
