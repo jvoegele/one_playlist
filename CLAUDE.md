@@ -114,16 +114,22 @@ better code.
 - **The session cookie is encrypted, not merely signed**, because it carries the GoTrue
   refresh token. That is a departure from the Phoenix default and `OnePlaylistWeb.Endpoint`
   says why.
-- **RLS applies to this application's own reads**, via `OnePlaylist.Repo.as_user/3`: a
+- **RLS applies to this application's own reads and to its `provider_connections` writes**,
+  via `OnePlaylist.Repo.as_user/3`: a
   transaction that steps down from `postgres` (which holds `BYPASSRLS`) to `authenticated`
   and sets the claims `auth.uid()` reads. The user-facing reads in `Providers` and
   `Transfers` run inside it, so a forgotten `where user_id` returns nothing rather than
   everybody's rows. Writes and background work stay privileged — `authenticated` has no
   access to the `oban` schema and only `select` on transfers, which is the grants saying
   users read their transfers while the system writes them.
-  Two traps, both documented in `docs/reference/supabase.md`: `auth.uid()` prefers the
-  *singular* `request.jwt.claim.sub`, so set and clear both; and `SET LOCAL` is not undone by
-  releasing a savepoint, which is what the Ecto sandbox gives you.
+  `as_user/3` is **re-entrant** — it restores whatever scope it found rather than reverting to
+  `postgres` — because `disconnect/2` nests `fetch_connection/2` inside itself.
+  Four traps, all documented in `docs/reference/supabase.md`: `auth.uid()` prefers the
+  *singular* `request.jwt.claim.sub`, so set and clear both; `SET LOCAL` is not undone by
+  releasing a savepoint, which is what the Ecto sandbox gives you; a constraint violation
+  inside the scope aborts the transaction and its `25P02` replaces the real error, so writes
+  use `mode: :savepoint`; and reads, updates and deletes of another user's row fail
+  *silently* while an insert raises `42501`.
 - **Provider connections** (`provider`, `user_id`, encrypted access + refresh token, expiry,
   scopes) are a first-class context with proactive refresh. This is the highest-risk component.
 - **One `ExternalService` module per provider**, each with its own breaker / rate limit /
@@ -395,10 +401,6 @@ report matched what actually landed in the destination.
     same spine that email+password already proved. Magic link adds the `/auth/callback` code
     exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
     magic-link iteration painful until raised in `supabase/config.toml`.
-  * **Extend RLS to the write paths.** Reads are covered; `Providers.connect/3` and the
-    other user-initiated writes still run privileged. `authenticated` already holds the
-    grants and policies for `provider_connections`, so those could move; `transfers` writes
-    deliberately cannot, and would need a grant and a policy first if that ever changed.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.

@@ -151,6 +151,21 @@ defmodule OnePlaylist.Providers do
         "consecutive_failures" => 0
       })
 
+    # Under `Repo.as_user/3`, so the row Postgres stores is checked against
+    # `own connections insert`'s WITH CHECK as well as being built with the right
+    # `user_id` here. An upsert needs both policies: the insert's WITH CHECK for
+    # the attempted row, and the update's USING and WITH CHECK for the conflict
+    # path — `authenticated` holds all of them, plus the SELECT that
+    # `returning: true` and conflict detection require.
+    {:ok, result} =
+      Repo.as_user(user_id, fn ->
+        upsert_connection(attrs)
+      end)
+
+    result
+  end
+
+  defp upsert_connection(attrs) do
     %Connection{}
     |> Connection.changeset(attrs)
     |> Repo.insert(
@@ -163,6 +178,14 @@ defmodule OnePlaylist.Providers do
       # credential that grants standing access to someone's music library. It
       # costs the timing entry for this one query.
       log: false,
+      # A constraint violation — a `user_id` naming no row in `auth.users` is the
+      # realistic one — aborts the enclosing transaction in Postgres, and every
+      # statement after it fails with 25P02 until rollback. Inside
+      # `Repo.as_user/3` that enclosing transaction is real, so without a
+      # savepoint the failure destroys the changeset error on its way out and
+      # reports "current transaction is aborted" instead of "that user does not
+      # exist".
+      mode: :savepoint,
       # Without `returning: true` an upsert hands back the id Ecto generated
       # client-side rather than the id of the row that actually exists, so a
       # reconnect would return a struct whose primary key matches nothing.
@@ -270,17 +293,28 @@ defmodule OnePlaylist.Providers do
   @spec record_refresh(Connection.t(), map()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def record_refresh(%Connection{} = connection, attrs) do
-    connection
-    |> Connection.changeset(
-      Map.merge(Map.new(attrs), %{
-        last_refreshed_at: DateTime.utc_now(),
-        status: :active,
-        last_error: nil,
-        consecutive_failures: 0
-      })
-    )
-    # Carries tokens as query parameters — see the note in `connect/3`.
-    |> Repo.update(log: false)
+    # Runs as the connection's owner even though the caller is usually the
+    # background refresher rather than a request. There is no reason for a
+    # system job to hold more privilege than the row it is touching needs, and
+    # the owner is right there on the struct — so the `own connections update`
+    # policy applies here too, and a refresher that somehow addressed the wrong
+    # row would update nothing instead.
+    {:ok, result} =
+      Repo.as_user(connection.user_id, fn ->
+        connection
+        |> Connection.changeset(
+          Map.merge(Map.new(attrs), %{
+            last_refreshed_at: DateTime.utc_now(),
+            status: :active,
+            last_error: nil,
+            consecutive_failures: 0
+          })
+        )
+        # Carries tokens as query parameters — see the note in `connect/3`.
+        |> Repo.update(log: false, mode: :savepoint)
+      end)
+
+    result
   end
 
   @doc """
@@ -307,13 +341,19 @@ defmodule OnePlaylist.Providers do
   def record_failure(%Connection{} = connection, error) do
     status = if requires_reauth?(error), do: :reauth_required, else: connection.status
 
-    connection
-    |> Connection.changeset(%{
-      status: status,
-      last_error: Exception.message(error),
-      consecutive_failures: connection.consecutive_failures + 1
-    })
-    |> Repo.update()
+    # As the owner, for the reason `record_refresh/2` gives.
+    {:ok, result} =
+      Repo.as_user(connection.user_id, fn ->
+        connection
+        |> Connection.changeset(%{
+          status: status,
+          last_error: Exception.message(error),
+          consecutive_failures: connection.consecutive_failures + 1
+        })
+        |> Repo.update(mode: :savepoint)
+      end)
+
+    result
   end
 
   # Whether a failure means the *user* must act, as opposed to us trying again
@@ -552,8 +592,20 @@ defmodule OnePlaylist.Providers do
   @spec disconnect(user_id(), Connection.provider()) ::
           {:ok, Connection.t()} | {:error, ConnectionNotFound.t()}
   def disconnect(user_id, provider) do
-    with {:ok, connection} <- fetch_connection(user_id, provider) do
-      Repo.delete(connection)
-    end
+    # `own connections delete`'s USING clause means a row belonging to somebody
+    # else is not merely refused — it is not visible to the DELETE at all, so a
+    # scoping mistake removes nothing rather than the wrong thing.
+    #
+    # `fetch_connection/2` nests its own `as_user/3` inside this one. That works
+    # because the inner scope restores the outer rather than dropping to
+    # `postgres`; see `OnePlaylist.Repo`.
+    {:ok, result} =
+      Repo.as_user(user_id, fn ->
+        with {:ok, connection} <- fetch_connection(user_id, provider) do
+          Repo.delete(connection)
+        end
+      end)
+
+    result
   end
 end

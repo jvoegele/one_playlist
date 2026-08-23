@@ -283,6 +283,38 @@ adding a policy does not remove a grant.
 >     opens a *savepoint*, and releasing a savepoint does not undo a `SET LOCAL` made
 >     within it. Without an explicit revert the connection stays `authenticated` for the
 >     rest of the test and some unrelated later query fails.
+>   * **Revert to what was there, not to `postgres`.** `Providers.disconnect/2` runs as a
+>     user and calls `fetch_connection/2`, which does too. An inner scope that reverts to a
+>     hard-coded role drops the outer one halfway through, so the enclosing write runs
+>     privileged — the protection silently absent exactly where it was being added. Capture
+>     the role and both claim settings on the way in and put them back on the way out.
+>   * **A constraint violation inside the scope poisons the whole transaction.** Postgres
+>     aborts on any error, so every later statement — including the revert — fails with
+>     `25P02`, and that exception *replaces* the real one. `Repo.insert(…, mode: :savepoint)`
+>     keeps a foreign-key error a changeset error, and the revert additionally tolerates an
+>     already-doomed transaction, since rollback discards `SET LOCAL` anyway.
+
+### Reads fail quietly; inserts fail loudly
+
+Worth knowing before you design around either, because the asymmetry is not obvious and it
+is the policy clause that decides it:
+
+| Operation | Clause | What happens to another user's row |
+| --- | --- | --- |
+| `select` | `USING` | filtered out — you get nothing, no error |
+| `update` | `USING` | matches nothing — `{0, nil}`, no error |
+| `delete` | `USING` | matches nothing — `{0, nil}`, no error |
+| `insert` | `WITH CHECK` | **raises** `42501 new row violates row-level security policy` |
+
+So a read or a write *of* somebody else's data is silence, and creating a row *for* somebody
+else is an exception. That is the right way round — silently discarding an insert would
+leave a caller believing it had stored something — but it means "no error" is not evidence
+that a write happened, and code that cares must check the affected count.
+
+Verified by mutation, and worth doing before trusting any of this: remove the line in
+`Providers.connect/3` that forces `user_id` to the caller, pass a different user's id, and
+the insert is refused with `42501`. The application safeguard and the database policy are
+genuinely independent — either alone stops it.
 
 ```sql
 alter table public.playlists enable row level security;

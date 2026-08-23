@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(15);
 
 -- Two users, written straight into auth.users. Fine here: this is a test
 -- fixture inside a doomed transaction, not a sign-up path.
@@ -120,6 +120,43 @@ select is(
   (select count(*)::int from public.provider_connections where display_name = 'stolen'),
   0,
   'alice cannot rename bob''s connection'
+);
+
+-- ---------------------------------------------------------------------------
+-- The system/user boundary. `transfers` grants `authenticated` only SELECT:
+-- users read their transfers, and the application writes them from a privileged
+-- context because creating one also enqueues an Oban job, in a schema no user
+-- can touch. That split is a decision, so it is asserted rather than assumed —
+-- a stray `grant insert` would otherwise go unnoticed until it mattered.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated' and table_schema = 'public'
+      and table_name = 'transfers' and privilege_type <> 'SELECT'),
+  0,
+  'authenticated may only select from transfers, never write'
+);
+
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated' and table_schema = 'public'
+      and table_name = 'transfer_items' and privilege_type <> 'SELECT'),
+  0,
+  'authenticated may only select from transfer_items, never write'
+);
+
+select throws_ok(
+  $$insert into public.transfers
+      (id, user_id, source_provider, source_playlist_id, destination_provider, threshold,
+       status, inserted_at, updated_at)
+    values (gen_random_uuid(), '11111111-1111-4111-8111-111111111111', 'tidal', 'x', 'tidal',
+            0.75, 'pending', now(), now())$$,
+  '42501',
+  'permission denied for table transfers',
+  'a user cannot create a transfer directly, grant refused before any policy runs'
 );
 
 -- ---------------------------------------------------------------------------

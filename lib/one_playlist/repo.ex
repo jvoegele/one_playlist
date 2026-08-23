@@ -5,6 +5,8 @@ defmodule OnePlaylist.Repo do
 
   use Bond
 
+  require Logger
+
   @moduledoc """
   The application's Ecto repository, and the seam that makes RLS apply to it.
 
@@ -102,12 +104,12 @@ defmodule OnePlaylist.Repo do
   def as_user(user_id, fun, opts \\ []) when is_function(fun, 0) do
     transaction(
       fn ->
-        become(user_id)
+        previous = become(user_id)
 
         try do
           fun.()
         after
-          revert()
+          revert(previous)
         end
       end,
       opts
@@ -144,25 +146,68 @@ defmodule OnePlaylist.Repo do
 
   # `set_config/3` rather than `SET LOCAL`, because the latter takes no
   # parameters and would mean interpolating a value into SQL. The third argument
-  # is `is_local`, making both settings transaction-scoped.
+  # is `is_local`, making every setting transaction-scoped.
   #
   # Only `sub` and `role` are sent. The whole verified JWT payload would be more
   # faithful to what PostgREST does, and is deliberately not used: it carries an
   # expiring credential's contents into every query log for no gain, since the
   # policies here read nothing else. If one ever does, this is where it changes.
+  #
+  # Returns what was in force beforehand, so `revert/1` can put it back rather
+  # than assume. That is what makes `as_user/3` re-entrant, and it is not
+  # theoretical: `Providers.disconnect/2` runs as a user and calls
+  # `fetch_connection/2`, which does too. Reverting to a hard-coded `postgres`
+  # would have dropped the outer scope halfway through the enclosing call — the
+  # delete would then have run privileged, which is precisely the protection
+  # being added here, silently absent.
   defp become(user_id) do
+    previous = current_scope()
     claims = Jason.encode!(%{sub: user_id, role: "authenticated"})
 
     _ = query!("select set_config($1, $2, true)", [@claims_setting, claims])
     _ = query!("select set_config($1, $2, true)", [@legacy_claim_setting, user_id])
     _ = query!("select set_config('role', 'authenticated', true)", [])
-    :ok
+
+    previous
   end
 
-  defp revert do
-    _ = query!("select set_config('role', 'postgres', true)", [])
-    _ = query!("select set_config($1, '', true)", [@claims_setting])
-    _ = query!("select set_config($1, '', true)", [@legacy_claim_setting])
+  # Best effort, deliberately. If the body left the transaction in a failed state
+  # then every statement here raises 25P02 — and worse, that exception replaces
+  # whatever the body was actually failing with, so the caller is told "current
+  # transaction is aborted" instead of the real reason.
+  #
+  # Swallowing it is correct rather than merely convenient: a failed transaction
+  # is about to roll back, and rollback discards `SET LOCAL` anyway. There is
+  # nothing left to restore.
+  defp revert({role, claims, sub}) do
+    _ = query!("select set_config('role', $1, true)", [role])
+    _ = query!("select set_config($1, $2, true)", [@claims_setting, claims || ""])
+    _ = query!("select set_config($1, $2, true)", [@legacy_claim_setting, sub || ""])
     :ok
+  rescue
+    error in Postgrex.Error ->
+      unless aborted_transaction?(error) do
+        Logger.error("could not restore database privileges: #{Exception.message(error)}")
+      end
+
+      :ok
+  end
+
+  defp aborted_transaction?(%Postgrex.Error{postgres: %{code: code}}),
+    do: code == :in_failed_sql_transaction
+
+  defp aborted_transaction?(_error), do: false
+
+  # One round trip for all three, since `become/1` needs them together.
+  # `current_setting(name, true)` answers `nil` for an unset name instead of
+  # raising.
+  defp current_scope do
+    %{rows: [[role, claims, sub]]} =
+      query!(
+        "select current_user::text, current_setting($1, true), current_setting($2, true)",
+        [@claims_setting, @legacy_claim_setting]
+      )
+
+    {role, claims, sub}
   end
 end

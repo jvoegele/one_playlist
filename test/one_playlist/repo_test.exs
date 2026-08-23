@@ -165,6 +165,121 @@ defmodule OnePlaylist.RepoTest do
     end
   end
 
+  describe "writes" do
+    test "a row that would belong to somebody else is refused outright" do
+      # `own connections insert` carries a WITH CHECK, so this is not filtered —
+      # it raises. That asymmetry is deliberate and worth knowing: reads and
+      # updates of another user's rows quietly affect nothing, while *creating*
+      # one is an error. Silently discarding an insert would leave a caller
+      # believing it had stored something.
+      alice = AuthFixtures.user_id_fixture()
+      bob = AuthFixtures.user_id_fixture()
+
+      assert_raise Postgrex.Error, ~r/row-level security/, fn ->
+        Repo.as_user(alice, fn ->
+          Repo.insert!(%Connection{
+            user_id: bob,
+            provider: :tidal,
+            provider_user_id: "smuggled",
+            access_token: "at",
+            scopes: [],
+            status: :active
+          })
+        end)
+      end
+    end
+
+    test "updating another user's row changes nothing" do
+      # No error, because the USING clause removes the row from consideration
+      # before the UPDATE sees it. An update that matches nothing is not a
+      # failure in SQL, so the protection here is silence rather than a raise.
+      alice = AuthFixtures.user_id_fixture()
+      bob = AuthFixtures.user_id_fixture()
+      _ = connection_for(bob)
+
+      {:ok, {count, _}} =
+        Repo.as_user(alice, fn ->
+          Repo.update_all(from(c in Connection, where: c.user_id == ^bob),
+            set: [display_name: "hijacked"]
+          )
+        end)
+
+      assert count == 0
+
+      assert Repo.aggregate(from(c in Connection, where: c.display_name == "hijacked"), :count) ==
+               0
+    end
+
+    test "deleting another user's row removes nothing" do
+      alice = AuthFixtures.user_id_fixture()
+      bob = AuthFixtures.user_id_fixture()
+      _ = connection_for(bob)
+
+      {:ok, {count, _}} =
+        Repo.as_user(alice, fn ->
+          Repo.delete_all(from(c in Connection, where: c.user_id == ^bob))
+        end)
+
+      assert count == 0
+      assert Repo.aggregate(from(c in Connection, where: c.user_id == ^bob), :count) == 1
+    end
+
+    test "a user's own writes still work" do
+      # The other half. A veto that also blocks the legitimate case is not a fix,
+      # and every one of the three above would pass against a table nobody can
+      # write to at all.
+      alice = AuthFixtures.user_id_fixture()
+      connection = connection_for(alice)
+
+      {:ok, {count, _}} =
+        Repo.as_user(alice, fn ->
+          Repo.update_all(from(c in Connection, where: c.id == ^connection.id),
+            set: [display_name: "renamed by its owner"]
+          )
+        end)
+
+      assert count == 1
+    end
+  end
+
+  describe "nesting" do
+    test "an inner scope restores the outer one rather than dropping to postgres" do
+      # `Providers.disconnect/2` runs as a user and calls `fetch_connection/2`,
+      # which does too. If the inner call reverted to `postgres` — as an earlier
+      # version did — the enclosing delete would run privileged, quietly
+      # removing the protection this whole mechanism exists to add.
+      alice = AuthFixtures.user_id_fixture()
+
+      assert {:ok, {inner, after_inner}} =
+               Repo.as_user(alice, fn ->
+                 {:ok, inner} = Repo.as_user(alice, fn -> Repo.current_role() end)
+                 {inner, {Repo.current_role(), Repo.current_user_id()}}
+               end)
+
+      assert inner == "authenticated"
+      assert after_inner == {"authenticated", alice}, "the outer scope must survive"
+
+      assert Repo.current_role() == "postgres"
+      assert Repo.current_user_id() == nil
+    end
+
+    test "a nested scope still filters, and the outer user still owns their rows" do
+      alice = AuthFixtures.user_id_fixture()
+      bob = AuthFixtures.user_id_fixture()
+      _ = connection_for(alice)
+      _ = connection_for(bob)
+
+      assert {:ok, {inner_rows, outer_rows}} =
+               Repo.as_user(alice, fn ->
+                 {:ok, inner} = Repo.as_user(alice, fn -> Repo.all(@unscoped) end)
+                 {inner, Repo.all(@unscoped)}
+               end)
+
+      assert inner_rows == [alice]
+      assert outer_rows == [alice]
+    end
+  end
+
   describe "the contract" do
     test "a blank user id is refused rather than quietly matching nothing" do
       # `auth.uid()` casts the claim to uuid, and `""` casts to NULL without
