@@ -206,6 +206,35 @@ supabase stop      # halts without deleting data
 supabase db reset  # re-applies migrations + supabase/seed.sql
 ```
 
+#### Scheduled Storage pruning needs two Vault secrets
+
+`public.prune_stored_exports/1` deletes old export files by calling the Storage API through
+`pg_net`, which needs a credential. The migration deliberately does **not** create it: a
+migration is committed and a service role key must not be. Without the secrets the function
+reports and returns zero, so a fresh checkout migrates and runs its other jobs normally.
+
+```sh
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" <<SQL
+select vault.create_secret(
+  'http://supabase_kong_one_playlist:8000', 'one_playlist_storage_url',
+  'Base URL pg_net uses to reach Supabase Storage');
+select vault.create_secret(
+  '$(supabase status -o env | grep ^SERVICE_ROLE_KEY= | cut -d= -f2- | tr -d '"')',
+  'one_playlist_service_key',
+  'Service role key for scheduled Storage pruning');
+SQL
+```
+
+The URL is a **container name**, not `127.0.0.1:54321`: `pg_net` runs inside Postgres, which is
+in its own container and cannot see the host's port mapping. In production it is the project
+URL. Both values change per environment, which is why the URL is a secret rather than a
+constant in the migration.
+
+`vault.decrypted_secrets` is readable by `postgres` and `service_role` only, so a compromised
+`authenticated` session cannot reach the key. The application itself never uses it:
+`OnePlaylist.Storage` acts as the signed-in user, so the bucket policies apply to everything
+outside this one scheduled function.
+
 | Service | URL |
 | --- | --- |
 | API gateway (REST, GraphQL, Functions, Realtime) | `http://127.0.0.1:54321` |
@@ -411,7 +440,7 @@ A fresh session should read this before proposing what to build.
 | Files | CSV playlists read and written, round-trip property tested; a private Supabase Storage bucket with per-user policies |
 | Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
 | Export | Download a playlist as CSV at `/exports/new`, via a signed URL |
-| Pruning | `pg_cron` drops the parsed tracks behind transfers that finished over 7 days ago. **Stored files are not pruned** — `storage.objects` refuses direct `DELETE`, so that needs the Storage API |
+| Pruning | Three nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, and old export files. The last calls the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
@@ -425,11 +454,6 @@ report matched what actually landed in the destination.
     exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
     magic-link iteration painful until raised in `supabase/config.toml`.
 
-  * **Pruning stored files.** `pg_cron` handles the database side, and cannot touch Storage:
-    `storage.objects` carries a `protect_delete` trigger refusing direct `DELETE`. The
-    Supabase-native answer is `pg_net` calling the Storage API with a service key from Vault —
-    three unexercised surfaces at once, and a service key in the database. The ordinary answer
-    is an Oban job. Undecided.
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
   * **Search recall, not the ladder.** With the duration fix in, the engine picks correctly from

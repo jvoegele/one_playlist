@@ -335,6 +335,40 @@ adding a policy does not remove a grant.
 >     keeps a foreign-key error a changeset error, and the revert additionally tolerates an
 >     already-doomed transaction, since rollback discards `SET LOCAL` anyway.
 
+### Deleting a stored file needs an HTTP call, even from inside Postgres
+
+`storage.objects` carries a `protect_delete` trigger:
+
+```
+ERROR: Direct deletion from storage tables is not allowed. Use the Storage API instead.
+HINT:  This prevents accidental data loss from orphaned objects.
+```
+
+It is right to: a row there is half of a stored file, and the other half is a blob in the
+backing store. Deleting the row alone orphans it. `INSERT` and `UPDATE` go straight through,
+which is why a pgTAP test can set objects up but cannot exercise the delete policy.
+
+So a scheduled tidy-up takes three extensions to do one thing: **`pg_cron`** runs it,
+**`pg_net`** makes the request, **`supabase_vault`** holds the credential. This project does it
+in `20260823180000_prune_stored_exports.exs`. Four things that cost time:
+
+  * **`pg_net` cannot see `127.0.0.1:54321`.** It runs inside Postgres, in its own container,
+    with no view of the host's port mapping. Locally the URL is a container name
+    (`http://supabase_kong_one_playlist:8000`); in production it is the project URL. It changes
+    per environment, so it belongs in Vault beside the key rather than in the migration.
+  * **Only a service role key will do.** Deleting somebody's object means authenticating as
+    somebody who may, and a user's token expires in an hour and lives in a browser cookie.
+    `vault.decrypted_secrets` is readable by `postgres` and `service_role` only, so an
+    `authenticated` session cannot reach it — which is what makes keeping it there acceptable.
+  * **`pg_net` is asynchronous.** `net.http_delete` returns a request id; the response lands in
+    `net._http_response` later. A scheduled function cannot confirm the deletion it asked for,
+    which is fine when the job is idempotent: a failed request leaves the objects in place and
+    tomorrow's run finds them again.
+  * **The queued request is visible before it is sent**, in `net.http_request_queue`. That is
+    what makes the whole thing testable inside the Ecto sandbox: build the request, assert its
+    URL, method and body, roll back, and nothing ever leaves the machine. Note `body` is
+    `bytea`, so it needs `convert_from(body, 'UTF8')` before it is JSON again.
+
 ### Reads fail quietly; inserts fail loudly
 
 Worth knowing before you design around either, because the asymmetry is not obvious and it
