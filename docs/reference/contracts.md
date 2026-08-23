@@ -9,22 +9,52 @@ and the answer to "should I add a contract here, and what should it say?"
 
 ---
 
-## Why contracts matter *for this product specifically*
+## What a contract is for
+
+**A contract is a specification.** It states what a function or a type promises, in terms a
+caller can rely on, checked by machine and published in the documentation — Bond renders
+`#### Preconditions` and `#### Postconditions` sections into ExDoc, which is Eiffel's `short`
+form by another name.
+
+That is the primary purpose, and it is worth saying plainly because this file argued
+otherwise for a long time. It treated contracts as bug-catchers, with "name the bug it
+catches" as the entry criterion. That frame is not wrong so much as *downstream*: catching
+bugs is what a specification does when the implementation disagrees with it. Leading with it
+produced a rule — never restate the body — that turned out to reject perfectly good
+specifications, for reasons taken apart in
+[Where this file used to depart from Meyer](#where-this-file-used-to-depart-from-meyer-and-no-longer-does).
+
+### Why it matters *for this product specifically*
 
 A playlist transfer tool has one failure mode worse than crashing: **finishing, reporting
 success, and being wrong.** A track silently dropped, a duplicate quietly added, a playlist
 transferred in the wrong order — none of these raise, none fail a type check, and none look
 like anything in a log. The user finds out weeks later, if ever.
 
-That is the shape of bug Design by Contract is for, and it is why contracts here concentrate on
-**conservation and identity laws** rather than on argument validation.
+An application whose failures are silent needs its intended behaviour written down somewhere
+executable. That is why contracts here concentrate on **conservation and identity laws**
+rather than on argument validation: those laws *are* the specification of a transfer.
 
 ---
 
-## The one rule: an assertion must be able to fail
+## The quality check: can this assertion fail?
 
-An assertion you have never seen fail is an assertion you have not tested. A vacuous contract
-is worse than none, because it *looks* like coverage.
+Falsifiability is not why you write a contract — the specification is. But it is the sharpest
+check on whether you have written a *good* one, because an assertion that can never fail is
+usually one that describes the mechanism rather than the meaning. A vacuous contract is worse
+than none: it *looks* like coverage.
+
+Treat a failed falsifiability check as a question, not a verdict. "This cannot fail" has three
+possible answers, and only one of them is "delete it":
+
+| Why it cannot fail | What to do |
+| --- | --- |
+| It transcribes *how* the body works | Restate it as *what* the function promises |
+| The body guards the property twice | Delete the redundant guard, keep the contract |
+| It is a true law of a pure function, unfalsifiable by data | Keep it; prove it by mutation |
+
+The last row is the common case for specifications and is developed under
+[A postcondition on a pure function](#a-postcondition-on-a-pure-function-is-a-production-assertion-not-a-test-assertion).
 
 Three habits enforce this, in increasing order of confidence:
 
@@ -91,14 +121,27 @@ it produces a *confusing crash somewhere else*. `DateTime.compare/2` raises a
 `FunctionClauseError` on a `NaiveDateTime` — a precondition converts that into a named
 violation identifying the caller.
 
-### Restatements of the body
+### The *mechanism*, as opposed to the meaning
+
+This entry used to read "restatements of the body", with `@post computed: result == a + b`
+beside `def add(a, b), do: a + b` as the example. The example is still a poor contract; the
+rule drawn from it was wrong, and it is now stated the other way round —
+see [Where this file used to depart from Meyer](#where-this-file-used-to-depart-from-meyer-and-no-longer-does).
+
+The distinction that survives is **mechanism versus meaning**, and mirroring the body is not
+the test for it:
 
 ```elixir
-@post computed: result == a + b        # fails only if `+` is broken
-def add(a, b), do: a + b
+# ❌ mechanism: `Enum.map/2` is how the answer is computed, not what it means
+@post mapped: result == Enum.map(tracks, &Mapper.track/1)
+
+# ✅ meaning: what a caller relies on, however it comes to be computed
+@post no_tracks_invented: length(result) <= length(tracks)
 ```
 
-The test is whether a *plausible rewrite* of the body could violate it.
+`result == a + b` is degenerate rather than mechanistic — for `add/2` the `+` genuinely *is*
+the meaning, and the `@spec` plus the name already carry it. Nothing is gained, so leave it
+out. But "it looks like the body" is not the reason.
 
 ### Anything about a lazy stream
 
@@ -711,25 +754,62 @@ Meyer states the seam precisely, and it is worth keeping in mind when adding a p
 processing modules.** `Mapper`'s postconditions and `Matching`'s preconditions are the two
 sides of exactly that.
 
-### Where this project departs: restatements of the body
+### Where this file used to depart from Meyer, and no longer does
 
-Meyer argues that `full_definition: Result = (count = capacity)` beside a body of
-`Result := (count = capacity)` is **not** redundant — the instruction prescribes, the
-assertion describes, and their agreement is "evidence of consistency between the
-implementation and the specification" (§11.7). His assertions are also the class's published
-documentation, extracted by the `short` tool.
+Meyer argues that a postcondition mirroring the body is **not** redundant (§11.7). Beside a
+body of `Result := (count = capacity)`, the assertion `full_definition: Result = (count = capacity)`
+says something different in kind: the instruction *prescribes*, the assertion *describes*, and
+their agreement is "evidence of consistency between the implementation and the specification —
+that is to say, of correctness".
 
-This file says the opposite, and keeps saying it. Three reasons, all specific to the
-environment rather than disagreements with Meyer:
+This file disagreed, and gave three reasons. Two were weak and one was simply false.
 
-  * **Documentation is carried elsewhere.** `@spec`, `@doc` and doctests do the job `short`
-    does in Eiffel, and doctests are executed.
-  * **`Bond.Coverage` scores assertions on whether they can fail.** An assertion that mirrors
-    the body registers as permanently `⚠ never failed`, and the noise devalues the marker for
-    assertions where it means something.
-  * **The house test is "could a plausible rewrite violate it".** That is a bug-catching
-    criterion, and Meyer's is a specification-capture criterion. Both are coherent; this
-    project has chosen the first.
+**"Documentation is carried elsewhere — `@spec`, `@doc`, doctests."** False. Bond generates
+`#### Preconditions` and `#### Postconditions` sections into ExDoc; the Eiffel `short` form
+exists here. Worse, several comments in this codebase already *depend* on that fact — "an
+assertion rendered into the documentation should reference something a reader can look up" is
+why `Transfer.balanced?/1`, `Matching.valid_threshold_request?/1` and
+`Connection.now_after_creation?/2` are public. The objection was contradicted by the code
+making it.
+
+And a doctest and a postcondition are not the same kind of documentation anyway. Three
+doctests on `Normalize.text/1` show three strings; `case_folded` states the property for every
+string the application will ever normalize.
+
+**"`Bond.Coverage` scores assertions on whether they can fail."** True, and a real cost — but
+an argument about a tool's ergonomics, not about what a contract is. It also weakened on its
+own: `⚠ never failed` is already the documented steady state for pure functions, so the
+marker already means "check which category this is" rather than "delete this". Specifications
+enlarge that category without changing its nature.
+
+**"The house test is *could a plausible rewrite violate it*."** Meyer answers this directly and
+the answer was under-read. The body of `full` could plausibly be rewritten
+`if count = capacity then Result := True end`; the postcondition is what says those are the
+same function. And the mirror-image reading is an artefact of trivial bodies — for `sqrt`,
+whose postcondition is `abs(Result^2 - x) <= tolerance`, nothing about the assertion resembles
+the algorithm. **What looks like a restatement is often a specification whose current
+implementation happens to be one line.**
+
+So the rule is inverted. A postcondition that states what the function promises earns its place
+even when today's body computes it obviously. What to leave out is an assertion about the
+*mechanism* — and `result == a + b` is best described not as a restatement but as degenerate:
+for `add/2`, `+` is the meaning.
+
+**What is kept from the old position** is falsifiability, demoted from entry criterion to
+quality check. It earned that much: it killed a `decomposed:` assertion implied by its
+neighbour, found a contract on a function with no callers, and found a `no_empty_names` that
+could only fail under a double mutation. Those were all real. But each was a *specification
+already stated elsewhere*, which is why the check works — not evidence that bug-catching is
+the point.
+
+Read backwards, the specification frame explains this codebase's best contracts better than
+the bug-catching frame ever did. `Tokens`' invariant defines what a token set *is*.
+`every_tag_is_classified` states what a tag is. `Normalize.text/1`'s postconditions define
+what "normalized" means, and under the old frame needed an elaborate justification about
+production monitoring to survive at all. `report_agrees_with_counters` says a transfer's
+report and its summary describe the same run. None of those is primarily a bug-catcher; all
+of them are specifications, and they catch bugs because that is what specifications do when
+an implementation disagrees with them.
 
 ### What does not transpose
 
@@ -820,11 +900,21 @@ postcondition got justified in the gap.
 
 ## Checklist for a new contract
 
-1. Name the bug it catches. If you cannot, do not write it.
-2. Could a plausible rewrite of the body violate it? If not, it restates the body.
-3. Is it a type check? Then it belongs in `@spec` — unless violating it crashes confusingly elsewhere.
+1. **State what the function or type promises**, in terms a caller can rely on. If you cannot
+   say it, you do not understand the thing well enough to contract it yet.
+2. Is it about the **meaning** or the **mechanism**? Mechanism goes in the body, not a
+   contract. "It resembles the body" is not the test — a one-line implementation of a real
+   specification is still a real specification.
+3. Is it a type check? Then it belongs in `@spec` — unless violating it crashes confusingly
+   elsewhere.
 4. Is it total? Guard partial predicates with `~>`.
-5. Is it falsifiable *in this codebase*? Check, do not assume.
-6. Write a `Bond.Test` assertion targeting its `label:`.
-7. Run the suite and read the coverage table. `⚠ never failed` means go back to 6.
-8. For anything load-bearing, mutate the implementation and confirm it fires.
+5. Is it available to the caller? A precondition naming a private function is one the client
+   cannot discharge — Meyer's Reasonable Precondition principle, which Bond enforces.
+6. Can it be justified from the specification alone, or only from how you happened to
+   implement it? The second kind is the supplier's convenience wearing a contract's clothes.
+7. **Can it fail?** Write a `Bond.Test` assertion targeting its `label:`; where no input can
+   falsify it, mutate the implementation instead and confirm it fires.
+8. Read the coverage table. `⚠ never failed` is a question with three answers — restate,
+   de-duplicate the body, or accept it as a pure-function law proven by mutation.
+9. When you add a **precondition**, audit its call sites. Making an obligation explicit does
+   not discharge it.

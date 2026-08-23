@@ -104,6 +104,19 @@ defmodule OnePlaylist.ContractsTest do
       )
     end
 
+    test "the match rate is a proportion at both extremes" do
+      # `Report.match_rate/1`'s `is_a_proportion` cannot be falsified by data:
+      # `total/1` *is* matched + unmatched, so the quotient is in range for every
+      # report that can be built. It is a pure-function law, proven by mutation
+      # (inverting the division fires it) and kept because it states what the
+      # function means — the third row of the table in
+      # docs/reference/contracts.md, not a candidate for deletion.
+      assert Report.match_rate(%Report{threshold: 0.75}) == 1.0
+      assert Report.match_rate(%Report{threshold: 0.75, matched: [1], unmatched: [2]}) == 0.5
+
+      assert Report.match_rate(%Report{threshold: 0.75, unmatched: [1, 2]}) == 0.0
+    end
+
     test "a real report is unaffected" do
       report = %Report{threshold: 0.75, matched: [], unmatched: []}
 

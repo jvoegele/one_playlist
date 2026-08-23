@@ -849,3 +849,93 @@ contract.
 itself with `Bond.AssertionEvaluationError`, a runtime failure; "and on recent Elixir the type
 checker will often catch it for you first" makes the same point more forcefully, and gives a
 reader a reason to care before they have been bitten.
+
+## `bond` — the guides frame contracts as bug-catchers where Meyer frames them as specifications
+
+**Found:** 2026-08-23, after reading *OOSC* 2nd ed. chapter 11 in full and comparing it against
+Bond's guides. **Not a bug, and the smallest of the suggestions here is a two-line change** —
+but it changed how this project writes contracts, so it seems worth reporting.
+
+### The observation
+
+`writing-sound-assertions.md` opens by naming its goal:
+
+> The goal of this guide is to help you write assertions that *can fail on the input they are
+> meant to reject*.
+
+That is exactly right **for that guide's topic**, which is soundness — vacuity, totality,
+unreachability, assertions whose surface reading does not match their behaviour. The guide is
+excellent on all of it and caught several real mistakes here.
+
+The difficulty is that it is also, in practice, where a reader goes to learn *what a contract
+should say*, and on that question falsifiability is a quality check rather than the purpose.
+Meyer's purpose is the specification: an assertion states what a routine promises, and
+catching bugs is what that does when the implementation disagrees. The difference is not
+academic — it changes which contracts get written.
+
+### Where it bites: "a `@post` that restates the body"
+
+```elixir
+@post computed: result == a + b        # ❌ fails only if `+` is broken
+def add(a, b), do: a + b
+```
+
+> The test is whether a *plausible* rewrite of the body could violate it.
+
+The example is well chosen and the conclusion ("a good postcondition is a law the body must
+respect, not a second copy of it") is right. But **"restates the body" is the wrong test for
+it**, and Meyer argues the point directly against this reading (§11.7, "The imperative and the
+applicative"). His `full` has body `Result := (count = capacity)` and postcondition
+`Result = (count = capacity)`, and he spends two pages on why that is not redundancy:
+
+> The instruction is prescriptive; the assertion is descriptive… So the presence of related
+> elements in the body and the postcondition is not evidence of redundancy; it is evidence of
+> consistency between the implementation and the specification — that is to say, of correctness.
+
+He also answers the plausible-rewrite test on its own terms: the body could plausibly become
+`if count = capacity then Result := True end`, and the postcondition is what says those are
+the same function. And the resemblance is an artefact of trivial bodies — for `sqrt`, whose
+postcondition is `abs(Result^2 - x) <= tolerance`, nothing about the assertion looks like the
+algorithm.
+
+Following the guide's test literally, this project wrote a house rule prohibiting
+"restatements of the body" and lost real specifications to it for months. The distinction that
+actually holds is **mechanism versus meaning**: `result == Enum.map(xs, &f/1)` beside a body
+that maps is mechanism; `result = (count = capacity)` is meaning that happens to fit on one
+line.
+
+### The part that makes this worth reporting rather than shrugging at
+
+Bond **already has Meyer's short form** — `Bond.Compiler.ContractDocs` renders
+`#### Preconditions` / `#### Postconditions` into ExDoc, and `writing-sound-assertions.md`
+itself notes that ExDoc shows "Bond's generated contract sections". That is the feature that
+makes contracts-as-specification work, and it is the strongest argument *against* the
+restatement rule sitting a few paragraphs away — a postcondition that mirrors a one-line body
+still publishes the specification to every reader of the docs, which is most of its value.
+
+So the library has built the Eiffel documentation story and then, in the guide most people
+read first, evaluates assertions on a criterion that ignores it.
+
+**Suggested fix,** in increasing order of effort:
+
+1. **Two lines in the restatement section.** Replace "the test is whether a plausible rewrite
+   could violate it" with the mechanism/meaning distinction, and note that a specification with
+   a one-line implementation is still a specification. Optionally cite §11.7 — the audience for
+   a DbC library will mostly take Meyer's word for it.
+2. **A sentence in the opening.** Something like: "falsifiability is how you check an assertion
+   is *good*; stating the specification is why you write one." That reframes the whole guide at
+   no cost to its content.
+3. **A short guide of its own** — "What should a contract say?" — sitting before
+   `writing-sound-assertions.md` in the ordering. Bond has thorough guides on soundness,
+   testing, inheritance, concurrency and configuration; the gap is the one Meyer's chapter 11
+   fills, and none of the existing guides quite claims it.
+
+### A related note on `Bond.check/1`
+
+It is Meyer's `check` instruction and it is documented, but it appears only in
+`behaviour.ex`'s prose ("use `Bond.check/1` in the body") rather than in any guide's
+narrative. Its actual purpose is worth stating, because it is not obvious from the name:
+documenting a non-trivial assumption at a call site where you have *deliberately not* guarded
+a call, because you are convinced the callee's precondition holds and the reason is not
+obvious from the surrounding code (§11.11). A paragraph in `writing-contracts.md` would
+probably double its usage.

@@ -66,6 +66,15 @@ defmodule OnePlaylist.Matching.Report do
   Returning `0.0` would report a perfect transfer of no tracks as a total
   failure.
   """
+  # The same law `OnePlaylist.Transfers.Transfer.match_rate/1` carries, and it is
+  # here for the same reason: "the match rate is a proportion" is what the
+  # function *means*, and a caller comparing two reports relies on it.
+  #
+  # Under this file's former rule it was left out as implied by the arithmetic —
+  # which was true of the body as written and is not a reason. `length(matched)`
+  # and `total/1` are two counts that a plausible rewrite could take from
+  # different places; the inverted-division typo is the obvious one.
+  @post is_a_proportion: result >= 0.0 and result <= 1.0
   @spec match_rate(t()) :: float()
   def match_rate(%__MODULE__{} = report) do
     case total(report) do

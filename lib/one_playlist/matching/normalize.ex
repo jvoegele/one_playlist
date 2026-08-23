@@ -325,7 +325,8 @@ defmodule OnePlaylist.Matching.Normalize do
 
   # `discriminating/1` and `editorial/1` carry no contract on purpose. The only
   # thing to assert about `MapSet.intersection/2` is that the result is a subset
-  # of its input, which restates the body — and the law that actually matters,
+  # of its input, which describes the mechanism rather than the meaning — and the
+  # law that actually matters,
   # that the two partitions between them cover every known tag, is fixed at
   # compile time by three module attributes. That is a test, not a contract:
   # nothing about it can vary at runtime, so an assertion checked on every call
