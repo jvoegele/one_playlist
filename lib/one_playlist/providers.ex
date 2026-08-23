@@ -23,6 +23,7 @@ defmodule OnePlaylist.Providers do
 
   import Ecto.Query
 
+  alias OnePlaylist.Providers.Adapter
   alias OnePlaylist.Providers.Connection
   alias OnePlaylist.Providers.ConnectionNotFound
   alias OnePlaylist.Providers.ConnectionUnusable
@@ -545,6 +546,28 @@ defmodule OnePlaylist.Providers do
   """
   @spec adapter(Connection.provider()) ::
           {:ok, module()} | {:error, ProviderNotSupported.t()}
+  @doc """
+  Whether a service can do a given thing.
+
+  Answers `false` for a provider this application does not know, rather than
+  raising: the question "can it do X" has a sensible answer for a service that
+  is not there at all, and every call site is a branch that already has to
+  handle "no".
+
+      iex> alias OnePlaylist.Providers
+      iex> {Providers.supports?(:tidal, :artwork), Providers.supports?(:navidrome, :artwork)}
+      {true, false}
+      iex> Providers.supports?(:tidal, :remove_tracks)
+      false
+  """
+  @spec supports?(atom(), Adapter.capability()) :: boolean()
+  def supports?(provider, capability) do
+    case adapter(provider) do
+      {:ok, module} -> capability in module.capabilities()
+      {:error, _reason} -> false
+    end
+  end
+
   def adapter(provider) do
     case Map.fetch(@adapters, provider) do
       {:ok, module} ->

@@ -42,6 +42,9 @@ defmodule OnePlaylist.Providers.Tidal do
   @search_scope "search.read"
 
   @impl true
+  def capabilities, do: [:artwork]
+
+  @impl true
   def provider, do: :tidal
 
   @impl true

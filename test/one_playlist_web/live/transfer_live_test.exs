@@ -210,8 +210,8 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   describe "correcting a match by hand" do
     # The candidates are stored on the report row, so this needs no provider
     # stub to render — which is the point of storing them.
-    defp report_with_alternatives(user_id) do
-      transfer = transfer_fixture(user_id)
+    defp report_with_alternatives(user_id, attrs \\ %{}) do
+      transfer = transfer_fixture(user_id, attrs)
 
       candidates = [
         %{
@@ -219,6 +219,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
           "title" => "Corduroy (Live)",
           "artist" => "Pearl Jam",
           "album" => "Live On Two Legs",
+          "artwork_url" => "https://resources.tidal.com/images/aaa/160x160.jpg",
           "score" => 0.94,
           "confidence" => "high",
           "strategy" => "text",
@@ -232,6 +233,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
           "title" => "Corduroy",
           "artist" => "Pearl Jam",
           "album" => "Vitalogy",
+          "artwork_url" => "https://resources.tidal.com/images/bbb/160x160.jpg",
           "score" => 0.71,
           "confidence" => "low",
           "strategy" => "text",
@@ -373,6 +375,41 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       assert updated.unmatched_count == 0
       assert updated.matched_count == 1
       assert updated.added_count == 1
+    end
+
+    test "a cover is shown where the service publishes one", %{conn: conn, user_id: user_id} do
+      transfer = report_with_alternatives(user_id)
+
+      {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      # TIDAL declares :artwork, so a row with no cover gets a placeholder
+      # rather than nothing — a blank square there means "this track has none",
+      # which is information.
+      assert html =~ "bg-base-300"
+
+      html = view |> element("button[phx-value-position='0']", "Fix this") |> render_click()
+
+      assert html =~ "resources.tidal.com", "the candidate's cover"
+      assert html =~ ~s(loading="lazy"), "a hundred-row report must not fetch a hundred images"
+    end
+
+    test "and no space is reserved for one where the service has none", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # Navidrome's cover endpoint wants credentials on the request, so it
+      # honestly has no artwork this application can use. A column of grey
+      # squares down the report would say nothing at all.
+      transfer =
+        report_with_alternatives(user_id, %{
+          source_provider: :navidrome,
+          destination_provider: :navidrome
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ ~s(class="w-10 h-10 rounded shrink-0 bg-base-300"),
+             "no placeholder where the service publishes no covers"
     end
 
     test "a row that already matched offers no correction, because the wrong track stays", %{

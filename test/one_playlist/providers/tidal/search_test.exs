@@ -96,7 +96,10 @@ defmodule OnePlaylist.Providers.Tidal.SearchTest do
 
         assert conn.request_path == "/v2/searchResults"
         assert get_in(conn.query_params, ["filter", "query"]) == "hey jude the beatles"
-        assert conn.query_params["include"] == "tracks.artists,tracks.albums"
+
+        assert conn.query_params["include"] ==
+                 "tracks.artists,tracks.albums,tracks.albums.coverArt"
+
         assert conn.query_params["countryCode"] == "US"
 
         Req.Test.json(conn, @document)

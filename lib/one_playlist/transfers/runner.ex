@@ -325,6 +325,7 @@ defmodule OnePlaylist.Transfers.Runner do
       source_title: track.title,
       source_artist: primary_artist(track),
       source_album: track.album,
+      source_artwork_url: track.artwork_url,
       source_track_id: track.provider_id,
       # Nothing is stored mid-run, so there is nothing to offer yet. The
       # persisted report brings the alternatives with it.
@@ -339,6 +340,7 @@ defmodule OnePlaylist.Transfers.Runner do
           destination_title: match.track.title,
           destination_artist: List.first(match.track.artists),
           destination_album: match.track.album,
+          destination_artwork_url: match.track.artwork_url,
           confidence: to_string(match.confidence),
           score: match.score,
           strategy: to_string(match.strategy),
@@ -352,6 +354,7 @@ defmodule OnePlaylist.Transfers.Runner do
           destination_title: nil,
           destination_artist: nil,
           destination_album: nil,
+          destination_artwork_url: nil,
           confidence: nil,
           score: nil,
           strategy: nil,

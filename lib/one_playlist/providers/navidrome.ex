@@ -61,6 +61,13 @@ defmodule OnePlaylist.Providers.Navidrome do
   def provider, do: :navidrome
 
   @impl true
+  # Nothing that varies. Subsonic *has* cover art, but `getCoverArt` wants the
+  # credentials on the request, so its URL cannot go in an `img` tag without
+  # putting a token in the page. That needs a proxy route before this can honestly
+  # say `:artwork`.
+  def capabilities, do: []
+
+  @impl true
   def refresh_tokens(_refresh_token) do
     {:error,
      Errata.create(ConnectionUnusable,

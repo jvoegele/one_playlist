@@ -88,7 +88,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
           {:ok, map()} | {:error, Errata.error()}
   def list_playlist_items(access_token, playlist_id, opts \\ []) do
     params =
-      [{"include", "items.artists,items.albums"}] ++
+      [{"include", "items.artists,items.albums,items.albums.coverArt"}] ++
         country_param(opts) ++ page_params(opts)
 
     get(access_token, "/playlists/#{playlist_id}/relationships/items", params)
@@ -115,7 +115,9 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   @spec tracks_by_isrc(String.t(), String.t(), keyword()) ::
           {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
   def tracks_by_isrc(access_token, isrc, opts \\ []) do
-    params = [{"filter[isrc]", isrc}, {"include", "artists,albums"}] ++ country_param(opts)
+    params =
+      [{"filter[isrc]", isrc}, {"include", "artists,albums,albums.coverArt"}] ++
+        country_param(opts)
 
     with {:ok, document} <- get(access_token, "/tracks", params) do
       {:ok, Mapper.tracks_from_data(document)}
@@ -200,7 +202,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
     params =
       [
         {"filter[query]", query},
-        {"include", "tracks.artists,tracks.albums"}
+        {"include", "tracks.artists,tracks.albums,tracks.albums.coverArt"}
       ] ++ country_param(opts) ++ page_params(opts)
 
     with {:ok, document} <- get(access_token, "/searchResults", params) do

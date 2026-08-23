@@ -30,6 +30,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   use OnePlaylistWeb, :live_view
 
+  alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Connection
 
   alias OnePlaylist.Transfers
@@ -290,9 +291,14 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                 >
                   <td class="tabular-nums opacity-50 align-top">{item.position + 1}</td>
                   <td>
-                    <div class="font-medium">{item.source_title || item.source_track_id}</div>
-                    <div class="text-xs opacity-60">
-                      {item.source_artist}<.album name={item.source_album} />
+                    <div class="flex items-start gap-3">
+                      <.cover url={item.source_artwork_url} available?={@source_artwork?} />
+                      <div class="min-w-0">
+                        <div class="font-medium">{item.source_title || item.source_track_id}</div>
+                        <div class="text-xs opacity-60">
+                          {item.source_artist}<.album name={item.source_album} />
+                        </div>
+                      </div>
                     </div>
 
                     <%!-- What it actually chose. A row used to carry only the
@@ -305,9 +311,17 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                       :if={item.destination_title}
                       class="text-xs mt-1 pl-3 border-l-2 border-base-300"
                     >
-                      <div class="opacity-80">{item.destination_title}</div>
-                      <div class="opacity-50">
-                        {item.destination_artist}<.album name={item.destination_album} />
+                      <div class="flex items-start gap-2">
+                        <.cover
+                          url={item.destination_artwork_url}
+                          available?={@destination_artwork?}
+                        />
+                        <div class="min-w-0">
+                          <div class="opacity-80">{item.destination_title}</div>
+                          <div class="opacity-50">
+                            {item.destination_artist}<.album name={item.destination_album} />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -319,6 +333,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                       :if={@expanded == item.position}
                       item={item}
                       correcting={@correcting}
+                      artwork?={@destination_artwork?}
                     />
                   </td>
                   <td class="align-top"><.outcome outcome={item.outcome} /></td>
@@ -373,6 +388,32 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     """
   end
 
+  attr :url, :string, default: nil
+  attr :available?, :boolean, default: false
+
+  # A cover, or a placeholder, or nothing at all — and the difference between
+  # the last two is the point of the `:artwork` capability.
+  #
+  # A blank square where a service *does* publish covers says "this one has
+  # none", which is information. A blank square where the service publishes none
+  # at all says nothing and draws a column of grey boxes down the report, so
+  # nothing is rendered there and the row keeps its width.
+  #
+  # `loading="lazy"` because a hundred-row page would otherwise fetch a hundred
+  # images to draw the first ten.
+  defp cover(assigns) do
+    ~H"""
+    <img
+      :if={@url}
+      src={@url}
+      alt=""
+      loading="lazy"
+      class="w-10 h-10 rounded shrink-0 object-cover bg-base-300"
+    />
+    <div :if={is_nil(@url) and @available?} class="w-10 h-10 rounded shrink-0 bg-base-300"></div>
+    """
+  end
+
   attr :name, :string, default: nil
 
   # An album title is the title of a work, and titles of works are set in
@@ -390,6 +431,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   attr :item, :map, required: true
   attr :correcting, :any, default: nil
+  attr :artwork?, :boolean, default: false
 
   # What the engine found and refused, with the reason for each. This is the
   # part that makes a correction a *decision* rather than a guess: the engine
@@ -415,14 +457,19 @@ defmodule OnePlaylistWeb.TransferLive.Show do
             disabled={@correcting != nil}
             class="w-full text-left rounded-btn px-2 py-1.5 hover:bg-base-300 transition-colors disabled:opacity-50"
           >
-            <div class="flex items-baseline justify-between gap-3">
-              <span class="font-medium text-sm truncate">{candidate.title}</span>
-              <span class="text-xs opacity-60 shrink-0">{rejection(candidate)}</span>
-            </div>
-            <div class="text-xs opacity-60 truncate">
-              {candidate.artist}<.album name={candidate.album} /><span :if={candidate.duration_seconds}> · {duration(
-                candidate.duration_seconds
-              )}</span>
+            <div class="flex items-center gap-3">
+              <.cover url={candidate.artwork_url} available?={@artwork?} />
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-3">
+                  <span class="font-medium text-sm truncate">{candidate.title}</span>
+                  <span class="text-xs opacity-60 shrink-0">{rejection(candidate)}</span>
+                </div>
+                <div class="text-xs opacity-60 truncate">
+                  {candidate.artist}<.album name={candidate.album} /><span :if={candidate.duration_seconds}> · {duration(
+                    candidate.duration_seconds
+                  )}</span>
+                </div>
+              </div>
             </div>
           </button>
         </li>
@@ -575,6 +622,14 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   defp assign_transfer(socket, transfer) do
     socket
     |> assign(:transfer, transfer)
+    # Asked once per transfer rather than once per row. Whether a service
+    # publishes covers is a fact about the service, and 5,000 rows asking it
+    # separately would be 5,000 identical answers.
+    |> assign(:source_artwork?, Providers.supports?(transfer.source_provider, :artwork))
+    |> assign(
+      :destination_artwork?,
+      Providers.supports?(transfer.destination_provider, :artwork)
+    )
     |> assign(:page_title, transfer.source_playlist_name || "Transfer")
     |> load_first_page()
   end

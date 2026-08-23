@@ -63,6 +63,41 @@ defmodule OnePlaylist.Providers.Adapter do
   """
   @type tokens :: Tokens.t()
 
+  @typedoc """
+  Something a service can do that another cannot.
+
+  Deliberately **only what varies**. Every adapter searches, creates a playlist
+  and appends to it, so declaring those would be noise that has to be kept in
+  step for no reader's benefit. A capability earns its place here when code has
+  to know the answer *before* calling — which is the whole distinction between
+  this and simply looking at what came back.
+
+    * `:artwork` — tracks carry a cover image URL. TIDAL returns one in the same
+      response as the track, through an `albums.coverArt` relationship, so it
+      costs nothing. Subsonic's cover endpoint requires credentials on the
+      request, so a URL from it could not be put in an `img` tag without leaking
+      them; that is a design problem rather than a missing field, and until it
+      is solved Subsonic honestly does not have this.
+
+    * `:remove_tracks` — a track can be taken *out* of a playlist. Nothing here
+      can, which is why there is no `remove_tracks/4` callback, and it is
+      declared anyway: it is the reason
+      `OnePlaylistWeb.TransferLive.Show` offers a correction only on rows where
+      nothing was added, and a reason a reader can check beats a comment. It is
+      also what a Replace-mode scheduled sync will need — see
+      `docs/reference/domain.md` on how Soundiiz handles the same wall.
+  """
+  @type capability :: :artwork | :remove_tracks
+
+  @doc """
+  What this service can do that others may not.
+
+  Absent from the list means "no", so a new capability defaults to unsupported
+  everywhere until an adapter claims it. That is the safe direction: the cost of
+  wrongly claiming a capability is a call that fails against a live service.
+  """
+  @callback capabilities() :: [capability()]
+
   @doc """
   The provider this adapter serves.
 

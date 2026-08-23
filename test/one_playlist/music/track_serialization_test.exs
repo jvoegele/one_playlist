@@ -35,6 +35,7 @@ defmodule OnePlaylist.Music.TrackSerializationTest do
           duration <- maybe(integer(0..7200)),
           explicit <- maybe(boolean()),
           popularity <- maybe(float(min: 0.0, max: 1.0)),
+          artwork_url <- maybe(text()),
           artists <- list_of(text(), max_length: 3)
         ) do
       %Track{
@@ -50,6 +51,7 @@ defmodule OnePlaylist.Music.TrackSerializationTest do
         duration_seconds: duration,
         explicit: explicit,
         popularity: popularity,
+        artwork_url: artwork_url,
         artists: artists
       }
     end

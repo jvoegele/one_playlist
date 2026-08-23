@@ -58,6 +58,8 @@ defmodule OnePlaylist.Transfers.TransferItem do
           source_track_id: String.t() | nil,
           candidates: [map()],
           source_album: String.t() | nil,
+          source_artwork_url: String.t() | nil,
+          destination_artwork_url: String.t() | nil,
           destination_title: String.t() | nil,
           destination_artist: String.t() | nil,
           destination_album: String.t() | nil,
@@ -77,6 +79,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
     field :source_title, :string
     field :source_artist, :string
     field :source_album, :string
+    field :source_artwork_url, :string
 
     field :outcome, Ecto.Enum, values: @outcomes
     field :destination_track_id, :string
@@ -87,6 +90,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
     field :destination_title, :string
     field :destination_artist, :string
     field :destination_album, :string
+    field :destination_artwork_url, :string
     field :confidence, :string
     field :score, :float
     field :strategy, :string
@@ -203,6 +207,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
       destination_title: match.track.title,
       destination_artist: List.first(match.track.artists),
       destination_album: match.track.album,
+      destination_artwork_url: match.track.artwork_url,
       confidence: to_string(match.confidence),
       score: match.score,
       strategy: to_string(match.strategy)
@@ -267,7 +272,8 @@ defmodule OnePlaylist.Transfers.TransferItem do
       source_track_id: source.provider_id,
       source_title: source.title,
       source_artist: Track.primary_artist(source),
-      source_album: source.album
+      source_album: source.album,
+      source_artwork_url: source.artwork_url
     })
   end
 end

@@ -97,7 +97,8 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       artists: related_names(resource, "artists", index),
       duration_seconds: Payload.duration(attributes["duration"]),
       explicit: attributes["explicit"],
-      popularity: attributes["popularity"]
+      popularity: attributes["popularity"],
+      artwork_url: artwork_url(album, index)
     }
   end
 
@@ -299,6 +300,45 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
         _other -> []
       end
     end)
+  end
+
+  # A cover image, one relationship hop past the album. TIDAL models artwork as
+  # its own resource — `albums.coverArt` — so it arrives in the same response
+  # whenever the include chain asks for it, and costs no extra request.
+  #
+  # `nil` all the way down when the caller did not include it, which is most of
+  # them: the artwork is for a person choosing between candidates, not for the
+  # matching engine, which never looks at it.
+  defp artwork_url(album, index) do
+    album
+    |> related_resource("coverArt", index)
+    |> get_in(["attributes", "files"])
+    |> List.wrap()
+    |> smallest_usable_file()
+  end
+
+  # The smallest file that still looks sharp in a report row, rather than the
+  # first or the largest. TIDAL offers the same cover from 80px to 1280px, and a
+  # hundred-row report that reached for 1280 would pull tens of megabytes to draw
+  # thumbnails.
+  @thumbnail_px 160
+
+  defp smallest_usable_file([]), do: nil
+
+  defp smallest_usable_file(files) do
+    sized = Enum.filter(files, &is_integer(get_in(&1, ["meta", "width"])))
+
+    big_enough = Enum.filter(sized, &(get_in(&1, ["meta", "width"]) >= @thumbnail_px))
+
+    # Falls back to the largest available rather than to nothing: a cover only
+    # published at 80px is still better than a blank square.
+    chosen =
+      case big_enough do
+        [] -> Enum.max_by(sized, &get_in(&1, ["meta", "width"]), fn -> nil end)
+        candidates -> Enum.min_by(candidates, &get_in(&1, ["meta", "width"]))
+      end
+
+    Payload.text(chosen["href"])
   end
 
   defp related_resource(resource, relationship, index) do

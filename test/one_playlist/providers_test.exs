@@ -6,6 +6,11 @@ defmodule OnePlaylist.ProvidersTest do
   # `Errata.create/2` is a macro, so the calling module has to require Errata.
   use Errata
 
+  # The capability declarations are the point of `supports?/2`, and nothing
+  # else asserts them: TIDAL quietly dropping `:artwork` would only show up as
+  # covers disappearing from a page.
+  doctest OnePlaylist.Providers, only: [supports?: 2]
+
   alias Ecto.Adapters.SQL
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Connection

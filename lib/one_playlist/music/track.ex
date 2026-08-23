@@ -54,6 +54,11 @@ defmodule OnePlaylist.Music.Track do
     :duration_seconds,
     :explicit,
     :popularity,
+    # A cover image, where the provider gives one away for free. See
+    # `OnePlaylist.Providers.Adapter`'s `:artwork` capability for why "free" is
+    # the qualifier that matters: an image needing its own authenticated request
+    # per track is a different feature.
+    :artwork_url,
     artists: []
   ]
 
@@ -70,6 +75,7 @@ defmodule OnePlaylist.Music.Track do
           duration_seconds: non_neg_integer() | nil,
           explicit: boolean() | nil,
           popularity: number() | nil,
+          artwork_url: String.t() | nil,
           artists: [String.t()]
         }
 
@@ -263,6 +269,7 @@ defmodule OnePlaylist.Music.Track do
       duration_seconds: fetch(attrs, :duration_seconds),
       explicit: fetch(attrs, :explicit),
       popularity: fetch(attrs, :popularity),
+      artwork_url: fetch(attrs, :artwork_url),
       artists: fetch(attrs, :artists) || []
     }
   end
