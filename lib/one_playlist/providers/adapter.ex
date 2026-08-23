@@ -211,6 +211,23 @@ defmodule OnePlaylist.Providers.Adapter do
   requires that a retried transfer must not duplicate, and the only way to keep
   that promise is to look before writing.
   """
+  # These ids are not data to display, they are **identity keys**: `Runner`
+  # builds a `MapSet` from them and tests `match.track.provider_id` for
+  # membership to decide whether a track needs writing. So an id that is not a
+  # usable key does not fail — it answers the membership question wrongly, in
+  # whichever direction is worse:
+  #
+  #   * a blank or mistyped id that should have matched reads as *absent*, and
+  #     the track is written again — a duplicate in somebody's playlist that no
+  #     later run can tell from one they added themselves;
+  #   * a blank id that collides with a blank `provider_id` reads as *present*,
+  #     and the track is silently never written at all.
+  #
+  # Both break the idempotency promise `docs/reference/domain.md` makes, and
+  # neither raises. `to_string(nil)` is `""`, which is the realistic way a
+  # provider omitting an id arrives here rather than a hypothetical one.
+  @post whenever({:ok, ids} <- result),
+    ids_are_usable_keys: forall(id <- ids, is_binary(id) and id != "")
   @callback playlist_track_ids(
               connection :: Connection.t(),
               playlist :: String.t() | Playlist.t(),

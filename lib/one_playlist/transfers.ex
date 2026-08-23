@@ -19,6 +19,8 @@ defmodule OnePlaylist.Transfers do
   alias OnePlaylist.Transfers.TransferItem
   alias OnePlaylist.Transfers.TransferWorker
 
+  use Bond
+
   require Logger
   require WaitForIt
 
@@ -208,6 +210,26 @@ defmodule OnePlaylist.Transfers do
   The items are upserted on `(transfer_id, position)`, which is what makes a
   re-run rewrite its report rather than append a second copy of it.
   """
+  # The claim the docstring above makes, stated where it can be checked.
+  #
+  # `counted` and `items` are built by two separate folds over the same
+  # resolutions in `Runner.finish/4` — one accumulating integers onto the
+  # transfer, the other building a row per track. Nothing held them in step. A
+  # fold that miscounts produces a report and a summary that disagree, and the
+  # summary is what the transfer list shows: "8/10 matched" above a report with
+  # nine matched rows in it. Neither number is obviously the wrong one, and
+  # nothing raises.
+  #
+  # A precondition rather than a postcondition because the caller is the one
+  # with the bug, and because it names it *before* the write rather than after —
+  # a half-written report is worse than none, since it looks complete.
+  #
+  # Strictly stronger than `Runner.run/1`'s `reported_every_track`, which counts
+  # the rows and stops there: ten rows against ten tracks passes that assertion
+  # even when seven are unmatched and the counter says three. This is also the
+  # cheaper of the two, since both values are already in hand and it needs no
+  # query.
+  @pre report_agrees_with_counters: TransferItem.tally(items) == Transfer.tally(counted)
   @spec record_run(Transfer.t(), Transfer.t(), [map()]) ::
           {:ok, Transfer.t()} | {:error, term()}
   def record_run(%Transfer{} = transfer, %Transfer{} = counted, items) do

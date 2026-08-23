@@ -71,6 +71,48 @@ defmodule OnePlaylist.Transfers.TransferItem do
   def outcomes, do: @outcomes
 
   @doc """
+  Counts a set of report rows by what happened to them.
+
+  The shape matches `OnePlaylist.Transfers.Transfer.tally/1` exactly, and that is
+  the point: the counters on a transfer and the rows of its report are built by
+  two separate folds over the same resolutions, and this is what lets them be
+  compared rather than assumed to agree. See the precondition on
+  `OnePlaylist.Transfers.record_run/3`.
+
+  Accepts rows in either representation — the plain maps `matched/4` and
+  `unmatched/4` return before they are written, and the `%TransferItem{}` structs
+  that come back out of the database.
+
+      iex> alias OnePlaylist.Transfers.TransferItem
+      iex> TransferItem.tally([%{outcome: :matched}, %{outcome: :already_present}, %{outcome: :unmatched}])
+      %{total: 3, matched: 2, added: 1, unmatched: 1}
+
+  A row whose outcome is missing or unrecognised counts toward `total` and
+  nothing else, which is deliberate: the comparison then fails and says so,
+  rather than the tally raising from inside an assertion.
+  """
+  @spec tally(Enumerable.t()) :: %{
+          total: non_neg_integer(),
+          matched: non_neg_integer(),
+          added: non_neg_integer(),
+          unmatched: non_neg_integer()
+        }
+  def tally(items) do
+    Enum.reduce(items, %{total: 0, matched: 0, added: 0, unmatched: 0}, fn item, acc ->
+      acc = %{acc | total: acc.total + 1}
+
+      case Map.get(item, :outcome) do
+        # `matched_count` counts everything that resolved; `added_count` only
+        # what was actually written. The difference is what a re-run looks like.
+        :matched -> %{acc | matched: acc.matched + 1, added: acc.added + 1}
+        :already_present -> %{acc | matched: acc.matched + 1}
+        :unmatched -> %{acc | unmatched: acc.unmatched + 1}
+        _absent_or_unrecognised -> acc
+      end
+    end)
+  end
+
+  @doc """
   The row for a track that resolved.
 
   `added?` decides between `:matched` and `:already_present`; everything else

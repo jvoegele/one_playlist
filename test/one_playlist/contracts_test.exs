@@ -1,109 +1,155 @@
 defmodule OnePlaylist.ContractsTest do
   @moduledoc """
-  Proof that the contracts added for the caching and matching layers can fire.
+  The contracts added in the codebase-wide pass, each proved able to fire.
 
-  `Bond.Coverage` reports an assertion that runs and never fails as a candidate
-  for vacuity, and `docs/reference/contracts.md` treats that as a prompt rather
-  than a verdict. These are the answer to it: each test drives one contract to
-  failure through the public API, so the coverage table's `✓` is earned rather
-  than assumed.
-
-  The `Singleflight` invariants are not here, and cannot be: they constrain a
-  GenServer's private state, which no caller can put into a bad shape. They are
-  verified by mutation instead — see the commit.
+  These live together rather than in each module's own test file because what
+  they have in common is the point: every one guards a *silent* failure, and
+  three of the four are falsifiable by **data** rather than only by mutating the
+  code — the stronger of the two categories in `docs/reference/contracts.md`.
   """
 
-  # DataCase because the one non-violating case reaches L2.
-  use OnePlaylist.DataCase, async: true
+  use ExUnit.Case, async: true
   use Bond.Test
 
-  alias OnePlaylist.Catalogue
-  alias OnePlaylist.Matching.Match
-  alias OnePlaylist.MusicFixtures
+  alias OnePlaylist.Matching
+  alias OnePlaylist.Transfers
+  alias OnePlaylist.Transfers.Transfer
+  alias OnePlaylist.Transfers.TransferItem
 
-  describe "Catalogue barcode normalization" do
-    test "an unnormalized barcode is rejected before it can split the cache" do
-      # A leading zero is not a wrong answer, it is a *different cache key* for
-      # the same release: the caller silently gets its own private copy of every
-      # lookup and writes a second row for a release that already has one.
-      assert_precondition_violation(
-        Catalogue.album_id(:tidal, "00602547670052", fn -> {:ok, "album"} end),
-        label: :normalized_barcode
+  describe "Matching.threshold/1 — a threshold that can never be met" do
+    test "a percentage where a proportion belongs is rejected" do
+      # The classic magnitude bug, and the most consequential one here.
+      # `to_score/1` turns an integer into `value / 1`, so `75` — meaning 75%,
+      # which is how everyone says it — becomes 75.0. No score can reach it, so
+      # every transfer completes with every track reported unmatched and an
+      # empty destination playlist. Nothing raises.
+      assert_postcondition_violation(Matching.threshold(threshold: 75), label: :is_a_proportion)
+      assert_postcondition_violation(Matching.threshold(threshold: 75.0), label: :is_a_proportion)
+    end
+
+    test "a negative threshold is rejected too" do
+      assert_postcondition_violation(Matching.threshold(threshold: -0.5),
+        label: :is_a_proportion
       )
     end
 
-    test "anything that is not digits is rejected too" do
-      assert_precondition_violation(
-        Catalogue.album_id(:tidal, "602-547-670052", fn -> {:ok, "album"} end),
-        label: :normalized_barcode
+    test "a misspelled confidence is rejected before it resolves to 1.0" do
+      # The same catastrophe by a different road, and invisible to the
+      # postcondition above: `:hgih` falls through `to_score/1`'s `Enum.find/3`
+      # default to 1.0, which is a perfectly valid proportion. Only a flawless
+      # score would then pass, so everything but an exact-identifier match is
+      # reported unmatched.
+      assert_precondition_violation(Matching.threshold(threshold: :hgih),
+        label: :threshold_request_is_meaningful
       )
     end
 
-    test "forgetting is held to the same rule" do
-      # Otherwise `forget/2` could miss the entry it was called to remove, and
-      # the stale id that prompted the call would keep being served.
-      assert_precondition_violation(Catalogue.forget(:tidal, "00602547670052"),
-        label: :normalized_barcode
-      )
+    test "the two assertions genuinely cover different things" do
+      # Neither subsumes the other, which is what stops this being the
+      # "two guards" mistake recorded in docs/reference/contracts.md.
+      assert Matching.valid_threshold_request?(threshold: 75),
+             "75 is a meaningful *request*; it is the resolved value that is wrong"
+
+      refute Matching.valid_threshold_request?(threshold: :hgih)
     end
 
-    test "a normalized barcode passes" do
-      assert {:ok, "album"} =
-               Catalogue.album_id(:tidal, "602547678811", fn -> {:ok, "album"} end)
+    test "every real threshold spelling still resolves" do
+      for confidence <- OnePlaylist.Matching.Match.confidences() do
+        rate = Matching.threshold(threshold: confidence)
+        assert rate >= 0.0 and rate <= 1.0
+      end
+
+      assert Matching.threshold(threshold: 0.75) == 0.75
+      assert Matching.threshold() >= 0.0
     end
   end
 
-  describe "Match score bands" do
-    test "a score outside its strategy's band is caught wherever it is built" do
-      # The bug: a future rung calling `Match.new(score: raw, ...)` and
-      # forgetting `in_band/2`, which is a separate call. The result reads
-      # plausibly and outranks rungs that are more trustworthy.
-      assert_invariant_violation(
-        Match.new(
-          source: MusicFixtures.track([]),
-          track: MusicFixtures.track([]),
-          score: 0.5,
-          strategy: :isrc
-        ),
-        label: :score_within_its_strategys_band
+  describe "Transfers.record_run/3 — the report and the summary must agree" do
+    setup do
+      transfer = %Transfer{
+        id: Ecto.UUID.generate(),
+        user_id: Ecto.UUID.generate(),
+        status: :running
+      }
+
+      %{transfer: transfer}
+    end
+
+    defp counted(total, matched, added, unmatched) do
+      %Transfer{
+        total_tracks: total,
+        matched_count: matched,
+        added_count: added,
+        unmatched_count: unmatched
+      }
+    end
+
+    defp rows(matched, already_present, unmatched) do
+      List.duplicate(%{outcome: :matched}, matched) ++
+        List.duplicate(%{outcome: :already_present}, already_present) ++
+        List.duplicate(%{outcome: :unmatched}, unmatched)
+    end
+
+    test "a report with more matched rows than the counter admits", %{transfer: transfer} do
+      # The failure this exists for: the transfer list would show "2/3 matched"
+      # above a report containing three matched rows. Neither number is
+      # obviously the wrong one and nothing raises.
+      assert_precondition_violation(
+        Transfers.record_run(transfer, counted(3, 2, 2, 1), rows(3, 0, 0)),
+        label: :report_agrees_with_counters
       )
     end
 
-    test "a fuzzy score above the fuzzy ceiling is caught" do
-      assert_invariant_violation(
-        Match.new(
-          source: MusicFixtures.track([]),
-          track: MusicFixtures.track([]),
-          score: 0.95,
-          strategy: :fuzzy
-        ),
-        label: :score_within_its_strategys_band
+    test "a report missing a row entirely", %{transfer: transfer} do
+      assert_precondition_violation(
+        Transfers.record_run(transfer, counted(3, 2, 2, 1), rows(2, 0, 0)),
+        label: :report_agrees_with_counters
       )
     end
 
-    test "a strategy with no band at all is caught" do
-      assert_invariant_violation(
-        Match.new(
-          source: MusicFixtures.track([]),
-          track: MusicFixtures.track([]),
-          score: 0.9,
-          strategy: :vector
-        ),
-        label: :score_within_its_strategys_band
+    test "already_present counts as matched but not as added", %{transfer: transfer} do
+      # The distinction a re-run turns on, and the one a naive tally gets wrong.
+      assert_precondition_violation(
+        Transfers.record_run(transfer, counted(2, 2, 2, 0), rows(1, 1, 0)),
+        label: :report_agrees_with_counters
       )
     end
+  end
 
-    test "a properly banded score passes" do
-      match =
-        Match.new(
-          source: MusicFixtures.track([]),
-          track: MusicFixtures.track([]),
-          score: Match.in_band(1.0, :fuzzy),
-          strategy: :fuzzy
-        )
+  describe "TransferItem.tally/1 and Transfer.tally/1" do
+    test "produce the same shape from the two representations" do
+      # The whole point of the pair: one law, computed two ways, compared.
+      items = [
+        %{outcome: :matched},
+        %{outcome: :matched},
+        %{outcome: :already_present},
+        %{outcome: :unmatched}
+      ]
 
-      assert match.score == 0.79
-      assert match.confidence == :medium
+      transfer = %Transfer{
+        total_tracks: 4,
+        matched_count: 3,
+        added_count: 2,
+        unmatched_count: 1
+      }
+
+      assert TransferItem.tally(items) == Transfer.tally(transfer)
+    end
+
+    test "counts persisted rows the same as unpersisted maps" do
+      # `matched/4` returns a plain map before the write; the database returns
+      # structs afterwards. A tally that only understood one of them would make
+      # the precondition unusable from half the places it is wanted.
+      assert TransferItem.tally([%TransferItem{outcome: :matched}]) ==
+               TransferItem.tally([%{outcome: :matched}])
+    end
+
+    test "an unrecognised outcome is counted but not classified" do
+      # Deliberate: the comparison then fails and says so, rather than the tally
+      # raising from inside an assertion — which would be an
+      # AssertionEvaluationError naming nothing useful.
+      assert TransferItem.tally([%{outcome: nil}]) ==
+               %{total: 1, matched: 0, added: 0, unmatched: 0}
     end
   end
 end

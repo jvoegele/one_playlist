@@ -521,6 +521,62 @@ edit — dropping the `trim: true` — fail loudly.
 Worth doing deliberately: when an assertion will not fire under mutation, check whether the
 body defends the property more than once before concluding the assertion is wrong.
 
+### Two assertions on one function are fine when neither can see the other's bug
+
+`Matching.threshold/1` carries a precondition *and* a postcondition, which looks like the
+"two guards" mistake above and is not. They catch the same catastrophe by different roads and
+are blind to each other:
+
+| Bad input | `is_number/1`? | Resolves to | Caught by |
+| --- | --- | --- | --- |
+| `threshold: 75` (a percentage) | yes — precondition passes | `75.0` | the postcondition |
+| `threshold: :hgih` (a typo) | no, but a known-confidence check fails | `1.0` — in range | the precondition |
+
+The second is the interesting one. `to_score/1` resolves an unrecognised confidence through
+`Enum.find/3`'s default to `1.0`, which is a perfectly valid proportion — so the postcondition
+waves it through, and only a flawless score ever matches again. The `1.0` default is not itself
+a bug: a *valid* confidence no text score can reach, like `:exact_isrc`, correctly resolves
+there too. That is exactly why the check has to be on **what was asked for** rather than on
+what came back.
+
+The test for redundancy is not "are there two assertions" but "can a single plausible edit or
+input falsify each independently". Here, both can, and each has a test.
+
+### Cross-check two accumulations of one truth, before the write
+
+The strongest contract found in the codebase-wide pass was a precondition, on
+`Transfers.record_run/3`:
+
+```elixir
+@pre report_agrees_with_counters: TransferItem.tally(items) == Transfer.tally(counted)
+```
+
+`Runner.finish/4` folds over the resolutions **twice** — once accumulating integers onto the
+transfer, once building a report row per track — and nothing held the two in step. A miscount
+in either fold produces a summary and a report that disagree: "8/10 matched" above a report
+with nine matched rows. Neither number is obviously wrong, and nothing raises.
+
+Three things make this shape worth looking for elsewhere:
+
+  * **The pair of `tally/1` functions exists only so the comparison can be written.** Making
+    two representations produce the same shape is often the whole work of stating the law.
+  * **A precondition, not a postcondition.** The caller has the bug, and naming it *before* the
+    write matters when a half-written report looks complete.
+  * **It is strictly stronger and cheaper than what was already there.**
+    `Runner.run/1`'s `reported_every_track` counts the rows with a database query; ten rows
+    against ten tracks satisfies it even when seven are unmatched and the counter says three.
+
+### A contract on dead code catches nothing
+
+`Transfer.match_rate/1` looked like an obvious candidate — a proportion, rendered in a UI, on a
+struct whose counters are independent columns. A postcondition was added, then removed: the
+function has **no callers anywhere**, in `lib/` or in tests. Its mutation test could not fire
+because nothing ran it.
+
+Check for callers before contracting a function. An assertion that never executes is the
+purest form of the thing `Bond.Coverage` exists to warn about, and it will not even show up as
+`⚠ never failed` — it will not appear in the table at all.
+
 ## Mechanics learned the hard way
 
 | Thing | What actually happens |

@@ -245,6 +245,51 @@ defmodule OnePlaylist.Providers.NavidromeTest do
     end
   end
 
+  describe "playlist track ids are identity keys" do
+    test "an entry the server sent without an id is caught" do
+      # These ids are not for display: `Runner` builds a MapSet from them and
+      # tests membership to decide what still needs writing. `to_string(nil)` is
+      # `""`, so a provider omitting an id on one entry silently corrupts the
+      # snapshot — and the failure is either a duplicate in somebody's playlist
+      # or a track never written, neither of which raises.
+      #
+      # Falsifiable by data rather than by mutation: no code change needed, just
+      # a server that answers this way.
+      Req.Test.stub(Navidrome, fn conn ->
+        Req.Test.json(
+          conn,
+          ok(%{
+            "playlist" => %{
+              "entry" => [song(), Map.delete(song(%{"id" => "s2"}), "id")]
+            }
+          })
+        )
+      end)
+
+      assert_postcondition_violation(Navidrome.playlist_track_ids(connection(), "pl-1"),
+        label: :ids_are_usable_keys
+      )
+    end
+
+    test "a well-formed playlist passes" do
+      Req.Test.stub(Navidrome, fn conn ->
+        Req.Test.json(conn, ok(%{"playlist" => %{"entry" => [song(), song(%{"id" => "s2"})]}}))
+      end)
+
+      assert {:ok, ["s1", "s2"]} = Navidrome.playlist_track_ids(connection(), "pl-1")
+    end
+
+    test "an empty playlist is not a violation" do
+      # `forall` over an empty list is vacuously true, which is the right answer:
+      # a playlist with nothing in it has no unusable ids.
+      Req.Test.stub(Navidrome, fn conn ->
+        Req.Test.json(conn, ok(%{"playlist" => %{}}))
+      end)
+
+      assert {:ok, []} = Navidrome.playlist_track_ids(connection(), "pl-1")
+    end
+  end
+
   describe "the server URL" do
     test "a trailing slash does not double the path" do
       # The classic self-hosted footgun: a user pastes the URL from their

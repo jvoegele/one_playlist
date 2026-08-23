@@ -189,11 +189,69 @@ defmodule OnePlaylist.Matching do
   up — the same reason
   `OnePlaylist.Providers.Tidal.Mapper.item_ids/1` is public.
   """
+  # A magnitude bug, and the most consequential one in this application.
+  #
+  # `to_score/1` passes a float straight through and turns an integer into
+  # `value / 1`, so a caller or a config file writing `threshold: 75` — meaning
+  # 75%, which is how everyone says it — gets `75.0`. Every score is at most
+  # `1.0`, so **nothing ever matches again**: every transfer completes, every
+  # track is reported unmatched, and the destination playlist is empty. Nothing
+  # raises, nothing is logged, and the report looks like an honest account of a
+  # catalogue that happens to contain none of the user's music.
+  #
+  # Unlike the assertions on `Normalize`, this one is falsifiable by *data*: it
+  # fires on `config :one_playlist, OnePlaylist.Matching, threshold: 75` with no
+  # code change at all. The DB path is separately validated by
+  # `Transfer.create_changeset/2`; config and direct callers had nothing.
+  #
+  # The precondition catches the *other* way to ask for an impossible threshold,
+  # and it is genuinely complementary rather than a second guard on one thing.
+  # A misspelled confidence — `threshold: :hgih` — resolves through
+  # `to_score/1`'s `Enum.find/3` default to `1.0`, which is in range, so the
+  # postcondition below waves it through. The effect is the same catastrophe by
+  # a different road: only a flawless score passes, so all but exact-identifier
+  # matches are reported unmatched. Neither assertion sees what the other does —
+  # `is_number(75)` satisfies the precondition, `:hgih` satisfies the
+  # postcondition.
+  #
+  # The 1.0 default is not itself a bug: a *valid* confidence no text score can
+  # reach, like `:exact_isrc`, correctly resolves to 1.0. That is exactly why the
+  # check has to be on what was asked for rather than on what came back.
+  @pre threshold_request_is_meaningful: valid_threshold_request?(opts)
+  @post is_a_proportion: result >= 0.0 and result <= 1.0
   @spec threshold(keyword()) :: float()
   def threshold(opts \\ []) do
     opts
     |> Keyword.get(:threshold, configured_threshold())
     |> to_score()
+  end
+
+  @doc """
+  Whether a threshold request names something this module can resolve.
+
+  Public because `threshold/1` names it in a **precondition**, and a
+  precondition is an obligation on the caller — one they can only discharge if
+  they can see and evaluate it. The same reasoning as
+  `OnePlaylist.Providers.Connection.now_after_creation?/2`.
+
+  Reads the configured default too, because a threshold can be misspelled in
+  `config/*.exs` just as easily as at a call site, and the configuration path
+  has nobody else checking it.
+
+      iex> alias OnePlaylist.Matching
+      iex> Matching.valid_threshold_request?(threshold: :high)
+      true
+      iex> Matching.valid_threshold_request?(threshold: :hgih)
+      false
+      iex> Matching.valid_threshold_request?(threshold: 0.8)
+      true
+  """
+  @spec valid_threshold_request?(keyword()) :: boolean()
+  def valid_threshold_request?(opts) do
+    case Keyword.get(opts, :threshold, configured_threshold()) do
+      confidence when is_atom(confidence) -> confidence in Match.confidences()
+      number -> is_number(number)
+    end
   end
 
   @doc """

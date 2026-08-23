@@ -195,6 +195,30 @@ defmodule OnePlaylist.Transfers.Transfer do
     do: transfer.matched_count / transfer.total_tracks
 
   @doc """
+  The counters, in the shape `OnePlaylist.Transfers.TransferItem.tally/1`
+  produces.
+
+  Exists so the two can be compared. A transfer's counters and its report are
+  accumulated by separate folds over the same resolutions, and until this pair
+  existed nothing checked that they came out agreeing — see the precondition on
+  `OnePlaylist.Transfers.record_run/3`.
+  """
+  @spec tally(t()) :: %{
+          total: non_neg_integer(),
+          matched: non_neg_integer(),
+          added: non_neg_integer(),
+          unmatched: non_neg_integer()
+        }
+  def tally(%__MODULE__{} = transfer) do
+    %{
+      total: transfer.total_tracks,
+      matched: transfer.matched_count,
+      added: transfer.added_count,
+      unmatched: transfer.unmatched_count
+    }
+  end
+
+  @doc """
   Whether a transfer's counters are consistent with each other.
 
   Public because the postconditions above name it, and an assertion rendered
