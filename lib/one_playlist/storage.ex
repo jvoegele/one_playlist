@@ -90,6 +90,15 @@ defmodule OnePlaylist.Storage do
   or not the upload succeeds — it holds a user's playlist, and `System.tmp_dir`
   is world-readable on a shared host.
   """
+  # Sobelow flags the `File.rm/1` below as possible directory traversal, at low
+  # confidence, because it cannot see where `tmp` comes from. It is
+  # `System.tmp_dir!/0` joined with a freshly generated UUID: no argument to this
+  # function reaches it, and `name` — the one value a user influences — goes into
+  # `path_for/3` for the *object* path, never into the local one.
+  #
+  # Skipped rather than restructured, and skipped by name so every other
+  # traversal finding in this file still fails the build.
+  # sobelow_skip ["Traversal.FileModule"]
   @spec put(Session.t(), kind(), String.t(), iodata()) ::
           {:ok, String.t()} | {:error, Errata.Error.t()}
   def put(%Session{} = session, kind, name, content) do
@@ -159,15 +168,24 @@ defmodule OnePlaylist.Storage do
   """
   @spec delete(Session.t(), String.t()) :: :ok | {:error, Errata.Error.t()}
   def delete(%Session{} = session, path) do
-    with {:ok, storage} <- storage(session),
-         {:ok, removed} <- StorageFile.remove(storage, path) do
-      if removed == [] do
-        {:error, Errata.create(Unavailable, reason: :not_found, context: %{operation: :delete})}
-      else
-        :ok
-      end
+    with {:ok, storage} <- storage(session) do
+      StorageFile.remove(storage, path)
     end
     |> classified(:delete)
+    |> case do
+      # Storage answers with the objects it actually removed, so an empty list
+      # is "the policy filtered it out" rather than "there was nothing to do".
+      # Decided here rather than inside `classified/2` so the rule is visible at
+      # the function it belongs to.
+      {:ok, []} ->
+        {:error, Errata.create(Unavailable, reason: :not_found, context: %{operation: :delete})}
+
+      {:ok, _removed} ->
+        :ok
+
+      {:error, _reason} = error ->
+        error
+    end
   end
 
   # Every public function above funnels its result through here, so the mapping
@@ -176,7 +194,6 @@ defmodule OnePlaylist.Storage do
   # An `Unavailable` passes through unchanged: it came from `storage/1`, which
   # has already classified the one failure it can produce. Anything else is a
   # `Supabase.Error` or something unforeseen, and gets classified here.
-  defp classified(:ok, _operation), do: :ok
   defp classified({:ok, value}, _operation), do: {:ok, value}
   defp classified({:error, %Unavailable{} = error}, _operation), do: {:error, error}
   defp classified({:error, reason}, operation), do: {:error, unavailable(reason, operation)}
