@@ -114,7 +114,12 @@ defmodule OnePlaylist.TransfersTest do
         # Candidate lookup by ISRC.
         conn.method == "GET" and path == "/v2/tracks" ->
           isrc = get_in(conn.query_params, ["filter", "isrc"])
-          source_id = String.replace(isrc || "", ~r/^ISRC|0+$/, "")
+          # Downcased because an ISRC is canonically upper case now, and this
+          # fixture derives its ids from one. `Music.Isrc.normalize/1` upcases
+          # at the parsing boundaries, so what arrives here is `ISRCS1000000`
+          # where the fixture's own ids are `s1`.
+          source_id =
+            isrc |> Kernel.||("") |> String.replace(~r/^ISRC|0+$/, "") |> String.downcase()
 
           if source_id in unmatchable do
             Req.Test.json(conn, %{"data" => [], "included" => []})

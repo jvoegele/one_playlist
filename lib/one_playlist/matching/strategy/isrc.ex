@@ -41,26 +41,18 @@ defmodule OnePlaylist.Matching.Strategy.Isrc do
   def score(_source, _candidate), do: nil
 
   @doc """
-  Canonical form of an ISRC: twelve alphanumeric characters, upper case.
+  Canonical form of an ISRC.
 
-  The standard is `CC-XXX-YY-NNNNN` and services print it with and without the
-  hyphens, so comparing the raw strings makes the same recording look like two.
-  Anything that is not twelve characters after stripping is rejected rather
-  than compared — a truncated or malformed identifier that happens to equal
-  another malformed one is not evidence of anything.
+  Delegates to `OnePlaylist.Music.Isrc.normalize/1`, which is where it lives
+  now. It moved because this module is about *comparing* two tracks, and a
+  lookup needs the same canonical form — `Tidal.candidates/3` sends an ISRC to
+  the provider, and normalising only at comparison time let a lower-case
+  identifier reach TIDAL and be rejected. See that module.
 
       iex> alias OnePlaylist.Matching.Strategy.Isrc
       iex> Isrc.normalize("gb-aye-06-01477")
       "GBAYE0601477"
-      iex> Isrc.normalize("nonsense")
-      nil
   """
   @spec normalize(String.t() | nil) :: String.t() | nil
-  def normalize(nil), do: nil
-
-  def normalize(value) when is_binary(value) do
-    normalized = value |> String.replace(~r/[^A-Za-z0-9]/, "") |> String.upcase()
-
-    if String.length(normalized) == 12, do: normalized
-  end
+  defdelegate normalize(value), to: OnePlaylist.Music.Isrc
 end

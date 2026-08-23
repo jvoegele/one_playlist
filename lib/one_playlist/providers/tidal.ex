@@ -25,6 +25,7 @@ defmodule OnePlaylist.Providers.Tidal do
 
   alias OnePlaylist.Catalogue
   alias OnePlaylist.Music.Barcode
+  alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers
@@ -137,8 +138,21 @@ defmodule OnePlaylist.Providers.Tidal do
 
   # ISRC first, always. It is one request, the results are exact, and it does
   # not need a scope this connection may not have.
-  defp candidates(connection, %Track{isrc: isrc}, opts) when is_binary(isrc) do
-    Client.tracks_by_isrc(connection.access_token, isrc, opts)
+  defp candidates(connection, %Track{isrc: isrc} = track, opts) when is_binary(isrc) do
+    # `Isrc.normalize/1` because a source can supply any spelling. Roon writes
+    # them in lower case and TIDAL rejects that outright, which failed 57 of 58
+    # tracks in a real import — every one that *had* an ISRC. Normalising at the
+    # parsing boundaries is the real fix; this is the belt to those braces, and
+    # it costs one function call on a path that is about to make a request.
+    case Isrc.normalize(isrc) do
+      nil ->
+        # Not an ISRC at all, so there is nothing to look up. Searching by name
+        # is strictly better than searching by a malformed identifier.
+        text_candidates(connection, track, opts)
+
+      canonical ->
+        by_isrc(connection, track, canonical, opts)
+    end
   end
 
   # No ISRC, but the source knows its release and its position on it. Find the
@@ -167,6 +181,24 @@ defmodule OnePlaylist.Providers.Tidal do
 
   defp candidates(connection, %Track{} = track, opts),
     do: text_candidates(connection, track, opts)
+
+  # An empty result stays authoritative: an ISRC identifies one recording, so a
+  # catalogue that does not have it does not have that recording, and searching
+  # by name instead would be looking for a *different* one. That is the false
+  # positive this application is organised against, and the release-position
+  # rung below is the deliberate recovery path for the case worth recovering.
+  #
+  # A *failed* lookup is a different thing and did not used to be treated as
+  # one. A rate limit, a network blip or a rejected identifier ended the search
+  # with no candidates at all, and the track came back unmatched having never
+  # been searched for by name. The rung below already fell back on error; this
+  # one now does too.
+  defp by_isrc(connection, track, isrc, opts) do
+    case Client.tracks_by_isrc(connection.access_token, isrc, opts) do
+      {:ok, found} -> {:ok, found}
+      {:error, _reason} -> text_candidates(connection, track, opts)
+    end
+  end
 
   # Needs this scope, which a connection authorized before it was
   # requested will not have — checked here because TIDAL reports its absence as

@@ -139,6 +139,57 @@ defmodule OnePlaylist.Providers.Tidal.SearchTest do
       assert {:ok, []} = Tidal.search_tracks(connection(["search.read"]), track)
     end
 
+    test "a lower-case ISRC is normalised before it reaches the provider" do
+      # The regression. TIDAL rejects a lower-case ISRC outright, and Roon writes
+      # them that way — 57 of 58 tracks in a real import failed, every one that
+      # had an ISRC. The parsing boundaries normalise now, and this is the
+      # backstop for a track built anywhere else.
+      Req.Test.stub(Tidal, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+
+        assert get_in(conn.query_params, ["filter", "isrc"]) == "GBAYE0601477"
+
+        Req.Test.json(conn, %{"data" => [], "included" => []})
+      end)
+
+      track = %Track{
+        provider: :file,
+        provider_id: "1",
+        isrc: "gb-aye-06-01477",
+        title: "Yesterday"
+      }
+
+      assert {:ok, []} = Tidal.search_tracks(connection(["search.read"]), track)
+    end
+
+    test "a failed ISRC lookup falls back to text rather than ending the search" do
+      # An empty result stays authoritative — an ISRC names one recording, so a
+      # catalogue without it does not have that recording. A *failed* lookup is
+      # different, and used not to be treated differently: a rate limit or a
+      # rejected identifier ended the search with no candidates at all, and the
+      # track came back unmatched having never been searched for by name.
+      Req.Test.stub(Tidal, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+
+        if conn.request_path == "/v2/tracks" do
+          Plug.Conn.send_resp(conn, 429, ~s({"errors":[{"detail":"slow down"}]}))
+        else
+          assert conn.request_path == "/v2/searchResults"
+          Req.Test.json(conn, @document)
+        end
+      end)
+
+      track = %Track{
+        provider: :file,
+        provider_id: "1",
+        isrc: "GBAYE0601477",
+        title: "Yesterday",
+        artists: ["The Beatles"]
+      }
+
+      assert {:ok, [_candidate | _rest]} = Tidal.search_tracks(connection(["search.read"]), track)
+    end
+
     test "falls back to text, querying title and artists together" do
       Req.Test.stub(Tidal, fn conn ->
         conn = Plug.Conn.fetch_query_params(conn)

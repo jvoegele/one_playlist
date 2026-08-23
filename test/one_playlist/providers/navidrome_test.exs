@@ -129,7 +129,13 @@ defmodule OnePlaylist.Providers.NavidromeTest do
     end
 
     test "tolerates a scalar ISRC from a different Subsonic server" do
-      assert %Track{isrc: "X"} = Mapper.track(song(%{"isrc" => "X"}))
+      assert %Track{isrc: "GBAYE0601477"} = Mapper.track(song(%{"isrc" => "GBAYE0601477"}))
+
+      # And a value that is not an ISRC is dropped rather than carried. Rung 1
+      # compares for exact equality, so two tracks both carrying "X" would match
+      # each other perfectly — a false positive out of two tags that say
+      # nothing. Tags are as untrusted as a spreadsheet cell.
+      assert %Track{isrc: nil} = Mapper.track(song(%{"isrc" => "X"}))
     end
 
     test "an absent or empty ISRC is nil, not an empty string" do

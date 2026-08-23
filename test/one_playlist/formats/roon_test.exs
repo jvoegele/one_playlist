@@ -63,16 +63,19 @@ defmodule OnePlaylist.Formats.RoonTest do
     assert Enum.map(better, & &1.album) |> Enum.uniq() |> length() == 2
   end
 
-  test "Roon writes ISRCs in lower case, and they still match", %{tracks: tracks} do
-    # ISO 3901 identifiers are case-insensitive, and rung 1 compares for exact
-    # equality — so this would silently kill the most trusted rung for every
-    # imported track if it were compared raw. `Isrc.normalize/1` already upcases,
-    # which is why the codec deliberately stores what the file said.
+  test "Roon writes ISRCs in lower case, and they are stored canonically", %{tracks: tracks} do
+    # This used to assert the opposite — that the codec stored what the file
+    # said, on the grounds that comparison normalises anyway. It does, and that
+    # was not enough: `Tidal.candidates/3` sends the ISRC to the provider, and
+    # TIDAL rejects a lower-case one outright. 57 of the 58 tracks in a real
+    # import of this playlist failed, and the only one that matched was the one
+    # row here with no ISRC at all.
+    #
+    # So the canonical form belongs to the value, not to one of its readers.
     raw = Enum.find(tracks, &(&1.title == "Rearviewmirror (Remastered)")).isrc
 
-    assert raw == "ussm11100219", "stored as written"
-    assert Isrc.normalize(raw) == "USSM11100219"
-    assert Isrc.normalize(raw) == Isrc.normalize("USSM11100219")
+    assert raw == "USSM11100219", "normalised on the way in, not on the way out"
+    assert Isrc.normalize(raw) == raw, "already canonical, so normalising again changes nothing"
   end
 
   test "version markers in titles survive for the matching engine to judge", %{tracks: tracks} do

@@ -22,6 +22,7 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
 
   use Bond
 
+  alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Payload
@@ -55,7 +56,7 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
     %Track{
       provider: @provider,
       provider_id: to_string(resource["id"]),
-      isrc: first_string(resource["isrc"]),
+      isrc: isrc(resource["isrc"]),
       title: resource["title"],
       album: resource["album"],
       album_upc: nil,
@@ -97,9 +98,16 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
   # different Subsonic implementation might send, because the protocol has
   # several servers and this field is an OpenSubsonic extension rather than part
   # of 1.16.1.
-  defp first_string(value) when is_binary(value), do: Payload.text(value)
-  defp first_string([first | _rest]) when is_binary(first), do: Payload.text(first)
-  defp first_string(_value), do: nil
+  # Normalised, not merely extracted. A Subsonic ISRC comes from a file tag,
+  # which is as untrusted as a spreadsheet cell — and an ISRC that is not in
+  # canonical form is rejected by the providers it is looked up against. See
+  # `OnePlaylist.Music.Isrc`.
+  defp isrc(value) when is_binary(value), do: value |> Payload.text() |> Isrc.normalize()
+
+  defp isrc([first | _rest]) when is_binary(first),
+    do: first |> Payload.text() |> Isrc.normalize()
+
+  defp isrc(_value), do: nil
 
   # `artists` is the OpenSubsonic structured field; `artist` is the 1.16.1
   # display string. Preferring the former keeps a multi-artist credit as

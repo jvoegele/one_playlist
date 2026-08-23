@@ -59,6 +59,7 @@ defmodule OnePlaylist.Formats.Csv do
   use Errata
 
   alias OnePlaylist.Formats.UnreadablePlaylist
+  alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Payload
 
@@ -329,7 +330,13 @@ defmodule OnePlaylist.Formats.Csv do
   # `nil` for a row that cannot become a searchable track. The caller drops it.
   defp track(row, index, position, provider) do
     title = Payload.text(at(row, index, "title"))
-    isrc = Payload.text(at(row, index, "isrc"))
+
+    # Canonicalised here rather than stored as written. An earlier version kept
+    # the file's spelling on the grounds that comparison normalises anyway —
+    # true, and not enough: `Tidal.candidates/3` sends the ISRC to the provider,
+    # and TIDAL rejects a lower-case one. Roon writes them lower case, and 57 of
+    # 58 tracks in a real import failed because of it.
+    isrc = row |> at(index, "isrc") |> Payload.text() |> Isrc.normalize()
 
     if is_nil(title) and is_nil(isrc) do
       nil
