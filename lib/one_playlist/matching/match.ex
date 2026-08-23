@@ -33,13 +33,14 @@ defmodule OnePlaylist.Matching.Match do
 
   use Bond
 
+  alias OnePlaylist.Matching.Confidence
   alias OnePlaylist.Music.Track
 
   @typedoc "Which rung of the ladder produced this."
-  @type strategy :: :isrc | :upc_position | :text | :fuzzy
+  @type strategy :: Confidence.strategy()
 
   @typedoc "The coarse name for a score."
-  @type confidence :: :exact_isrc | :exact_upc | :high | :medium | :low | :none
+  @type confidence :: Confidence.t()
 
   @type t :: %__MODULE__{
           source: Track.t(),
@@ -62,10 +63,6 @@ defmodule OnePlaylist.Matching.Match do
     alternatives: 0
   ]
 
-  # Ordered worst-to-best so `Enum.find/2` from the top reads naturally, and so
-  # `rank/1` can use the index directly.
-  @ordering [:none, :low, :medium, :high, :exact_upc, :exact_isrc]
-
   # The law that makes a score comparable across rungs, stated on the type
   # rather than at the one place that currently upholds it.
   #
@@ -80,13 +77,6 @@ defmodule OnePlaylist.Matching.Match do
   # it is constructed today.
   @invariant score_within_its_strategys_band: score_in_band?(subject)
 
-  @bands %{
-    isrc: {1.0, 1.0},
-    upc_position: {1.0, 1.0},
-    text: {0.80, 0.98},
-    fuzzy: {0.0, 0.79}
-  }
-
   @doc """
   Builds a match, deriving `confidence` from `score` and `strategy`.
 
@@ -97,7 +87,7 @@ defmodule OnePlaylist.Matching.Match do
   def new(fields) do
     match = struct!(__MODULE__, fields)
 
-    %{match | confidence: confidence_for(match.score, match.strategy)}
+    %{match | confidence: Confidence.for_score(match.score, match.strategy)}
   end
 
   @doc """
@@ -112,59 +102,14 @@ defmodule OnePlaylist.Matching.Match do
   """
   @spec score_in_band?(t()) :: boolean()
   def score_in_band?(%__MODULE__{score: score, strategy: strategy}) do
-    case Map.fetch(@bands, strategy) do
-      {:ok, {floor, ceiling}} -> is_float(score) and score >= floor and score <= ceiling
-      :error -> false
+    if strategy in Confidence.strategies() do
+      {floor, ceiling} = Confidence.band(strategy)
+
+      is_float(score) and score >= floor and score <= ceiling
+    else
+      false
     end
   end
-
-  @doc """
-  The name for a score produced by a given strategy.
-
-      iex> alias OnePlaylist.Matching.Match
-      iex> Match.confidence_for(1.0, :isrc)
-      :exact_isrc
-      iex> Match.confidence_for(0.93, :text)
-      :high
-      iex> Match.confidence_for(0.4, :fuzzy)
-      :none
-  """
-  # Takes a score and a strategy rather than a match, so there is no subject for
-  # the invariant to check on the way in. Deliberate: this is the function that
-  # *derives* a match's confidence, and it has to be callable before one exists.
-  @bond_warn_skipped_invariants false
-  @spec confidence_for(float(), strategy()) :: confidence()
-  def confidence_for(1.0, :isrc), do: :exact_isrc
-  def confidence_for(1.0, :upc_position), do: :exact_upc
-
-  def confidence_for(score, _strategy) when is_float(score) do
-    cond do
-      score >= 0.90 -> :high
-      score >= 0.75 -> :medium
-      score >= 0.50 -> :low
-      true -> :none
-    end
-  end
-
-  @doc """
-  Scales a strategy's raw `0.0..1.0` opinion into that strategy's band.
-
-  This is what makes scores comparable across rungs: a perfect fuzzy match
-  cannot outrank a mediocre text match, because a rung's confidence is bounded
-  by how much the *kind* of evidence it uses is worth.
-  """
-  @bond_warn_skipped_invariants false
-  @spec in_band(float(), strategy()) :: float()
-  def in_band(raw, strategy) when is_float(raw) do
-    {floor, ceiling} = Map.fetch!(@bands, strategy)
-
-    floor + raw * (ceiling - floor)
-  end
-
-  @doc "The band a strategy scores within, as `{floor, ceiling}`."
-  @bond_warn_skipped_invariants false
-  @spec band(strategy()) :: {float(), float()}
-  def band(strategy), do: Map.fetch!(@bands, strategy)
 
   @doc """
   Whether a match is at least as confident as `minimum`.
@@ -177,15 +122,8 @@ defmodule OnePlaylist.Matching.Match do
   """
   @spec at_least?(confidence() | t(), confidence()) :: boolean()
   def at_least?(%__MODULE__{confidence: confidence}, minimum),
-    do: at_least?(confidence, minimum)
+    do: Confidence.at_least?(confidence, minimum)
 
   def at_least?(confidence, minimum) when is_atom(confidence) and is_atom(minimum),
-    do: rank(confidence) >= rank(minimum)
-
-  @doc "Confidence names, worst first. Useful for building a threshold control."
-  @bond_warn_skipped_invariants false
-  @spec confidences() :: [confidence()]
-  def confidences, do: @ordering
-
-  defp rank(confidence), do: Enum.find_index(@ordering, &(&1 == confidence))
+    do: Confidence.at_least?(confidence, minimum)
 end

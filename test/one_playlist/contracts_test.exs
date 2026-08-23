@@ -56,7 +56,7 @@ defmodule OnePlaylist.ContractsTest do
     end
 
     test "every real threshold spelling still resolves" do
-      for confidence <- OnePlaylist.Matching.Match.confidences() do
+      for confidence <- OnePlaylist.Matching.Confidence.all() do
         rate = Matching.threshold(threshold: confidence)
         assert rate >= 0.0 and rate <= 1.0
       end

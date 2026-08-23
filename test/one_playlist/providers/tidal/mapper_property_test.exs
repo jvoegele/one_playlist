@@ -18,12 +18,13 @@ defmodule OnePlaylist.Providers.Tidal.MapperPropertyTest do
   use ExUnitProperties
 
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Payload
   alias OnePlaylist.Providers.Tidal.Mapper
 
-  describe "parse_iso8601_duration/1" do
+  describe "Payload.duration/1" do
     property "never raises, whatever it is handed" do
       check all(value <- term_that_might_be_a_duration()) do
-        result = Track.parse_iso8601_duration(value)
+        result = Payload.duration(value)
 
         # `is_integer/1` alone let a real bug through: ISO 8601 admits negative
         # components, so "PT-5S" parsed to -5 and this property passed. A
@@ -40,7 +41,7 @@ defmodule OnePlaylist.Providers.Tidal.MapperPropertyTest do
               seconds <- integer(0..59)
             ) do
         iso = "PT#{hours}H#{minutes}M#{seconds}S"
-        assert Track.parse_iso8601_duration(iso) == hours * 3600 + minutes * 60 + seconds
+        assert Payload.duration(iso) == hours * 3600 + minutes * 60 + seconds
       end
     end
   end

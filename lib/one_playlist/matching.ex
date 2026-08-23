@@ -49,6 +49,7 @@ defmodule OnePlaylist.Matching do
   use Bond
   use Errata
 
+  alias OnePlaylist.Matching.Confidence
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Matching.Report
   alias OnePlaylist.Matching.Signals
@@ -249,7 +250,7 @@ defmodule OnePlaylist.Matching do
   @spec valid_threshold_request?(keyword()) :: boolean()
   def valid_threshold_request?(opts) do
     case Keyword.get(opts, :threshold, configured_threshold()) do
-      confidence when is_atom(confidence) -> confidence in Match.confidences()
+      confidence when is_atom(confidence) -> confidence in Confidence.all()
       number -> is_number(number)
     end
   end
@@ -296,7 +297,7 @@ defmodule OnePlaylist.Matching do
   defp to_matches(opinions, source, strategy) do
     scored =
       Enum.map(opinions, fn {candidate, raw, evidence} ->
-        {candidate, Match.in_band(raw, strategy), evidence}
+        {candidate, Confidence.in_band(raw, strategy), evidence}
       end)
 
     # How many other candidates scored exactly the same, per score. Computed for
@@ -377,7 +378,7 @@ defmodule OnePlaylist.Matching do
     # rather than repeating its boundaries, so the two cannot drift.
     0..100
     |> Enum.map(&(&1 / 100))
-    |> Enum.find(1.0, &Match.at_least?(Match.confidence_for(&1, :text), confidence))
+    |> Enum.find(1.0, &Confidence.at_least?(Confidence.for_score(&1, :text), confidence))
   end
 
   defp configured_threshold do

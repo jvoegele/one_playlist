@@ -44,7 +44,7 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
         # wrong candidate over the threshold.
         #
         # `OnePlaylist.Providers.Tidal.Mapper` states the same law one level
-        # down, on `Track.parse_iso8601_duration/1`, and so does not repeat it
+        # down, on `OnePlaylist.Providers.Payload.duration/1`, and so does not repeat it
         # here. This mapper has no such parser — Subsonic sends seconds as an
         # integer and a private helper filters it — so without this the law is
         # written nowhere a caller can see.

@@ -51,7 +51,7 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       name: attributes["name"],
       description: Payload.text(attributes["description"]),
       track_count: Payload.count(attributes["numberOfItems"]),
-      duration_seconds: Track.parse_iso8601_duration(attributes["duration"]),
+      duration_seconds: Payload.duration(attributes["duration"]),
       created_at: Payload.timestamp(attributes["createdAt"]),
       updated_at: Payload.timestamp(attributes["lastModifiedAt"]),
       url: sharing_url(attributes["externalLinks"]),
@@ -95,7 +95,7 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
       # worth carrying, because it corroborates a text match strongly.
       album_upc: Payload.text(get_in(album, ["attributes", "barcodeId"])),
       artists: related_names(resource, "artists", index),
-      duration_seconds: Track.parse_iso8601_duration(attributes["duration"]),
+      duration_seconds: Payload.duration(attributes["duration"]),
       explicit: attributes["explicit"],
       popularity: attributes["popularity"]
     }

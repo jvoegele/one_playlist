@@ -22,6 +22,7 @@ defmodule OnePlaylist.MatchingPropertyTest do
   use Bond.PropertyTest
 
   alias OnePlaylist.Matching
+  alias OnePlaylist.Matching.Confidence
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Matching.Report
   alias OnePlaylist.Matching.Strategy
@@ -176,7 +177,7 @@ defmodule OnePlaylist.MatchingPropertyTest do
     property "a score always sits inside its strategy's band" do
       check all(source <- track_generator(), candidates <- candidates_generator()) do
         for match <- Matching.rank(source, candidates) do
-          {floor, ceiling} = Match.band(match.strategy)
+          {floor, ceiling} = Confidence.band(match.strategy)
 
           assert match.score >= floor and match.score <= ceiling,
                  "#{match.strategy} scored #{match.score}, outside #{floor}..#{ceiling}"
@@ -277,7 +278,7 @@ defmodule OnePlaylist.MatchingPropertyTest do
         [
           source: source,
           track: track,
-          score: Match.in_band(raw, strategy),
+          score: Confidence.in_band(raw, strategy),
           strategy: strategy
         ]
       end

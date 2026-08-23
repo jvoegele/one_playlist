@@ -611,6 +611,43 @@ Record the measured range in a comment next to the assertion. The next person to
 fail needs to know whether they broke the generator or drew badly, and only the range answers
 that.
 
+### Treat every `@bond_warn_skipped_invariants false` as a question
+
+Bond warns when a module declaring an `@invariant` has a public function that neither takes nor
+returns its struct. Suppressing it is sometimes right, but the suppression is worth auditing as
+a set: **a module with several is usually holding two abstractions.**
+
+`Matching.Match` had four. All were about the *scale* — `confidence_for/2`, `in_band/2`,
+`band/1`, `confidences/0` — while the struct is one match graded by it. The rules and an
+instance judged by the rules have different lifetimes: the scale is consulted before a match
+exists (to derive the name `new/1` stores) and long after (to compare one). Splitting out
+`Matching.Confidence` removed all four suppressions, and gave the scale contracts it could not
+have had while it was hiding in a struct module.
+
+That split also found a bug the old arrangement had kept invisible. `rank/1` is
+`Enum.find_index/2`, which answers `nil` for an unknown name — and under Elixir's term ordering
+an atom sorts above every number, so `nil >= 5` is `true`:
+
+```elixir
+Match.at_least?(:hgih, :exact_isrc)   #=> true
+```
+
+An unrecognised confidence outranked everything, so a typo would have cleared every threshold
+ever set: nothing flagged for review, and `Matching.threshold/1` resolving to the first score it
+tried. It is now a precondition, discharged at every call site.
+
+The remaining suppressions in this codebase are the two shapes that are genuinely right, and
+both are on `Providers.Tokens`:
+
+  * **One-hop delegation.** `from_oauth_response/2` builds nothing itself; it normalizes and
+    calls `new/1`, whose exit check fires. The linter reasons per function and cannot see that.
+  * **Deliberately contract-free.** `well_formed?/1` takes a bare parameter *so that* it has no
+    entry check to suppress — a predicate meant to be called from other modules' assertions
+    must carry no contracts of its own, by the Assertion Evaluation rule.
+
+Both are documented at the suppression. A suppression without a reason written beside it is the
+one to go back to.
+
 ### Duplicated private helpers are a missing module, and the module is where the contract goes
 
 Three helpers were byte-identical across `Tidal.Mapper` and `Subsonic.Mapper` —

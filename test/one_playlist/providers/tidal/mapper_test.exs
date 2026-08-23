@@ -9,6 +9,7 @@ defmodule OnePlaylist.Providers.Tidal.MapperTest do
 
   alias OnePlaylist.Music.Playlist
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Payload
   alias OnePlaylist.Providers.Tidal.Mapper
 
   @playlist %{
@@ -135,7 +136,7 @@ defmodule OnePlaylist.Providers.Tidal.MapperTest do
     test "a negative duration is rejected rather than returned" do
       # Regression: these parsed to -5 and -86_401 before the contract existed.
       for iso <- ["PT-5S", "-PT5S", "P-1DT-1S"] do
-        assert Track.parse_iso8601_duration(iso) == nil, "#{iso} must not yield a negative"
+        assert Payload.duration(iso) == nil, "#{iso} must not yield a negative"
       end
     end
 
@@ -191,18 +192,18 @@ defmodule OnePlaylist.Providers.Tidal.MapperTest do
     end
   end
 
-  describe "Track.parse_iso8601_duration/1" do
+  describe "Payload.duration/1" do
     test "parses what TIDAL sends" do
-      assert Track.parse_iso8601_duration("PT4M6S") == 246
-      assert Track.parse_iso8601_duration("PT3M") == 180
-      assert Track.parse_iso8601_duration("PT1H2M3S") == 3723
+      assert Payload.duration("PT4M6S") == 246
+      assert Payload.duration("PT3M") == 180
+      assert Payload.duration("PT1H2M3S") == 3723
     end
 
     test "returns nil rather than raising on anything unparseable" do
       # One missing duration costs a matching signal; an exception costs the
       # whole transfer.
       for value <- [nil, "", "banana", "240", 240] do
-        assert Track.parse_iso8601_duration(value) == nil
+        assert Payload.duration(value) == nil
       end
     end
   end
