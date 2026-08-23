@@ -440,7 +440,8 @@ A fresh session should read this before proposing what to build.
 | Files | CSV playlists read and written, round-trip property tested; a private Supabase Storage bucket with per-user policies |
 | Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
 | Export | Download a playlist as CSV at `/exports/new`, via a signed URL |
-| Pruning | Three nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, and old export files. The last calls the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
+| Pruning | Four nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, old export files, and uploads no transfer refers to. The last two call the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
+| Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
 | Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and

@@ -134,4 +134,70 @@ defmodule OnePlaylist.StoragePruningTest do
       assert queued() == nil
     end
   end
+
+  describe "orphaned imports" do
+    defp put_transfer(path) do
+      user = OnePlaylist.AuthFixtures.user_id_fixture()
+
+      {:ok, transfer} =
+        %OnePlaylist.Transfers.Transfer{}
+        |> OnePlaylist.Transfers.Transfer.create_changeset(%{
+          user_id: user,
+          source_provider: :file,
+          source_playlist_id: path,
+          source_playlist_name: "x.csv",
+          destination_provider: :tidal,
+          threshold: 0.75
+        })
+        |> Repo.insert()
+
+      transfer
+    end
+
+    defp prune_orphans(days) do
+      %{rows: [[requested]]} =
+        SQL.query!(Repo, "select public.prune_orphaned_imports(($1 || ' days')::interval)", [
+          to_string(days)
+        ])
+
+      requested
+    end
+
+    test "an upload no transfer refers to is swept" do
+      # Two ways this happens: a transfer deleted after its file, and an import
+      # whose transfer insert failed after the file was already stored. Storage
+      # has no rollback, so the second is not avoidable, only recoverable.
+      put_object(:imports, "abandoned.csv", 30)
+
+      assert prune_orphans(1) == 1
+      assert queued().body["prefixes"] == ["#{@user}/imports/abandoned.csv"]
+    end
+
+    test "an upload a transfer still points at is left alone" do
+      path = "#{@user}/imports/in-use.csv"
+      put_object(:imports, "in-use.csv", 30)
+      put_transfer(path)
+
+      assert prune_orphans(1) == 0
+      assert queued() == nil
+    end
+
+    test "a recent upload is spared, however orphaned it looks" do
+      # The window this closes is real: a file is stored a moment before the
+      # transaction that creates its transfer commits, so every successful
+      # upload is briefly an orphan.
+      put_object(:imports, "just-uploaded.csv", 0)
+
+      assert prune_orphans(1) == 0
+      assert queued() == nil
+    end
+
+    test "exports are not its business" do
+      # Their own job handles those, on a different rule: age rather than
+      # ownership. An export is never referenced by anything.
+      put_object(:exports, "old.csv", 30)
+
+      assert prune_orphans(1) == 0
+    end
+  end
 end

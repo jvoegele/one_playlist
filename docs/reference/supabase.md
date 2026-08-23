@@ -369,6 +369,21 @@ in `20260823180000_prune_stored_exports.exs`. Four things that cost time:
     URL, method and body, roll back, and nothing ever leaves the machine. Note `body` is
     `bytea`, so it needs `convert_from(body, 'UTF8')` before it is JSON again.
 
+### Storage has no rollback, so a transaction that touches it always leaks
+
+Not a bug, just a consequence worth designing around. `OnePlaylist.Imports.import/4` stores an
+upload before the transaction that creates its transfer, because there is no way to make the
+two atomic: Postgres can roll back its half, and Storage cannot roll back the file.
+
+So a failed insert leaves an object nobody refers to. The tests demonstrate it every run — the
+Ecto sandbox rolls back the transfer while Storage keeps the file, which had left 106 orphans
+by the time anybody counted.
+
+The answer is not to avoid it but to sweep it: `public.prune_orphaned_imports/1` deletes
+`imports` objects that no `transfers.source_playlist_id` points at. The grace period is the
+part that matters — every successful upload is briefly an orphan too, in the window between
+the file landing and the transaction committing, so a sweep with no grace would race it.
+
 ### Reads fail quietly; inserts fail loudly
 
 Worth knowing before you design around either, because the asymmetry is not obvious and it

@@ -14,7 +14,9 @@ defmodule OnePlaylist.Transfers do
 
   import Ecto.Query
 
+  alias OnePlaylist.Accounts.Session
   alias OnePlaylist.Repo
+  alias OnePlaylist.Storage
   alias OnePlaylist.Transfers.Transfer
   alias OnePlaylist.Transfers.TransferItem
   alias OnePlaylist.Transfers.TransferWorker
@@ -138,6 +140,53 @@ defmodule OnePlaylist.Transfers do
     case Repo.get(Transfer, id) do
       nil -> :error
       transfer -> {:ok, transfer}
+    end
+  end
+
+  @doc """
+  Deletes one of a user's transfers, and the file it came from.
+
+  `transfer_items` and `transfer_sources` go with it by foreign key. An uploaded
+  source file does not, because Storage is not in this database and has no
+  cascade.
+
+  ## The row goes first, deliberately
+
+  If the file were removed first and the row delete then failed, the user would
+  keep a transfer that looks intact and cannot be re-run — a broken state that
+  nothing detects. Removing the row first fails the other way: the file is
+  orphaned, and `public.prune_orphaned_imports/1` sweeps it up nightly. One
+  failure mode is silent and permanent, the other is noisy and self-healing.
+
+  The Storage delete is therefore best effort, and its result is deliberately
+  discarded.
+  """
+  # Runs privileged rather than under `Repo.as_user/3`, because `authenticated`
+  # holds only `select` on `transfers` — the grants say a user reads their
+  # transfers and the application writes them. The scoping is `fetch/2`'s, which
+  # is where it belongs: nothing here can address a row `fetch/2` would not
+  # return.
+  # Re-asks rather than trusting the return, which is the point: `:ok` from this
+  # function is a claim about the database, and a rewrite to `delete_all` with a
+  # wrong `where` would satisfy the type while removing nothing. One extra query
+  # on a rare operation.
+  @post whenever(:ok <- result, the_transfer_is_gone: fetch(user_id, id) == :error)
+  @spec delete(Session.t(), Ecto.UUID.t()) :: :ok | :error
+  def delete(%Session{user_id: user_id} = session, id) do
+    with {:ok, transfer} <- fetch(user_id, id),
+         {:ok, _deleted} <- Repo.delete(transfer) do
+      # `_ =` because the whole branch is discarded: whether the file went or
+      # not, the transfer is deleted and this answers `:ok`. Best effort by
+      # design — see the note above, an orphan is recoverable and a transfer
+      # pointing at a file that is gone is not.
+      _ =
+        if transfer.source_provider == :file do
+          Storage.delete(session, transfer.source_playlist_id)
+        end
+
+      :ok
+    else
+      _otherwise -> :error
     end
   end
 

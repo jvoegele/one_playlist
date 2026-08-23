@@ -486,4 +486,53 @@ defmodule OnePlaylist.TransfersTest do
       end
     end
   end
+
+  describe "delete/2" do
+    setup %{user: user} do
+      %{session: OnePlaylist.AuthFixtures.session_fixture(user_id: user)}
+    end
+
+    test "removes the transfer and everything hanging off it", %{user: user, session: session} do
+      transfer = transfer_for(user)
+
+      {:ok, _source} =
+        transfer.id
+        |> OnePlaylist.Transfers.Source.changeset(
+          user,
+          [%OnePlaylist.Music.Track{provider: :file, provider_id: "1", title: "A"}],
+          :csv
+        )
+        |> Repo.insert()
+
+      assert :ok = Transfers.delete(session, transfer.id)
+
+      assert Transfers.fetch(user, transfer.id) == :error
+      assert Repo.get(OnePlaylist.Transfers.Source, transfer.id) == nil
+    end
+
+    test "will not delete somebody else's", %{user: user} do
+      transfer = transfer_for(user)
+      stranger = OnePlaylist.AuthFixtures.session_fixture()
+
+      assert Transfers.delete(stranger, transfer.id) == :error
+      assert {:ok, _still_there} = Transfers.fetch(user, transfer.id)
+    end
+
+    test "answers the same for a stranger's transfer and a missing one", %{user: user} do
+      transfer = transfer_for(user)
+      stranger = OnePlaylist.AuthFixtures.session_fixture()
+
+      assert Transfers.delete(stranger, transfer.id) ==
+               Transfers.delete(stranger, Ecto.UUID.generate())
+    end
+
+    test "a provider-sourced transfer needs no file removed", %{user: user, session: session} do
+      # `source_playlist_id` is a provider's playlist id here, not a storage
+      # path. Handing it to Storage would ask to delete an object that never
+      # existed, under a path with somebody else's prefix.
+      transfer = transfer_for(user, %{source_provider: :tidal, source_playlist_id: "p1"})
+
+      assert :ok = Transfers.delete(session, transfer.id)
+    end
+  end
 end

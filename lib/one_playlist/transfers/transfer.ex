@@ -78,10 +78,19 @@ defmodule OnePlaylist.Transfers.Transfer do
 
   @type status :: :pending | :running | :completed | :failed
 
+  @typedoc """
+  Where a transfer's tracks come from.
+
+  Wider than `t:OnePlaylist.Providers.Connection.provider/0` by exactly one
+  value. A destination is a `Connection.provider()` and nothing else, because
+  exporting to a file needs no matching and lives in `OnePlaylist.Exports`.
+  """
+  @type source_provider :: Connection.provider() | :file
+
   @type t :: %__MODULE__{
           id: Ecto.UUID.t() | nil,
           user_id: Ecto.UUID.t() | nil,
-          source_provider: Connection.provider() | nil,
+          source_provider: source_provider() | nil,
           source_playlist_id: String.t() | nil,
           destination_provider: Connection.provider() | nil,
           destination_playlist_id: String.t() | nil,

@@ -46,6 +46,22 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   end
 
   @impl true
+  def handle_event("delete", _params, socket) do
+    # `Transfers.delete/2` is scoped by the session, so a forged id belonging to
+    # somebody else answers exactly as a missing one does — which is why both
+    # land in the same branch here rather than being told apart.
+    case Transfers.delete(socket.assigns.current_session, socket.assigns.transfer.id) do
+      :ok ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Transfer deleted.")
+         |> push_navigate(to: ~p"/transfers")}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That transfer could not be deleted.")}
+    end
+  end
+
   def handle_event("filter", %{"outcome" => outcome}, socket) do
     filter = String.to_existing_atom(outcome)
 
@@ -83,6 +99,19 @@ defmodule OnePlaylistWeb.TransferLive.Show do
           ]}>
             {@transfer.status}
           </span>
+
+          <%!-- `data-confirm` rather than a modal. A transfer takes provider
+                calls to rebuild and its report is not reproducible, so the one
+                irreversible action on this page should cost a deliberate
+                click. --%>
+          <button
+            phx-click="delete"
+            data-confirm={"Delete #{@transfer.source_playlist_name || "this transfer"} and its report?"}
+            class="btn btn-ghost btn-sm text-error shrink-0"
+          >
+            <.icon name="hero-trash" class="w-4 h-4" />
+            <span class="hidden sm:inline">Delete</span>
+          </button>
         </div>
 
         <div :if={@transfer.status in [:pending, :running]} class="mb-6">

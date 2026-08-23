@@ -194,6 +194,33 @@ defmodule OnePlaylistWeb.TransferLiveTest do
     end
   end
 
+  describe "deleting" do
+    test "removes the transfer and sends the user back to the list", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      transfer = transfer_fixture(user_id, %{source_playlist_name: "Road Trip"})
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert {:error, {:live_redirect, %{to: "/transfers"}}} =
+               view |> element("button[phx-click='delete']") |> render_click()
+
+      assert OnePlaylist.Transfers.fetch(user_id, transfer.id) == :error
+    end
+
+    test "asks first", %{conn: conn, user_id: user_id} do
+      # A transfer takes provider calls to rebuild and its report is not
+      # reproducible, so the one irreversible action on the page should cost a
+      # deliberate click.
+      transfer = transfer_fixture(user_id)
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert html =~ "data-confirm"
+    end
+  end
+
   describe "authorisation" do
     # These are about a *signed-in* user reaching something that is not theirs,
     # which is a different question from being signed in at all — and the one
