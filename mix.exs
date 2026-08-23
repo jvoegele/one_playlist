@@ -137,6 +137,13 @@ defmodule OnePlaylist.MixProject do
       # never reaches Postgres. See docs/reference/supabase.md.
       {:cloak_ecto, "~> 1.3"},
 
+      # Supabase Auth (GoTrue), via the community Elixir SDK. Used for the API
+      # calls only — `OnePlaylistWeb.UserAuth` keeps owning the session, the
+      # plug and the `on_mount`, because that is the layer that has to inject
+      # JWT claims into Postgres for RLS. See docs/reference/supabase.md.
+      {:supabase_potion, "~> 0.8"},
+      {:supabase_auth, "~> 1.0"},
+
       # First-party libraries, depended on by path so that improvements can flow
       # in both directions while this project dogfoods them. See CLAUDE.md.
       # `:errata` is overridden because `:external_service` also requires it from Hex.

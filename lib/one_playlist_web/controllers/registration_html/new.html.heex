@@ -1,0 +1,21 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="py-12">
+    <h1 class="text-2xl font-semibold text-center mb-2">Create an account</h1>
+    <p class="text-sm text-center opacity-70 mb-8">
+      One account, then connect as many music services as you like.
+    </p>
+
+    <.credentials_form
+      action={~p"/sign-up"}
+      submit_label="Create account"
+      password_autocomplete="new-password"
+      email={@email}
+      error_message={@error_message}
+      configured?={@configured?}
+    >
+      <:footer>
+        Already have an account? <.link navigate={~p"/sign-in"} class="link link-primary">Sign in</.link>.
+      </:footer>
+    </.credentials_form>
+  </div>
+</Layouts.app>

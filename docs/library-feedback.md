@@ -1035,3 +1035,32 @@ ones a reader most needs rendered legibly.
 
 Option 2 looks strictly better here, at the cost of one line of visual difference for anyone
 who has grown used to the current output.
+
+---
+
+## Bond — the coverage ETS table, again
+
+**Version:** 1.14.1 · **Found:** 2026-08-23, adding Supabase Auth
+
+`test/test_helper.exs` already carries a workaround for Bond creating its coverage table
+lazily inside whichever process first evaluates a contract (see the entry above). That
+workaround creates the table from the `test_helper` process so it outlives the run.
+
+The new information is that **the workaround can itself crash the suite**. Once, `:ets.new/2`
+in `test_helper.exs` raised `ArgumentError: table name already exists` and took the entire run
+down before a single test executed — something had created `:bond_coverage` first.
+
+The cause was not reproduced. Checked directly afterwards, the table is *not* present after a
+normal application start, so this is not simply "a contract runs during boot". Whatever the
+race is, the shape of the bug is the same one the original entry describes: **the table's
+lifecycle is implicit, and every user of `coverage: true` has to guess at it.**
+
+**Suggested fix:** create the table in `Bond.Coverage.install_reporter/0`, idempotently
+(`:ets.whereis/1` guard, or `:ets.new` inside a `try`). That is the function a user already
+calls explicitly at a well-defined point, it makes the owning process predictable, and it
+removes the need for any user-side workaround — including the one in this repository, which
+should then be deleted.
+
+Until then, the guard in `test/test_helper.exs` is `:ets.whereis(:bond_coverage) == :undefined`,
+which is a correct thing for user code to do but is not something a user should have to
+discover by having a green suite fail to start.

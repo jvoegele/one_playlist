@@ -25,6 +25,18 @@ defmodule OnePlaylistWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    delete "/sign-out", SessionController, :delete
+  end
+
+  # The two pages a signed-in user has no business seeing. `redirect_if_authenticated`
+  # sends them on rather than offering a password field they do not need.
+  scope "/", OnePlaylistWeb do
+    pipe_through [:browser, :redirect_if_authenticated]
+
+    get "/sign-in", SessionController, :new
+    post "/sign-in", SessionController, :create
+    get "/sign-up", RegistrationController, :new
+    post "/sign-up", RegistrationController, :create
   end
 
   # Everything here belongs to somebody: a connection carries a credential, and
@@ -71,16 +83,6 @@ defmodule OnePlaylistWeb.Router do
 
       live_dashboard "/dashboard", metrics: OnePlaylistWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
-    end
-
-    # Scaffolding: signs in a fixed development user so provider connections
-    # have someone to belong to. Remove with OnePlaylistWeb.DevAuthController
-    # once Supabase Auth sign-in exists.
-    scope "/dev", OnePlaylistWeb do
-      pipe_through :browser
-
-      get "/sign-in", DevAuthController, :create
-      get "/sign-out", DevAuthController, :delete
     end
   end
 end

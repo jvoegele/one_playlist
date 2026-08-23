@@ -22,6 +22,24 @@ if tidal_env != [] do
   config :one_playlist, OnePlaylist.Providers.Tidal, tidal_env
 end
 
+# Supabase, on the same terms and for the same reason: assigned only when the
+# environment actually sets it, so an unset variable does not clobber
+# config/dev_local.exs or config/test.exs.
+#
+# `SUPABASE_PUBLISHABLE_KEY` is the anon key, never the service role key — see
+# `OnePlaylist.Supabase` for why that distinction is load-bearing rather than
+# stylistic.
+supabase_env =
+  [
+    base_url: System.get_env("SUPABASE_URL"),
+    api_key: System.get_env("SUPABASE_PUBLISHABLE_KEY")
+  ]
+  |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+if supabase_env != [] do
+  config :one_playlist, OnePlaylist.Supabase, supabase_env
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration

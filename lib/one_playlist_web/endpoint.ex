@@ -1,15 +1,67 @@
 defmodule OnePlaylistWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :one_playlist
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
+  @dev_or_test Mix.env() in [:dev, :test]
+
+  # Signed *and encrypted*, which is not the Phoenix default.
+  #
+  # A signed cookie cannot be tampered with but can be freely read — its payload
+  # is just base64. That was fine when the session held a bare user id. It is
+  # not fine now: `OnePlaylistWeb.UserAuth` stores the GoTrue session here, and
+  # a refresh token is a long-lived bearer credential that renews access tokens
+  # until it is revoked. Anything able to read the cookie could mint sessions.
+  #
+  # This also keeps the session consistent with how the rest of the application
+  # already treats tokens — `OnePlaylist.Providers.Connection` stores provider
+  # tokens as `Encrypted.Binary`, never as readable columns.
+  #
+  # `secure: true` is deliberately *not* set here: it would stop the cookie
+  # working over plain http on localhost, which is how development runs. It is
+  # set in config/runtime.exs for production, alongside `force_ssl`.
   @session_options [
     store: :cookie,
     key: "_one_playlist_key",
     signing_salt: "4DC3tJTU",
-    same_site: "Lax"
+    encryption_salt: {__MODULE__, :encryption_salt, []},
+    same_site: "Lax",
+    http_only: true
   ]
+
+  @doc """
+  Salt for encrypting the session cookie.
+
+  A function rather than a literal because, unlike the signing salt, this one
+  protects a credential: `SESSION_ENCRYPTION_SALT` in production, falling back
+  to a fixed development value. The fallback is deliberately *not* a secret —
+  it is committed, and it is worthless, exactly like the dev Vault key in
+  `config/dev.exs`. Production raises rather than inheriting it.
+  """
+  # Defined at compile time rather than branched at run time, so a release built
+  # with MIX_ENV=prod does not merely decline the fallback — it does not contain
+  # it. It also stops the unused branch reading as dead code to Dialyzer, which
+  # is what a compile-time constant inside a function body always looks like.
+  if @dev_or_test do
+    def encryption_salt do
+      System.get_env("SESSION_ENCRYPTION_SALT") || "one-playlist-dev-session-salt"
+    end
+  else
+    def encryption_salt do
+      case System.get_env("SESSION_ENCRYPTION_SALT") do
+        salt when is_binary(salt) and byte_size(salt) >= 8 ->
+          salt
+
+        _absent_or_too_short ->
+          raise """
+          SESSION_ENCRYPTION_SALT is not set, or is shorter than 8 bytes.
+
+          The session cookie carries the user's GoTrue refresh token, so it must
+          be encrypted with a real secret. Generate one with:
+
+              mix phx.gen.secret 32
+          """
+      end
+    end
+  end
 
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]],

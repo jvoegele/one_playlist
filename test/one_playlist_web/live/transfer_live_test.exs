@@ -20,13 +20,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   setup %{conn: conn} do
     user_id = AuthFixtures.user_id_fixture()
 
-    %{conn: log_in(conn, user_id), user_id: user_id}
-  end
-
-  defp log_in(conn, user_id) do
-    conn
-    |> Phoenix.ConnTest.init_test_session(%{})
-    |> OnePlaylistWeb.UserAuth.log_in_user(user_id)
+    %{conn: log_in_user(conn, user_id), user_id: user_id}
   end
 
   defp transfer_fixture(user_id, attrs \\ %{}) do
@@ -193,10 +187,10 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   end
 
   describe "authentication" do
-    test "signed-out visitors are turned away" do
+    test "signed-out visitors are sent to sign in" do
       conn = Phoenix.ConnTest.build_conn()
 
-      assert {:error, {:redirect, %{to: "/"}}} = live(conn, ~p"/transfers")
+      assert {:error, {:redirect, %{to: "/sign-in"}}} = live(conn, ~p"/transfers")
     end
   end
 end

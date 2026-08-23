@@ -135,29 +135,102 @@ sign-in and persist them itself, encrypted, with its own refresh scheduler. See
 
 ### Elixir integration
 
-`supabase_auth` (v1.0.0, part of the Potion SDK) ships Plug and LiveView integrations:
+`supabase_auth` (v1.0.0, part of the Potion SDK) ships Plug and LiveView integrations
+(`Supabase.Auth.Plug`, `Supabase.Auth.LiveView`), covering email+password, phone+password,
+magic link / OTP, OAuth, SSO, anonymous and MFA.
+
+> #### What was actually built here, and why not the Plug {: .info}
+>
+> `one_playlist` uses the SDK for the **GoTrue API calls only**, and keeps its own session
+> layer in `OnePlaylistWeb.UserAuth`. The reason is the RLS note below: the session layer is
+> what has to step Postgres down from `postgres` to `authenticated` and set
+> `request.jwt.claims`, and that seam has to be somewhere this repository controls.
+>
+> The rest of this section is what using the SDK actually taught, most of which contradicts
+> what was written here before anything was built.
+
+### The Agent-based client is deprecated, for security reasons
+
+This document previously recommended the module-based client as the default:
 
 ```elixir
-defmodule OnePlaylistWeb.Auth do
-  use Supabase.Auth.Plug,
-    endpoint: OnePlaylistWeb.Endpoint,
-    signed_in_path: "/app",
-    not_authenticated_path: "/login"
-end
-
-defmodule OnePlaylistWeb.LiveAuth do
-  use Supabase.Auth.LiveView,
-    endpoint: OnePlaylistWeb.Endpoint,
-    signed_in_path: "/app",
-    not_authenticated_path: "/login"
+defmodule OnePlaylist.Supabase do
+  use Supabase.Client, otp_app: :one_playlist   # starts an Agent
 end
 ```
 
-Router pipelines get `:require_authenticated_user` / `:redirect_if_user_is_authenticated`;
-LiveViews get `on_mount` callbacks putting `socket.assigns.current_user`.
+That pattern is deprecated as of `supabase_potion` 0.8, and the notice is a **security**
+warning rather than a style note — paraphrasing it: the shared `Agent` state causes race
+conditions in multi-user servers, and *user tokens can become mixed, allowing User A to
+access User B's data.*
 
-Supported methods: email+password, phone+password, magic link / OTP, OAuth, SSO, anonymous,
-MFA.
+The mechanism is `set_auth/2`, which writes one user's access token into the single struct
+every concurrent request reads. In a Phoenix application that is a data breach waiting for a
+second simultaneous request.
+
+**Build the client per call instead.** It is a struct built from config already in memory, so
+there is nothing to amortise, and removing the shared state beats guarding it:
+
+```elixir
+def client do
+  Supabase.init_client(base_url, api_key, %{})       # {:ok, %Supabase.Client{}}
+end
+
+def client_for(access_token) do
+  with {:ok, client} <- client() do
+    {:ok, Supabase.Client.update_access_token(client, access_token)}  # a *new* struct
+  end
+end
+```
+
+### Version pinning: the two `~> 1.0` entries below cannot coexist
+
+`supabase_auth 1.0.0` requires `supabase_potion ~> 0.7`, so asking for `supabase_potion ~> 1.0`
+fails resolution outright. Use `{:supabase_potion, "~> 0.8"}`.
+
+### Errors: `Supabase.Error.code` is the HTTP status, not GoTrue's reason
+
+`supabase_auth` installs no GoTrue-specific error parser, so the default one runs and reports
+the **status class** — `:bad_request`, `:unprocessable_entity`, `:too_many_requests`. GoTrue's
+own `error_code` (`invalid_credentials`, `email_not_confirmed`, `weak_password`,
+`user_already_exists`, `over_email_send_rate_limit`) is left in `metadata.resp_body`.
+
+That matters because a status class is not something a sign-in form can act on: "check your
+password" and "check your inbox" are both 400. Dig the real code out and map it —
+`OnePlaylist.Accounts` does, in two tiers, falling back to the status class so an
+unrecognised code is reported loudly rather than as "wrong password".
+
+### `sign_out` lives under `Supabase.Auth.Admin`
+
+`Supabase.Auth.Admin.sign_out(client, session, scope)`. The module name suggests it needs the
+service role key; it does not. It is `POST /logout` with the *user's own* access token, and is
+the ordinary way a user signs out.
+
+### `get_claims/3` raises on a malformed token
+
+It looks total — `decode_jwt_parts/1` is written as though it returns
+`{:error, :invalid_jwt_format}` — but the `JOSE.JWT.peek/1` it calls first **throws** on
+anything that is not three base64url segments, so that branch is unreachable. Wrap it if the
+token's provenance is uncertain, which is the only reason to be verifying one.
+
+What it does well is the happy path: for a project with asymmetric signing keys it fetches the
+JWKS, caches it, and verifies **in process**, so establishing identity from a token costs no
+network round trip. Only HS256 projects fall back to asking the server.
+
+### Sign-up has two shapes, and only one of them signs the user in
+
+With email confirmation off (the CLI default locally) `sign_up/2` returns a session. With it
+on — the likely production setting — it returns the user and a `nil` session, and the account
+is not signed in until the link is clicked. Handle both, or development quietly diverges from
+production on the one flow every user takes.
+
+### Testing: `Req.Test` cannot reach it
+
+The SDK selects its HTTP client per request, inside itself, so the `Req.Test` stubs used for
+other providers here do not intercept it. The options are a swappable behaviour configured
+through application env — global state, and `CLAUDE.md` records what that costs in async tests
+— or integration tests against the local stack, which this suite already requires for its
+database. This project took the second, tagged `:supabase` and excluded by default.
 
 **Design decision to make deliberately:** Supabase Auth vs `mix phx.gen.auth`. Supabase Auth
 is the right call *for this project* because (a) it gives us Spotify/Google OAuth for free,
@@ -172,6 +245,35 @@ generated.
 The heart of Supabase. Two sequential checks: **grants** (may this role do this at all?) then
 **policies** (which rows?). A missing grant fails with `42501` before any policy runs, and
 adding a policy does not remove a grant.
+
+> #### In this application, none of it is currently in force {: .warning}
+>
+> Measured, 2026-08-23. `one_playlist` reaches Postgres through Ecto as the `postgres` role:
+>
+> ```
+> select rolname, rolbypassrls from pg_roles;
+>  postgres      | t
+>  service_role  | t
+>  authenticated | f
+>  anon          | f
+> ```
+>
+> `rolbypassrls` is `true`, and nothing in `lib/` sets `request.jwt.claims` or switches role.
+> So every `auth.uid()`-based policy written across the migrations is enforced **only against
+> PostgREST**, which this application does not use — from the application's own point of view
+> they are inert.
+>
+> That is not an argument against writing them: they are correct, and they are what any future
+> PostgREST, Realtime or Edge Function access will run under. It is an argument for knowing
+> which of your defences is actually load-bearing today. Today it is the `user_id` scoping in
+> the Ecto queries, and nothing else.
+>
+> Signing in was the prerequisite for changing that, and it now exists: a verified access
+> token with `sub` and `role: "authenticated"` is available on every request
+> (`OnePlaylist.Accounts.claims/1`). The remaining work is a `Repo` wrapper that, per
+> transaction, runs `set local role authenticated` and
+> `set local request.jwt.claims = '<claims>'` — at which point the policies become real and
+> pgTAP tests against them start meaning something.
 
 ```sql
 alter table public.playlists enable row level security;
@@ -404,30 +506,40 @@ Community-maintained monorepo: `github.com/supabase-community/supabase-ex`.
 
 | Package | Version | Purpose |
 | --- | --- | --- |
-| `supabase_potion` | ~> 1.0 | base SDK / `Supabase.Client` |
+| `supabase_potion` | **~> 0.8** | base SDK / `Supabase.Client` |
 | `supabase_auth` | ~> 1.0 (was `supabase_gotrue`) | Auth + Plug + LiveView integration |
 | `supabase_postgrest` | ~> 1.0 | PostgREST query builder |
 | `supabase_storage` | ~> 0.4 | Storage |
 | `supabase_realtime` | ~> 0.1 | Realtime client |
 | `supabase_functions` | ~> 0.1 | Edge Function invocation |
 
-Module-based client (recommended):
+`supabase_potion` is pinned to `~> 0.8` rather than `~> 1.0` because `supabase_auth 1.0.0`
+requires `~> 0.7` and the two `1.0`s cannot resolve together. Verified, not assumed.
+
+**Build the client per call.** The module-based `use Supabase.Client` client that this section
+used to recommend keeps its struct in an `Agent`, and that is deprecated for security reasons —
+see §4. What this project does:
 
 ```elixir
 defmodule OnePlaylist.Supabase do
-  use Supabase.Client, otp_app: :one_playlist
+  def client do
+    config = Application.get_env(:one_playlist, __MODULE__, [])
+    Supabase.init_client(config[:base_url], config[:api_key], %{})
+  end
 end
-
-# config/runtime.exs
-config :one_playlist, OnePlaylist.Supabase,
-  base_url: System.fetch_env!("SUPABASE_URL"),
-  api_key: System.fetch_env!("SUPABASE_SECRET_KEY"),
-  db: [schema: "public"],
-  auth: [flow_type: :pkce],
-  global: [headers: %{}]
 ```
 
-One-off client: `Supabase.init_client(url, key, opts)`.
+> #### The api_key is the publishable key, never the service role key {: .error}
+>
+> This section previously showed `api_key: System.fetch_env!("SUPABASE_SECRET_KEY")`. That is
+> wrong and dangerous: the service role key carries `role: "service_role"`, which Postgres
+> grants `BYPASSRLS`, so every policy in the schema is ignored. Signing a user in with it
+> would authenticate anybody as anybody.
+>
+> Use the **anon / publishable** key. It is designed to be exposed — it ships inside browser
+> bundles — and grants nothing RLS does not already allow. The service role key belongs only
+> in trusted server-side jobs that deliberately need to bypass RLS, and never on a request
+> path carrying a user's identity.
 
 HTTP layer is configurable via `:http_client`, `:finch_name`, `:finch_pool`. Note the SDK uses
 **Finch**, while Phoenix 1.8 ships **Req** (which is itself Finch-based) — `AGENTS.md` says to

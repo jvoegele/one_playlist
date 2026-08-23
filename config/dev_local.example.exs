@@ -23,3 +23,12 @@ config :one_playlist, OnePlaylist.Providers.Tidal,
   client_id: "your-tidal-client-id",
   client_secret: "your-tidal-client-secret",
   redirect_uri: "http://localhost:4000/auth/tidal/callback"
+
+# Supabase — copy the values printed by `supabase status`.
+#
+# `api_key` is the **publishable (anon)** key, never the service role key: the
+# service role key bypasses every RLS policy, so signing a user in with it would
+# authenticate anybody as anybody. See OnePlaylist.Supabase.
+config :one_playlist, OnePlaylist.Supabase,
+  base_url: "http://127.0.0.1:54321",
+  api_key: "your-local-anon-key"

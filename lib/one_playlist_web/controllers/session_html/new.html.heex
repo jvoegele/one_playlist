@@ -1,0 +1,21 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="py-12">
+    <h1 class="text-2xl font-semibold text-center mb-2">Sign in</h1>
+    <p class="text-sm text-center opacity-70 mb-8">
+      To move playlists between services, first tell us who you are.
+    </p>
+
+    <.credentials_form
+      action={~p"/sign-in"}
+      submit_label="Sign in"
+      password_autocomplete="current-password"
+      email={@email}
+      error_message={@error_message}
+      configured?={@configured?}
+    >
+      <:footer>
+        No account yet? <.link navigate={~p"/sign-up"} class="link link-primary">Create one</.link>.
+      </:footer>
+    </.credentials_form>
+  </div>
+</Layouts.app>

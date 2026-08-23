@@ -104,8 +104,20 @@ better code.
 - **Supabase-hosted Postgres**, reached by **Ecto over a direct connection** (or Supavisor
   session mode on IPv4-only hosts). Only use the transaction pooler with `prepare: :unnamed`.
 - **Supabase Auth** for sign-in, including Spotify/Google OAuth — chosen over
-  `mix phx.gen.auth` because it delivers goals 2 and 3 at once. Phoenix's `current_scope`
-  conventions in `AGENTS.md` get adapted around `supabase_auth`'s Plug/LiveView integration.
+  `mix phx.gen.auth` because it delivers goals 2 and 3 at once. Email + password is built;
+  magic link and Google OAuth are next, and all three feed one session spine.
+  The `supabase_auth` SDK is used for the **GoTrue API calls only**: the session, the plug and
+  the `on_mount` stay in `OnePlaylistWeb.UserAuth`, because that is the layer that will have
+  to inject JWT claims into Postgres for RLS. `current_scope` is a shim over our own session
+  struct. **The `Agent`-based `use Supabase.Client` pattern is deprecated for security
+  reasons** — build the client per call. See `docs/reference/supabase.md`.
+- **The session cookie is encrypted, not merely signed**, because it carries the GoTrue
+  refresh token. That is a departure from the Phoenix default and `OnePlaylistWeb.Endpoint`
+  says why.
+- **RLS is written but not yet in force.** Ecto connects as `postgres`, which holds
+  `BYPASSRLS`, and nothing sets `request.jwt.claims` — so today's row scoping is the `user_id`
+  in the Ecto queries, not the policies. Sign-in was the prerequisite for fixing that; the
+  remaining piece is a per-transaction `set local role authenticated`.
 - **Provider connections** (`provider`, `user_id`, encrypted access + refresh token, expiry,
   scopes) are a first-class context with proactive refresh. This is the highest-risk component.
 - **One `ExternalService` module per provider**, each with its own breaker / rate limit /
@@ -148,7 +160,7 @@ tied to it.
 docker compose -f dev/navidrome/docker-compose.yml up -d
 python3 dev/navidrome/generate_library.py        # 30 tracks; --no-isrc for the hard case
 open http://localhost:4533                       # admin / oneplaylist
-bin/remote dev/navidrome/connect.exs             # attaches it to the dev user
+bin/remote dev/navidrome/connect.exs             # attaches it to a signed-up user
 ```
 
 The last step is scripted convenience, not the only way in: `/connections` has a form, and
@@ -354,6 +366,7 @@ A fresh session should read this before proposing what to build.
 
 | | |
 | --- | --- |
+| Accounts | **Supabase Auth**: email + password sign-up, sign-in, sign-out, with session renewal and local ES256 verification of the JWT |
 | Providers | **TIDAL** (OAuth + PKCE, encrypted tokens, refresh) and **any Subsonic server** (Navidrome) |
 | Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto, a duration conflict that makes the text rung decline, and a confidence threshold |
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
@@ -366,6 +379,13 @@ ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer 
 report matched what actually landed in the destination.
 
 **Not built yet**, roughly in value order:
+
+  * **Magic link, then Google OAuth.** Both are ways of obtaining a GoTrue session and feed the
+    same spine that email+password already proved. Magic link adds the `/auth/callback` code
+    exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
+    magic-link iteration painful until raised in `supabase/config.toml`.
+  * **Make RLS actually apply** — see the architecture note above. This is the highest-value
+    Supabase-learning item now that a verified token exists on every request.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.

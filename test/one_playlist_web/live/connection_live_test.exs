@@ -24,12 +24,7 @@ defmodule OnePlaylistWeb.ConnectionLiveTest do
   setup %{conn: conn} do
     user_id = AuthFixtures.user_id_fixture()
 
-    conn =
-      conn
-      |> Phoenix.ConnTest.init_test_session(%{})
-      |> OnePlaylistWeb.UserAuth.log_in_user(user_id)
-
-    %{conn: conn, user_id: user_id}
+    %{conn: log_in_user(conn, user_id), user_id: user_id}
   end
 
   defp ok(body), do: %{"subsonic-response" => Map.merge(%{"status" => "ok"}, body)}
@@ -224,8 +219,8 @@ defmodule OnePlaylistWeb.ConnectionLiveTest do
   end
 
   describe "authentication" do
-    test "signed-out visitors are turned away" do
-      assert {:error, {:redirect, %{to: "/"}}} =
+    test "signed-out visitors are sent to sign in" do
+      assert {:error, {:redirect, %{to: "/sign-in"}}} =
                live(Phoenix.ConnTest.build_conn(), ~p"/connections")
     end
   end

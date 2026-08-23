@@ -58,11 +58,28 @@ defmodule OnePlaylistWeb.Layouts do
           <li>
             <.theme_toggle />
           </li>
-          <li :if={@current_scope && dev_routes?()}>
-            <.link href="/dev/sign-out" class="btn btn-ghost btn-sm">Sign out</.link>
+
+          <%!-- Who is signed in, not merely that somebody is. Two accounts on
+                one machine is the ordinary case here — a personal one and a
+                test one — and "signed in as who?" is the question that actually
+                gets asked. Hidden on narrow screens, where the email would
+                crowd out the navigation it sits beside. --%>
+          <li :if={@current_scope} class="hidden md:block px-2 text-sm opacity-70">
+            {@current_scope.user.email}
           </li>
-          <li :if={!@current_scope && dev_routes?()}>
-            <.link href="/dev/sign-in" class="btn btn-primary btn-sm">Sign in</.link>
+
+          <%!-- Sign-out is a DELETE, submitted as a form rather than followed
+                as a link. A GET that ends your session can be triggered by any
+                page that embeds its URL, and would be prefetched by anything
+                that walks links. --%>
+          <li :if={@current_scope}>
+            <.form for={%{}} action={~p"/sign-out"} method="delete">
+              <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+            </.form>
+          </li>
+
+          <li :if={!@current_scope}>
+            <.link navigate={~p"/sign-in"} class="btn btn-primary btn-sm">Sign in</.link>
           </li>
         </ul>
       </nav>
@@ -77,13 +94,6 @@ defmodule OnePlaylistWeb.Layouts do
     <.flash_group flash={@flash} />
     """
   end
-
-  # Sign-in is `OnePlaylistWeb.DevAuthController` scaffolding, routed only under
-  # `:dev_routes` — so the link is both hidden at runtime and written as a plain
-  # string rather than `~p`, because a verified route that exists in no
-  # environment but `:dev` is a compile warning everywhere else. When Supabase
-  # Auth lands, this becomes a real sign-in link and the guard goes away.
-  defp dev_routes?, do: Application.get_env(:one_playlist, :dev_routes, false)
 
   @doc """
   Shows the flash group with standard titles and content.

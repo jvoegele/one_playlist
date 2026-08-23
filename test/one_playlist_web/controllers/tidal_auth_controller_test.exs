@@ -16,7 +16,7 @@ defmodule OnePlaylistWeb.TidalAuthControllerTest do
 
   setup %{conn: conn} do
     user_id = user_id_fixture()
-    %{conn: sign_in(conn, user_id), user_id: user_id}
+    %{conn: log_in_user(conn, user_id), user_id: user_id}
   end
 
   describe "GET /auth/tidal" do
@@ -40,7 +40,7 @@ defmodule OnePlaylistWeb.TidalAuthControllerTest do
     test "requires a signed-in user" do
       conn = build_conn() |> get(~p"/auth/tidal")
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/sign-in"
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "signed in"
     end
   end
@@ -158,10 +158,4 @@ defmodule OnePlaylistWeb.TidalAuthControllerTest do
   end
 
   defp start_flow(conn), do: get(conn, ~p"/auth/tidal")
-
-  defp sign_in(conn, user_id) do
-    conn
-    |> Plug.Test.init_test_session(%{})
-    |> Plug.Conn.put_session("user_id", user_id)
-  end
 end

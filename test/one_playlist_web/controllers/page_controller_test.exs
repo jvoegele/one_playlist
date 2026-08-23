@@ -27,7 +27,7 @@ defmodule OnePlaylistWeb.PageControllerTest do
     html =
       conn
       |> Phoenix.ConnTest.init_test_session(%{})
-      |> OnePlaylistWeb.UserAuth.log_in_user(AuthFixtures.user_id_fixture())
+      |> log_in_user(AuthFixtures.user_id_fixture())
       |> get(~p"/")
       |> html_response(200)
 

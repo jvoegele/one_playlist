@@ -2,12 +2,21 @@ defmodule OnePlaylist.AuthFixtures do
   @moduledoc """
   Users for tests.
 
-  Rows go straight into `auth.users` because Supabase Auth owns that table and
-  this application has no sign-up flow yet. When Supabase Auth sign-in exists,
-  this is the one place that changes rather than every test that needs a user.
+  Rows go straight into `auth.users` because Supabase Auth owns that table:
+  `OnePlaylist.Accounts.sign_up/2` is the real way in, and calling it from a test
+  would mean a network round trip to GoTrue and a user the Ecto sandbox cannot
+  roll back — GoTrue writes over its own connection, outside the sandbox
+  entirely.
+
+  So a test that merely *needs somebody to exist* inserts the row directly, and
+  `session_fixture/1` mints a matching session without contacting GoTrue. The
+  tests that exercise the real sign-in path are the tagged ones in
+  `test/one_playlist/accounts_test.exs`, and they are the only ones that talk to
+  the service.
   """
 
   alias Ecto.Adapters.SQL
+  alias OnePlaylist.Accounts.Session
   alias OnePlaylist.Repo
 
   @doc """
@@ -40,4 +49,27 @@ defmodule OnePlaylist.AuthFixtures do
   @doc "An email no other test will collide with."
   @spec unique_email() :: String.t()
   def unique_email, do: "user-#{System.unique_integer([:positive])}@example.test"
+
+  @doc """
+  A session for a user, without involving GoTrue.
+
+  The tokens are obvious fakes: nothing in the tests that use this ever presents
+  them to Supabase, because `expires_at` is far enough away that
+  `OnePlaylist.Accounts.ensure_fresh/2` never tries to renew. A test that wants
+  a *renewal* to happen sets `expires_at` in the past and gets a real attempt —
+  which is the point of making the expiry a parameter rather than a constant.
+  """
+  @spec session_fixture(keyword()) :: Session.t()
+  def session_fixture(opts \\ []) do
+    user_id = Keyword.get_lazy(opts, :user_id, fn -> user_id_fixture() end)
+
+    %Session{
+      user_id: user_id,
+      email: Keyword.get_lazy(opts, :email, &unique_email/0),
+      access_token: Keyword.get(opts, :access_token, "test-access-token"),
+      refresh_token: Keyword.get(opts, :refresh_token, "test-refresh-token"),
+      expires_at:
+        Keyword.get_lazy(opts, :expires_at, fn -> DateTime.add(DateTime.utc_now(), 3600) end)
+    }
+  end
 end
