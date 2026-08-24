@@ -40,6 +40,7 @@ defmodule OnePlaylist.MusicBrainz do
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
+  alias OnePlaylist.MusicBrainz.WorkLookup
   alias OnePlaylist.Repo
 
   require Logger
@@ -82,6 +83,35 @@ defmodule OnePlaylist.MusicBrainz do
   def family(_isrc, _opts), do: []
 
   @doc """
+  Titles of the works MusicBrainz thinks a classical title names.
+
+  For the case `Strategy.Work` cannot handle alone: a title that names its piece
+  exactly and gives no catalogue number. "Brandenburg Concerto no. 2 in F major"
+  is one; every catalogue TIDAL carries writes `BWV 1047`, and there is nothing
+  local to bridge that with.
+
+  Returns titles rather than numbers, because that is where the numbers are and
+  `OnePlaylist.Music.Work.parse/1` already reads them. It also crosses numbering
+  systems, which no local rule can: Scarlatti's *Sonata in D minor, L 413* comes
+  back as *K 9*.
+
+  Never returns an error, for the same reason `family/2` does not: every caller
+  is already handling "nothing matched", and there is nothing more useful to do
+  with the difference.
+  """
+  @spec works(String.t() | nil, String.t() | nil, keyword()) :: [String.t()]
+  def works(title, composer, opts \\ [])
+
+  def works(title, composer, opts) when is_binary(title) do
+    case query_for(title, composer) do
+      "" -> []
+      query -> cached_works(query, opts)
+    end
+  end
+
+  def works(_title, _composer, _opts), do: []
+
+  @doc """
   Deletes negative entries older than `older_than`, returning how many.
 
   The same work `pg_cron` does nightly, callable from Elixir for a test or a
@@ -97,6 +127,74 @@ defmodule OnePlaylist.MusicBrainz do
       Repo.query!("select public.prune_musicbrainz_isrc_lookups($1::text::interval)", [older_than])
 
     removed
+  end
+
+  # Title and the composer's **surname**, folded.
+  #
+  # The composer is not decoration: a search for "Prelude" alone answers with
+  # tens of thousands of works, and the client's score floor is only meaningful
+  # once the query is specific. The surname rather than the full name is not
+  # decoration either — "Brandenburg Concerto no. 2 johann sebastian bach"
+  # returned *Johann Sebastian Bach auf Rügen* and no catalogue number at all,
+  # where "…bach" returns *Brandenburgisches Konzert Nr. 2 F-Dur, BWV 1047*.
+  # The forenames match works *about* the composer.
+  defp query_for(title, composer) do
+    [title, surname(composer)]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.join(" ")
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+  end
+
+  defp surname(composer) when is_binary(composer) do
+    composer
+    |> String.replace(",", " ")
+    |> String.split(~r/\s+/u, trim: true)
+    |> List.last()
+    |> Kernel.||("")
+  end
+
+  defp surname(_composer), do: ""
+
+  defp cached_works(query, opts) do
+    case Cache.read_through({:musicbrainz_work, query}, fn -> resolve_works(query, opts) end,
+           ttl: @l1_ttl
+         ) do
+      {:ok, titles} -> titles
+      {:error, _reason} -> []
+    end
+  end
+
+  defp resolve_works(query, opts) do
+    case Repo.get(WorkLookup, query) do
+      %WorkLookup{catalogue_titles: nil} -> {:ok, []}
+      %WorkLookup{catalogue_titles: titles} -> {:ok, titles}
+      nil -> ask_works(query, opts)
+    end
+  end
+
+  defp ask_works(query, opts) do
+    case Client.works(query, opts) do
+      {:ok, titles} ->
+        Repo.insert(
+          %WorkLookup{
+            query: query,
+            catalogue_titles: if(titles == [], do: nil, else: titles),
+            looked_up_at: DateTime.utc_now()
+          },
+          on_conflict: :nothing,
+          conflict_target: [:query]
+        )
+
+        {:ok, titles}
+
+      {:error, reason} ->
+        Logger.warning("musicbrainz work lookup failed for #{query}: #{inspect(reason)}")
+        {:ok, []}
+    end
   end
 
   defp cached_family(isrc, opts) do

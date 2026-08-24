@@ -46,6 +46,7 @@ defmodule OnePlaylist.Transfers.Runner do
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Music.Work
   alias OnePlaylist.MusicBrainz
   alias OnePlaylist.Providers
   alias OnePlaylist.Transfers.Candidate
@@ -432,7 +433,45 @@ defmodule OnePlaylist.Transfers.Runner do
   end
 
   defp retry_with_isrc_family(track, candidates, opts, failed),
-    do: {failed, Matching.rank(track, candidates, opts)}
+    do: retry_with_work(track, candidates, opts, failed)
+
+  # The last resort, and it is deliberately hard to reach.
+  #
+  # A classical title identifies its piece by catalogue number, and a great many
+  # omit it: "Brandenburg Concerto no. 2 in F major" names the work exactly and
+  # gives no number, while every catalogue TIDAL carries writes `BWV 1047`.
+  # `Strategy.Work` then has nothing to match on, and nothing local can bridge
+  # it.
+  #
+  # The trigger is narrow on purpose, because MusicBrainz allows one request a
+  # second: the match has already failed, the source's own title yields no
+  # catalogue number, and **some candidate has one**. That last condition is what
+  # keeps a pop playlist out — a search for "Woo" answers with 48,000 works —
+  # and it costs nothing to check, being a property of results already in hand.
+  defp retry_with_work(%Track{} = track, candidates, opts, failed) do
+    if worth_asking?(track, candidates) do
+      case MusicBrainz.works(track.title, Track.primary_artist(track)) do
+        [] ->
+          {failed, Matching.rank(track, candidates, opts)}
+
+        titles ->
+          enriched = %{track | work_titles: titles}
+
+          {Matching.match(enriched, candidates, opts), Matching.rank(enriched, candidates, opts)}
+      end
+    else
+      {failed, Matching.rank(track, candidates, opts)}
+    end
+  end
+
+  defp worth_asking?(%Track{} = track, candidates) do
+    source_work = Work.parse(track.title)
+
+    not Work.identifies_work?(source_work) and
+      Enum.any?(candidates, fn candidate ->
+        Work.identifies_work?(Work.parse("#{candidate.title} #{candidate.album}"))
+      end)
+  end
 
   # Adds only what the destination does not already have, in batches. Returns
   # the set of source positions that were actually written, which is what tells

@@ -880,11 +880,45 @@ Measured on 57 classical sources with real TIDAL candidates: **24 matched by the
 
   * **Sources with no work signature.** Roughly a third of the corpus: a title naming a piece
     without a catalogue number, and with a form too generic to substitute.
-  * **MusicBrainz cannot help here.** Only **16 of 294** classical tracks in a real library carry
-    an ISRC, so the equivalence lookup built for reissues has nothing to work with. Its *works*
-    endpoint could canonicalise "Brandenburg Concerto No. 2" to BWV 1047 and might reach part of
-    the remaining third — but that is a second lookup per track against a one-per-second API,
-    and it should be measured before it is built.
+  * **MusicBrainz's ISRC lookup cannot help here.** Only **16 of 294** classical tracks in a real
+    library carry an ISRC, so the equivalence lookup built for reissues has nothing to work with.
+
+#### The works lookup, built and measured
+
+Its *works* endpoint is a different matter. It answers "Brandenburg Concerto no. 2 bach" with
+*Brandenburgisches Konzert Nr. 2 F-Dur, **BWV 1047***, putting the number in a title where
+`Music.Work.parse/1` already reads it. It also crosses numbering systems, which nothing local
+can: Scarlatti's *Sonata in D minor, **L 413*** comes back as ***K 9***.
+
+The trigger is deliberately narrow, because MusicBrainz allows one request a second. All three
+must hold: the match has already failed, the source's own title yields no catalogue number, and
+**some candidate has one**. The last is what keeps a pop playlist out — a search for "Woo"
+answers with 48,000 works — and costs nothing, being a property of results already in hand.
+
+Measured on the 57-case classical corpus: **2 more matched**, and one of them is the *Concerto
+for Two Cellos* that the local rung had matched to a **violin** concerto. RV 531 turns a false
+positive into a correct match, which is worth more than the count suggests.
+
+Two things the measurement corrected:
+
+  * **Query by surname, not by the full name.** "Brandenburg Concerto no. 2 johann sebastian
+    bach" returns *Johann Sebastian Bach auf Rügen* and no catalogue number; "…bach" returns the
+    concerto. Forenames match works *about* a composer.
+  * **A prototype counting catalogue overlap over-reported by more than double.** It said five
+    rescues; the real path, which applies the movement, composer and corroboration gates, gives
+    two. Two of the five never needed rescuing — the local rung already had them.
+
+#### The corpus is about half contaminated, and the numbers should be read that way
+
+`harvest_classical.py` matches on words — `symphony`, `prelude`, `mass`, `nocturne`, `requiem` —
+and those words appear in pop titles. Justin Timberlake's *Summer Love/Set the Mood (prelude)*,
+The Verve's *Bitter Sweet Symphony*, Gang Starr's *Mass Appeal* and Rihanna's *Woo* are all in
+the classical corpus. Of 27 cases with candidates but no catalogue number, roughly 13 are
+genuinely classical.
+
+So "2 of 57" understates the rate on real classical material, and every number in this section
+should be read as a floor. Tightening the filter — requiring a catalogue number, a movement
+marker, or a composer-shaped credit — is worth doing before the next round of work here.
 
 ### What a deliberately adversarial playlist actually breaks
 

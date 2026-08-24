@@ -78,6 +78,64 @@ defmodule OnePlaylist.MusicBrainz.Client do
 
   # 503 is how MusicBrainz says "slow down", so it is the one status worth
   # retrying. `ExternalService` sees `:retry` and applies the backoff.
+  @doc """
+  Titles of the works MusicBrainz thinks a query names.
+
+  Returned as *titles* rather than parsed numbers because that is where the
+  numbers are: MusicBrainz answers "Brandenburg Concerto no. 2 Bach" with
+  *Brandenburgisches Konzert Nr. 2 F-Dur, BWV 1047*, and
+  `OnePlaylist.Music.Work.parse/1` reads a catalogue number out of a title
+  already. Handing the title back means one parser rather than two.
+
+  Only the strongly-scoring results. MusicBrainz answers every query with
+  something — a search for "Woo" returns 48,000 works — so a score floor is the
+  difference between an answer and noise.
+  """
+  @spec works(String.t(), keyword()) :: {:ok, [String.t()]} | {:error, Exception.t()}
+  def works(query, opts \\ []) when is_binary(query) do
+    Service.call(fn -> work_request(query, opts) end)
+  end
+
+  # 80 keeps the exact and near-exact hits and drops the rest. Measured against
+  # a real library: at this floor MusicBrainz supplied a usable number for the
+  # classical titles that carried none and stayed silent on the pop titles that
+  # reached it by accident.
+  @score_floor 80
+
+  defp work_request(query, opts) do
+    [
+      base_url: @base_url,
+      url: "/work",
+      params: [query: query, fmt: "json", limit: 5],
+      headers: [{"user-agent", user_agent()}],
+      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+    ]
+    |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+    |> Req.new()
+    |> Req.get()
+    |> handle_works()
+  end
+
+  defp handle_works({:ok, %{status: 503}}), do: :retry
+
+  defp handle_works({:ok, %{status: 200, body: body}}) do
+    titles =
+      body
+      |> Map.get("works", [])
+      |> Enum.filter(&((&1["score"] || 0) >= @score_floor))
+      |> Enum.map(& &1["title"])
+      |> Enum.reject(&is_nil/1)
+
+    {:ok, titles}
+  end
+
+  defp handle_works({:ok, %{status: status}}) do
+    Logger.warning("musicbrainz work search returned #{status}")
+    {:error, %RuntimeError{message: "musicbrainz returned #{status}"}}
+  end
+
+  defp handle_works({:error, _reason}), do: :retry
+
   defp handle({:ok, %{status: 503}}, _isrc), do: :retry
 
   defp handle({:ok, %{status: 404}}, _isrc), do: {:ok, nil}

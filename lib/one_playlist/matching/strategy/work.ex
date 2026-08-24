@@ -47,7 +47,7 @@ defmodule OnePlaylist.Matching.Strategy.Work do
   def score(source, candidate)
 
   def score(%Track{} = source, %Track{} = candidate) do
-    source_work = Work.parse(source.title)
+    source_work = signature_of(source)
     candidate_work = Work.parse(text_of(candidate))
 
     with true <- Work.same_movement?(source_work, candidate_work),
@@ -77,6 +77,20 @@ defmodule OnePlaylist.Matching.Strategy.Work do
     similarity = Signals.compare(source, candidate).title
 
     is_number(similarity) and similarity >= @weak_path_floor
+  end
+
+  # The source's own title, plus anything MusicBrainz says the work is called.
+  # A title that names its piece exactly and gives no catalogue number —
+  # "Brandenburg Concerto no. 2 in F major" — identifies nothing on its own, and
+  # the number is the one thing every catalogue does print. `work_titles` is
+  # empty unless the ladder already failed, so this costs nothing on the common
+  # path.
+  defp signature_of(%Track{work_titles: []} = source), do: Work.parse(source.title)
+
+  defp signature_of(%Track{} = source) do
+    Enum.reduce(source.work_titles, Work.parse(source.title), fn title, signature ->
+      Work.merge(signature, Work.parse(title))
+    end)
   end
 
   # Title *and* album, because catalogues split the identifying information

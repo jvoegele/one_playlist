@@ -15,6 +15,7 @@ defmodule OnePlaylist.MusicBrainzTest do
   alias OnePlaylist.MusicBrainz
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
+  alias OnePlaylist.MusicBrainz.WorkLookup
 
   # The real pair, from the transfer that motivated all of this: Roon's 2007
   # soundtrack code and TIDAL's 2017 reissue code for one recording.
@@ -27,6 +28,7 @@ defmodule OnePlaylist.MusicBrainzTest do
   setup do
     {:ok, _cleared} = Cache.delete_all()
     Repo.delete_all(IsrcLookup)
+    Repo.delete_all(WorkLookup)
 
     Application.put_env(:one_playlist, :musicbrainz_req_options, plug: {Req.Test, Client})
     on_exit(fn -> Application.delete_env(:one_playlist, :musicbrainz_req_options) end)
@@ -113,6 +115,84 @@ defmodule OnePlaylist.MusicBrainzTest do
 
       assert MusicBrainz.family("not-an-isrc") == []
       assert MusicBrainz.family(nil) == []
+    end
+  end
+
+  describe "works/3" do
+    defp stub_works(titles, calls \\ nil) do
+      Req.Test.stub(Client, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        if calls, do: Agent.update(calls, &[conn.query_params["query"] | &1])
+
+        Req.Test.json(conn, %{
+          "works" =>
+            Enum.map(titles, fn {title, score} -> %{"title" => title, "score" => score} end)
+        })
+      end)
+    end
+
+    test "answers with the titles that carry a catalogue number" do
+      stub_works([{"Brandenburgisches Konzert Nr. 2 F-Dur, BWV 1047", 100}])
+
+      assert ["Brandenburgisches Konzert Nr. 2 F-Dur, BWV 1047"] =
+               MusicBrainz.works("Brandenburg Concerto no. 2", "Johann Sebastian Bach")
+    end
+
+    test "asks by surname, not by the full name" do
+      # "Brandenburg Concerto no. 2 johann sebastian bach" returns works *about*
+      # Bach — "Johann Sebastian Bach auf Rügen" — and no catalogue number at
+      # all. The surname alone returns the concerto.
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_works([{"Brandenburgisches Konzert Nr. 2 F-Dur, BWV 1047", 100}], calls)
+
+      MusicBrainz.works("Brandenburg Concerto no. 2", "Johann Sebastian Bach")
+
+      assert [query] = Agent.get(calls, & &1)
+      assert query =~ "bach"
+      refute query =~ "johann"
+    end
+
+    test "drops weakly-scoring results" do
+      # MusicBrainz answers every query with something: a search for "Woo"
+      # returns 48,000 works. The floor is what makes an answer an answer.
+      stub_works([{"Something Vaguely Similar, BWV 999", 40}])
+
+      assert MusicBrainz.works("Prelude", "Somebody") == []
+    end
+
+    test "asks once, then remembers, in both tiers" do
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_works([{"Concerto grosso in C major, HWV 318", 100}], calls)
+
+      MusicBrainz.works("Concerto Alexander Feast", "George Frideric Handel")
+      MusicBrainz.works("Concerto Alexander Feast", "George Frideric Handel")
+
+      assert length(Agent.get(calls, & &1)) == 1
+
+      {:ok, _cleared} = Cache.delete_all()
+
+      assert MusicBrainz.works("Concerto Alexander Feast", "George Frideric Handel") != []
+      assert length(Agent.get(calls, & &1)) == 1, "L2 should have answered"
+    end
+
+    test "remembers that MusicBrainz had nothing" do
+      # A playlist is mostly not classical, and every pop title reaching this
+      # would otherwise re-ask a one-per-second service to be told nothing.
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_works([], calls)
+
+      assert MusicBrainz.works("Woo", "Rihanna") == []
+      assert MusicBrainz.works("Woo", "Rihanna") == []
+
+      assert length(Agent.get(calls, & &1)) == 1
+      assert [%WorkLookup{catalogue_titles: nil}] = Repo.all(WorkLookup)
+    end
+
+    test "a failure is not remembered" do
+      Req.Test.stub(Client, fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
+
+      assert MusicBrainz.works("Brandenburg Concerto no. 2", "Bach") == []
+      assert Repo.all(WorkLookup) == []
     end
   end
 

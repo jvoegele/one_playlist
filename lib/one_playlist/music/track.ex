@@ -63,6 +63,11 @@ defmodule OnePlaylist.Music.Track do
     # unless something has looked them up, which happens only after an
     # identifier lookup has already missed — see `OnePlaylist.MusicBrainz`.
     isrc_family: [],
+    # Titles of the works MusicBrainz says this track's title names. Empty
+    # unless something looked them up, which happens only after the ladder has
+    # already failed — see `OnePlaylist.MusicBrainz.works/3`. Titles rather than
+    # parsed numbers because `Music.Work` reads a number out of a title already.
+    work_titles: [],
     artists: []
   ]
 
@@ -81,6 +86,7 @@ defmodule OnePlaylist.Music.Track do
           popularity: number() | nil,
           artwork_url: String.t() | nil,
           isrc_family: [String.t()],
+          work_titles: [String.t()],
           artists: [String.t()]
         }
 
@@ -276,6 +282,7 @@ defmodule OnePlaylist.Music.Track do
       popularity: fetch(attrs, :popularity),
       artwork_url: fetch(attrs, :artwork_url),
       isrc_family: fetch(attrs, :isrc_family) || [],
+      work_titles: fetch(attrs, :work_titles) || [],
       artists: fetch(attrs, :artists) || []
     }
   end

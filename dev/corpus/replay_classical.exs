@@ -18,6 +18,13 @@ to_track = fn c ->
   }
 end
 
+alias OnePlaylist.Music.Work
+
+worth_asking? = fn source, candidates ->
+  not Work.identifies_work?(Work.parse(source.title)) and
+    Enum.any?(candidates, &Work.identifies_work?(Work.parse("#{&1.title} #{&1.album}")))
+end
+
 results =
   Enum.map(cases, fn k ->
     source = %Track{
@@ -25,9 +32,30 @@ results =
       album: k["album"], artists: [k["artist"]], duration_seconds: k["duration_seconds"]
     }
 
-    case Matching.match(source, Enum.map(k["candidates"], to_track)) do
-      {:ok, m} -> {to_string(m.strategy), k["title"], m.track.title, m.track.album}
-      {:error, e} -> {to_string(Errata.reason(e)), k["title"], nil, nil}
+    candidates = Enum.map(k["candidates"], to_track)
+
+    # Exactly what `Runner.retry_with_work/4` does: on failure, and only when the
+    # source names no work while some candidate does, ask MusicBrainz and
+    # re-match the candidates already in hand.
+    case Matching.match(source, candidates) do
+      {:ok, m} ->
+        {to_string(m.strategy), k["title"], m.track.title, m.track.album}
+
+      {:error, e} ->
+        if worth_asking?.(source, candidates) do
+          case OnePlaylist.MusicBrainz.works(source.title, k["artist"]) do
+            [] ->
+              {to_string(Errata.reason(e)), k["title"], nil, nil}
+
+            titles ->
+              case Matching.match(%{source | work_titles: titles}, candidates) do
+                {:ok, m} -> {"work_via_mb", k["title"], m.track.title, m.track.album}
+                {:error, e2} -> {to_string(Errata.reason(e2)), k["title"], nil, nil}
+              end
+          end
+        else
+          {to_string(Errata.reason(e)), k["title"], nil, nil}
+        end
     end
   end)
 
@@ -35,7 +63,7 @@ results =
   cases: length(results),
   outcomes: results |> Enum.frequencies_by(&elem(&1, 0)) |> Enum.sort(),
   work_matches:
-    for {"work", src, dest, album} <- results do
+    for {strategy, src, dest, album} <- results, strategy in ["work", "work_via_mb"] do
       "#{String.slice(src, 0, 44)}  ->  #{String.slice(dest, 0, 44)} [#{String.slice(album || "", 0, 22)}]"
     end
 }

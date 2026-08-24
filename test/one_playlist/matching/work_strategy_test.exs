@@ -123,6 +123,52 @@ defmodule OnePlaylist.Matching.Strategy.WorkTest do
       assert {:error, _reason} = Matching.match(source, [elsewhere])
     end
 
+    test "matches on a catalogue number supplied from outside" do
+      # The case the local rung cannot do: "Concerto Alexander Feast" names its
+      # piece exactly, gives no catalogue number, and "concerto" is too generic
+      # a form to stand in. Every catalogue TIDAL carries writes HWV 318.
+      #
+      # `work_titles` is what `OnePlaylist.MusicBrainz.works/3` returns, and it
+      # is empty unless the ladder has already failed.
+      source =
+        track(title: "Concerto Alexander Feast: Allegro", artists: ["George Frideric Handel"])
+
+      candidate =
+        track(
+          title: ~s|Handel: Concerto Grosso in C Major, HWV 318 "Alexander's Feast": I. Allegro|,
+          artists: ["Academy of St Martin in the Fields"],
+          provider_id: "c1"
+        )
+
+      assert {:error, _} = Matching.match(source, [candidate]),
+             "without the outside answer there is nothing to match on"
+
+      enriched =
+        Map.put(source, :work_titles, [
+          ~s|Concerto grosso in C major, HWV 318 "Alexander's Feast"|
+        ])
+
+      assert {:ok, match} = Matching.match(enriched, [candidate])
+      assert match.strategy == :work
+    end
+
+    test "the outside answer does not overrule the movement the file names" do
+      # A work lookup answers "what is this piece called", not "which movement
+      # did you mean". Merging must not let it rewrite the source's own reading.
+      source =
+        track(title: "Concerto Alexander Feast: Allegro", artists: ["George Frideric Handel"])
+        |> Map.put(:work_titles, [~s|Concerto grosso in C major, HWV 318: II. Largo|])
+
+      other_movement =
+        track(
+          title: "Handel: Concerto Grosso in C Major, HWV 318: II. Largo",
+          artists: ["Academy of St Martin in the Fields"],
+          provider_id: "c1"
+        )
+
+      assert {:error, _reason} = Matching.match(source, [other_movement])
+    end
+
     test "does not fire on a pop song" do
       # The rung is restricted to classical by the shape of the title rather
       # than by a guess about genre, and this is what that means in practice.

@@ -205,6 +205,32 @@ defmodule OnePlaylist.Music.Work do
     Enum.count(checks, & &1) / length(checks)
   end
 
+  @doc """
+  Adds what another signature knows, keeping what this one already had.
+
+  For enriching a source's own reading of its title with a catalogue number
+  supplied from elsewhere. Only *adds*: the source's key, movement and form are
+  what the user's file says, and an outside answer about a work should not
+  overwrite them — it is answering "what is this piece called", not "which
+  movement did you mean".
+  """
+  # A merge that lost a catalogue number would silently undo the lookup it
+  # exists to apply, and the symptom would be a track that stayed unmatched for
+  # no visible reason.
+  @post keeps_both_catalogues:
+          MapSet.subset?(left.catalogue, result.catalogue) and
+            MapSet.subset?(right.catalogue, result.catalogue)
+  @spec merge(t(), t()) :: t()
+  def merge(%__MODULE__{} = left, %__MODULE__{} = right) do
+    %__MODULE__{
+      left
+      | catalogue: MapSet.union(left.catalogue || MapSet.new(), right.catalogue || MapSet.new()),
+        form: left.form || right.form,
+        number: left.number || right.number,
+        key: left.key || right.key
+    }
+  end
+
   defp usable_form?(%__MODULE__{} = work) do
     is_binary(work.form) and work.form not in @ambiguous_forms and is_binary(work.number)
   end
