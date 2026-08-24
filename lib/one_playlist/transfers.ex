@@ -158,12 +158,11 @@ defmodule OnePlaylist.Transfers do
 
   `:already_present` is removed from too, and that is worth justifying, because
   the name suggests a track the user had rather than one of ours. It is not:
-  `destination_playlist_id` is set in exactly one place,
-  `OnePlaylist.Transfers.Runner.ensure_destination/3`, which *creates* the
-  playlist — no path in this application transfers into a playlist somebody
-  else made. So everything in it arrived through this transfer, and a re-run is
-  precisely what turns last run's `:matched` into this run's
-  `:already_present`. Refusing to remove those would leave a wrong track that
+  `destination_playlist_id` is set in exactly one place, where
+  `OnePlaylist.Transfers.Runner` *creates* the destination — no path in this
+  application transfers into a playlist somebody else made. So everything in it
+  arrived through this transfer, and a re-run is precisely what turns last run's
+  `:matched` into this run's `:already_present`. Refusing to remove those would leave a wrong track that
   this application put there, on the report row that says it was corrected —
   which is the report disagreeing with the playlist, the failure this whole
   application is organised against.

@@ -330,6 +330,12 @@ defmodule OnePlaylist.MixProject do
       # Dialyzer is included because it costs ~2s once the PLT exists. Building
       # that PLT is a one-off ~30s, so the first run on a fresh checkout is slow
       # — `mix dialyzer --plt` gets it out of the way deliberately.
+      #
+      # `docs` is here for the same reason and was not, which is why the broken
+      # references the `ci` note below describes kept arriving one per session:
+      # this is the gate anyone actually runs, and it was the one that could not
+      # see them. It costs ~1.7s, and needs the same `MIX_ENV=dev` hop `ci` uses,
+      # because `ex_doc` is `only: :dev` while this alias runs in `:test`.
       precommit: [
         "compile --warnings-as-errors",
         "deps.unlock --unused",
@@ -338,6 +344,7 @@ defmodule OnePlaylist.MixProject do
         "sobelow --exit",
         "deps.audit",
         "dialyzer",
+        "cmd env MIX_ENV=dev mix docs --warnings-as-errors",
         "test"
       ],
       # Everything precommit runs, minus the formatter's rewriting: CI should
