@@ -70,7 +70,7 @@ defmodule OnePlaylist.Library.Recording do
     # work with. Bookkeeping rather than a fact about the music — see the
     # migration and `OnePlaylist.Library.Enrichment`.
     field :enrichment_outcome, Ecto.Enum,
-      values: [:identified, :no_candidates, :declined, :unnameable]
+      values: [:identified, :no_candidates, :declined, :unnameable, :identifier_disagreed]
 
     field :enrichment_candidates, :integer
 

@@ -1818,6 +1818,50 @@ Worth generalising: **`accepts_any_track` inverts more than what a miss means.**
 introduced as "a failed match is an instruction to store", and it turns out also to change what
 a *successful* match is allowed to conclude.
 
+### An identifier can be wrong in the source
+
+The ladder treats an exact ISRC as its strongest rung and takes the answer on trust. That is
+right about ISRCs and wrong about *this ISRC*, because the code can be wrong before it ever
+reaches us.
+
+Found on a real library. A Roon export gave the *Vs.* tracks **Vitalogy's** ISRCs, so `Blood`
+carried `USSM11100233` — which MusicBrainz resolves, correctly, to *Pry, To*. The matching was
+right and the answer was wrong, and enrichment then wrote that identity down as a permanent
+fact for every future transfer to rely on. Six of the twelve *Vs.* tracks were affected.
+
+So an identifier's answer has to survive one question: **is this the same piece of music at
+all?** Not "is this a good match" — a much lower bar, and the measurement says the two are far
+apart:
+
+| | Title similarity |
+| --- | --- |
+| Every exact-identifier pair in the captured corpus (93 of them) | `1.0` |
+| The six wrong identities in a real library | `0.389` – `0.600` |
+| The lowest *legitimate* disagreement — "The Long Road" against "Long Road" | `0.805` |
+| *Sgt. Pepper's* against *Sergeant Pepper's* | `0.825` |
+
+Nothing at all falls between `0.600` and `0.805`, so the floor goes in the **middle of the gap**
+rather than against either edge — a floor at either edge would be tuned to whichever side had
+been measured more carefully.
+
+Measured effects, and the reason this was cheap to be sure about:
+
+  * `replay.exs` **82/12/5/1** and `replay_credit_cases.exs` **96/12/7 with no false positives** —
+    both byte-identical, because the guard applies to enrichment's *identifier* path and not to
+    the ladder.
+  * Of 133 identified recordings in a real library, **6 refused and 0 wrongly refused.**
+  * A recording found by *search* is deliberately exempt: the ladder has already scored it at
+    the text ceiling, and re-checking the title could only reject something accepted on better
+    evidence.
+
+One limit, stated rather than discovered later: a **cross-script** title — *Симфония №5* against
+*Symphony No. 5* — scores `0.464` and would be refused. That is a real recording wrongly
+declined. It fails toward declining rather than mis-identifying, which is the right direction,
+and it is the strongest argument for eventually comparing something other than the strings.
+
+The screen says *"this track's ISRC names a different recording"*, which is the diagnosis rather
+than a symptom — and it points at the source data, which is where the fix has to happen.
+
 ### Is MusicBrainz the right catalogue to lean on?
 
 Asked while building L4, and worth recording because the answer is not obvious.

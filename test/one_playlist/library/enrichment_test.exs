@@ -266,6 +266,50 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     end
   end
 
+  describe "an ISRC that names a different recording" do
+    test "is refused rather than believed" do
+      # An identifier can be wrong *in the source*. Measured on a real library: a
+      # CSV gave "Blood" from Vs. the ISRC USSM11100233, which MusicBrainz
+      # resolves to "Pry, To" — a different song on a different album. The
+      # matching was correct and the answer was not, and enrichment wrote that
+      # identity down as fact.
+      stub_musicbrainz(%{lookup: Map.put(lookup_body(), "title", "Pry, To")})
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, title: "Blood"}))
+
+      refute enriched.musicbrainz_recording_id
+      refute enriched.album_upc, "nothing from that lookup belongs to this recording"
+      assert enriched.enrichment_outcome == :identifier_disagreed
+    end
+
+    test "a title spelled differently is still believed" do
+      # The floor is "is this the same piece of music at all", not "is this a
+      # good match". Every exact-identifier pair in the captured corpus scores
+      # 1.0 after normalization; the observed failures sit at 0.41 to 0.46.
+      stub_musicbrainz(%{
+        lookup: Map.put(lookup_body(), "title", "Corduroy (feat. Nobody) [Remastered]")
+      })
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, title: "Corduroy"}))
+
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+
+    test "a recording found by *search* is not asked again" do
+      # The search path already scored the candidate through the whole ladder at
+      # the text ceiling. Re-checking the title there could only reject
+      # something the ladder had already accepted on better evidence.
+      stub_musicbrainz(%{
+        isrc: %{"isrc" => @isrc, "recordings" => []},
+        lookup: Map.put(lookup_body(), "title", "Pry, To")
+      })
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Vitalogy"}))
+
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+  end
+
   describe "an ISRC MusicBrainz does not index" do
     test "falls through to searching by name" do
       # Found by looking at a playlist: seven of ten unidentified recordings
@@ -584,7 +628,8 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     test "prefers the release naming the album the track says it is on" do
       stub_musicbrainz(two_releases_body())
 
-      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
+      {:ok, enriched} =
+        Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter", title: "Wreckage"}))
 
       assert enriched.musicbrainz_release_id == @release
       assert enriched.album_upc == "602458971163", "the barcode must come from the same release"
@@ -596,12 +641,14 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       # and showed a cover on two tracks out of eight.
       stub_musicbrainz(two_releases_body())
 
-      first = recording(%{isrc: unique_isrc(), album: "Dark Matter"})
+      first = recording(%{isrc: unique_isrc(), album: "Dark Matter", title: "Wreckage"})
       {:ok, first} = Enrichment.enrich(first)
 
       # The second track's own ranking would prefer the *other* release, because
       # nothing here names the album. Rule 1 should override that.
-      second = recording(%{isrc: unique_isrc(), album: "Dark Matter", title: "Won't Tell"})
+      # Same title as the stub's lookup: this test is about the *release* choice,
+      # and a title disagreement would be refused by `agrees_by_name?/2` first.
+      second = recording(%{isrc: unique_isrc(), album: "Dark Matter", title: "Wreckage"})
       {:ok, second} = Enrichment.enrich(second)
 
       assert first.musicbrainz_release_id == second.musicbrainz_release_id
@@ -620,7 +667,8 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       stub_musicbrainz(two_releases_body())
 
-      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
+      {:ok, enriched} =
+        Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter", title: "Wreckage"}))
 
       assert enriched.musicbrainz_release_id == @release
     end
@@ -628,7 +676,8 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     test "a recording on no releases at all is still enriched with what there is" do
       stub_musicbrainz(%{lookup: %{"id" => @mbid, "length" => 300_000, "isrcs" => [@isrc]}})
 
-      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: nil}))
+      {:ok, enriched} =
+        Enrichment.enrich(recording(%{isrc: @isrc, album: nil, title: "Wreckage"}))
 
       refute enriched.musicbrainz_release_id
       assert enriched.duration_seconds == 300

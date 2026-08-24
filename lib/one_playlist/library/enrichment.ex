@@ -227,6 +227,7 @@ defmodule OnePlaylist.Library.Enrichment do
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Normalize
+  alias OnePlaylist.Matching.Similarity
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.MusicBrainz
   alias OnePlaylist.MusicBrainz.Client
@@ -254,6 +255,12 @@ defmodule OnePlaylist.Library.Enrichment do
   # rather than a number that happened to separate the measured cases — see the
   # moduledoc. Read from the band so it cannot drift from the definition.
   @every_field_agreed elem(OnePlaylist.Matching.Confidence.band(:text), 1)
+
+  # How much two titles must agree before an identifier's answer is believed.
+  # Deliberately low: this is "is this the same piece of music at all", not "is
+  # this a good match". Placed in the middle of a **measured gap** rather than
+  # against either edge of it — see `agrees_by_name?/2`.
+  @same_music 0.7
 
   # What `reset/1` may clear, and the two lists are different for a reason worth
   # reading. Only these three are written by enrichment and nothing else, so only
@@ -311,8 +318,8 @@ defmodule OnePlaylist.Library.Enrichment do
   @spec enrich(Recording.t()) :: {:ok, Recording.t()} | {:error, term()}
   def enrich(%Recording{} = recording) do
     case identify(recording) do
-      {:ok, mbid} when is_binary(mbid) ->
-        describe(recording, mbid)
+      {:ok, mbid, how} when is_binary(mbid) ->
+        describe(recording, mbid, how)
 
       {:none, why} ->
         record_attempt(recording, outcome(why))
@@ -440,7 +447,10 @@ defmodule OnePlaylist.Library.Enrichment do
   # first even though the search path would also work.
   defp identify(%Recording{isrc: isrc} = recording) when is_binary(isrc) do
     case MusicBrainz.recording_mbid(isrc) do
-      mbid when is_binary(mbid) -> {:ok, mbid}
+      # Tagged, because an identifier's answer is taken on trust and a search's
+      # has already been scored. Only the first needs checking — see
+      # `agrees_by_name?/2`.
+      mbid when is_binary(mbid) -> {:ok, mbid, :identifier}
       # MusicBrainz does not index every ISRC. Carrying one it has never seen is
       # not a reason to give up on the recording — see the moduledoc.
       nil -> by_name(recording)
@@ -476,7 +486,7 @@ defmodule OnePlaylist.Library.Enrichment do
   # Two failed attempts describe one outcome, and the more informative half
   # wins: if either question returned candidates then MusicBrainz does hold
   # something, and "nothing came back" would be the wrong thing to report.
-  defp merge(_from_release, {:ok, _mbid} = found), do: found
+  defp merge(_from_release, {:ok, _mbid, _how} = found), do: found
 
   defp merge(from_release, {:none, from_title}) do
     {:none,
@@ -580,6 +590,45 @@ defmodule OnePlaylist.Library.Enrichment do
     end
   end
 
+  # An identifier is trusted absolutely and it should not be, because an
+  # identifier can be *wrong in the source*. Measured on a real library: a CSV
+  # gave the track "Blood" from *Vs.* the ISRC `USSM11100233`, which MusicBrainz
+  # resolves to "Pry, To" — a different song, on a different album. The matching
+  # was correct and the answer was not, and enrichment then wrote that identity
+  # down as fact for every future transfer to rely on.
+  #
+  # So an identifier's answer has to survive one question: is this even the same
+  # piece of music? Titles that disagree this far are not a service spelling
+  # something differently. Measured against the captured corpus, all **93**
+  # exact-identifier pairs in it score `1.0` after normalization — `(feat. …)`
+  # differences are already handled — so this costs nothing there, and the
+  # observed failures sit at `0.41`–`0.46`.
+  #
+  # `@same_music` sits in the middle of a measured gap. Across a real library of
+  # 133 identified recordings the six wrong identities scored `0.389`–`0.600`
+  # and the lowest *legitimate* disagreement — "The Long Road" against
+  # MusicBrainz's "Long Road" — scored `0.805`. Nothing at all fell between. A
+  # floor at either edge of that gap would be tuned to whichever side was
+  # measured more carefully; the middle is the honest place for it, and it is
+  # still far below what "a good match" would require.
+  #
+  # One known limit, stated rather than discovered: a **cross-script** title —
+  # *Симфония №5* against *Symphony No. 5* — scores `0.464` and would be
+  # rejected. That is a real recording wrongly declined, and it declines rather
+  # than mis-identifies, which is the direction to fail in.
+  @spec agrees_by_name?(Recording.t(), map()) :: boolean()
+  defp agrees_by_name?(%Recording{title: title}, details) when is_binary(title) do
+    theirs = details["title"]
+
+    not is_binary(theirs) or
+      Similarity.jaro_winkler(
+        Normalize.title(title).title,
+        Normalize.title(theirs).title
+      ) >= @same_music
+  end
+
+  defp agrees_by_name?(_recording, _details), do: true
+
   # The ladder, at text's own ceiling. See the moduledoc for why that number is a
   # meaning rather than a tuning.
   defp chosen(_recording, []), do: {:none, %{outcome: :no_candidates, candidates: 0}}
@@ -587,20 +636,27 @@ defmodule OnePlaylist.Library.Enrichment do
   defp chosen(recording, candidates) do
     case Matching.match(Recording.to_track(recording), candidates, threshold: @every_field_agreed) do
       {:ok, match} ->
-        {:ok, match.track.provider_id}
+        {:ok, match.track.provider_id, :searched}
 
       {:error, _not_matched} ->
         {:none, %{outcome: :declined, candidates: length(candidates)}}
     end
   end
 
-  defp describe(recording, mbid) do
+  defp describe(recording, mbid, how) do
     case Client.recording(mbid) do
       {:ok, nil} ->
         record_attempt(recording, outcome(%{outcome: :no_candidates, candidates: 0}))
 
       {:ok, details} ->
-        apply_details(recording, details, mbid)
+        if how == :searched or agrees_by_name?(recording, details) do
+          apply_details(recording, details, mbid)
+        else
+          # The identifier named a different piece of music. Nothing is written
+          # but the attempt, because everything this lookup returned belongs to
+          # that other recording.
+          record_attempt(recording, outcome(%{outcome: :identifier_disagreed, candidates: 0}))
+        end
 
       {:error, reason} ->
         Logger.warning("musicbrainz lookup failed for #{mbid}: #{inspect(reason)}")

@@ -563,6 +563,9 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp why_not(%{outcome: :no_candidates}), do: "MusicBrainz has no such recording"
   defp why_not(%{outcome: :unnameable}), do: "too little to search MusicBrainz with"
 
+  defp why_not(%{outcome: :identifier_disagreed}),
+    do: "this track's ISRC names a different recording"
+
   defp why_not(%{outcome: :declined, candidates: n}) when is_integer(n) and n > 0 do
     "#{n} found at MusicBrainz, none certain enough"
   end
