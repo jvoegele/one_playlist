@@ -42,7 +42,7 @@ defmodule OnePlaylist.Providers.Tidal do
   @search_scope "search.read"
 
   @impl true
-  def capabilities, do: [:artwork]
+  def capabilities, do: [:artwork, :remove_tracks]
 
   @impl true
   def provider, do: :tidal
@@ -124,6 +124,62 @@ defmodule OnePlaylist.Providers.Tidal do
       # the call is all-or-nothing: a partial append would come back as an
       # error, and the caller re-reads the destination before trusting a total.
       {:ok, length(ids)}
+    end
+  end
+
+  @impl true
+  def remove_tracks(connection, playlist, tracks, opts \\ [])
+
+  def remove_tracks(%Connection{} = connection, %Playlist{provider_id: id}, tracks, opts),
+    do: remove_tracks(connection, id, tracks, opts)
+
+  def remove_tracks(%Connection{} = connection, playlist, tracks, opts)
+      when is_binary(playlist) do
+    wanted = MapSet.new(tracks, & &1.provider_id)
+
+    with {:ok, connection} <- Providers.ensure_fresh(connection),
+         {:ok, references} <-
+           Client.playlist_item_references(
+             connection.access_token,
+             playlist,
+             call_opts(connection, opts)
+           ) do
+      # Read and matched here rather than taken from the caller, because an item
+      # id is only true of the playlist as it stood a moment ago. Every
+      # occurrence goes, which is what makes calling this twice harmless.
+      doomed = Enum.filter(references, fn {track_id, _item} -> track_id in wanted end)
+
+      remove_all(connection, playlist, doomed, opts)
+    end
+  end
+
+  # In batches, for the reason `OnePlaylist.Transfers.Runner` batches its adds:
+  # TIDAL rate-limits mutations to roughly one call every two seconds, so a
+  # hundred removals as a hundred calls is three minutes of a job that could be
+  # two calls.
+  @removal_batch 50
+
+  defp remove_all(_connection, _playlist, [], _opts), do: {:ok, 0}
+
+  defp remove_all(connection, playlist, doomed, opts) do
+    result =
+      doomed
+      |> Enum.chunk_every(@removal_batch)
+      |> Enum.reduce_while(:ok, fn batch, :ok ->
+        case Client.remove_tracks(
+               connection.access_token,
+               playlist,
+               batch,
+               call_opts(connection, opts)
+             ) do
+          :ok -> {:cont, :ok}
+          {:error, _reason} = error -> {:halt, error}
+        end
+      end)
+
+    case result do
+      :ok -> {:ok, length(doomed)}
+      {:error, _reason} = error -> error
     end
   end
 

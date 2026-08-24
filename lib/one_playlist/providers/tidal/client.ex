@@ -336,6 +336,80 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   end
 
   @doc """
+  Every entry in a playlist as `{track_id, item_id}`, in order.
+
+  The read that has to happen before a removal can be expressed at all — see
+  `OnePlaylist.Providers.Tidal.Mapper.item_references/1` for why both halves are
+  needed, and `remove_tracks/4` for what they are needed by.
+
+  Eager rather than a stream, unlike `playlist_track_ids/3`: the caller is about
+  to decide which of these to delete, so it wants the whole playlist rather than
+  a prefix of it.
+  """
+  @spec playlist_item_references(String.t(), String.t(), keyword()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, Errata.error()}
+  def playlist_item_references(access_token, playlist_id, opts \\ []) do
+    references =
+      opts
+      |> Keyword.put(:map_page, &Mapper.item_references/1)
+      |> paginate(fn page_opts ->
+        list_playlist_items(access_token, playlist_id, page_opts)
+      end)
+      |> Enum.to_list()
+
+    {:ok, references}
+  rescue
+    error in [OnePlaylist.Providers.Tidal.APIError, ExternalService.RetriesExhausted] ->
+      {:error, error}
+  end
+
+  @doc """
+  Removes playlist entries, named as `{track_id, item_id}` pairs.
+
+  `DELETE /v2/playlists/{id}/relationships/items` with a JSON:API identifier
+  array, each carrying its item id in `meta`.
+
+  Verified live on 2026-08-24, by trying the three shapes that could plausibly
+  be right:
+
+  | Body | Result |
+  | --- | --- |
+  | `{id: <track id>, type: "tracks"}` | 400 `Must not be null` |
+  | `{id: <item id>, type: "tracks"}` | 400 `Must not be null` |
+  | `{id: <track id>, type: "tracks", meta: {itemId: <item id>}}` | **200** |
+
+  So both ids are required, and the error names neither of them — the same
+  character as the `INVALID_RESOURCE_ID` that `search_tracks/3` documents. The
+  200 removed precisely the entry whose item id was given, leaving a second
+  copy of the same track in place.
+  """
+  @spec remove_tracks(String.t(), String.t(), [{String.t(), String.t()}], keyword()) ::
+          :ok | {:error, Errata.error()}
+  def remove_tracks(access_token, playlist_id, references, opts \\ [])
+
+  def remove_tracks(_access_token, _playlist_id, [], _opts), do: :ok
+
+  def remove_tracks(access_token, playlist_id, references, opts) do
+    body = %{
+      "data" =>
+        Enum.map(references, fn {track_id, item_id} ->
+          %{"id" => track_id, "type" => "tracks", "meta" => %{"itemId" => item_id}}
+        end)
+    }
+
+    with {:ok, _response} <-
+           write(
+             access_token,
+             :delete,
+             "/playlists/#{playlist_id}/relationships/items",
+             body,
+             country_param(opts)
+           ) do
+      :ok
+    end
+  end
+
+  @doc """
   Deletes a playlist.
 
   Present for the sake of the tests and of cleaning up after them, not because

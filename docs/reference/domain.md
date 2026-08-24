@@ -363,6 +363,9 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
 | …with `"UNLISTED"` or `"PUBLIC"` | **201** |
 | `POST /v2/playlists/{id}/relationships/items` + `{data: [{id, type: "tracks"}]}` | **200** |
 | `DELETE /v2/playlists/{id}` | **200** |
+| `DELETE /…/relationships/items` + `{data: [{id, type: "tracks"}]}` | 400 `Must not be null` |
+| …with `{data: [{id: <itemId>, type: "tracks"}]}` | 400 `Must not be null` |
+| …with `{data: [{id, type: "tracks", meta: {itemId}}]}` | **200** *(2026-08-24)* |
 
 - **A created playlist's id is a UUID**, where every catalogue id is numeric. Nothing should
   assume a shape for a provider id.
@@ -373,6 +376,12 @@ Token errors are standard OAuth 2.0 plus Tidal's own status fields:
   and diff before writing.
 - Items read back carry `meta.itemId` — a per-item UUID distinct from the track id — which is
   what makes removing one *occurrence* of a duplicated track possible.
+- **A removal needs both ids and says so badly.** Verified 2026-08-24: the track id alone and
+  the item id alone are each a 400 whose message is `Must not be null`, naming neither field.
+  Only the pair works, and it removes precisely the entry whose `itemId` was given — a second
+  copy of the same track is left in place. So a caller cannot remove by track id: it has to
+  read the playlist first, which is why `c:OnePlaylist.Providers.Adapter.remove_tracks/4` takes
+  tracks and resolves them per adapter rather than taking ids.
 
 > #### Mutations are rate-limited far harder than reads {: .warning}
 >
@@ -437,8 +446,17 @@ authorization* or merely *OAuth*.
 | `search3?query=…` | one call for songs, albums and artists; an empty query returns everything |
 | `createPlaylist?name=…&songId=…` | `songId` repeated per track; returns the playlist |
 | `updatePlaylist?playlistId=…&songIdToAdd=…` | appends |
+| `updatePlaylist?playlistId=…&songIndexToRemove=…` | removes **by position**, zero-based |
 | `getPlaylist?id=…` | entries in order |
 | `deletePlaylist?id=…` | |
+
+**Removal is by index, and there is no song id in it at all.** Verified against Navidrome
+0.58.0 on 2026-08-24: `songIndexToRemove` is zero-based, may repeat, and every index is read
+against the list as it stood *before* the call — removing 0 and 2 from four entries leaves the
+second and fourth rather than shifting under its own feet. The consequence is the same one
+TIDAL arrives at from the opposite direction: an entry is named by something only a fresh read
+can supply, so a stale index silently removes the wrong track rather than failing. Whatever
+computes these must have read the playlist in the same breath.
 
 Two consequences worth carrying into the adapter. There is no ISRC *filter* — `search3` is text
 only — so the ISRC rung has to be served by searching and then comparing, which is the first

@@ -78,13 +78,13 @@ defmodule OnePlaylist.Providers.Adapter do
       them; that is a design problem rather than a missing field, and until it
       is solved Subsonic honestly does not have this.
 
-    * `:remove_tracks` — a track can be taken *out* of a playlist. Nothing here
-      can, which is why there is no `remove_tracks/4` callback, and it is
-      declared anyway: it is the reason
-      `OnePlaylistWeb.TransferLive.Show` offers a correction only on rows where
-      nothing was added, and a reason a reader can check beats a comment. It is
-      also what a Replace-mode scheduled sync will need — see
-      `docs/reference/domain.md` on how Soundiiz handles the same wall.
+    * `:remove_tracks` — a track can be taken *out* of a playlist, via
+      `c:remove_tracks/4`. Both adapters can, so today this does not vary and
+      nothing branches on it; it is declared because the question is asked
+      *before* calling rather than after — `OnePlaylistWeb.TransferLive.Show`
+      needs to know whether replacing a wrong match is possible before it
+      offers the button. If a later adapter cannot remove, this is how it says
+      so; if the answer stays universal, the rule above says retire it.
   """
   @type capability :: :artwork | :remove_tracks
 
@@ -238,6 +238,61 @@ defmodule OnePlaylist.Providers.Adapter do
     never_more_than_offered: added <= length(tracks),
     non_negative: added >= 0
   @callback add_tracks(
+              connection :: Connection.t(),
+              playlist :: String.t() | Playlist.t(),
+              tracks :: [Track.t()],
+              opts :: keyword()
+            ) :: {:ok, non_neg_integer()} | {:error, Exception.t()}
+
+  @doc """
+  Removes tracks from a playlist, returning how many entries went.
+
+  **Every occurrence**, not the first. A playlist may legitimately hold the same
+  recording twice, and the caller's question is "this should not be here" rather
+  than "one of these should not be here" — so this is idempotent in the way
+  `add_tracks/4` is not, and calling it twice is safe.
+
+  ## Neither provider can do this by track id alone
+
+  Verified live on 2026-08-24, and it is the reason this takes tracks rather
+  than the ids `playlist_track_ids/3` returns:
+
+  | | Removal is keyed on |
+  | --- | --- |
+  | TIDAL | the track id **and** `meta.itemId`, a per-item UUID. Sending either alone is a `400`. |
+  | Subsonic | a zero-based **index** into the playlist, and no song id at all. |
+
+  So an implementation has to read the playlist to find out what to say, which
+  is a request it makes for itself rather than one the caller can save it. That
+  read is also what makes a *stale* removal safe: positions and item ids are
+  resolved in the same breath as the delete rather than passed in from
+  somewhere older.
+  """
+  # Conservation again, and the direction that matters is the opposite of
+  # `add_tracks/4`'s. There is deliberately no `removed <= length(tracks)` bound
+  # — removing every occurrence of a track a playlist holds twice legitimately
+  # returns 2 for one track — so the upper bound is the playlist's length, which
+  # this cannot see.
+  #
+  # What it can see is the empty case, and that is the dangerous one. An
+  # implementation that computes positions by difference rather than by
+  # membership answers "remove everything" when asked to remove nothing, and the
+  # symptom is somebody's playlist emptied by a no-op call. `add_tracks/4` has
+  # no equivalent hazard: appending an empty list appends nothing whatever the
+  # bug.
+  #
+  # Reads `⚠ never failed` in the coverage table and should: no input can
+  # falsify it while the implementations are right, so it is verified by
+  # mutation instead. Turning `Tidal.remove_tracks/4`'s `Enum.filter` into an
+  # `Enum.reject` — precisely the difference-not-membership slip above — fires
+  # it, on the call that asks for nothing.
+  @pre something_to_remove: is_list(tracks)
+  @post whenever(
+          {:ok, removed} <- result,
+          non_negative: removed >= 0,
+          nothing_asked_removes_nothing: (tracks == []) ~> (removed == 0)
+        )
+  @callback remove_tracks(
               connection :: Connection.t(),
               playlist :: String.t() | Playlist.t(),
               tracks :: [Track.t()],

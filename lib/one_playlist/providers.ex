@@ -581,7 +581,7 @@ defmodule OnePlaylist.Providers do
       iex> alias OnePlaylist.Providers
       iex> {Providers.supports?(:tidal, :artwork), Providers.supports?(:navidrome, :artwork)}
       {true, false}
-      iex> Providers.supports?(:tidal, :remove_tracks)
+      iex> Providers.supports?(:spotify, :remove_tracks)
       false
   """
   @spec supports?(atom(), Adapter.capability()) :: boolean()

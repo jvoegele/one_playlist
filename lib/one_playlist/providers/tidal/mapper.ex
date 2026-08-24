@@ -298,6 +298,45 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
     document |> Map.get("data", []) |> List.wrap() |> Enum.map(& &1["id"])
   end
 
+  @doc """
+  Each entry's track id paired with the id of that *entry*, in playlist order.
+
+  The two are different things and both are needed to remove one: TIDAL keys a
+  removal on the track id **and** `meta.itemId`, and rejects either alone with a
+  `400` whose message is "Must not be null" and which does not say which field
+  it means. See `c:OnePlaylist.Providers.Adapter.remove_tracks/4`.
+
+  A track added twice appears twice here, with the same track id and different
+  item ids — which is what makes removing one occurrence of a duplicate
+  possible, and what stops `item_ids/1` being enough.
+  """
+  # An entry missing either half is dropped rather than returned with a `nil`,
+  # because both halves travel straight into a delete body. `to_string(nil)` is
+  # `""`, and TIDAL's answer to a blank item id is the same unhelpful 400 as its
+  # answer to an absent one — so the failure would arrive as "the provider
+  # refused" rather than as "we sent nonsense".
+  @post no_entries_invented: forall(reference <- result, elem(reference, 0) in item_ids(document))
+  @post both_ids_usable:
+          forall(
+            reference <- result,
+            is_binary(elem(reference, 0)) and elem(reference, 0) != "" and
+              is_binary(elem(reference, 1)) and elem(reference, 1) != ""
+          )
+  @spec item_references(map()) :: [{String.t(), String.t()}]
+  def item_references(document) do
+    document
+    |> Map.get("data", [])
+    |> List.wrap()
+    |> Enum.flat_map(fn entry ->
+      track_id = entry["id"]
+      item_id = get_in(entry, ["meta", "itemId"])
+
+      if usable?(track_id) and usable?(item_id), do: [{track_id, item_id}], else: []
+    end)
+  end
+
+  defp usable?(value), do: is_binary(value) and value != ""
+
   defp related_names(resource, relationship, index) do
     resource
     |> get_in(["relationships", relationship, "data"])

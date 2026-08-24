@@ -230,6 +230,126 @@ defmodule OnePlaylist.Providers.Tidal.WriteTest do
     end
   end
 
+  describe "remove_tracks/4" do
+    # The page a removal has to read first. `meta.itemId` is a per-item UUID,
+    # distinct from the track id, and `a` appears twice with two different ones.
+    defp items_page do
+      %{
+        "data" => [
+          %{"id" => "a", "type" => "tracks", "meta" => %{"itemId" => "item-1"}},
+          %{"id" => "b", "type" => "tracks", "meta" => %{"itemId" => "item-2"}},
+          %{"id" => "a", "type" => "tracks", "meta" => %{"itemId" => "item-3"}}
+        ],
+        "links" => %{}
+      }
+    end
+
+    test "sends the track id and the item id, because either alone is a 400" do
+      # Verified live on 2026-08-24. `{id: <track id>, type: "tracks"}` and
+      # `{id: <item id>, type: "tracks"}` both answer 400 "Must not be null";
+      # only the pair works, and the error names neither field.
+      Req.Test.stub(Tidal, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, items_page())
+
+          "DELETE" ->
+            assert conn.request_path == "/v2/playlists/pl-1/relationships/items"
+
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+
+            assert Jason.decode!(body) == %{
+                     "data" => [
+                       %{
+                         "id" => "b",
+                         "type" => "tracks",
+                         "meta" => %{"itemId" => "item-2"}
+                       }
+                     ]
+                   }
+
+            Req.Test.json(conn, %{})
+        end
+      end)
+
+      assert {:ok, 1} = Tidal.remove_tracks(connection(), "pl-1", [track("b")])
+    end
+
+    test "removes every occurrence of a track the playlist holds twice" do
+      # The caller's question is "this should not be here", not "one of these
+      # should not be here" — which is what makes calling this twice harmless.
+      Req.Test.stub(Tidal, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, items_page())
+
+          "DELETE" ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+
+            item_ids = Jason.decode!(body)["data"] |> Enum.map(&get_in(&1, ["meta", "itemId"]))
+
+            assert item_ids == ["item-1", "item-3"],
+                   "both occurrences of `a` must go, and by their own item ids"
+
+            Req.Test.json(conn, %{})
+        end
+      end)
+
+      assert {:ok, 2} = Tidal.remove_tracks(connection(), "pl-1", [track("a")])
+    end
+
+    test "a track that is not in the playlist sends no delete" do
+      Req.Test.stub(Tidal, fn conn ->
+        case conn.method do
+          "GET" -> Req.Test.json(conn, items_page())
+          "DELETE" -> flunk("nothing matched, so nothing should be deleted")
+        end
+      end)
+
+      assert {:ok, 0} = Tidal.remove_tracks(connection(), "pl-1", [track("absent")])
+    end
+
+    test "an entry missing its item id is dropped rather than sent blank" do
+      # `to_string(nil)` is `""`, and TIDAL answers a blank item id with the
+      # same unhelpful 400 as an absent one — so the failure would read as "the
+      # provider refused" rather than "we sent nonsense".
+      Req.Test.stub(Tidal, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{
+              "data" => [%{"id" => "a", "type" => "tracks", "meta" => %{}}],
+              "links" => %{}
+            })
+
+          "DELETE" ->
+            flunk("an entry with no item id cannot be removed and must not be sent")
+        end
+      end)
+
+      assert {:ok, 0} = Tidal.remove_tracks(connection(), "pl-1", [track("a")])
+    end
+
+    test "an empty list reads nothing and sends nothing" do
+      Req.Test.stub(Tidal, fn conn ->
+        case conn.method do
+          "GET" -> Req.Test.json(conn, items_page())
+          "DELETE" -> flunk("removing nothing must not delete anything")
+        end
+      end)
+
+      assert {:ok, 0} = Tidal.remove_tracks(connection(), "pl-1", [])
+    end
+
+    test "a failed read is returned rather than counted as nothing removed" do
+      Req.Test.stub(Tidal, fn conn ->
+        conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"errors" => [%{"code" => "GONE"}]})
+      end)
+
+      assert {:error, error} = Tidal.remove_tracks(connection(), "pl-1", [track("a")])
+      assert Errata.reason(error) == :not_found
+    end
+  end
+
   describe "the write path is guarded separately from reads" do
     test "mutations go through the write service, reads through the read one" do
       # Not an implementation detail: TIDAL returned four 429s out of five rapid

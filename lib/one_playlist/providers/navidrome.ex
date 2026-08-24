@@ -61,11 +61,11 @@ defmodule OnePlaylist.Providers.Navidrome do
   def provider, do: :navidrome
 
   @impl true
-  # Nothing that varies. Subsonic *has* cover art, but `getCoverArt` wants the
+  # No `:artwork`. Subsonic *has* cover art, but `getCoverArt` wants the
   # credentials on the request, so its URL cannot go in an `img` tag without
-  # putting a token in the page. That needs a proxy route before this can honestly
-  # say `:artwork`.
-  def capabilities, do: []
+  # putting a token in the page. That needs a proxy route before this can
+  # honestly claim it.
+  def capabilities, do: [:remove_tracks]
 
   @impl true
   def refresh_tokens(_refresh_token) do
@@ -132,6 +132,35 @@ defmodule OnePlaylist.Providers.Navidrome do
 
     with :ok <- Client.add_tracks(connection, playlist, ids) do
       {:ok, length(ids)}
+    end
+  end
+
+  @impl true
+  def remove_tracks(connection, playlist, tracks, opts \\ [])
+
+  def remove_tracks(%Connection{} = connection, %Playlist{provider_id: id}, tracks, opts),
+    do: remove_tracks(connection, id, tracks, opts)
+
+  def remove_tracks(%Connection{} = connection, playlist, tracks, _opts)
+      when is_binary(playlist) do
+    wanted = MapSet.new(tracks, & &1.provider_id)
+
+    with {:ok, entries} <- Client.playlist_tracks(connection, playlist) do
+      # Subsonic names an entry by its position and by nothing else, so the read
+      # is not an optimisation to be skipped — there is no id to send. The
+      # indexes are zero-based and are read by the server against the list as it
+      # is here, so several may go in one call without each removal shifting the
+      # ones after it. Verified against Navidrome 0.58.0 on 2026-08-24: removing
+      # 0 and 2 from four entries left exactly the second and fourth.
+      doomed =
+        entries
+        |> Enum.with_index()
+        |> Enum.filter(fn {track, _index} -> track.provider_id in wanted end)
+        |> Enum.map(fn {_track, index} -> index end)
+
+      with :ok <- Client.remove_by_index(connection, playlist, doomed) do
+        {:ok, length(doomed)}
+      end
     end
   end
 

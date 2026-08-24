@@ -164,6 +164,36 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
     end
   end
 
+  @doc """
+  Removes entries from a playlist **by position**, not by song id.
+
+  That is the whole shape difference from TIDAL, and it is Subsonic's own:
+  `updatePlaylist` takes `songIndexToRemove`, a zero-based index into the
+  playlist as it currently stands, and takes no song id at all. Two consequences
+  the caller has to live with, both verified against Navidrome 0.58.0:
+
+    * indexes are read against the list as it was *before* the call, so several
+      may be given at once without each removal shifting the ones after it;
+    * a stale index removes the wrong entry rather than failing, because an
+      index names a slot and every slot is valid. Whatever produces these must
+      have read the playlist in the same breath.
+
+  `OnePlaylist.Providers.Navidrome` is what turns "these tracks" into positions.
+  """
+  @spec remove_by_index(Connection.t(), String.t(), [non_neg_integer()]) ::
+          :ok | {:error, Errata.error()}
+  def remove_by_index(connection, playlist_id, indexes)
+
+  def remove_by_index(%Connection{}, _playlist_id, []), do: :ok
+
+  def remove_by_index(%Connection{} = connection, playlist_id, indexes) do
+    params = [playlistId: playlist_id] ++ Enum.map(indexes, &{:songIndexToRemove, &1})
+
+    with {:ok, _body} <- get(connection, "updatePlaylist", params) do
+      :ok
+    end
+  end
+
   @doc "Deletes a playlist. Present for tests and for cleaning up after them."
   @spec delete_playlist(Connection.t(), String.t()) :: :ok | {:error, Errata.error()}
   def delete_playlist(%Connection{} = connection, playlist_id) do

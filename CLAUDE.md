@@ -441,9 +441,10 @@ A fresh session should read this before proposing what to build.
 | Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
 | Export | Download a playlist as CSV at `/exports/new`, via a signed URL |
 | Pruning | Four nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, old export files, and uploads no transfer refers to. The last two call the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
-| Correcting | An **unmatched** row shows the candidates the engine rejected and why each lost, and one click adds the right one. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry. Deliberately not offered on a row that already matched: `Providers.Adapter` has `add_tracks/4` and no counterpart, so correcting one would leave both tracks in the playlist |
+| Correcting | An **unmatched** row shows the candidates the engine rejected and why each lost, and one click adds the right one. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry. Still offered only on an **unmatched** row: `remove_tracks/4` now exists, so correcting a matched one is possible, but the UI has not been lifted yet — see below |
 | Reissues | An ISRC the destination does not carry is looked up in **MusicBrainz**, which says which codes name one recording, and the candidates already in hand are re-matched against the family. One request, only after a match has already failed, cached in two tiers with nightly `pg_cron` pruning. `Strategy.IsrcFamily` scores it below an exact identifier and keeps a duration check the rung above deliberately skips |
-| Capabilities | `Providers.Adapter.capabilities/0` declares only what *varies* between services — `:artwork` (TIDAL yes, Subsonic no, because its cover endpoint wants credentials on the request) and `:remove_tracks` (nobody, which is why a correction is offered only on rows where nothing was added). `Providers.supports?/2` is the question |
+| Capabilities | `Providers.Adapter.capabilities/0` declares only what *varies* between services — `:artwork` (TIDAL yes, Subsonic no, because its cover endpoint wants credentials on the request) and `:remove_tracks` (both, since 2026-08-24). `Providers.supports?/2` is the question |
+| Removing | `remove_tracks/4` on the adapter, implemented for both. **Neither provider can remove by track id**: TIDAL needs the track id *and* `meta.itemId` and rejects either alone with a `400` naming neither field, and Subsonic removes by zero-based *index* with no song id at all. So each adapter reads the playlist and resolves occurrences itself, which is also what makes a stale removal safe. Removes **every** occurrence, so calling it twice is harmless. Both verified live against TIDAL and Navidrome 0.58.0 |
 | Limits | A source playlist over `max_tracks` (10,000 by default) is refused with `PlaylistTooLarge`, before a track is read past the limit. The worker cancels rather than retries any error whose `retryable?/1` says not to |
 | Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
 | Classical | `Music.Work` reads a **work signature** out of a title — catalogue number, form and number, key, movement — and `Strategy.Work` matches on it. Classical went from **0 of 8** to 24 work matches plus 13 text of 57. A last-resort MusicBrainz *works* lookup supplies a catalogue number the title omits, on three conditions: the match already failed, the source names no work, and some candidate does |
@@ -460,10 +461,10 @@ veto, strict credit equality, and querying the primary artist instead of the who
 looked right and each is recorded in `docs/reference/domain.md` as a negative result. The replays
 cost seconds and need no API call.
 
-**Owed by hand, because the app cannot do it:** two TIDAL playlists named `hard_playlist` (one is
+**Owed by hand** (the app can do this now — `remove_tracks/4` landed 2026-08-24 — but nothing
+calls it yet): two TIDAL playlists named `hard_playlist` (one is
 an accidental duplicate), and one orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* left in
-the Pearl Jam destination by a match that is now correctly refused. `remove_tracks` is what would
-let the app clean up after itself.
+the Pearl Jam destination by a match that is now correctly refused.
 
 **Not built yet**, roughly in value order:
 
@@ -474,10 +475,11 @@ let the app clean up after itself.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
-  * **`remove_tracks` on the adapter.** The single highest-leverage gap: it lifts the
-    match-override restriction so a correction fixes the *playlist* and not only the report, it
-    enables Replace-mode scheduled sync, and it lets a wrong match be undone. Declared as an
-    unsupported `:remove_tracks` capability already, so the call sites that need it are findable.
+  * **Spend `remove_tracks/4`.** The adapter callback exists and is verified against both live
+    services; nothing calls it yet. Three things it unlocks, in value order: a correction on an
+    *already matched* row, which fixes the playlist rather than only the report — the restriction
+    in `TransferLive.Show.correctable?/1` is now a UI decision rather than a missing capability;
+    Replace-mode scheduled sync; and undoing a wrong match.
 
   * **Tighten the classical corpus filter.** `dev/corpus/harvest_classical.py` matches on words
     like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —

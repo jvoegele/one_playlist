@@ -200,6 +200,93 @@ defmodule OnePlaylist.Providers.NavidromeTest do
     end
   end
 
+  describe "remove_tracks/4" do
+    # Four entries, with `a` at positions 0 and 2. Subsonic names an entry by
+    # its position and by nothing else, so this is what a removal has to be
+    # computed against.
+    defp playlist_of(ids) do
+      entries = for id <- ids, do: song(%{"id" => id})
+
+      ok(%{"playlist" => %{"id" => "pl-1", "entry" => entries}})
+    end
+
+    defp track(id), do: %Track{provider: :navidrome, provider_id: id}
+
+    defp removal_indexes(conn) do
+      conn.query_string
+      |> URI.query_decoder()
+      |> Enum.filter(&(elem(&1, 0) == "songIndexToRemove"))
+      |> Enum.map(&elem(&1, 1))
+    end
+
+    test "removes by zero-based index, because there is no song id to send" do
+      Req.Test.stub(Navidrome, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+
+        case conn.query_params["c"] && conn.request_path do
+          "/rest/getPlaylist" ->
+            Req.Test.json(conn, playlist_of(~w(a b a c)))
+
+          "/rest/updatePlaylist" ->
+            assert removal_indexes(conn) == ["1"], "`b` sits at index 1"
+
+            Req.Test.json(conn, ok(%{}))
+        end
+      end)
+
+      assert {:ok, 1} = Navidrome.remove_tracks(connection(), "pl-1", [track("b")])
+    end
+
+    test "both occurrences go, and the indexes are read against the original list" do
+      # Verified against Navidrome 0.58.0 on 2026-08-24: `songIndexToRemove` may
+      # repeat, and the server reads every index against the list as it was
+      # before the call — so removing 0 and 2 from four entries leaves the
+      # second and fourth rather than shifting under its own feet.
+      Req.Test.stub(Navidrome, fn conn ->
+        case conn.request_path do
+          "/rest/getPlaylist" ->
+            Req.Test.json(conn, playlist_of(~w(a b a c)))
+
+          "/rest/updatePlaylist" ->
+            assert removal_indexes(conn) == ["0", "2"],
+                   "both positions of `a`, unshifted"
+
+            Req.Test.json(conn, ok(%{}))
+        end
+      end)
+
+      assert {:ok, 2} = Navidrome.remove_tracks(connection(), "pl-1", [track("a")])
+    end
+
+    test "a track that is not there removes nothing" do
+      Req.Test.stub(Navidrome, fn conn ->
+        case conn.request_path do
+          "/rest/getPlaylist" ->
+            Req.Test.json(conn, playlist_of(~w(a b)))
+
+          "/rest/updatePlaylist" ->
+            assert removal_indexes(conn) == [],
+                   "no index means no entry: updatePlaylist with none is a no-op"
+
+            Req.Test.json(conn, ok(%{}))
+        end
+      end)
+
+      assert {:ok, 0} = Navidrome.remove_tracks(connection(), "pl-1", [track("absent")])
+    end
+
+    test "an empty list sends no removal" do
+      Req.Test.stub(Navidrome, fn conn ->
+        case conn.request_path do
+          "/rest/getPlaylist" -> Req.Test.json(conn, playlist_of(~w(a b)))
+          "/rest/updatePlaylist" -> flunk("removing nothing must not update the playlist")
+        end
+      end)
+
+      assert {:ok, 0} = Navidrome.remove_tracks(connection(), "pl-1", [])
+    end
+  end
+
   describe "search_tracks/3" do
     test "searches by text, because Subsonic has no ISRC filter" do
       # Unlike TIDAL, rung 1 cannot be a direct lookup here. Even a track with
