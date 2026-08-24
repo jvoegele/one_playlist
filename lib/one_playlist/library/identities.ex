@@ -106,11 +106,10 @@ defmodule OnePlaylist.Library.Identities do
   Answers with the recording so a caller can go straight on to `recall/3`, or
   `nil` when the track cannot be anchored.
 
-  Records nothing for a track that is already the library's: its `provider_id`
-  **is** the recording's id, so a row saying so would be a fact restating its own
-  primary key. Nothing for a track without an ISRC either — there is no anchor,
-  and claiming `:isrc` evidence for a title match would be a lie the spine then
-  repeats for ever.
+  Records nothing for a track without an ISRC: there is no anchor, and claiming
+  `:isrc` evidence for a title match would be a lie the spine then repeats for
+  ever. Nothing for a library track either, though that rule now lives in
+  `record/4` where every caller passes through it.
   """
   @spec record_source(Recording.t() | nil, Track.t()) :: :ok
   def record_source(recording, %Track{} = track) do
@@ -145,6 +144,14 @@ defmodule OnePlaylist.Library.Identities do
   def record(_recording, %Track{provider_id: nil}, _strategy, _score), do: :ok
   def record(_recording, %Track{provider_id: ""}, _strategy, _score), do: :ok
   def record(_recording, %Track{provider: :file}, _strategy, _score), do: :ok
+
+  # A library track's `provider_id` **is** the recording's id, so a row saying so
+  # restates its own primary key. `record_source/2` already refused these; this
+  # is the same rule at the one place every caller passes through, because the
+  # *destination* path was writing them anyway — a real import produced 128 rows
+  # that carried no information. Nothing ever reads them either: a destination
+  # that accepts any track skips the spine entirely.
+  def record(_recording, %Track{provider: :library}, _strategy, _score), do: :ok
 
   def record(%Recording{} = recording, %Track{} = track, strategy, score) do
     now = DateTime.utc_now()

@@ -122,6 +122,24 @@ defmodule OnePlaylist.Library.IdentitiesTest do
       assert :ok = Identities.record(nil, track(), :isrc, 1.0)
     end
 
+    test "records nothing for the library itself" do
+      # A library track's `provider_id` *is* the recording's id, so the row would
+      # restate its own primary key. A real import wrote 128 of them before this
+      # clause existed, and nothing ever read one: a destination that accepts any
+      # track skips the spine entirely.
+      recording = Identities.anchor(track())
+
+      assert :ok =
+               Identities.record(
+                 recording,
+                 %Track{provider: :library, provider_id: recording.id, title: "Corduroy"},
+                 :stored,
+                 1.0
+               )
+
+      assert Identities.for_recording(recording) == []
+    end
+
     test "one answer per service, and better evidence replaces weaker" do
       recording = Identities.anchor(track())
 
