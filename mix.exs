@@ -79,80 +79,100 @@ defmodule OnePlaylist.MixProject do
     ]
   end
 
-  # Patterns rather than lists of module names, so a module added to a namespace
-  # is grouped without anyone remembering to come back here. The one exception is
-  # `OnePlaylist` itself, which names no namespace of its own.
+  # Grouped by where the code lives rather than by module name, and that is
+  # forced rather than chosen. ExDoc matches a regex against the module *name*,
+  # but hands a **function** only the module's metadata — `:kind`,
+  # `:behaviours`, `:source_path` — never the name. A group that means "this
+  # part of the application, except the errors in it" therefore has to be a
+  # function, and a function can only match on the file.
   #
-  # Order is both match order and display order — the first pattern to match wins
-  # — so the groups that carve a subset out of a wider namespace use a negative
-  # lookahead rather than relying on being listed first. That keeps the sidebar
-  # in reading order (the shared thing above the specific ones) instead of in
-  # whatever order the matching happens to require.
+  # It has to mean that because `groups_for_modules` is one list serving two
+  # jobs: `Enum.find_value/2` picks the first pattern that matches, and
+  # `Enum.find_index/2` on the same list decides where the group is drawn. Match
+  # order *is* display order. So a group that must be matched before the others
+  # is also drawn before them — which is why `Errors` can only sit at the bottom
+  # if every group above it declines to claim an error module first.
   #
-  # Anything left unmatched falls through to ExDoc's own categories, which it
-  # appends after this list: `groups_for_modules ++ [Deprecated: ..., Exceptions:
-  # ...]`. Those defaults only ever see what the patterns here did not claim,
-  # which is why the automatic "Exceptions" bucket used to hold eight of this
-  # application's fifteen error types while the `Providers` pattern swallowed
-  # the other seven.
+  # `source/1` is that declining. Everything else follows from it.
   defp groups_for_modules do
     [
-      # The landing page, and the only module that is not part of a namespace.
+      # The landing page, and the only module that names no part of the tree.
       Overview: [OnePlaylist],
 
-      # Every error the domain can produce, in one list — the errata sheet
-      # `errata` is named for. Second, because it has to precede the namespace
-      # patterns below or they would claim these modules first, and because an
-      # errata sheet belongs at the front of the book.
-      #
-      # This is ExDoc's own `Exceptions` test, restated so the group can be
-      # named and positioned. It is deliberately **not** a rule about names:
-      # nothing here is called `*Error` or `*Exception`, and a rule that assumed
-      # otherwise would strand `PlaylistTooLarge` and `WriteNotConfirmed` the
-      # day they were written. `:kind` is what the module *is*, so a new error
-      # type is grouped by defining one and nothing else.
-      Errors: &(&1[:kind] == :exception),
-
       # The vocabulary every other group is written in.
-      Music: ~r/^OnePlaylist\.Music\./,
+      Music: source(~r{/one_playlist/music/}),
 
-      # The technical core, and then the rungs of its ladder.
-      Matching: ~r/^OnePlaylist\.Matching($|\.(?!Strategy))/,
-      "Matching: the ladder": ~r/^OnePlaylist\.Matching\.Strategy($|\.)/,
+      # The technical core, and then the rungs of its ladder. The lookahead is
+      # what lets the shared module be listed above the strategies rather than
+      # below them, since the more specific pattern would otherwise have to win
+      # by being first.
+      Matching: source(~r{/one_playlist/matching(\.ex$|/(?!strategy))}),
+      "Matching: the ladder": source(~r{/one_playlist/matching/strategy}),
 
       # The pipeline that drives it.
-      Transfers: ~r/^OnePlaylist\.Transfers($|\.)/,
+      Transfers: source(~r{/one_playlist/transfers(\.ex$|/)}),
 
-      # The behaviour and the shared types, then one group per service. TIDAL
-      # and Subsonic are excluded from the first by lookahead, which is also
-      # what puts `SubsonicCredentials` with Subsonic rather than in the
-      # shared group.
-      Providers: ~r/^OnePlaylist\.Providers($|\.(?!Tidal|Subsonic|Navidrome))/,
-      "Providers: TIDAL": ~r/^OnePlaylist\.Providers\.Tidal($|\.)/,
-      "Providers: Subsonic": ~r/^OnePlaylist\.Providers\.(Subsonic|Navidrome)/,
+      # The behaviour and the shared types, then one group per service. The same
+      # lookahead device, and it is also what puts `subsonic_credentials.ex`
+      # with Subsonic rather than in the shared group.
+      Providers: source(~r{/one_playlist/providers(\.ex$|/(?!tidal|subsonic|navidrome))}),
+      "Providers: TIDAL": source(~r{/one_playlist/providers/tidal(\.ex$|/)}),
+      "Providers: Subsonic": source(~r{/one_playlist/providers/(subsonic|navidrome)}),
 
       # Playlists that are files rather than services — the counterpart to
-      # Providers, and deliberately not modelled as one.
-      "Playlist files": ~r/^OnePlaylist\.(Formats($|\.)|Imports$|Exports$)/,
+      # Providers, and deliberately not modelled as one. `nimble_csv` is here
+      # because `NimbleCSV.define/2` generates our two separator parsers with
+      # their source pointing into the dependency; matching the dependency
+      # rather than naming them keeps a third separator from being stranded.
+      "Playlist files":
+        source(~r{/one_playlist/(formats(\.ex$|/)|imports\.ex$|exports\.ex$)|/nimble_csv/}),
 
       # The outside reference data, and the two tiers that keep us off it.
-      MusicBrainz: ~r/^OnePlaylist\.MusicBrainz($|\.)/,
-      "Catalogue and caching": ~r/^OnePlaylist\.(Catalogue|Cache)($|\.)/,
+      MusicBrainz: source(~r{/one_playlist/musicbrainz(\.ex$|/)}),
+      "Catalogue and caching": source(~r{/one_playlist/(catalogue|cache)(\.ex$|/)}),
 
       # Who is asking, and what is kept for them.
-      Accounts: ~r/^OnePlaylist\.Accounts($|\.)/,
-      "Storage and encryption": ~r/^OnePlaylist\.(Storage($|\.)|Vault$|Encrypted\.)/,
+      Accounts: source(~r{/one_playlist/accounts(\.ex$|/)}),
+      "Storage and encryption":
+        source(~r{/one_playlist/(storage(\.ex$|/)|vault\.ex$|encrypted/)}),
 
       # The seams onto Postgres, Supabase and OTP.
-      Platform: ~r/^OnePlaylist\.(Repo|Supabase|Application|Mailer)$/,
+      Platform: source(~r{/one_playlist/(repo|supabase|application|mailer)\.ex$}),
 
       # Everything web-facing, kept apart from the contexts above. The last of
-      # these is a catch-all and must stay last.
-      "Web: pages": ~r/^OnePlaylistWeb\.\w+Live\./,
-      "Web: controllers": ~r/^OnePlaylistWeb\.\w*(Controller|HTML|JSON)$/,
-      "Web: components": ~r/^OnePlaylistWeb\.(\w*Components|Layouts)$/,
-      "Web: plumbing": ~r/^OnePlaylistWeb($|\.)/
+      # these is a catch-all and must stay last of the four.
+      "Web: pages": source(~r{/one_playlist_web/live/}),
+      "Web: controllers": source(~r{/one_playlist_web/controllers/}),
+      "Web: components": source(~r{/one_playlist_web/components/}),
+      "Web: plumbing": source(~r{/one_playlist_web}),
+
+      # Every error the domain can produce, in one list — the errata sheet
+      # `errata` is named for, and last because that is where a reader expects
+      # a reference section rather than a chapter.
+      #
+      # ExDoc appends its own `Exceptions` group after this list and would
+      # collect these unaided; declaring it here costs one line and names the
+      # group for what these are. Either way the test is `:kind`, which is what
+      # the module *is*. Deliberately not a rule about names: nothing here is
+      # called `*Error`, Errata's own README names its examples `OrderNotFound`
+      # and `PaymentDeclined`, and a naming rule would strand the first error
+      # type somebody spelled differently.
+      Errors: &(&1[:kind] == :exception)
     ]
+  end
+
+  # A group that matches on the module's source file, and never on an error.
+  #
+  # The second half is the load-bearing one: it is what leaves every error type
+  # unclaimed for the `Errors` group at the bottom of the list. Without it they
+  # are swallowed by whichever part of the tree they happen to live in, which is
+  # how seven of them once ended up under `Providers` and the other eight under
+  # ExDoc's automatic `Exceptions` bucket.
+  defp source(pattern) do
+    fn metadata ->
+      metadata[:kind] != :exception and
+        Regex.match?(pattern, to_string(metadata[:source_path]))
+    end
   end
 
   # Configuration for the OTP application.
