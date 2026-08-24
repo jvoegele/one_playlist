@@ -214,6 +214,155 @@ defmodule OnePlaylist.LibraryTest do
       assert newer.id != older.id
     end
 
+    test "entries carry the entry's own id, not the recording's", %{user_id: user_id} do
+      # The distinction the editor is built on. The same recording twice is two
+      # entries, and "remove this one" cannot be answered by a recording id.
+      {:ok, playlist} = Library.create_playlist(user_id, "Road Trip")
+      same = track(%{isrc: "USSM11100234"})
+
+      Library.append(user_id, playlist.id, [same, same])
+
+      assert [first, second] = Library.entries(user_id, playlist.id)
+      refute first.id == second.id
+      assert first.track.provider_id == second.track.provider_id
+    end
+
+    test "removing one entry leaves the other copy", %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Road Trip")
+      same = track(%{isrc: "USSM11100234"})
+
+      Library.append(user_id, playlist.id, [same, same])
+      [first, _second] = Library.entries(user_id, playlist.id)
+
+      assert Library.remove_entry(user_id, playlist.id, first.id) == :ok
+      assert length(Library.entries(user_id, playlist.id)) == 1
+    end
+
+    test "removing an entry that is not in this playlist is refused", %{user_id: user_id} do
+      {:ok, mine} = Library.create_playlist(user_id, "Mine")
+      {:ok, other} = Library.create_playlist(user_id, "Other")
+
+      Library.append(user_id, other.id, [track(%{isrc: nil, title: "Elsewhere"})])
+      [elsewhere] = Library.entries(user_id, other.id)
+
+      assert Library.remove_entry(user_id, mine.id, elsewhere.id) == :error
+      assert length(Library.entries(user_id, other.id)) == 1
+    end
+  end
+
+  describe "reordering" do
+    setup %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Road Trip")
+
+      tracks = for title <- ~w(One Two Three), do: track(%{isrc: nil, title: title})
+      Library.append(user_id, playlist.id, tracks)
+
+      %{playlist: playlist}
+    end
+
+    defp titles(user_id, playlist),
+      do: Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title)
+
+    test "moving up swaps with the entry above", %{user_id: user_id, playlist: playlist} do
+      [_one, two, _three] = Library.entries(user_id, playlist.id)
+
+      Library.move_entry(user_id, playlist.id, two.id, :up)
+
+      assert titles(user_id, playlist) == ~w(Two One Three)
+    end
+
+    test "moving down swaps with the entry below", %{user_id: user_id, playlist: playlist} do
+      [one, _two, _three] = Library.entries(user_id, playlist.id)
+
+      Library.move_entry(user_id, playlist.id, one.id, :down)
+
+      assert titles(user_id, playlist) == ~w(Two One Three)
+    end
+
+    test "moving past either end changes nothing", %{user_id: user_id, playlist: playlist} do
+      [one, _two, three] = Library.entries(user_id, playlist.id)
+
+      Library.move_entry(user_id, playlist.id, one.id, :up)
+      Library.move_entry(user_id, playlist.id, three.id, :down)
+
+      assert titles(user_id, playlist) == ~w(One Two Three),
+             "pressing a button twice at the end is not a failure"
+    end
+
+    test "a reorder never loses, duplicates or invents an entry", %{
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The conservation law `move_entry/4` deliberately does not assert, because
+      # over shared state it would accuse correct code under interleaving. The
+      # sandbox makes the state exclusive, so it is sound here — see
+      # `Providers.disconnect/2` for the same division.
+      before = Library.entries(user_id, playlist.id) |> Enum.map(& &1.id) |> Enum.sort()
+
+      [_one, two, three] = Library.entries(user_id, playlist.id)
+      Library.move_entry(user_id, playlist.id, two.id, :up)
+      Library.move_entry(user_id, playlist.id, three.id, :up)
+
+      after_moves = Library.entries(user_id, playlist.id) |> Enum.map(& &1.id) |> Enum.sort()
+
+      assert after_moves == before
+    end
+
+    test "an entry from another playlist cannot be moved into this one", %{
+      user_id: user_id,
+      playlist: playlist
+    } do
+      {:ok, other} = Library.create_playlist(user_id, "Other")
+      Library.append(user_id, other.id, [track(%{isrc: nil, title: "Elsewhere"})])
+      [elsewhere] = Library.entries(user_id, other.id)
+
+      Library.move_entry(user_id, playlist.id, elsewhere.id, :up)
+
+      assert titles(user_id, playlist) == ~w(One Two Three)
+      assert length(Library.entries(user_id, other.id)) == 1
+    end
+  end
+
+  describe "playlists themselves" do
+    test "renaming keeps the contents", %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Old Name")
+      Library.append(user_id, playlist.id, [track(%{isrc: nil, title: "One"})])
+
+      assert {:ok, renamed} = Library.update_playlist(user_id, playlist.id, %{name: "New Name"})
+      assert renamed.name == "New Name"
+      assert length(Library.entries(user_id, playlist.id)) == 1
+    end
+
+    test "renaming to nothing is refused", %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Road Trip")
+
+      assert {:error, _changeset} = Library.update_playlist(user_id, playlist.id, %{name: ""})
+    end
+
+    test "another user cannot rename or delete", %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Mine")
+      stranger = AuthFixtures.user_id_fixture()
+
+      assert Library.update_playlist(stranger, playlist.id, %{name: "Theirs"}) == :error
+      assert Library.delete_playlist(stranger, playlist.id) == :error
+      assert {:ok, %{name: "Mine"}} = Library.fetch_playlist(user_id, playlist.id)
+    end
+
+    test "deleting takes the entries and leaves the recordings", %{user_id: user_id} do
+      # The recordings belong to nobody and may be in somebody else's playlist.
+      # Deleting a playlist is not a licence to delete music.
+      {:ok, playlist} = Library.create_playlist(user_id, "Road Trip")
+      Library.append(user_id, playlist.id, [track(%{isrc: "USSM11100234"})])
+
+      held = Repo.aggregate(Recording, :count)
+
+      assert Library.delete_playlist(user_id, playlist.id) == :ok
+      assert Library.fetch_playlist(user_id, playlist.id) == :error
+      assert Repo.aggregate(Recording, :count) == held
+    end
+  end
+
+  describe "scoping" do
     test "another user's playlist is not fetchable", %{user_id: user_id} do
       # The same rule as `Transfers.fetch/2`: indistinguishable from one that
       # does not exist, so an id is not a way to learn what exists.

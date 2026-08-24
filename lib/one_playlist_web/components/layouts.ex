@@ -47,6 +47,12 @@ defmodule OnePlaylistWeb.Layouts do
           <%!-- Signed out, there is nothing behind these but a redirect back to
                 here, so they are not offered. --%>
           <li :if={@current_scope}>
+            <.link navigate={~p"/playlists"} class="btn btn-ghost btn-sm">
+              <.icon name="hero-queue-list" class="w-4 h-4" />
+              <span class="hidden sm:inline">Playlists</span>
+            </.link>
+          </li>
+          <li :if={@current_scope}>
             <.link navigate={~p"/transfers"} class="btn btn-ghost btn-sm">Transfers</.link>
           </li>
           <li :if={@current_scope}>

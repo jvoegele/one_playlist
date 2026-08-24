@@ -1309,9 +1309,20 @@ Two tables doing different jobs, and conflating them is the mistake to avoid.
     shape.
 
 Nothing about who owns what leaks from a shared recording store: membership lives in the
-per-user table. Ordering wants a position that can be changed without rewriting every row after
-it — fractional or lexicographic ranks rather than dense integers — because reordering a
-5,000-track playlist by hand should not be a 5,000-row update.
+per-user table.
+
+> #### Rejected: fractional ranks for ordering {: .info}
+>
+> This section first said ordering wanted fractional or lexicographic ranks rather than dense
+> integers, "because reordering a 5,000-track playlist by hand should not be a 5,000-row
+> update". That was argued rather than measured, and it does not survive being measured:
+> renumbering half a five-thousand-row playlist in one statement is **2.3 ms**. Adjacent moves
+> — the only reorder L2 offers — do not even need that, being a swap of two `position` values.
+>
+> So dense integers stayed, and the precision cliff, the rebalancing pass and the opaque sort
+> key that come with fractional ranks were all avoided. Worth revisiting only if a drag-and-drop
+> reorder that moves an item many places at once turns out to be slow, which is a measurement
+> nobody has yet needed to make.
 
 ### Enrichment is a budget, not a step
 

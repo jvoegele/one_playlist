@@ -48,6 +48,8 @@ defmodule OnePlaylistWeb.Router do
     live_session :authenticated,
       on_mount: [{OnePlaylistWeb.UserAuth, :require_authenticated}] do
       live "/connections", ConnectionLive.Index, :index
+      live "/playlists", PlaylistLive.Index, :index
+      live "/playlists/:id", PlaylistLive.Show, :show
       live "/transfers", TransferLive.Index, :index
       live "/transfers/new", TransferLive.New, :new
       live "/imports/new", ImportLive.New, :new
