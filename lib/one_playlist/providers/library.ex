@@ -56,7 +56,7 @@ defmodule OnePlaylist.Providers.Library do
   @impl true
   # `:artwork` because a recording keeps whatever cover the track arrived with,
   # and it is an ordinary URL needing no credential — unlike Subsonic's.
-  def capabilities, do: [:artwork, :accepts_any_track, :remove_tracks]
+  def capabilities, do: [:artwork, :accepts_any_track, :remove_tracks, :global_ids]
 
   @impl true
   def refresh_tokens(_refresh_token) do

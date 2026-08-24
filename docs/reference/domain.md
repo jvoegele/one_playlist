@@ -1280,12 +1280,37 @@ playlist after every run, so an id that has stopped working surfaces as a track 
 written and not found. Nothing crawls the services on a schedule to re-check; that would be a
 lot of requests for a question that answers itself in use.
 
-One thing deliberately **not** taken: `recall/3` refuses to answer with the source track
-itself. On a same-provider transfer everything the spine knows about the source is trivially
-true of the destination, so answering would skip the search to "match" a track to itself.
-That shortcut is real and worth taking — a TIDAL→TIDAL copy needs no searches at all — but it
-is a different feature from recall, and folding it in silently would make it impossible to
-reason about either. It is in the backlog.
+`recall/3` still refuses to answer with the source track itself, because a same-service
+transfer is handled before the spine is consulted at all — see below.
+
+### A transfer within one service needs no matching
+
+Obvious once stated and worth stating: if a track came from the catalogue it is going to, its
+own id is already the answer. A TIDAL→TIDAL copy was issuing one search per track to rediscover
+ids it was holding.
+
+The condition is a **capability**, `:global_ids`, and not a comparison of provider names. That
+distinction is the entire content of the feature: two Subsonic connections are two *different
+servers*. Both say `:subsonic`, and an id from one names nothing on the other — or, far worse,
+names something else. Any rule phrased as "source provider equals destination provider" is
+wrong for every self-hosted provider this application will ever add, and would put arbitrary
+tracks into a user's playlist without a single failure to notice.
+
+TIDAL declares it, because its ids name entries in one catalogue every account shares. The
+library declares it, being a single store. Subsonic does not.
+
+#### It cost a test fixture, and that was the real work
+
+`transfers_test.exs` transferred `:tidal → :tidal` as a generic stand-in for "a transfer", so
+the shortcut short-circuited **every test in the file** — search, matching, candidates and
+overrides all stopped being exercised while the suite stayed green on the ones that remained.
+A feature that silently deletes coverage is worse than the feature is worth.
+
+The fixture now sources from the **library**, which needs no HTTP stub and is a genuine
+cross-service transfer, with two tests added for the same-service path itself. The general
+lesson is about fixtures rather than about this feature: a fixture that uses the simplest
+configuration is fine until the simplest configuration becomes a special case, and nothing
+warns you when it does.
 
 ### Matching inverts when the destination is the library
 

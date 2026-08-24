@@ -397,24 +397,50 @@ defmodule OnePlaylist.Transfers.Runner do
   # a correction living there would be destroyed by the next retry. See the
   # migration that creates `transfer_overrides`.
   defp resolve(track, adapter, connection, threshold, nil) do
-    # A destination that accepts any track has no catalogue to look anything up
-    # in, so there is nothing to recall — and anchoring first would change what
-    # the search sees, because `anchor/1` writes to `library_recordings`, which
-    # is the very store `OnePlaylist.Providers.Library` searches. It would turn
-    # every `stored` row into an identifier match against a recording this run
-    # had just created. So the spine learns from that case afterwards, not
-    # before.
-    if accepts_any_track?(adapter) do
-      {resolved, ranked} = search_and_decide(track, adapter, connection, threshold)
+    cond do
+      # The track came from the catalogue it is going to, so its own id is
+      # already the answer and there is nothing to search for. The condition is
+      # a *capability* rather than a comparison of provider names, because two
+      # Subsonic servers are both `:subsonic` and share no ids — see
+      # `same_service?/3`.
+      same_service?(track, adapter, connection) ->
+        # Still worth learning from. The source identity is free and true
+        # whichever way the transfer went.
+        track |> Identities.anchor() |> Identities.record_source(track)
 
-      recording = Identities.anchor(track)
-      Identities.record_source(recording, track)
-      learn(recording, resolved)
+        {{:ok, Match.same_service(track)}, []}
 
-      {resolved, ranked}
-    else
-      spine_first(track, adapter, connection, threshold)
+      accepts_any_track?(adapter) ->
+        accept_then_learn(track, adapter, connection, threshold)
+
+      true ->
+        spine_first(track, adapter, connection, threshold)
     end
+  end
+
+  # A destination that accepts any track has no catalogue to look anything up
+  # in, so there is nothing to recall — and anchoring first would change what
+  # the search sees, because `anchor/1` writes to `library_recordings`, which is
+  # the very store `OnePlaylist.Providers.Library` searches. It would turn every
+  # `stored` row into an identifier match against a recording this run had just
+  # created. So the spine learns from that case afterwards, not before.
+  defp accept_then_learn(track, adapter, connection, threshold) do
+    {resolved, ranked} = search_and_decide(track, adapter, connection, threshold)
+
+    recording = Identities.anchor(track)
+    Identities.record_source(recording, track)
+    learn(recording, resolved)
+
+    {resolved, ranked}
+  end
+
+  # Safe only when the provider says an id means the same thing to every
+  # connection of it. TIDAL's ids name entries in one catalogue that every
+  # account shares; two Subsonic connections are two different servers, where an
+  # id from one names nothing on the other — or something else entirely, which
+  # is the failure worth refusing to risk.
+  defp same_service?(track, adapter, connection) do
+    track.provider == connection.provider and :global_ids in adapter.capabilities()
   end
 
   defp spine_first(track, adapter, connection, threshold) do

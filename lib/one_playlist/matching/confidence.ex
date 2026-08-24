@@ -59,6 +59,7 @@ defmodule OnePlaylist.Matching.Confidence do
           | :medium
           | :low
           | :none
+          | :same_service
 
   # Ordered worst-to-best so `Enum.find/2` from the top reads naturally, and so
   # `rank/1` can use the index directly.
@@ -75,7 +76,22 @@ defmodule OnePlaylist.Matching.Confidence do
   # between candidates; a stored track *is* the source track, held by a
   # destination that has no catalogue to be wrong about. Nothing was compared,
   # so there is nothing to have got wrong.
-  @ordering [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen, :stored]
+  # `:same_service` sits at the very top. Everything below it is a claim that
+  # two identifiers name one recording; this is the observation that there is
+  # only one identifier. The destination is the catalogue the track came from,
+  # so nothing was compared and there was nothing to compare.
+  @ordering [
+    :none,
+    :low,
+    :medium,
+    :high,
+    :exact_upc,
+    :linked_isrc,
+    :exact_isrc,
+    :chosen,
+    :stored,
+    :same_service
+  ]
 
   @bands %{
     isrc: {1.0, 1.0},
@@ -102,7 +118,11 @@ defmodule OnePlaylist.Matching.Confidence do
     manual: {1.0, 1.0},
     # Not a rung either, and not a judgement at all: the destination accepted
     # the source track verbatim. See `OnePlaylist.Matching.Match.stored/2`.
-    stored: {1.0, 1.0}
+    stored: {1.0, 1.0},
+    # Nor this: the destination *is* the catalogue the track came from, so the
+    # track's own id is already the answer. See
+    # `OnePlaylist.Matching.Match.same_service/1`.
+    same_service: {1.0, 1.0}
   }
 
   @doc """
@@ -110,7 +130,8 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Confidence.all()
-      [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen, :stored]
+      [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen, :stored,
+       :same_service]
   """
   @spec all() :: [t()]
   def all, do: @ordering
@@ -120,7 +141,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Enum.sort(Confidence.strategies())
-      [:fuzzy, :isrc, :isrc_family, :manual, :stored, :text, :upc_position, :work]
+      [:fuzzy, :isrc, :isrc_family, :manual, :same_service, :stored, :text, :upc_position, :work]
   """
   @spec strategies() :: [strategy()]
   def strategies, do: Map.keys(@bands)
@@ -153,6 +174,7 @@ defmodule OnePlaylist.Matching.Confidence do
   def for_score(score, :isrc_family) when is_float(score), do: :linked_isrc
   def for_score(1.0, :manual), do: :chosen
   def for_score(1.0, :stored), do: :stored
+  def for_score(1.0, :same_service), do: :same_service
 
   def for_score(score, _strategy) when is_float(score) do
     cond do

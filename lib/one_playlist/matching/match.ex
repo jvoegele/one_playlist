@@ -155,6 +155,42 @@ defmodule OnePlaylist.Matching.Match do
   end
 
   @doc """
+  A track the destination already has, because it came from there.
+
+  Not a match either, and this one did not even need a write. Source and
+  destination are the same catalogue — the same TIDAL, the same library — so the
+  track's own id is already the answer and there was never anything to search
+  for.
+
+  The `track` **is** the source, which is the honest representation: a
+  destination playlist that holds this id holds this recording. What makes it
+  safe is not that the two providers are named the same, but that the provider
+  declares `:global_ids` — two Subsonic servers are both `:subsonic` and share
+  no ids at all. See `c:OnePlaylist.Providers.Adapter.capabilities/0`.
+
+      iex> alias OnePlaylist.Matching.Match
+      iex> alias OnePlaylist.Music.Track
+      iex> source = Track.new(%{provider: :tidal, provider_id: "77", title: "Corduroy"})
+      iex> match = Match.same_service(source)
+      iex> {match.strategy, match.confidence, match.track.provider_id}
+      {:same_service, :same_service, "77"}
+  """
+  # One-hop delegation, the third legitimate shape in
+  # `docs/reference/contracts.md`: `new/1` takes the entry check and this
+  # function's own exit check still fires.
+  @bond_warn_skipped_invariants false
+  @spec same_service(Track.t()) :: t()
+  def same_service(%Track{} = source) do
+    new(
+      source: source,
+      track: source,
+      score: 1.0,
+      strategy: :same_service,
+      evidence: [same_service: source.provider]
+    )
+  end
+
+  @doc """
   Whether a match's score lies inside the band its strategy is allowed.
 
   Public because the invariant names it, and an assertion rendered into the

@@ -87,6 +87,22 @@ defmodule OnePlaylist.Providers.Adapter do
       transferred, it is one that has not been stored yet. See
       `docs/reference/domain.md` §5.
 
+    * `:global_ids` — a track id from this provider means the same thing to
+      every connection of it, so a track taken from one and handed to another is
+      the same track. True of TIDAL, whose ids name entries in one catalogue
+      shared by every account, and of `OnePlaylist.Providers.Library`, which is
+      a single store.
+
+      **Not** true of Subsonic, and that is the whole reason this exists rather
+      than a comparison of provider names. Two Subsonic connections are two
+      *different servers*: both say `:subsonic`, and an id from one names
+      nothing on the other — or, far worse, names something else. Anything that
+      reasons about "the same service" from the provider alone is wrong for
+      every self-hosted provider this application will ever add.
+
+      Asked before calling because it decides whether a search is needed at all:
+      see `OnePlaylist.Transfers.Runner`.
+
     * `:remove_tracks` — a track can be taken *out* of a playlist, via
       `c:remove_tracks/4`. Both adapters can, so today this does not vary and
       nothing branches on it; it is declared because the question is asked
@@ -95,7 +111,7 @@ defmodule OnePlaylist.Providers.Adapter do
       offers the button. If a later adapter cannot remove, this is how it says
       so; if the answer stays universal, the rule above says retire it.
   """
-  @type capability :: :artwork | :accepts_any_track | :remove_tracks
+  @type capability :: :artwork | :accepts_any_track | :remove_tracks | :global_ids
 
   @doc """
   What this service can do that others may not.

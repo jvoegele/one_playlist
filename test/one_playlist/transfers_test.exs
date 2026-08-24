@@ -27,24 +27,14 @@ defmodule OnePlaylist.TransfersTest do
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Cache
   alias OnePlaylist.Library
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers
-  alias OnePlaylist.Library.Identities
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers
-  alias OnePlaylist.Library.Identities
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.PlaylistTooLarge
-  alias OnePlaylist.Library.Identities
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.Runner
-  alias OnePlaylist.Library.Identities
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.Transfer
-  alias OnePlaylist.Library.Identities
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.TransferItem
-  alias OnePlaylist.Library.Identities
-  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.TransferWorker
 
   setup :set_req_test_from_context
@@ -64,7 +54,38 @@ defmodule OnePlaylist.TransfersTest do
         country: "US"
       })
 
+    {:ok, _library} = Providers.ensure_library(user_id)
+
     %{user: user_id, connection: connection}
+  end
+
+  # The source: three recordings in a library playlist, each with an ISRC so
+  # matching is exact and the tests are about the pipeline rather than the
+  # ladder.
+  #
+  # A **library** source rather than a second TIDAL playlist, and the reason
+  # matters: source and destination on one service is a case the runner now
+  # short-circuits entirely — `same_service?/3` — so a same-provider fixture
+  # would silently stop exercising search, matching, candidates and overrides,
+  # which is most of what this file is about. The library adapter needs no HTTP
+  # stub, so this costs nothing and is more representative than TIDAL to TIDAL
+  # ever was.
+  defp source_playlist(user_id) do
+    {:ok, playlist} = Library.create_playlist(user_id, "Copied")
+
+    tracks =
+      for id <- ~w(s1 s2 s3) do
+        %Track{
+          provider: :tidal,
+          provider_id: "src-#{id}-#{System.unique_integer([:positive])}",
+          title: "Song #{id}",
+          isrc: isrc(id)
+        }
+      end
+
+    3 = Library.append(user_id, playlist.id, tracks)
+
+    playlist
   end
 
   # A source playlist of three tracks, each with an ISRC so matching is exact
@@ -133,8 +154,10 @@ defmodule OnePlaylist.TransfersTest do
       path = conn.request_path
 
       cond do
-        # The source playlist's tracks.
-        conn.method == "GET" and path == "/v2/playlists/source-1/relationships/items" ->
+        # A TIDAL *source* playlist, used only by the same-service tests. Every
+        # other test in this file sources from the library, so that the runner
+        # does not short-circuit the matching they exist to exercise.
+        conn.method == "GET" and path == "/v2/playlists/same-src/relationships/items" ->
           Req.Test.json(conn, source_document())
 
         # The destination playlist's current contents.
@@ -217,13 +240,15 @@ defmodule OnePlaylist.TransfersTest do
   end
 
   defp transfer_for(user, attrs \\ %{}) do
+    source = Map.get_lazy(attrs, :source_playlist_id, fn -> source_playlist(user).id end)
+
     {:ok, transfer} =
       Transfers.create(
         Map.merge(
           %{
             user_id: user,
-            source_provider: :tidal,
-            source_playlist_id: "source-1",
+            source_provider: :library,
+            source_playlist_id: source,
             source_playlist_name: "Copied",
             destination_provider: :tidal
           },
@@ -298,7 +323,10 @@ defmodule OnePlaylist.TransfersTest do
       assert completed.unmatched_count == 1
 
       assert [item] = Transfers.items(completed, outcome: :unmatched)
-      assert item.source_track_id == "s2"
+
+      # By title rather than by id: a library source names its tracks with the
+      # recording's own uuid, which is the point of `Recording.to_track/1`.
+      assert item.source_title == "Song s2"
       assert item.reason == "no_candidates"
       assert item.candidates_considered == 0
 
@@ -383,6 +411,7 @@ defmodule OnePlaylist.TransfersTest do
       Application.put_env(:one_playlist, Transfers, max_tracks: 3)
 
       user = AuthFixtures.user_id_fixture()
+      {:ok, _library} = Providers.ensure_library(user)
 
       {:ok, _connection} =
         Providers.connect(user, :tidal, %{
@@ -400,6 +429,49 @@ defmodule OnePlaylist.TransfersTest do
       assert {:ok, completed} = Runner.run(transfer)
       assert completed.status == :completed
       assert completed.total_tracks == 3
+    end
+  end
+
+  describe "a transfer within one service" do
+    test "copies the ids straight across, without searching for anything", %{user: user} do
+      # The track came from the catalogue it is going to, so its own id is
+      # already the answer. Nothing to search, nothing to score.
+      state = provider_state()
+
+      # A TIDAL source playlist this time, so source and destination are one
+      # service — the case every other test in this file deliberately avoids.
+      {:ok, transfer} =
+        Transfers.create(%{
+          user_id: user,
+          source_provider: :tidal,
+          source_playlist_id: "same-src",
+          destination_provider: :tidal,
+          destination_playlist_name: "Copy"
+        })
+
+      assert {:ok, completed} = Runner.run(transfer)
+
+      assert completed.matched_count == 3
+      assert Agent.get(state, & &1.added) == ~w(s1 s2 s3), "the source ids, verbatim"
+
+      assert Agent.get(state, & &1.searches) == 0,
+             "a track already in the destination catalogue must not be searched for"
+
+      rows = Transfers.items(completed)
+
+      assert Enum.all?(rows, &(&1.strategy == "same_service"))
+      assert Enum.all?(rows, &(&1.confidence == "same_service"))
+    end
+
+    test "a self-hosted provider does not get the shortcut" do
+      # The trap this capability exists for. Two Subsonic connections are two
+      # *different servers*: both say `:subsonic`, and an id from one names
+      # nothing on the other — or something else entirely. Reasoning about "the
+      # same service" from the provider name alone would be wrong for every
+      # self-hosted provider this application ever adds.
+      refute :global_ids in OnePlaylist.Providers.Navidrome.capabilities()
+      assert :global_ids in OnePlaylist.Providers.Tidal.capabilities()
+      assert :global_ids in OnePlaylist.Providers.Library.capabilities()
     end
   end
 
