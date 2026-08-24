@@ -1,0 +1,3453 @@
+[
+  {
+    "left": "The Wild, the Innocent & The E Street Shuffle",
+    "right": "The Wild, the Innocent and the E Street Shuffle",
+    "same_album": true,
+    "artist": "Bruce Springsteen",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Darkness on the Edge of Town",
+    "right": "Oscuridad en el Suburbio (Darkness on the Edge of Town)",
+    "same_album": true,
+    "artist": "Bruce Springsteen",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Wild, the Innocent & The E Street Shuffle",
+    "right": "The Wild, the Innocent and the E Street Shuffle",
+    "same_album": true,
+    "artist": "Bruce Springsteen",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Darkness on the Edge of Town",
+    "right": "Oscuridad en el Suburbio (Darkness on the Edge of Town)",
+    "same_album": true,
+    "artist": "Bruce Springsteen",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Freewheelin' Bob Dylan",
+    "right": "The Freewheelin’ Bob Dylan",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Blonde On Blonde",
+    "right": "Blonde on Blonde",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits, Vol. II",
+    "right": "More Bob Dylan Greatest Hits",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Bob Dylan's Greatest Hits",
+    "right": "Bob Dylan’s Greatest Hits",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Freewheelin’ Bob Dylan",
+    "right": "The Freewheelin' Bob Dylan",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Blonde On Blonde",
+    "right": "Blonde on Blonde, Volume 1",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits, Vol. II",
+    "right": "More Bob Dylan Greatest Hits",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits",
+    "right": "Bob Dylan's Greatest Hits",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Blonde On Blonde",
+    "right": "Blonde on Blonde, Volume 2",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Blonde on Blonde",
+    "right": "Blonde On Blonde",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Blonde on Blonde",
+    "right": "Blonde on Blonde, Volume 1",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Blonde on Blonde",
+    "right": "Blonde on Blonde, Volume 2",
+    "same_album": true,
+    "artist": "Bob Dylan",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Times They Are A‐Changin’",
+    "right": "The Times They Are A-Changin'",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits, Vol. III",
+    "right": "Bob Dylan's Greatest Hits 2",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan's Greatest Hits 2",
+    "right": "More Bob Dylan Greatest Hits",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan",
+    "right": "Dylan",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "More Bob Dylan Greatest Hits",
+    "right": "Bob Dylan’s Greatest Hits",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits",
+    "right": "Greatest Hits",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits, Vol. III",
+    "right": "More Bob Dylan Greatest Hits",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan's Greatest Hits 2",
+    "right": "Bob Dylan’s Greatest Hits, Vol. II",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "More Bob Dylan Greatest Hits",
+    "right": "Bob Dylan’s Greatest Hits",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits",
+    "right": "Bob Dylan's Greatest Hits, Volume I",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan’s Greatest Hits, Vol. III",
+    "right": "Bob Dylan’s Greatest Hits, Vol. II",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bob Dylan's Greatest Hits 2",
+    "right": "Bob Dylan’s Greatest Hits",
+    "same_album": false,
+    "artist": "Bob Dylan",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Landing On Water",
+    "right": "Landing on Water",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Re·ac·tor",
+    "right": "Re-ac-tor",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "This Note's For You",
+    "right": "This Note's for You",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Everybody's Rockin'",
+    "right": "Everybody’s Rockin’",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Landing on Water",
+    "right": "Landing On Water",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "This Note's For You",
+    "right": "This Note’s for You",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Everybody’s Rockin’",
+    "right": "Everybody's Rockin'",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "This Note’s for You",
+    "right": "This Note's For You",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "This Note's for You",
+    "right": "This Note’s for You",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "This Note’s for You",
+    "right": "This Note's for You",
+    "same_album": true,
+    "artist": "Neil Young",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Harvest",
+    "right": "Harvest Moon",
+    "same_album": false,
+    "artist": "Neil Young",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Beatlemania! With The Beatles",
+    "right": "With The Beatles",
+    "same_album": true,
+    "artist": "The Beatles",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Beatles & Frank Ifield on Stage",
+    "right": "The Beatles and Frank Ifield on Stage",
+    "same_album": true,
+    "artist": "The Beatles",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Beatles '65",
+    "right": "Beatles ’65",
+    "same_album": true,
+    "artist": "The Beatles",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "With The Beatles",
+    "right": "Beatlemania! With The Beatles",
+    "same_album": true,
+    "artist": "The Beatles",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Beatles ’65",
+    "right": "Beatles '65",
+    "same_album": true,
+    "artist": "The Beatles",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Meet The Beatles!",
+    "right": "Beatlemania! With The Beatles",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "With The Beatles",
+    "right": "Introducing… The Beatles",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Beatles’ Second Album",
+    "right": "The Beatles’ First!",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Beatles’ First!",
+    "right": "The Beatles Beat",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Beatles Beat",
+    "right": "Les Beatles",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Les Beatles",
+    "right": "Beatles '65",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Meet The Beatles!",
+    "right": "With The Beatles",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "With The Beatles",
+    "right": "The Beatles’ First!",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Beatles’ Second Album",
+    "right": "The Beatles Beat",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Beatles’ First!",
+    "right": "Les Beatles",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Les Beatles",
+    "right": "Beatles ’65",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Meet The Beatles!",
+    "right": "Introducing… The Beatles",
+    "same_album": false,
+    "artist": "The Beatles",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Collector's Items",
+    "right": "Collectors’ Items",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Birth of the Cool",
+    "right": "The Complete Birth Of The Cool",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "'Round About Midnight",
+    "right": "’Round About Midnight",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Young Man With a Horn",
+    "right": "Young Man with a Horn",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Sketches Of Spain",
+    "right": "Sketches of Spain",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Ascenseur pour l'échafaud",
+    "right": "Ascenseur pour l’échafaud",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Miles Davis and Milt Jackson Quintet / Sextet",
+    "right": "Miles Davis and Milt Jackson Quintet/Sextet",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Miles Davis’ Greatest Hits",
+    "right": "Miles Davis' Greatest Hits",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Get Up With It",
+    "right": "Get Up with It",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Chronicle: The Complete Prestige Recordings (1951–1956)",
+    "right": "Chronicle: The Complete Prestige Recordings",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Man With the Horn",
+    "right": "The Man with the Horn",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Collectors’ Items",
+    "right": "Collector's Items",
+    "same_album": true,
+    "artist": "Miles Davis",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Milestones",
+    "right": "Miles in the Sky",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Blue Haze",
+    "right": "Blue Period",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis and Horns",
+    "right": "Miles Davis, Volume 1",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Young Man with a Horn",
+    "right": "The Man with the Horn",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Blue Moods",
+    "right": "Blue Period",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis, Volume 1",
+    "right": "Miles Davis, Vol. 2",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis, Vol. 2",
+    "right": "Miles Davis, Volume 2",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis and the Modern Jazz Giants",
+    "right": "Miles Davis and Milt Jackson Quintet / Sextet",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis, Volume 2",
+    "right": "Miles Davis Quartet",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis Quartet",
+    "right": "Miles Davis' Greatest Hits",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles Davis With Sonny Rollins",
+    "right": "Miles Davis and Milt Jackson Quintet/Sextet",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Miles in the Sky",
+    "right": "Circle in the Round",
+    "same_album": false,
+    "artist": "Miles Davis",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "In Chicago",
+    "right": "Quintet in Chicago",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Kenny Burrell & John Coltrane",
+    "right": "The Kenny Burrell Quintet with John Coltrane",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Coltrane's Sound",
+    "right": "Coltrane’s Sound",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Cattin' with Coltrane and Quinichette",
+    "right": "Cattin’ with Coltrane and Quinichette",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "First Meditations (For Quartet)",
+    "right": "First Meditations (for quartet)",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Mastery of John Coltrane, Vol. III: Jupiter Variation",
+    "right": "The Mastery of John Coltrane, Volume 3: Jupiter Variation",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Mastery of John Coltrane / Vol. I Feelin' Good",
+    "right": "The Mastery of John Coltrane, Vol. I: Feelin’ Good",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "In Chicago",
+    "right": "Quintet in Chicago",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Kenny Burrell & John Coltrane",
+    "right": "The Kenny Burrell Quintet with John Coltrane",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Coltrane’s Sound",
+    "right": "Coltrane's Sound",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Cattin’ with Coltrane and Quinichette",
+    "right": "Cattin' with Coltrane and Quinichette",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Mastery of John Coltrane, Vol. III: Jupiter Variation",
+    "right": "The Mastery of John Coltrane, Volume 3: Jupiter Variation",
+    "same_album": true,
+    "artist": "John Coltrane",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Best of John Coltrane",
+    "right": "The Ray Draper Quintet featuring John Coltrane",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bags & Trane",
+    "right": "Cannonball & Coltrane",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Cannonball & Coltrane",
+    "right": "Standard Coltrane",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Coltrane Jazz",
+    "right": "Coltrane",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Ray Draper Quintet featuring John Coltrane",
+    "right": "The Kenny Burrell Quintet with John Coltrane",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Ascension",
+    "right": "Transition",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Golden Disk",
+    "right": "Golden Album",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Believer",
+    "right": "The Dealers",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "My Favorite Things",
+    "right": "Selflessness, Featuring My Favorite Things",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Last Trane",
+    "right": "The Coltrane Legacy",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Giant Steps",
+    "right": "High Step",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "John Coltrane and Johnny Hartman",
+    "right": "John Coltrane Plays for Lovers",
+    "same_album": false,
+    "artist": "John Coltrane",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin III",
+    "right": "Led Zeppelin III = レッド・ツェッペリン III",
+    "same_album": true,
+    "artist": "Led Zeppelin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Led Zeppelin III",
+    "right": "Led Zeppelin III = レッド・ツェッペリン III",
+    "same_album": true,
+    "artist": "Led Zeppelin",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "[Led Zeppelin IV]",
+    "right": "Led Zeppelin III",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin III = レッド・ツェッペリン III",
+    "right": "Led Zeppelin II",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin",
+    "right": "Led Zeppelin II",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin II",
+    "right": "Anthology of Led Zeppelin IV",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Anthology of Led Zeppelin IV",
+    "right": "Led Zeppelin",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Архив популярной музыки №6",
+    "right": "Архив Популярной Музыки № 7",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "[Led Zeppelin IV]",
+    "right": "Led Zeppelin",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin III",
+    "right": "Led Zeppelin",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin",
+    "right": "Anthology of Led Zeppelin IV",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin II",
+    "right": "Led Zeppelin",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "[Led Zeppelin IV]",
+    "right": "Led Zeppelin II",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Led Zeppelin III",
+    "right": "Led Zeppelin II",
+    "same_album": false,
+    "artist": "Led Zeppelin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Original Motion Picture Soundtrack From the Film \"More\"",
+    "right": "Original Motion Picture Soundtrack From the Film “More”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Obscured by Clouds (Music From the Film « The Valley »)",
+    "right": "Obscured by Clouds (Music From the Film “The Valley”)",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Original Motion Picture Soundtrack From the Film \"More\"",
+    "right": "Soundtrack From the Film « More »",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Obscured by Clouds (Music From the Film « The Valley »)",
+    "right": "Obscured by Clouds: Music From the Film the “Valley”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Original Motion Picture Soundtrack From the Film \"More\"",
+    "right": "Soundtrack From the Film “More”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Obscured by Clouds (Music From the Film « The Valley »)",
+    "right": "Obscured by Clouds: Music From the Film “The Valley”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Original Motion Picture Soundtrack From the Film “More”",
+    "right": "Soundtrack From the Film « More »",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Obscured by Clouds (Music From the Film “The Valley”)",
+    "right": "Obscured by Clouds: Music From the Film the “Valley”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Original Motion Picture Soundtrack From the Film “More”",
+    "right": "Soundtrack From the Film “More”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Obscured by Clouds (Music From the Film “The Valley”)",
+    "right": "Obscured by Clouds: Music From the Film “The Valley”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Soundtrack From the Film « More »",
+    "right": "Soundtrack From the Film “More”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Obscured by Clouds: Music From the Film the “Valley”",
+    "right": "Obscured by Clouds: Music From the Film “The Valley”",
+    "same_album": true,
+    "artist": "Pink Floyd",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "A Quick One",
+    "right": "A Quick One (Happy Jack)",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "My Generation",
+    "right": "The Who Sings My Generation",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Tommy (London Symphony Orchestra & Chamber Choir)",
+    "right": "Tommy – As Performed by the London Symphonic Orchestra & Chamber Choir With Guest Soloists",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Who Collection",
+    "right": "The Who Collection, Volume 1",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "It's Hard",
+    "right": "It’s Hard",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Who’s Greatest Hits",
+    "right": "Who's Greatest Hits",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Who’s Tommy: Original Cast Recording",
+    "right": "Tommy: Original Broadway Cast Recording",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Two's Missing",
+    "right": "Two’s Missing",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "A Quick One",
+    "right": "A Quick One (Happy Jack)",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "My Generation",
+    "right": "The Who Sings My Generation",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Who Collection",
+    "right": "The Who Collection, Volume 2",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "It’s Hard",
+    "right": "It's Hard",
+    "same_album": true,
+    "artist": "The Who",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "A Quick One (Happy Jack)",
+    "right": "A Quick One (Happy Jack) / The Who Sell Out",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Who’s Next",
+    "right": "Who’s Missing",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "My Generation",
+    "right": "Magic Bus / My Generation",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Direct Hits",
+    "right": "Greatest Hits",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Who Sell Out",
+    "right": "The Who Collection",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Greatest Hits",
+    "right": "Who's Greatest Hits",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Lo mejor de The Who",
+    "right": "The Story of The Who",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Who’s Missing",
+    "right": "Two's Missing",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Tommy: Original Soundtrack Recording",
+    "right": "The Who’s Tommy: Original Cast Recording",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Rarities, Volume 1: “1966–1968”",
+    "right": "Rarities, Volume 2: “1970–1973”",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Who Sings My Generation",
+    "right": "Magic Bus / My Generation",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Who Sell Out",
+    "right": "The Who",
+    "same_album": false,
+    "artist": "The Who",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Jesus' Blood Never Failed Me Yet",
+    "right": "Jesus’ Blood Never Failed Me Yet",
+    "same_album": true,
+    "artist": "Tom Waits",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Franks Wild Years",
+    "right": "Asylum Years",
+    "same_album": false,
+    "artist": "Tom Waits",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Early Years, Volume 1",
+    "right": "The Early Years, Volume 2",
+    "same_album": false,
+    "artist": "Tom Waits",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Bounced Checks",
+    "right": "Bone Machine",
+    "same_album": false,
+    "artist": "Tom Waits",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Court And Spark",
+    "right": "Court and Spark",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Hissing Of Summer Lawns",
+    "right": "The Hissing of Summer Lawns",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Asylum Albums (1972-1975)",
+    "right": "The Asylum Albums (1972–1975)",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Reprise Albums (1968-1971)",
+    "right": "The Reprise Albums (1968–1971)",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Archives, Volume 2: The Reprise Years (1968–1971)",
+    "right": "Joni Mitchell Archives, Vol. 2: The Reprise Years (1968–1971)",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Court and Spark",
+    "right": "Court And Spark",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Hissing of Summer Lawns",
+    "right": "The Hissing Of Summer Lawns",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Asylum Albums (1972-1975)",
+    "right": "The Asylum Albums (1972–1975)",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Reprise Albums (1968–1971)",
+    "right": "The Reprise Albums (1968-1971)",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Archives, Volume 2: The Reprise Years (1968–1971)",
+    "right": "Joni Mitchell Archives, Vol. 2: The Reprise Years (1968–1971)",
+    "same_album": true,
+    "artist": "Joni Mitchell",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Joni Mitchell",
+    "right": "The World of Joni Mitchell",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Hissing Of Summer Lawns",
+    "right": "The Beginning of Survival",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The World of Joni Mitchell",
+    "right": "Joni Mitchell",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Archives, Volume 1: The Early Years (1963–1967)",
+    "right": "Joni Mitchell Archives, Vol. 3: The Asylum Years (1972–1975)",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Asylum Albums (1972-1975)",
+    "right": "The Reprise Albums (1968-1971)",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Reprise Albums (1968-1971)",
+    "right": "Archives, Volume 2: The Reprise Years (1968–1971)",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Joni Mitchell Archives, Vol. 3: The Asylum Years (1972–1975)",
+    "right": "Joni Mitchell Archives, Vol. 2: The Reprise Years (1968–1971)",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Archives, Volume 2: The Reprise Years (1968–1971)",
+    "right": "Archives – Volume 1: The Early Years (1963-1967): Highlights",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Song to a Seagull",
+    "right": "Songs of a Prairie Girl",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Hissing of Summer Lawns",
+    "right": "The Beginning of Survival",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Archives, Volume 1: The Early Years (1963–1967)",
+    "right": "Joni Mitchell Archives, Vol. 2: The Reprise Years (1968–1971)",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Asylum Albums (1972-1975)",
+    "right": "The Reprise Albums (1968–1971)",
+    "same_album": false,
+    "artist": "Joni Mitchell",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Out of Our Heads",
+    "right": "Out of Our Heads (mono)",
+    "same_album": true,
+    "artist": "The Rolling Stones",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Out of Our Heads",
+    "right": "Out of Our Heads (mono)",
+    "same_album": true,
+    "artist": "The Rolling Stones",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Rolling Stones",
+    "right": "The Rolling Stones, Now!",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones, Now!",
+    "right": "The Rolling Stones No. 2",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones No. 2",
+    "right": "The Best of The Rolling Stones",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Greatest Hits",
+    "right": "Great Hits",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Unstoppable Stones",
+    "right": "The Rolling Stones",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Best of The Rolling Stones",
+    "right": "The Rolling Stones in Action",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones in Action",
+    "right": "The Rolling Stones",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Your Poll Winners: The Rolling Stones Golden Album",
+    "right": "The Rolling Stones Golden Album",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones",
+    "right": "The Best of The Rolling Stones",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones",
+    "right": "The Rolling Stones No. 2",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones, Now!",
+    "right": "The Best of The Rolling Stones",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Rolling Stones No. 2",
+    "right": "The Rolling Stones in Action",
+    "same_album": false,
+    "artist": "The Rolling Stones",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Pin Ups",
+    "right": "Pinups",
+    "same_album": true,
+    "artist": "David Bowie",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "David Bowie Narrates Prokofiev’s Peter and the Wolf",
+    "right": "David Bowie Narrates Prokofiev’s Peter and the Wolf / Britten: Young Person’s Guide to the Orchestra",
+    "same_album": true,
+    "artist": "David Bowie",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Pin Ups",
+    "right": "Pinups",
+    "same_album": true,
+    "artist": "David Bowie",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Man Who Sold the World",
+    "right": "Space Oddity / The Man Who Sold the World",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "David Bowie",
+    "right": "The World of David Bowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "David Bowie",
+    "right": "The World of David Bowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The World of David Bowie",
+    "right": "The Best of Bowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "ChangesOneBowie",
+    "right": "ChangesTwoBowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Best of Bowie",
+    "right": "ChangesTwoBowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "David Bowie",
+    "right": "The World of David Bowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The World of David Bowie",
+    "right": "David Bowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The World of David Bowie",
+    "right": "David Bowie",
+    "same_album": false,
+    "artist": "David Bowie",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Controversy",
+    "right": "Dirty Mind / Controversy",
+    "same_album": false,
+    "artist": "Prince",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Kick Inside",
+    "right": "The Kick Inside",
+    "same_album": true,
+    "artist": "Kate Bush",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Kick Inside",
+    "right": "Kick Inside",
+    "same_album": true,
+    "artist": "Kate Bush",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Talking Heads ’77",
+    "right": "Talking Heads: 77",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "More Songs About Buildings And Food",
+    "right": "More Songs About Buildings and Food",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Fear of Music",
+    "right": "Fear of Music = フィア・オブ・ミュージック",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Remain In Light",
+    "right": "Remain in Light",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Talking Heads: 77",
+    "right": "Talking Heads ’77",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "More Songs About Buildings And Food",
+    "right": "More Songs About Buildings and Food = Mas canciones sobre edificios y comida",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Fear of Music",
+    "right": "Fear of Music = フィア・オブ・ミュージック",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Remain in Light",
+    "right": "Remain In Light",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "More Songs About Buildings and Food",
+    "right": "More Songs About Buildings And Food",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "More Songs About Buildings and Food",
+    "right": "More Songs About Buildings and Food = Mas canciones sobre edificios y comida",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "More Songs About Buildings and Food",
+    "right": "More Songs About Buildings and Food = Mas canciones sobre edificios y comida",
+    "same_album": true,
+    "artist": "Talking Heads",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "True Stories",
+    "right": "Sounds From True Stories",
+    "same_album": false,
+    "artist": "Talking Heads",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "True Stories",
+    "right": "True Stories Soundtrack",
+    "same_album": false,
+    "artist": "Talking Heads",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Fleetwood Mac’s Greatest Hits",
+    "right": "Greatest Hits",
+    "same_album": true,
+    "artist": "Fleetwood Mac",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Greatest Hits",
+    "right": "Greatest Hits (deluxe edition)",
+    "same_album": true,
+    "artist": "Fleetwood Mac",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Greatest Hits",
+    "right": "Fleetwood Mac’s Greatest Hits",
+    "same_album": true,
+    "artist": "Fleetwood Mac",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Greatest Hits",
+    "right": "Greatest Hits (deluxe edition)",
+    "same_album": true,
+    "artist": "Fleetwood Mac",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Fleetwood Mac",
+    "right": "The Original Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Original Fleetwood Mac",
+    "right": "The Best of Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Best of Fleetwood Mac",
+    "right": "Peter Green’s Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Fleetwood Mac’s Greatest Hits",
+    "right": "Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Peter Green’s Fleetwood Mac",
+    "right": "The Best of Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "2 Originals of Fleetwood Mac",
+    "right": "Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Fleetwood Mac",
+    "right": "The Best of Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Original Fleetwood Mac",
+    "right": "Peter Green’s Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Best of Fleetwood Mac",
+    "right": "2 Originals of Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Peter Green’s Fleetwood Mac",
+    "right": "Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "2 Originals of Fleetwood Mac",
+    "right": "The Best of the Original Fleetwood Mac",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Fleetwood Mac",
+    "right": "Fleetwood Mac’s Greatest Hits",
+    "same_album": false,
+    "artist": "Fleetwood Mac",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Workingman's Dead",
+    "right": "Workingman’s Dead",
+    "same_album": true,
+    "artist": "Grateful Dead",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Workingman’s Dead",
+    "right": "Workingman's Dead",
+    "same_album": true,
+    "artist": "Grateful Dead",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Grateful Dead",
+    "right": "The History of the Grateful Dead",
+    "same_album": false,
+    "artist": "Grateful Dead",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The History of the Grateful Dead",
+    "right": "Skeletons From the Closet: The Best of the Grateful Dead",
+    "same_album": false,
+    "artist": "Grateful Dead",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "What a Long Strange Trip It’s Been: The Best of the Grateful Dead",
+    "right": "Skeletons From the Closet: The Best of the Grateful Dead",
+    "same_album": false,
+    "artist": "Grateful Dead",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Johnny Cash Sings the Ballads of the True West",
+    "right": "Johnny Cash Sings the Ballads of the True West, Volume I",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Ring Of Fire: The Best Of Johnny Cash",
+    "right": "Ring of Fire: The Best of Johnny Cash",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Gospel Road",
+    "right": "The Gospel Road: A Story of Jesus",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Man In Black",
+    "right": "Man in Black",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Show Time",
+    "right": "Showtime",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Class of ’55: Memphis Rock & Roll Homecoming",
+    "right": "Memphis Rock & Roll Homecoming",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Johnny Cash Sings the Ballads of the True West",
+    "right": "Mean as Hell! Ballads From the True West",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Ring of Fire: The Best of Johnny Cash",
+    "right": "Ring Of Fire: The Best Of Johnny Cash",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Gospel Road",
+    "right": "The Gospel Road: A Story of Jesus",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Man in Black",
+    "right": "Man In Black",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Show Time",
+    "right": "Showtime",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Class of ’55: Memphis Rock & Roll Homecoming",
+    "right": "Memphis Rock & Roll Homecoming",
+    "same_album": true,
+    "artist": "Johnny Cash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Hymns by Johnny Cash",
+    "right": "The Sound of Johnny Cash",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Ride This Train",
+    "right": "Riding the Rails",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Johnny Cash Sings the Ballads of the True West",
+    "right": "Johnny Cash Sings Precious Memories",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Sound of Johnny Cash",
+    "right": "The Fabulous Johnny Cash",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Fabulous Johnny Cash",
+    "right": "Now Here’s Johnny Cash",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Original Sun Sound of Johnny Cash",
+    "right": "Ring of Fire: The Best of Johnny Cash",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Johnny Cash With His Hot and Blue Guitar",
+    "right": "Johnny Cash and His Woman",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Ring of Fire: The Best of Johnny Cash",
+    "right": "The World of Johnny Cash",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Sings the Songs That Made Him Famous",
+    "right": "Sings the Greatest Hits",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "All Aboard the Blue Train",
+    "right": "All Aboard The Blue Train",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "I Walk the Line",
+    "right": "Sings I Walk The Line",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "All Aboard The Blue Train",
+    "right": "The Blue Train",
+    "same_album": false,
+    "artist": "Johnny Cash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Spirit In The Dark",
+    "right": "Spirit in the Dark",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "This Girl's in Love With You",
+    "right": "This Girl’s in Love With You",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Soul '69",
+    "right": "Soul ’69",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Tender, the Moving, the Swinging Aretha Franklin",
+    "right": "The Tender, the Moving, the Swinging",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Jump To It",
+    "right": "Jump to It",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Aretha's Jazz",
+    "right": "Aretha’s Jazz",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Through The Storm",
+    "right": "Through the Storm",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Very Best of Aretha Franklin, Vol. 1",
+    "right": "The Very Best of Aretha Franklin: The ’60s",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Respect & Other Hits",
+    "right": "Respect and Other Hits",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Very Best of Aretha Franklin, Vol. 2",
+    "right": "The Very Best of Aretha Franklin: The '70s",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Spirit in the Dark",
+    "right": "Spirit In The Dark",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "This Girl’s in Love With You",
+    "right": "This Girl's in Love With You",
+    "same_album": true,
+    "artist": "Aretha Franklin",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Electrifying Aretha Franklin",
+    "right": "The Best of Aretha Franklin",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Aretha’s Gold",
+    "right": "Aretha Now",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Aretha Franklin’s Greatest Hits",
+    "right": "Aretha’s Greatest Hits",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Aretha Arrives",
+    "right": "Aretha",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Aretha’s Greatest Hits",
+    "right": "30 Greatest Hits",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Queen of Soul",
+    "right": "The Legendary Queen of Soul",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Runnin’ Out of Fools",
+    "right": "Chain of Fools",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Today I Sing the Blues",
+    "right": "Aretha Sings the Blues",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Aretha Now",
+    "right": "Aretha",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Aretha",
+    "right": "Aretha's Jazz",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Best of Aretha Franklin",
+    "right": "The Very Best of Aretha Franklin: The ’60s",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Get It Right",
+    "right": "Aretha / Get It Right",
+    "same_album": false,
+    "artist": "Aretha Franklin",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Signed Sealed & Delivered",
+    "right": "Signed, Sealed & Delivered",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Where I’m Coming From",
+    "right": "Where I'm Coming From",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Up-Tight (Everything’s Alright)",
+    "right": "Up‐Tight (Everything’s Alright)",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Songs In The Key Of Life",
+    "right": "Songs in the Key of Life",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Fulfillingness' First Finale",
+    "right": "Fulfillingness’ First Finale",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Wonderland: 1962–1974",
+    "right": "Wonderland: 1963–1974",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Stevie Wonder's Original Musiquarium I, Vol. I",
+    "right": "Stevie Wonder's Original Musiquarium I, Vol. II",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Journey Through The Secret Life Of Plants",
+    "right": "Journey Through the Secret Life of Plants",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Signed, Sealed & Delivered",
+    "right": "Signed Sealed & Delivered",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Up‐Tight (Everything’s Alright)",
+    "right": "Up-Tight (Everything’s Alright)",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Songs in the Key of Life",
+    "right": "Songs In The Key Of Life",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Fulfillingness’ First Finale",
+    "right": "Fulfillingness' First Finale",
+    "same_album": true,
+    "artist": "Stevie Wonder",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Talking Book",
+    "right": "Looking Back",
+    "same_album": false,
+    "artist": "Stevie Wonder",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "His Twenty Greatest Hits",
+    "right": "Greatest Hits",
+    "same_album": false,
+    "artist": "Stevie Wonder",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "His Twenty Greatest Hits",
+    "right": "Greatest Hits",
+    "same_album": false,
+    "artist": "Stevie Wonder",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Let's Get It On",
+    "right": "Let's Get It On = レッツ・ゲット・イット・オン",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "I Heard It Through The Grapevine!",
+    "right": "I Heard It Through the Grapevine!",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "What's Going On",
+    "right": "What’s Going On",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "That Stubborn Kinda Fellow",
+    "right": "That Stubborn Kinda’ Fellow",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Marvin Gaye's Greatest Hits",
+    "right": "Marvin Gaye’s Greatest Hits",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Trouble Man / M. P. G.",
+    "right": "Trouble Man / M.P.G.",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Motown Remembers Marvin Gaye",
+    "right": "Motown Remembers Marvin Gaye: Never Before Released Masters",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Love Starved Heart: Expanded Edition",
+    "right": "Love Starved Heart: Rare and Unreleased",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "20th Century Masters: The Millennium Collection: The Best of Marvin Gaye, Volume 1: The '60s",
+    "right": "20th Century Masters: The Millennium Collection: The Best of Marvin Gaye, Volume 1: The ’60s",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "20th Century Masters – The Millennium Collection: The Best of Marvin Gaye, Vol. 2: The ’70s",
+    "right": "20th Century Masters: The Millennium Collection: The Best of Marvin Gaye, Volume 2: The ’70s",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Les légendes de la soul",
+    "right": "Les Légendes de La Soul",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Marvin Gaye Live",
+    "right": "Marvin Gaye",
+    "same_album": true,
+    "artist": "Marvin Gaye",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Let’s Get It On",
+    "right": "What’s Going On",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Marvin Gaye Super Hits",
+    "right": "Marvin Gaye and His Girls",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "I Heard It Through The Grapevine!",
+    "right": "I Heard It Through the Grapevine / I Want You",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Midnight Love",
+    "right": "Night Life",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Compact Command Performances: 15 Greatest Hits",
+    "right": "Compact Command Performances: 20 Greatest Hits",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Trouble Man",
+    "right": "Trouble Man / M.P.G.",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "What’s Going On",
+    "right": "What’s Going On / Let’s Get It On",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "In Our Lifetime",
+    "right": "Dream of a Lifetime",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Greatest Hits",
+    "right": "Greatest Hits, Vol. 2",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Soulful Moods of Marvin Gaye",
+    "right": "Moods of Marvin Gaye",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "How Sweet It Is to Be Loved by You",
+    "right": "That Stubborn Kinda Fellow / How Sweet It Is to Be Loved by You",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Marvin Gaye and His Girls",
+    "right": "Marvin Gaye's Greatest Hits",
+    "same_album": false,
+    "artist": "Marvin Gaye",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "High Priestess Of Soul",
+    "right": "High Priestess of Soul",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Nina's Choice",
+    "right": "Nina’s Choice",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Jazz as Played in an Exclusive Side Street Club",
+    "right": "Nina Simone – Jazz as Played in an Exclusive Side Street Club",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Fodder On My Wings",
+    "right": "Fodder on My Wings",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Nina's Back",
+    "right": "Nina's Back!",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Best of Nina Simone: The Colpix Years",
+    "right": "The Best of “The Colpix Years”",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Amazing...",
+    "right": "The Amazing…",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Nina Simone’s Finest Hour",
+    "right": "Nina Simone's Finest Hour",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Night Song",
+    "right": "Quiet Now: Night Song",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Anthology",
+    "right": "Nina Simone Anthology",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Forbidden Fruit / At Newport",
+    "right": "Forbidden Fruit / Nina Simone at Newport",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "High Priestess of Soul",
+    "right": "High Priestess Of Soul",
+    "same_album": true,
+    "artist": "Nina Simone",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Nina Simone With Strings",
+    "right": "Nina Simone and Piano!",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Nina Simone and Piano!",
+    "right": "Nina Simone Sings Ellington",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Nina Simone Sings the Blues",
+    "right": "Nina Simone Sings Ellington",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Amazing Nina Simone",
+    "right": "Gospel According to Nina Simone",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Gospel According to Nina Simone",
+    "right": "A arte de Nina Simone",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "High Priestess of Soul",
+    "right": "Wild Is the Wind / High Priestess of Soul",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Nina's Choice",
+    "right": "Nina's Back!",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Here Comes the Sun",
+    "right": "To Love Somebody / Here Comes the Sun",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Best of Nina Simone",
+    "right": "The Finest of Nina Simone - I Loves You Porgy",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Finest of Nina Simone - I Loves You Porgy",
+    "right": "The Best of Nina Simone",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Let It All Out",
+    "right": "Pastel Blues / Let It All Out",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Ne me quitte pas",
+    "right": "The 60's, Volume 1: Ne me quitte pas",
+    "same_album": false,
+    "artist": "Nina Simone",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Waltz for Debbie",
+    "right": "Waltz for Debby",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Tony Bennett / Bill Evans Album",
+    "right": "The Tony Bennett Bill Evans Album",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Green Dolphin Street",
+    "right": "On Green Dolphin Street",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Autumn Leaves = 枯葉",
+    "right": "Autumn Leaves",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Solo Sessions Vol. 1",
+    "right": "The Solo Sessions, Volume 1",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Riverside Profiles",
+    "right": "Riverside Profiles: Bill Evans",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Waltz for Debby",
+    "right": "Waltz for Debbie",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Tony Bennett / Bill Evans Album",
+    "right": "The Tony Bennett/Bill Evans Album",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "On Green Dolphin Street",
+    "right": "Green Dolphin Street",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Solo Sessions, Volume 1",
+    "right": "The Solo Sessions Vol. 1",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Riverside Profiles",
+    "right": "Riverside Profiles: Bill Evans",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Tony Bennett Bill Evans Album",
+    "right": "The Tony Bennett/Bill Evans Album",
+    "same_album": true,
+    "artist": "Bill Evans",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Empathy / A Simple Matter of Conviction",
+    "right": "A Simple Matter of Conviction",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Conversations With Myself",
+    "right": "Further Conversations With Myself",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Bill Evans Album",
+    "right": "The Tony Bennett Bill Evans Album",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Tony Bennett Bill Evans Album",
+    "right": "The Very Best of Bill Evans",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Everybody Digs Bill Evans",
+    "right": "Conversations with Bill Evans",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "New Jazz Conceptions",
+    "right": "New Conversations",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Further Conversations With Myself",
+    "right": "New Conversations",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Stan Getz & Bill Evans",
+    "right": "Compact Jazz: Bill Evans",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Intermodulation",
+    "right": "Intuition",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Spring Leaves",
+    "right": "Autumn Leaves",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "From Left To Right",
+    "right": "From Left to Right",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Compact Jazz: Bill Evans",
+    "right": "Ultimate Bill Evans",
+    "same_album": false,
+    "artist": "Bill Evans",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "EVOL",
+    "right": "Evol",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Confusion Is Sex",
+    "right": "Confusion Is Sex / Kill Yr. Idols",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Experimental Jet Set, Trash And No Star",
+    "right": "Experimental Jet Set, Trash and No Star",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "EVOL",
+    "right": "Evol",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Confusion Is Sex",
+    "right": "Confusion Is Sex Plus Kill Yr. Idols",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Experimental Jet Set, Trash and No Star",
+    "right": "Experimental Jet Set, Trash And No Star",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Confusion Is Sex / Kill Yr. Idols",
+    "right": "Confusion Is Sex Plus Kill Yr. Idols",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Confusion Is Sex",
+    "right": "Confusion Is Sex / Kill Yr. Idols",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Confusion Is Sex",
+    "right": "Confusion Is Sex Plus Kill Yr. Idols",
+    "same_album": true,
+    "artist": "Sonic Youth",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Mix Tape #4",
+    "right": "Mix Tape #1",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #1",
+    "right": "Mix Tape #2",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #2",
+    "right": "Mix Tape #5",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #5",
+    "right": "Mix Tape #3",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #4",
+    "right": "Mix Tape #2",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #1",
+    "right": "Mix Tape #5",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #2",
+    "right": "Mix Tape #3",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #4",
+    "right": "Mix Tape #5",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #1",
+    "right": "Mix Tape #3",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mix Tape #4",
+    "right": "Mix Tape #3",
+    "same_album": false,
+    "artist": "Sonic Youth",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Standing on a Beach: The Singles",
+    "right": "Standing on a Beach: The Singles (and Unavailable B‐Sides)",
+    "same_album": true,
+    "artist": "The Cure",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Standing on a Beach: The Singles",
+    "right": "Staring at the Sea: The Singles",
+    "same_album": true,
+    "artist": "The Cure",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Standing on a Beach: The Singles",
+    "right": "Standing on a Beach: The Singles (and Unavailable B‐Sides)",
+    "same_album": true,
+    "artist": "The Cure",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Staring At The Sea - The Singles = スターリング・アット・ザ・シー／ザ・シングルズ",
+    "right": "Staring at the Sea: The Singles",
+    "same_album": true,
+    "artist": "The Cure",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Standing on a Beach: The Singles",
+    "right": "Staring at the Sea: The Singles",
+    "same_album": true,
+    "artist": "The Cure",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Disintegration",
+    "right": "Integration",
+    "same_album": false,
+    "artist": "The Cure",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Singles 81 → 85",
+    "right": "The Singles 81>85",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Unreleased Boxset (A+B: Instrumentals)",
+    "right": "The Unreleased Boxset (C+D: Weirdo Mixes)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Singles 81 → 85",
+    "right": "The Singles 81–85",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Unreleased Boxset (A+B: Instrumentals)",
+    "right": "The Unreleased Boxset (E+F: 7 Inch B‐Sides)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Singles 81>85",
+    "right": "The Singles 81 → 85",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Unreleased Boxset (A+B: Instrumentals)",
+    "right": "The Unreleased Boxset (G+H: 12 Inch A‐Sides)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Singles 81>85",
+    "right": "The Singles 81–85",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Unreleased Boxset",
+    "right": "The Unreleased Boxset (A+B: Instrumentals)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Singles 81>85",
+    "right": "The Singles 81–85",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Unreleased Boxset (C+D: Weirdo Mixes)",
+    "right": "The Unreleased Boxset (E+F: 7 Inch B‐Sides)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Unreleased Boxset (C+D: Weirdo Mixes)",
+    "right": "The Unreleased Boxset (G+H: 12 Inch A‐Sides)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Unreleased Boxset",
+    "right": "The Unreleased Boxset (C+D: Weirdo Mixes)",
+    "same_album": true,
+    "artist": "Depeche Mode",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Low-Life",
+    "right": "Low‐Life",
+    "same_album": true,
+    "artist": "New Order",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "(The Rest of) New Order",
+    "right": "(The Rest of) NewOrder",
+    "same_album": true,
+    "artist": "New Order",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "(The Best of) New Order",
+    "right": "(The Best of) NewOrder",
+    "same_album": true,
+    "artist": "New Order",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Low‐Life",
+    "right": "Low-Life",
+    "same_album": true,
+    "artist": "New Order",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "(The Rest of) New Order",
+    "right": "(The Rest of) NewOrder",
+    "same_album": true,
+    "artist": "New Order",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "(The Best of) New Order",
+    "right": "(The Best of) NewOrder",
+    "same_album": true,
+    "artist": "New Order",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "(The Rest of) NewOrder",
+    "right": "(The Best of) New Order",
+    "same_album": false,
+    "artist": "New Order",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "(The Rest of) NewOrder",
+    "right": "(The Best of) NewOrder",
+    "same_album": false,
+    "artist": "New Order",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "(The Rest of) New Order",
+    "right": "(The Best of) New Order",
+    "same_album": false,
+    "artist": "New Order",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "(The Rest of) New Order",
+    "right": "(The Best of) NewOrder",
+    "same_album": false,
+    "artist": "New Order",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window - The Remixes",
+    "right": "100th Window: The Remixes",
+    "same_album": true,
+    "artist": "Massive Attack",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "100th Window: The Remixes",
+    "right": "100th Window - The Remixes",
+    "same_album": true,
+    "artist": "Massive Attack",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Protection",
+    "right": "No Protection",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window: The Remixes",
+    "right": "100th Window",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Danny the Dog (Original Motion Picture Soundtrack)",
+    "right": "Unleashed (Original Motion Picture Soundtrack)",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Collected",
+    "right": "Selected",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mezzanine: The Remixes",
+    "right": "Blue Lines - The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Blue Lines - The Remixes",
+    "right": "Protection - The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window: The Remixes",
+    "right": "Mezzanine: The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mezzanine: The Remixes",
+    "right": "Protection - The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window: The Remixes",
+    "right": "Blue Lines - The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window - The Remixes",
+    "right": "100th Window",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window - The Remixes",
+    "right": "Blue Lines - The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "100th Window - The Remixes",
+    "right": "Protection - The Remixes",
+    "same_album": false,
+    "artist": "Massive Attack",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "2 for 1: Dummy + Portishead",
+    "right": "2 for 1: Dummy / Portishead",
+    "same_album": true,
+    "artist": "Portishead",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Dummy / Portishead",
+    "right": "2 for 1: Dummy + Portishead",
+    "same_album": true,
+    "artist": "Portishead",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Dummy / Portishead",
+    "right": "2 for 1: Dummy / Portishead",
+    "same_album": true,
+    "artist": "Portishead",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Gling-Gló",
+    "right": "Gling‐Gló",
+    "same_album": true,
+    "artist": "Björk",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Gling‐Gló",
+    "right": "Gling-Gló",
+    "same_album": true,
+    "artist": "Björk",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Ágætis byrjun (A Good Beginning) [Demos, Rarities and Live at Íslenska Óperan]",
+    "right": "Ágætis byrjun – A Good Beginning (Demos, Rarities and live at Íslenska Óperan)",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Hvarf / Heim",
+    "right": "Hvarf ‐ Heim",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Með suð i eyrum við spilum endalaust",
+    "right": "Með suð í eyrum við spilum endalaust",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Englar Alheimsins",
+    "right": "Englar alheimsins",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Kveikur",
+    "right": "Kveikur (bundle)",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Hvarf / Heim",
+    "right": "Hvarf‐Heim",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Með suð í eyrum við spilum endalaust",
+    "right": "Með suð i eyrum við spilum endalaust",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Englar alheimsins",
+    "right": "Englar Alheimsins",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Kveikur (bundle)",
+    "right": "Kveikur (instrumental)",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Hvarf‐Heim",
+    "right": "Hvarf / Heim",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Kveikur (bundle)",
+    "right": "Kveikur Expanded EP",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Hvarf ‐ Heim",
+    "right": "Hvarf‐Heim",
+    "same_album": true,
+    "artist": "Sigur Rós",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Sky Blue Sky",
+    "right": "Sky Blue Sky (bonus disc)",
+    "same_album": true,
+    "artist": "Wilco",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "What's Your 20? Essential Tracks 1994-2014",
+    "right": "What’s Your 20? Essential Tracks 1994–2014",
+    "same_album": true,
+    "artist": "Wilco",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Sky Blue Sky",
+    "right": "Sky Blue Sky (bonus disc)",
+    "same_album": true,
+    "artist": "Wilco",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "What’s Your 20? Essential Tracks 1994–2014",
+    "right": "What's Your 20? Essential Tracks 1994-2014",
+    "same_album": true,
+    "artist": "Wilco",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "Mermaid Avenue",
+    "right": "Mermaid Avenue, Vol. II",
+    "same_album": false,
+    "artist": "Wilco",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mermaid Avenue, Vol. II",
+    "right": "Mermaid Avenue: The Complete Sessions",
+    "same_album": false,
+    "artist": "Wilco",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mermaid Avenue",
+    "right": "Mermaid Avenue, Vol. III",
+    "same_album": false,
+    "artist": "Wilco",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Mermaid Avenue, Vol. II",
+    "right": "Mermaid Avenue, Vol. III",
+    "same_album": false,
+    "artist": "Wilco",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "89/93: An Anthology",
+    "right": "Uncle Tupelo 89/93: An Anthology",
+    "same_album": true,
+    "artist": "Uncle Tupelo",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "89/93: An Anthology",
+    "right": "Uncle Tupelo 89/93: An Anthology",
+    "same_album": true,
+    "artist": "Uncle Tupelo",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "March 16–20, 1992",
+    "right": "Still Feel Gone & March 16-20, 1992",
+    "same_album": false,
+    "artist": "Uncle Tupelo",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Still Feel Gone",
+    "right": "Still Feel Gone & March 16-20, 1992",
+    "same_album": false,
+    "artist": "Uncle Tupelo",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Story of The Clash, Volume 1",
+    "right": "The Story of the Clash, Volume 1",
+    "same_album": true,
+    "artist": "The Clash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Essential Clash",
+    "right": "The Essential Plus",
+    "same_album": true,
+    "artist": "The Clash",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Story of The Clash, Volume 1",
+    "right": "The Story of the Clash, Volume 1",
+    "same_album": true,
+    "artist": "The Clash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Essential Clash",
+    "right": "The Essential Plus",
+    "same_album": true,
+    "artist": "The Clash",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "London Calling",
+    "right": "London Calling / Combat Rock",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Give ’Em Enough Rope",
+    "right": "The Clash / Give ’Em Enough Rope",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Sandinista!",
+    "right": "Sandinista Now!",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Black Market Clash",
+    "right": "Super Black Market Clash",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Clash",
+    "right": "The Singles",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Clash on Broadway: The Trailer",
+    "right": "Clash on Broadway",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Collection",
+    "right": "The Ultimate Collection",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Ultimate Collection",
+    "right": "The Collection",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Clash",
+    "right": "The Essential Clash",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Clash",
+    "right": "The Singles",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Clash",
+    "right": "The Singles",
+    "same_album": false,
+    "artist": "The Clash",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Girls Girls Girls",
+    "right": "Girls! Girls! Girls!",
+    "same_album": true,
+    "artist": "Elvis Costello",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "The Sweetest Punch - The New Songs of Elvis Costello & Burt Bacharach",
+    "right": "The Sweetest Punch: The New Songs of Elvis Costello and Burt Bacharach, arranged by Bill Frisell",
+    "same_album": true,
+    "artist": "Elvis Costello",
+    "why": "two pressings of one album"
+  },
+  {
+    "left": "Girls Girls Girls",
+    "right": "Girls! Girls! Girls!",
+    "same_album": true,
+    "artist": "Elvis Costello",
+    "why": "a pressing against its album"
+  },
+  {
+    "left": "The Man: The Best of Elvis Costello",
+    "right": "The Very Best of Elvis Costello",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Girls Girls Girls",
+    "right": "Girls +£÷ Girls =$& Girls, Volume Two",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Very Best of Elvis Costello",
+    "right": "The Best of Elvis Costello: The First 10 Years",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Singles, Volume 2",
+    "right": "Singles, Volume 3",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Singles, Volume 3",
+    "right": "Singles, Volume 1",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "The Man: The Best of Elvis Costello",
+    "right": "The Best of Elvis Costello: The First 10 Years",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  },
+  {
+    "left": "Singles, Volume 2",
+    "right": "Singles, Volume 1",
+    "same_album": false,
+    "artist": "Elvis Costello",
+    "why": "different albums, confusable titles"
+  }
+]

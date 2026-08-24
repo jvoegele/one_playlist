@@ -475,6 +475,65 @@ defmodule OnePlaylist.TransfersTest do
     end
   end
 
+  describe "a playlist that holds the same track twice" do
+    test "writes it twice, and adds nothing on a second run", %{user: user} do
+      # A playlist may legitimately hold one track twice, and the pipeline used
+      # to deduplicate by destination id — so the second copy vanished. Counting
+      # what the source asks for against what the destination holds answers both
+      # halves at once: two written the first time, none the second.
+      {:ok, source} = Library.create_playlist(user, "Twice")
+
+      twin = %Track{
+        provider: :tidal,
+        provider_id: "src-twin",
+        title: "Song s1",
+        isrc: isrc("s1")
+      }
+
+      2 = Library.append(user, source.id, [twin, twin])
+
+      state = provider_state()
+
+      {:ok, first} =
+        Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+
+      assert first.added_count == 2
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds1), "both copies, not one"
+
+      {:ok, again} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+
+      assert again.added_count == 0, "a re-run must still add nothing"
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds1)
+    end
+
+    test "two different recordings sharing a title both land", %{user: user} do
+      # The case that prompted this. "Hard to Imagine" appears twice in a real
+      # playlist — once from Lost Dogs, once from the Chicago Cab soundtrack —
+      # and they are two distinct studio recordings.
+      {:ok, source} = Library.create_playlist(user, "Two sessions")
+
+      versions =
+        for {album, id} <- [{"Lost Dogs", "s1"}, {"Chicago Cab", "s2"}] do
+          %Track{
+            provider: :tidal,
+            provider_id: "src-#{id}",
+            title: "Hard to Imagine",
+            album: album,
+            isrc: isrc(id)
+          }
+        end
+
+      2 = Library.append(user, source.id, versions)
+
+      state = provider_state()
+
+      {:ok, run} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+
+      assert run.added_count == 2
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds2), "two recordings, two writes"
+    end
+  end
+
   describe "the identity spine" do
     test "a recording already located at the destination is not searched for again", %{
       user: user

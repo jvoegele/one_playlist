@@ -121,7 +121,7 @@ defmodule OnePlaylist.Transfers.Runner do
          {:ok, added} <-
            write_missing(
              resolutions,
-             MapSet.new(present),
+             present,
              destination_adapter,
              destination_connection,
              destination
@@ -660,27 +660,41 @@ defmodule OnePlaylist.Transfers.Runner do
   # Adds only what the destination does not already have, in batches. Returns
   # the set of source positions that were actually written, which is what tells
   # `:matched` apart from `:already_present`.
+  # Counted rather than set-compared, and that distinction is the whole of it.
+  #
+  # A playlist may legitimately hold the same track twice, and a source playlist
+  # routinely holds two *different* recordings a service cannot tell apart. The
+  # earlier version deduplicated by destination id, on the reasoning that
+  # writing a track twice would leave a duplicate no later run could tell from
+  # one the user had added themselves — which is true of a **set** and not of a
+  # **count**.
+  #
+  # Comparing how many the source asks for against how many the destination
+  # already holds answers both at once. The source says three, the destination
+  # has one, so two are written; run it again and the destination has three, so
+  # none are. Idempotent and faithful, where set comparison could only be one or
+  # the other.
+  #
+  # Found by a user whose playlist holds two different studio recordings of
+  # "Hard to Imagine" — one from *Lost Dogs*, one from the *Chicago Cab*
+  # soundtrack — and, before this, one of them silently.
   defp write_missing(resolutions, present, adapter, connection, destination) do
-    missing =
-      for {position, _source, {:ok, match}} <- resolutions,
-          not MapSet.member?(present, match.track.provider_id),
-          do: {position, match.track}
+    held = Enum.frequencies(present)
 
-    # Deduplicated by destination id: two source tracks can resolve to the same
-    # destination track — a playlist containing the same recording twice, or two
-    # near-identical entries matching one candidate. Writing it twice would put
-    # a duplicate in somebody's playlist, which no later run could tell from a
-    # duplicate they had added themselves.
-    {to_write, _seen} =
-      Enum.reduce(missing, {[], MapSet.new()}, fn {position, track}, {acc, seen} ->
-        if MapSet.member?(seen, track.provider_id) do
-          {acc, seen}
-        else
-          {[{position, track} | acc], MapSet.put(seen, track.provider_id)}
+    {reversed, _remaining} =
+      resolutions
+      |> Enum.flat_map(fn
+        {position, _source, {:ok, match}} -> [{position, match.track}]
+        _unmatched -> []
+      end)
+      |> Enum.reduce({[], held}, fn {position, track}, {acc, counts} ->
+        case Map.get(counts, track.provider_id, 0) do
+          0 -> {[{position, track} | acc], counts}
+          available -> {acc, Map.put(counts, track.provider_id, available - 1)}
         end
       end)
 
-    to_write = Enum.reverse(to_write)
+    to_write = Enum.reverse(reversed)
 
     result =
       to_write
@@ -724,9 +738,25 @@ defmodule OnePlaylist.Transfers.Runner do
       :ok
     else
       with {:ok, present} <- adapter.playlist_track_ids(connection, destination) do
-        report_missing(Enum.reject(expected, &(&1 in present)), expected, destination)
+        # Counted, for the reason `write_missing/5` gives: a track written twice
+        # on purpose is confirmed only by finding it twice. `Enum.reject/2` on
+        # membership would call one copy proof of both.
+        report_missing(unaccounted(expected, Enum.frequencies(present)), expected, destination)
       end
     end
+  end
+
+  # Which of the ids we wrote are not there in the numbers we wrote them.
+  defp unaccounted(expected, held) do
+    {missing, _remaining} =
+      Enum.reduce(expected, {[], held}, fn id, {acc, counts} ->
+        case Map.get(counts, id, 0) do
+          0 -> {[id | acc], counts}
+          available -> {acc, Map.put(counts, id, available - 1)}
+        end
+      end)
+
+    Enum.reverse(missing)
   end
 
   defp report_missing([], _expected, _destination), do: :ok
