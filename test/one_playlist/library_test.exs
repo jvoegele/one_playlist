@@ -344,6 +344,77 @@ defmodule OnePlaylist.LibraryTest do
              "pressing a button twice at the end is not a failure"
     end
 
+    test "place_entry drops one entry after another", %{user_id: user_id, playlist: playlist} do
+      [one, _two, _three] = Library.entries(user_id, playlist.id)
+      [_one, _two, three] = Library.entries(user_id, playlist.id)
+
+      Library.place_entry(user_id, playlist.id, one.id, three.id, :after)
+
+      assert titles(user_id, playlist) == ~w(Two Three One)
+    end
+
+    test "place_entry drops one entry before another", %{user_id: user_id, playlist: playlist} do
+      [one, _two, three] = Library.entries(user_id, playlist.id)
+
+      Library.place_entry(user_id, playlist.id, three.id, one.id, :before)
+
+      assert titles(user_id, playlist) == ~w(Three One Two)
+    end
+
+    test "place_entry renumbers densely, leaving no gaps", %{
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # Dense integers were kept over fractional ranks because a renumber
+      # measures at 2.3ms. That only holds if it actually renumbers.
+      [one, _two, three] = Library.entries(user_id, playlist.id)
+
+      after_move = Library.place_entry(user_id, playlist.id, one.id, three.id, :after)
+
+      assert Enum.map(after_move, & &1.position) == [0, 1, 2]
+    end
+
+    test "place_entry keeps every entry, and only reorders", %{
+      user_id: user_id,
+      playlist: playlist
+    } do
+      before = Library.entries(user_id, playlist.id) |> Enum.map(& &1.id) |> MapSet.new()
+      [one, _two, three] = Library.entries(user_id, playlist.id)
+
+      after_move = Library.place_entry(user_id, playlist.id, one.id, three.id, :after)
+
+      assert MapSet.new(after_move, & &1.id) == before
+    end
+
+    test "place_entry ignores an id that is not in this playlist", %{
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The client says what was dropped where, so the server checks it. Neither
+      # a stale id nor another playlist's is an error — nothing moves.
+      {:ok, other} = Library.create_playlist(user_id, "Elsewhere")
+      Library.append(user_id, other.id, [track(%{isrc: nil, title: "Alpha"})])
+      [alpha] = Library.entries(user_id, other.id)
+      [one, _two, _three] = Library.entries(user_id, playlist.id)
+
+      assert Library.place_entry(user_id, playlist.id, alpha.id, one.id, :after) |> titles_of() ==
+               ~w(One Two Three)
+
+      assert Library.place_entry(user_id, playlist.id, one.id, alpha.id, :after) |> titles_of() ==
+               ~w(One Two Three)
+
+      assert titles(user_id, other) == ~w(Alpha)
+    end
+
+    test "place_entry onto itself changes nothing", %{user_id: user_id, playlist: playlist} do
+      [one, _two, _three] = Library.entries(user_id, playlist.id)
+
+      assert Library.place_entry(user_id, playlist.id, one.id, one.id, :before) |> titles_of() ==
+               ~w(One Two Three)
+    end
+
+    defp titles_of(entries), do: Enum.map(entries, & &1.track.title)
+
     test "a reorder never loses, duplicates or invents an entry", %{
       user_id: user_id,
       playlist: playlist

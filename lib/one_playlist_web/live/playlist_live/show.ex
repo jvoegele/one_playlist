@@ -35,13 +35,34 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   So the sentence is driven by `enriched?`, which says whether MusicBrainz has
   been *asked*, and the terminal state says so plainly rather than trailing off.
 
-  ## Reordering is two buttons, not a drag
+  ## Reordering is a drag, and the server still decides the order
 
-  Up and down move an entry one place, which is a swap of two `position` values
-  and needs no renumbering. A drag would be nicer and needs a JS hook plus a
-  client-side ordering to reconcile against; this is the honest version of the
-  feature rather than a worse version of a better one, and the context function
-  underneath is the same either way.
+  It began as two chevron buttons per row, which was the honest small version.
+  It stopped being honest when enrichment added a *second* chevron for expanding
+  a row: three chevrons in one row, two of which reorder and one of which does
+  not, is a worse interface than either feature deserves.
+
+  So reordering is a drag from a handle, and the two things that usually go
+  wrong with that are avoided deliberately.
+
+  **The hook does not reorder the list.** `AGENTS.md` requires
+  `phx-update="ignore"` on a hook that manages its own DOM, and that would stop
+  this list re-rendering at all — no removals, no expanded detail, no enrichment
+  landing while the page is open. Instead the hook reports *what was dropped
+  where*, as an entry and a neighbour, and `OnePlaylist.Library.place_entry/5`
+  computes the order. A client that submitted a whole ordering would be trusted
+  to have got it right; this one cannot say anything the server does not check.
+
+  **The handle is a button, not a grip.** Reordering by dragging alone is
+  reordering nobody can do without a mouse. Focusing a handle and pressing the
+  arrow keys moves that row, through the same `move_entry/4` the chevrons used —
+  so the keyboard path is not a reimplementation, it is the original one with a
+  different trigger.
+
+  One limitation, stated rather than discovered later: this is the HTML5 drag
+  API, which does not fire on touch. A phone reorders with the keyboard path or
+  not at all. Fixing that means pointer events and a hand-written drag, or a
+  vendored library, and neither is worth it before somebody asks.
   """
 
   use OnePlaylistWeb, :live_view
@@ -71,6 +92,41 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   end
 
   @impl true
+  def handle_event("place", %{"entry" => entry, "target" => target, "side" => side}, socket)
+      when side in ["before", "after"] do
+    entries =
+      Library.place_entry(
+        socket.assigns.current_user_id,
+        socket.assigns.playlist.id,
+        entry,
+        target,
+        String.to_existing_atom(side)
+      )
+
+    {:noreply, assign_entries(socket, entries)}
+  end
+
+  # The keyboard path, and the reason the drag handle is a `<button>` rather than
+  # a decorative grip: reordering by dragging alone is reordering nobody can do
+  # without a mouse. Focus a handle and the arrow keys move that row, using the
+  # same `move_entry/4` the two chevrons used to.
+  def handle_event("move_by_key", %{"key" => key, "entry" => entry_id}, socket)
+      when key in ["ArrowUp", "ArrowDown"] do
+    direction = if key == "ArrowUp", do: :up, else: :down
+
+    entries =
+      Library.move_entry(
+        socket.assigns.current_user_id,
+        socket.assigns.playlist.id,
+        entry_id,
+        direction
+      )
+
+    {:noreply, assign_entries(socket, entries)}
+  end
+
+  def handle_event("move_by_key", _params, socket), do: {:noreply, socket}
+
   def handle_event("toggle_detail", %{"entry" => entry_id}, socket) do
     expanded = socket.assigns.expanded
 
@@ -120,19 +176,6 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         # for it not to be there, so the page is refreshed rather than scolded.
         {:noreply, load_entries(socket)}
     end
-  end
-
-  def handle_event("move", %{"entry" => entry_id, "direction" => direction}, socket)
-      when direction in ~w(up down) do
-    entries =
-      Library.move_entry(
-        socket.assigns.current_user_id,
-        socket.assigns.playlist.id,
-        entry_id,
-        String.to_existing_atom(direction)
-      )
-
-    {:noreply, assign(socket, :entries, entries)}
   end
 
   def handle_event("delete", _params, socket) do
@@ -211,13 +254,25 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           </p>
         </div>
 
-        <ul :if={@entries != []} class="space-y-1">
+        <ul :if={@entries != []} id="entries" phx-hook=".DragToReorder" class="space-y-1">
           <li
             :for={{entry, index} <- Enum.with_index(@entries)}
-            class="card bg-base-200"
+            class="card bg-base-200 border-2 border-transparent"
             id={"entry-#{entry.id}"}
+            data-entry={entry.id}
           >
             <div class="card-body py-2 flex-row items-center gap-3">
+              <button
+                id={"handle-#{entry.id}"}
+                data-drag-handle
+                phx-keydown="move_by_key"
+                phx-value-entry={entry.id}
+                class="btn btn-ghost btn-xs cursor-grab active:cursor-grabbing shrink-0 opacity-40 hover:opacity-100"
+                aria-label={"Reorder #{entry.track.title}. Drag, or use the arrow keys."}
+              >
+                <.icon name="hero-bars-2" class="w-4 h-4" />
+              </button>
+
               <span class="tabular-nums opacity-50 w-8 shrink-0">{index + 1}</span>
 
               <div class="w-10 h-10 shrink-0">
@@ -266,26 +321,6 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
               <div class="flex items-center gap-1 shrink-0">
                 <button
-                  phx-click="move"
-                  phx-value-entry={entry.id}
-                  phx-value-direction="up"
-                  disabled={index == 0}
-                  class="btn btn-ghost btn-xs"
-                  aria-label="Move up"
-                >
-                  <.icon name="hero-chevron-up" class="w-4 h-4" />
-                </button>
-                <button
-                  phx-click="move"
-                  phx-value-entry={entry.id}
-                  phx-value-direction="down"
-                  disabled={index == length(@entries) - 1}
-                  class="btn btn-ghost btn-xs"
-                  aria-label="Move down"
-                >
-                  <.icon name="hero-chevron-down" class="w-4 h-4" />
-                </button>
-                <button
                   phx-click="remove"
                   phx-value-entry={entry.id}
                   class="btn btn-ghost btn-xs text-error"
@@ -300,6 +335,95 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           </li>
         </ul>
       </div>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".DragToReorder">
+        // Deliberately does *not* reorder the list itself. `AGENTS.md` requires
+        // `phx-update="ignore"` on a hook that manages its own DOM, and that
+        // would stop the list re-rendering at all — no removals, no expanded
+        // detail, no enrichment landing. So this reports where the drop
+        // happened and lets the server decide the order, which is also what
+        // keeps a client from submitting an ordering of its own invention.
+        //
+        // The only DOM it touches is a highlight class on the row being hovered,
+        // and that is safe because no patch can arrive mid-drag: nothing is
+        // pushed until the drop.
+        const EDGE = "border-primary"
+
+        export default {
+          mounted() { this.bind() },
+
+          bind() {
+            let dragging = null
+            let over = null
+            let side = "before"
+
+            const clear = () => {
+              if (over) { over.classList.remove(EDGE, "border-t-2", "border-b-2") }
+              over = null
+            }
+
+            // HTML5 drag needs `draggable` on the row, but a row that is always
+            // draggable cannot have its text selected. So it is granted on the
+            // handle and taken back at the end.
+            this.el.addEventListener("pointerdown", e => {
+              const handle = e.target.closest("[data-drag-handle]")
+              if (handle) { handle.closest("li").draggable = true }
+            })
+
+            this.el.addEventListener("dragstart", e => {
+              dragging = e.target.closest("li")
+              if (!dragging) return
+              dragging.classList.add("opacity-40")
+              e.dataTransfer.effectAllowed = "move"
+              // Firefox will not start a drag without data on the transfer.
+              e.dataTransfer.setData("text/plain", dragging.dataset.entry)
+            })
+
+            this.el.addEventListener("dragover", e => {
+              const row = e.target.closest("li")
+              if (!dragging || !row || row === dragging) return
+              e.preventDefault()
+
+              const box = row.getBoundingClientRect()
+              side = (e.clientY - box.top) / box.height > 0.5 ? "after" : "before"
+
+              if (over !== row) { clear(); over = row }
+              row.classList.add(EDGE)
+              row.classList.toggle("border-t-2", side === "before")
+              row.classList.toggle("border-b-2", side === "after")
+            })
+
+            this.el.addEventListener("drop", e => {
+              e.preventDefault()
+              if (!dragging || !over) return
+              this.pushEvent("place", {
+                entry: dragging.dataset.entry,
+                target: over.dataset.entry,
+                side: side
+              })
+            })
+
+            // A focused button still scrolls the page on an arrow key, which
+            // makes keyboard reordering unusable on a long playlist. The server
+            // handles the move; this only stops the browser also scrolling.
+            this.el.addEventListener("keydown", e => {
+              if (e.target.closest("[data-drag-handle]") &&
+                  (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                e.preventDefault()
+              }
+            })
+
+            this.el.addEventListener("dragend", () => {
+              if (dragging) {
+                dragging.classList.remove("opacity-40")
+                dragging.draggable = false
+              }
+              clear()
+              dragging = null
+            })
+          }
+        }
+      </script>
     </Layouts.app>
     """
   end
@@ -421,8 +545,16 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   end
 
   defp load_entries(socket) do
-    entries = Library.entries(socket.assigns.current_user_id, socket.assigns.playlist.id)
+    assign_entries(
+      socket,
+      Library.entries(socket.assigns.current_user_id, socket.assigns.playlist.id)
+    )
+  end
 
+  # The header counts are derived from the entries, so they are assigned in the
+  # same place. Reordering does not change either, but a removal does, and a
+  # caller that assigned only `:entries` would leave the header stale.
+  defp assign_entries(socket, entries) do
     socket
     |> assign(:entries, entries)
     |> assign(:identified, Enum.count(entries, &is_binary(&1.track.isrc)))

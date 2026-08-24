@@ -1311,7 +1311,27 @@ Two tables doing different jobs, and conflating them is the mistake to avoid.
 Nothing about who owns what leaks from a shared recording store: membership lives in the
 per-user table.
 
-> #### Rejected: fractional ranks for ordering {: .info}
+> #### Reordering: dense integers, and a drag that does not trust the client
+
+Two chevrons per row became untenable the moment enrichment needed a chevron of its own
+to expand a row — three in one row, two of which reorder, is worse than either feature
+deserves. It is now a drag handle.
+
+The part worth recording is where the ordering is computed. The obvious shape is for the
+client to reorder the DOM and post the new sequence; the server then writes whatever it is
+sent. That trusts the client to have got it right, and a stale or malformed sequence
+silently rewrites somebody's playlist. So the hook reports only **what was dropped where** —
+an entry and a neighbour — and `Library.place_entry/5` derives the order. An id that is not
+in the playlist is simply not found, and nothing moves.
+
+It also does not manage the list's DOM, which `AGENTS.md` would require `phx-update="ignore"`
+for; that would stop the list re-rendering at all, including removals and enrichment landing
+while the page is open.
+
+The handle is a `<button>` so the arrow keys still reorder, through the same `move_entry/4`
+the chevrons used. The known gap is touch: HTML5 drag does not fire there.
+
+### Rejected: fractional ranks for ordering {: .info}
 >
 > This section first said ordering wanted fractional or lexicographic ranks rather than dense
 > integers, "because reordering a 5,000-track playlist by hand should not be a 5,000-row

@@ -133,30 +133,128 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       for title <- ~w(One Two Three), do: assert(html =~ title)
     end
 
-    test "moving an entry down reorders it", %{conn: conn, user_id: user_id, playlist: playlist} do
+    test "the arrow keys reorder from the drag handle", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # Dragging alone is reordering nobody can do without a mouse, so the handle
+      # is a real button and the arrow keys work on it.
       [first, _second, _third] = Library.entries(user_id, playlist.id)
 
       {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
 
-      view
-      |> element("button[phx-value-entry='#{first.id}'][phx-value-direction='down']")
-      |> render_click()
+      view |> element("#handle-#{first.id}") |> render_keydown(%{"key" => "ArrowDown"})
 
       assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
                ~w(Two One Three)
     end
 
-    test "the first entry cannot be moved up, and the last cannot be moved down", %{
+    test "an arrow key at either end is not a failure", %{
       conn: conn,
       user_id: user_id,
       playlist: playlist
     } do
       [first, _second, last] = Library.entries(user_id, playlist.id)
 
-      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
 
-      assert html =~ ~r{phx-value-entry="#{first.id}" phx-value-direction="up" disabled}
-      assert html =~ ~r{phx-value-entry="#{last.id}" phx-value-direction="down" disabled}
+      view |> element("#handle-#{first.id}") |> render_keydown(%{"key" => "ArrowUp"})
+      view |> element("#handle-#{last.id}") |> render_keydown(%{"key" => "ArrowDown"})
+
+      assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
+               ~w(One Two Three)
+    end
+
+    test "a key that is not an arrow does nothing", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # No `phx-key`, so every keystroke on a focused handle reaches the server.
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      [first, _second, _third] = Library.entries(user_id, playlist.id)
+
+      view |> element("#handle-#{first.id}") |> render_keydown(%{"key" => "Tab"})
+
+      assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
+               ~w(One Two Three)
+    end
+
+    test "dropping an entry after another moves it there", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [first, _second, last] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element("#entries")
+      |> render_hook("place", %{"entry" => first.id, "target" => last.id, "side" => "after"})
+
+      assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
+               ~w(Two Three One)
+    end
+
+    test "dropping an entry before another moves it there", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [first, _second, last] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element("#entries")
+      |> render_hook("place", %{"entry" => last.id, "target" => first.id, "side" => "before"})
+
+      assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
+               ~w(Three One Two)
+    end
+
+    test "a drop naming an entry from another playlist changes nothing", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The client says what was dropped where, so what it says has to be
+      # checked. An id from elsewhere is not among this playlist's entries and is
+      # simply not found — no error, and nothing moves in either playlist.
+      elsewhere = playlist_with(user_id, "Elsewhere", ~w(Alpha))
+      [alpha] = Library.entries(user_id, elsewhere.id)
+      [first, _second, _third] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element("#entries")
+      |> render_hook("place", %{"entry" => alpha.id, "target" => first.id, "side" => "before"})
+
+      assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
+               ~w(One Two Three)
+
+      assert Library.entries(user_id, elsewhere.id) |> Enum.map(& &1.track.title) == ~w(Alpha)
+    end
+
+    test "dropping an entry onto itself changes nothing", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [first, _second, _third] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element("#entries")
+      |> render_hook("place", %{"entry" => first.id, "target" => first.id, "side" => "after"})
+
+      assert Library.entries(user_id, playlist.id) |> Enum.map(& &1.track.title) ==
+               ~w(One Two Three)
     end
 
     test "removing an entry takes only that one", %{
