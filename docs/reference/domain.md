@@ -1720,7 +1720,52 @@ says has **no** MusicBrainz recording at all. The flaw is in the premise: the re
 matches on *tokens*, so *Lost Dogs: Rarities and B Sides* reaches a great many bootlegs and the
 corroboration is far weaker than it looks.
 
-#### Rejected: an album's "core" as a matching signal
+#### Reinstated: an album's "core" as a matching signal
+
+The section below records this being **rejected** on twelve hand-labelled cases. It ships now,
+and the reversal is the whole argument for having built
+`dev/corpus/harvest_albums.py`: 493 automatically labelled pairs answer a question twelve
+cannot.
+
+| rule | accuracy | recall | false positives |
+| --- | --- | --- | --- |
+| `Normalize.text/1` equality — the baseline | 76.1% | 54.4% | 3 |
+| `Normalize.album/1` equality | **79.5%** | **62.3%** | 6 |
+
+Twenty true pairs recovered for three false positives, and all three are the **colon** rule
+— *100th Window: The Remixes* against *100th Window*, *Clash on Broadway: The Trailer*,
+*…15 Greatest Hits* against *…20 Greatest Hits*. Brackets produced none.
+
+Two things had changed since the rejection, and both matter:
+
+  * **`Normalize.album/1` was broken when it was first measured.** It split at the *first*
+    delimiter, so *Live: 05-03-03 - State College, Pennsylvania* reduced to `"live"` — which
+    matches every live record ever made. It now strips *trailing* brackets, repeatedly, and a
+    colon subtitle only where more than one word precedes it.
+  * **The baseline is not zero.** Plain `Normalize.text/1` equality, which cannot loosen
+    anything, still reports three false positives — MusicBrainz holds duplicate release groups,
+    so *The Times They Are A‐Changin'* against *The Times They Are A-Changin'* is labelled
+    "different albums" over a dash character. A rule is worth judging against that floor rather
+    than against perfection.
+
+Both matching corpora were byte-identical throughout: `replay.exs` at 82/12/5/1 and
+`replay_credit_cases.exs` at 96/12/7 with no false positives.
+
+On the real library it converts exactly two, both to the right album at `0.98` — *Hard to
+Imagine* and *Yellow Ledbetter*, from *Lost Dogs: Rarities and B Sides*. The hand-labelled set
+counts the second as **wrong**, and that is worth reading closely rather than dismissing:
+
+| | length | first released | releases |
+| --- | --- | --- | --- |
+| the labelled recording | 303s | 1992 | *Jeremy*, *The Versus Sessions* — **not** *Lost Dogs* |
+| the one matched | 301s | 2003 | ***Lost Dogs*** |
+
+MusicBrainz holds two entries for one performance, and the label names the 1992 B-side while
+giving *Lost Dogs* as its release — which MusicBrainz does not agree with. The match is the
+recording it *does* place on the album the playlist names. That is a defect in the label rather
+than in the rule, and it is exactly the kind of thing twelve hand-labelled cases produce.
+
+#### Rejected once: an album's "core" as a matching signal
 
 The sixth negative result here, and the idea was a good one. A stored album is routinely the
 catalogue's title plus an annotation, and `Similarity.jaro_winkler/2` reads that **backwards**:

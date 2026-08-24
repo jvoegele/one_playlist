@@ -326,19 +326,23 @@ defmodule OnePlaylist.Matching.Signals do
   # Rarities and B Sides**") scores `0.860` and does not. Both measured against a
   # real library.
   #
-  # That is a genuine flaw and treating `Normalize.album/1` equality as agreement
-  # is **not** the fix. Measured against the twelve hand-labelled cases in
-  # `dev/Unmatched PJ Favorites.csv`, it converted misses into *wrong answers*
-  # rather than into correct ones: with a spaced hyphen among the delimiters, two
-  # correct and two wrong; with only colons and brackets, none correct and one
-  # wrong, against a baseline of zero wrong. Sixth negative result recorded in
-  # `docs/reference/domain.md`.
+  # So two albums whose **cores** agree are the same album, however different the
+  # strings look. Deliberately additive: where the cores disagree this is exactly
+  # what it was, so nothing that agreed before can stop agreeing.
   #
-  # The album core *is* used, in `OnePlaylist.Library.Enrichment` — where a wrong
-  # answer costs a cover rather than an identity, and the recording has already
-  # been identified by other means.
+  # This was rejected once, on twelve hand-labelled cases, and shipped after
+  # `dev/corpus/album_cases.json` gave it 493 to answer instead. That corpus
+  # scores the core rule at **79.5% against the baseline's 76.1%**, recovering
+  # twenty true pairs for three false positives — all three the colon rule, and
+  # none from brackets. `Normalize.album/1` had also been fixed in between: it
+  # split at the *first* delimiter, so "Live: 05-03-03 - State College" reduced
+  # to "live", which matches every live record ever made.
   defp album_similarity(left, right) do
-    Similarity.jaro_winkler(Normalize.text(left), Normalize.text(right))
+    if Normalize.album(left) == Normalize.album(right) do
+      1.0
+    else
+      Similarity.jaro_winkler(Normalize.text(left), Normalize.text(right))
+    end
   end
 
   defp upc_agrees?(left, right) do
