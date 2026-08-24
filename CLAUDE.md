@@ -346,6 +346,21 @@ one lands in the *server log*; only the final value comes back to the caller. Se
 
 The cookie is a local convenience, not a secret — the node listens only on loopback via epmd.
 
+> #### `bin/remote` can kill a running Oban job {: .warning}
+>
+> Every probe calls `Phoenix.CodeReloader.reload/1`, and loading a module a second time
+> **purges** the oldest copy, killing any process still executing it. A background job caught
+> mid-flight dies without Oban being told, and its row sits in `executing` with no process
+> behind it — which looks exactly like a hang.
+>
+> Diagnose it by looking for the process rather than by waiting: nothing in `Process.list/0`
+> with `Enrichment`, `ExternalService` or a provider module on its stack means the row is stale,
+> not busy. `Oban.retry_job/1` will **not** move it — that only acts on finished jobs.
+> `Oban.Plugins.Lifeline` is what rescues it, after `rescue_after` (30 minutes here), and doing
+> the same `update … set state = 'available'` by hand is safe once the row is confirmed stale.
+>
+> So: probe freely while the queues are idle, and expect this while a backfill is draining.
+
 ### Local credentials
 
 Real provider credentials for driving the live APIs go in **`config/dev_local.exs`**, which is
