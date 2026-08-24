@@ -423,7 +423,7 @@ bond 1.15.0.)
 
 ---
 
-## Where the project is (updated 2026-08-22)
+## Where the project is (updated 2026-08-24)
 
 A fresh session should read this before proposing what to build.
 
@@ -446,11 +446,24 @@ A fresh session should read this before proposing what to build.
 | Capabilities | `Providers.Adapter.capabilities/0` declares only what *varies* between services — `:artwork` (TIDAL yes, Subsonic no, because its cover endpoint wants credentials on the request) and `:remove_tracks` (nobody, which is why a correction is offered only on rows where nothing was added). `Providers.supports?/2` is the question |
 | Limits | A source playlist over `max_tracks` (10,000 by default) is refused with `PlaylistTooLarge`, before a track is read past the limit. The worker cancels rather than retries any error whose `retryable?/1` says not to |
 | Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
-| Match quality | **82–94% correct, 1% wrong** cross-service with identifiers withheld, measured against MusicBrainz — see `docs/reference/domain.md` |
+| Classical | `Music.Work` reads a **work signature** out of a title — catalogue number, form and number, key, movement — and `Strategy.Work` matches on it. Classical went from **0 of 8** to 24 work matches plus 13 text of 57. A last-resort MusicBrainz *works* lookup supplies a catalogue number the title omits, on three conditions: the match already failed, the source names no work, and some candidate does |
+| Artwork | Cover art on the report and in the candidate list, TIDAL only, free of extra requests via an `albums.coverArt` include. Subsonic's cover endpoint wants credentials, so it declares no `:artwork` capability and no placeholder is drawn |
+| Match quality | Two corpora, both replayable offline. `dev/measure/replay.exs`: **82 certain, 12 duration-corroborated, 5 none, 1 wrong** of 100 random MusicBrainz recordings. `dev/corpus/replay_credit_cases.exs`: **96 correct, 12 equivalent, 7 missed, 0 wrong** of 115 hard credit cases, and **5 of 5** hand-labelled decline cases correctly declined. See `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
 ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer whose
 report matched what actually landed in the destination.
+
+**Evaluate a matching change against the corpora, never by argument.** Three separate ideas this
+project was confident about were measured and *rejected* — a same-release exception to the version
+veto, strict credit equality, and querying the primary artist instead of the whole credit. Each
+looked right and each is recorded in `docs/reference/domain.md` as a negative result. The replays
+cost seconds and need no API call.
+
+**Owed by hand, because the app cannot do it:** two TIDAL playlists named `hard_playlist` (one is
+an accidental duplicate), and one orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* left in
+the Pearl Jam destination by a match that is now correctly refused. `remove_tracks` is what would
+let the app clean up after itself.
 
 **Not built yet**, roughly in value order:
 
@@ -461,6 +474,15 @@ report matched what actually landed in the destination.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
+  * **`remove_tracks` on the adapter.** The single highest-leverage gap: it lifts the
+    match-override restriction so a correction fixes the *playlist* and not only the report, it
+    enables Replace-mode scheduled sync, and it lets a wrong match be undone. Declared as an
+    unsupported `:remove_tracks` capability already, so the call sites that need it are findable.
+
+  * **Tighten the classical corpus filter.** `dev/corpus/harvest_classical.py` matches on words
+    like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —
+    Justin Timberlake, The Verve, Gang Starr, Rihanna. Every classical number is therefore a floor.
+
   * **Search recall, not the ladder.** With the duration fix in, the engine picks correctly from
     what it is offered; the binding constraint is that TIDAL's text search returns an
     ISRC-matching candidate for only 86% of the corpus. A better query or a second lookup is
