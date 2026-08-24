@@ -97,6 +97,16 @@ defmodule OnePlaylist.Matching.Normalize do
   # "JAY-Z, Alicia Keys" into a single name.
   @punctuation_separators ~r/\s*[,&\/+]\s*/u
 
+  # What introduces an annotation on an album title: a colon or an opening
+  # bracket. Never a bare space, which is what keeps *Greatest Hits Vol. 2*
+  # whole — and never a spaced hyphen, which was tried and measured and is not
+  # a subtitle marker at all. `Pearl Jam - Non-Album Tracks` is a store's own
+  # bucket, and stripping at the hyphen leaves `Pearl Jam`, which is a real
+  # album — so a pseudo-album silently adopted the self-titled record's cover
+  # and identity. The hyphen is the "Artist - Album" separator at least as often
+  # as it is a subtitle. See `album/1`.
+  @album_annotation ~r/\s*[:(\[]/u
+
   # **Separator words are split on the normalized form instead**, which is what
   # makes them reliable. By then the text is lowercased — so the provider's
   # capitalization cannot change the answer, as it did when "Simon and
@@ -328,6 +338,60 @@ defmodule OnePlaylist.Matching.Normalize do
     # `trim: true` is caught.
     |> Enum.flat_map(&String.split(&1, @word_separators, trim: true))
     |> MapSet.new()
+  end
+
+  @doc """
+  An album title without the annotation a store added to it.
+
+  A stored album is routinely the catalogue's title plus something the source
+  put after a delimiter — *Lost Dogs: Rarities and B Sides* against *Lost Dogs*,
+  *Touring Band 2000 - Instrumentals* against *Touring Band 2000*, *Vitalogy
+  [2011 Reissue]* against *Vitalogy*. Compared whole, those disagree; compared
+  by this, they are one album.
+
+  ## Why a delimiter and not a prefix
+
+  The obvious rule — "one title is a prefix of the other" — is wrong, and
+  measurably so. *Greatest Hits* is a prefix of *Greatest Hits Vol. 2* and they
+  are two different records. A delimiter is what distinguishes an annotation
+  from a distinguishing part of the name: an edition, a disc subtitle and a
+  reissue marker are introduced by one, and a volume number is not.
+
+  A **spaced hyphen is not one of the delimiters**, and that was measured rather
+  than assumed. It is the "Artist - Album" separator at least as often as it is a
+  subtitle marker, so stripping at it turned the store-invented bucket *Pearl Jam
+  - Non-Album Tracks* into *Pearl Jam* — a real album, whose cover and identity a
+  pseudo-album then adopted. The cost is that *Touring Band 2000 - Instrumentals*
+  is not recognised as *Touring Band 2000*; the alternative was a false identity,
+  which is worse.
+
+  Nothing is stripped when there is no delimiter, so this only ever loosens the
+  cases it was written for.
+
+      iex> alias OnePlaylist.Matching.Normalize
+      iex> Normalize.album("Lost Dogs: Rarities and B Sides")
+      "lost dogs"
+      iex> Normalize.album("Greatest Hits Vol. 2")
+      "greatest hits vol 2"
+      iex> Normalize.album("Pearl Jam - Non-Album Tracks")
+      "pearl jam non album tracks"
+  """
+  @spec album(String.t() | nil) :: String.t()
+  def album(nil), do: ""
+
+  def album(title) when is_binary(title) do
+    case String.split(title, @album_annotation, parts: 2) do
+      [core | _rest] ->
+        # An empty core means the whole title *is* an annotation — "(Live)" as an
+        # album name. Nothing has been learned, so nothing is stripped.
+        case text(core) do
+          "" -> text(title)
+          stripped -> stripped
+        end
+
+      _whole ->
+        text(title)
+    end
   end
 
   @doc """

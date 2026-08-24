@@ -320,6 +320,23 @@ defmodule OnePlaylist.Matching.Signals do
   defp album_similarity(nil, _right), do: nil
   defp album_similarity(_left, nil), do: nil
 
+  # Jaro-Winkler reads an album subtitle backwards — it rewards a shared prefix
+  # and penalises length, so a *short wrong* suffix ("Greatest Hits **Vol. 2**")
+  # scores `0.937` and corroborates, while a *long right* one ("Lost Dogs**:
+  # Rarities and B Sides**") scores `0.860` and does not. Both measured against a
+  # real library.
+  #
+  # That is a genuine flaw and treating `Normalize.album/1` equality as agreement
+  # is **not** the fix. Measured against the twelve hand-labelled cases in
+  # `dev/Unmatched PJ Favorites.csv`, it converted misses into *wrong answers*
+  # rather than into correct ones: with a spaced hyphen among the delimiters, two
+  # correct and two wrong; with only colons and brackets, none correct and one
+  # wrong, against a baseline of zero wrong. Sixth negative result recorded in
+  # `docs/reference/domain.md`.
+  #
+  # The album core *is* used, in `OnePlaylist.Library.Enrichment` — where a wrong
+  # answer costs a cover rather than an identity, and the recording has already
+  # been identified by other means.
   defp album_similarity(left, right) do
     Similarity.jaro_winkler(Normalize.text(left), Normalize.text(right))
   end

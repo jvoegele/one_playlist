@@ -1720,6 +1720,38 @@ says has **no** MusicBrainz recording at all. The flaw is in the premise: the re
 matches on *tokens*, so *Lost Dogs: Rarities and B Sides* reaches a great many bootlegs and the
 corroboration is far weaker than it looks.
 
+#### Rejected: an album's "core" as a matching signal
+
+The sixth negative result here, and the idea was a good one. A stored album is routinely the
+catalogue's title plus an annotation, and `Similarity.jaro_winkler/2` reads that **backwards**:
+it rewards a shared prefix and penalises length difference, so measured against a real library —
+
+| stored | release | similarity | corroborates at `0.9`? | should? |
+| --- | --- | --- | --- | --- |
+| Lost Dogs: Rarities and B Sides | Lost Dogs | `0.860` | no | **yes** |
+| rearviewmirror (greatest hits…) | Rearviewmirror | `0.874` | no | **yes** |
+| Vitalogy [2011 Reissue] | Vitalogy | `0.876` | no | **yes** |
+| **Greatest Hits Vol. 2** | **Greatest Hits** | `0.937` | **yes** | **no** |
+
+A *short wrong* suffix agrees and a *long right* one does not, so no threshold separates them.
+`Normalize.album/1` — strip what follows a subtitle delimiter — looked like the answer.
+
+Measured against the twelve labelled cases, it is not. Treating core equality as album agreement
+converted misses into **wrong answers** rather than correct ones: with a spaced hyphen among the
+delimiters, `+2 correct, +2 wrong`; narrowed to colons and brackets, `+0 correct, +1 wrong`,
+against a baseline of zero wrong. Both corpora (`replay.exs`, `replay_credit_cases.exs`) were
+unchanged throughout, so this is not a regression the general corpora would have caught — it is
+specific to the case the rule was written for.
+
+The narrowing is itself worth keeping: **a spaced hyphen is not a subtitle delimiter.** It is the
+"Artist - Album" separator at least as often, and stripping at it turned the store-invented
+bucket *Pearl Jam - Non-Album Tracks* into *Pearl Jam* — a real album, whose identity and cover a
+pseudo-album then adopted.
+
+So `Normalize.album/1` exists and is used in **`Enrichment.same_album?` only**, where the cost of
+being wrong is a cover rather than an identity and the recording has already been identified by
+other means. The matching ladder still compares album titles as it did.
+
 #### What is left, and why it is not a threshold
 
 Recall is now fixed and **nothing converted**: the right candidate is offered, ranked first, and
