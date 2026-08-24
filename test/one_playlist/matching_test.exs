@@ -290,6 +290,67 @@ defmodule OnePlaylist.MatchingTest do
       assert match.strategy == :text
     end
 
+    test "an ensemble named around its leader matches the leader alone" do
+      # From a real transfer. "The Jimi Hendrix Experience" and "Jimi Hendrix"
+      # are one act, and neither the backing-band rule nor any name-level
+      # comparison sees it: there is no conjunction to split on, and each side
+      # is a single different string. The *words* of one are inside the other's.
+      #
+      # The same shape as "The Dave Brubeck Quartet" and "Miles Davis Quintet",
+      # which is most of jazz.
+      source =
+        track(
+          artists: ["The Jimi Hendrix Experience"],
+          title: "All Along the Watchtower",
+          album: "Electric Ladyland",
+          duration_seconds: 240
+        )
+
+      candidate =
+        track(
+          artists: ["Jimi Hendrix"],
+          title: "All Along the Watchtower",
+          album: "Electric Ladyland",
+          duration_seconds: 240,
+          provider_id: "c1"
+        )
+
+      assert {:ok, _match} = Matching.match(source, [candidate])
+    end
+
+    test "one shared word is not an ensemble" do
+      # The floor is two words. "Bush" inside "Kate Bush" is a coincidence, and
+      # with everything else agreeing — the fixture gives both the same album
+      # and length — a one-word floor would match them.
+      source = track(artists: ["Bush"], title: "Comedown")
+      other = track(artists: ["Kate Bush"], title: "Comedown", provider_id: "c1")
+
+      assert {:error, _reason} = Matching.match(source, [other])
+    end
+
+    test "but an ensemble name still needs corroborating" do
+      # It reaches `:contained`, not `:same`. With nothing agreeing but the
+      # title, there is no evidence either way and the rung declines — the same
+      # treatment "Neil Young & Pearl Jam" gets, and for the same reason.
+      source =
+        track(
+          artists: ["The Jimi Hendrix Experience"],
+          title: "All Along the Watchtower",
+          album: "Live at Woodstock",
+          duration_seconds: nil
+        )
+
+      candidate =
+        track(
+          artists: ["Jimi Hendrix"],
+          title: "All Along the Watchtower",
+          album: "Electric Ladyland",
+          provider_id: "c1"
+        )
+
+      assert {:error, _reason} = Matching.match(source, [candidate])
+    end
+
     test "a guest credit one service spells out and another omits still matches" do
       # The case the subset rule existed for, kept without it: a guest is
       # recorded as a guest rather than as a second headline act, so the names

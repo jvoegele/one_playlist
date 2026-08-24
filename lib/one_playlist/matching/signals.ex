@@ -277,24 +277,49 @@ defmodule OnePlaylist.Matching.Signals do
   defp credit_match(left, right, left_words, right_words) do
     cond do
       MapSet.size(left.primary) == 0 or MapSet.size(right.primary) == 0 -> :unrelated
-      MapSet.equal?(left.primary, right.primary) -> :same
-      words_agree?(left_words, right_words) -> :same
-      MapSet.subset?(left.primary, right.primary) -> :contained
-      MapSet.subset?(right.primary, left.primary) -> :contained
-      # Sharing a name but not containment: two credits that name some of the
-      # same people and disagree about the rest. Ambiguous in exactly the way
-      # `:contained` is, and treated the same — allowed to match only if
-      # something independent confirms it.
-      #
-      # This is where an artist renaming itself lands without any alias data.
-      # "JAY Z + Young Jeezy" against "JAŸ-Z, Jeezy" shares one name and differs
-      # on the other, because Young Jeezy became Jeezy. So does "Ghostface
-      # Killah feat. ... Cappadonna" against a catalogue spelling it Capadonna.
-      # Neither is a different recording, and neither is knowable from the
-      # strings — which is the definition of ambiguous.
-      not MapSet.disjoint?(left.primary, right.primary) -> :contained
+      same_act?(left, right, left_words, right_words) -> :same
+      ambiguous?(left, right, left_words, right_words) -> :contained
       true -> :unrelated
     end
+  end
+
+  # The same names, or names that scramble into each other — "Beatles, The"
+  # against "The Beatles". A backing band lands here too, because
+  # `Normalize.credits/1` puts "and *the* Ys" beside the guests rather than
+  # among the primaries.
+  defp same_act?(left, right, left_words, right_words) do
+    MapSet.equal?(left.primary, right.primary) or words_agree?(left_words, right_words)
+  end
+
+  # Credits that overlap without agreeing. Each of these is a *question*, not an
+  # answer, and `Strategy.Text` makes them earn a match with corroboration:
+  #
+  #   * one set inside the other — a collaboration against a solo take, or a
+  #     guest credit one service spells out;
+  #   * sharing a name and differing on another — usually an artist renamed,
+  #     Young Jeezy to Jeezy;
+  #   * one credit's *words* inside the other's, with no shared name at all.
+  #     An ensemble is commonly named by wrapping its leader — "The Jimi
+  #     Hendrix Experience" around "Jimi Hendrix", "The Dave Brubeck Quartet"
+  #     around "Dave Brubeck" — with no conjunction for the backing-band rule
+  #     to find and each side a single different string.
+  defp ambiguous?(left, right, left_words, right_words) do
+    MapSet.subset?(left.primary, right.primary) or
+      MapSet.subset?(right.primary, left.primary) or
+      not MapSet.disjoint?(left.primary, right.primary) or
+      ensemble_of?(left_words, right_words)
+  end
+
+  # Two words at least. A single shared word is not an ensemble naming its
+  # leader, it is a coincidence — and every one-word artist is already handled
+  # by the name-level checks above.
+  @ensemble_floor 2
+
+  defp ensemble_of?(left, right) do
+    smaller = if MapSet.size(left) <= MapSet.size(right), do: left, else: right
+    larger = if smaller == left, do: right, else: left
+
+    MapSet.size(smaller) >= @ensemble_floor and MapSet.subset?(smaller, larger)
   end
 
   @typep credits :: %{primary: MapSet.t(String.t()), featured: MapSet.t(String.t())}

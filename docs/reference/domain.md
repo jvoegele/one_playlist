@@ -705,6 +705,39 @@ Two things worth keeping from the attempt:
     album is a fact about the world, not a property of the strings. That is the strongest
     argument in this file for an external catalogue — see below.
 
+### An ensemble is often named by wrapping its leader
+
+From a real transfer: *The Jimi Hendrix Experience* failed to match *Jimi Hendrix* — same track,
+same album, *Electric Ladyland*.
+
+Neither existing rule saw it. The backing-band rule looks for "X and *the* Ys" and there is no
+conjunction. Every name-level comparison fails because each side is a **single different
+string**: `{the jimi hendrix experience}` against `{jimi hendrix}` shares no member, is no
+subset, and is not partially overlapping. The credits read `:unrelated` and the text rung refused
+before scoring.
+
+The relationship is visible one level down. The *words* of one credit are inside the other's, and
+that is how a great deal of music is credited:
+
+| | |
+| --- | --- |
+| The Jimi Hendrix Experience | Jimi Hendrix |
+| The Dave Brubeck Quartet | Dave Brubeck |
+| Miles Davis Quintet | Miles Davis |
+| Duke Ellington Orchestra | Duke Ellington |
+
+A word-level subset now reaches `:contained` — ambiguous, not agreed. That distinction is what
+makes it safe: `:contained` has to be corroborated by an album, a duration or a barcode.
+*Neil Young & Pearl Jam* against *Neil Young* is a word subset too, and still declines when
+nothing supports it.
+
+**Two words at least.** One shared word is a coincidence — "Bush" inside "Kate Bush" — and every
+one-word artist is already handled by the name-level checks. That floor is pinned by a test,
+because a mutation to one initially passed unnoticed.
+
+Measured: both corpora unmoved. Credit corpus 96 correct / 12 equivalent / 7 missed / 0 wrong,
+declines 5 of 5; MusicBrainz corpus 82 / 12 / 5 / 1. The rule adds a case and costs nothing.
+
 ### An artist-alias table would buy about three cases in a hundred
 
 Measured before building one, because the obvious answer to "Ye is Kanye West" is a MusicBrainz
