@@ -89,15 +89,29 @@ defmodule OnePlaylist.MixProject do
   # in reading order (the shared thing above the specific ones) instead of in
   # whatever order the matching happens to require.
   #
-  # Anything left unmatched falls through to ExDoc's own categories: "Modules",
-  # plus an automatic "Exceptions" bucket for anything that defines one. That
-  # bucket is what put seven of this application's error types under `Providers`
-  # and the other eight under `Exceptions`, which is the split these patterns
-  # exist to remove — every error now sits with the domain that raises it.
+  # Anything left unmatched falls through to ExDoc's own categories, which it
+  # appends after this list: `groups_for_modules ++ [Deprecated: ..., Exceptions:
+  # ...]`. Those defaults only ever see what the patterns here did not claim,
+  # which is why the automatic "Exceptions" bucket used to hold eight of this
+  # application's fifteen error types while the `Providers` pattern swallowed
+  # the other seven.
   defp groups_for_modules do
     [
       # The landing page, and the only module that is not part of a namespace.
       Overview: [OnePlaylist],
+
+      # Every error the domain can produce, in one list — the errata sheet
+      # `errata` is named for. Second, because it has to precede the namespace
+      # patterns below or they would claim these modules first, and because an
+      # errata sheet belongs at the front of the book.
+      #
+      # This is ExDoc's own `Exceptions` test, restated so the group can be
+      # named and positioned. It is deliberately **not** a rule about names:
+      # nothing here is called `*Error` or `*Exception`, and a rule that assumed
+      # otherwise would strand `PlaylistTooLarge` and `WriteNotConfirmed` the
+      # day they were written. `:kind` is what the module *is*, so a new error
+      # type is grouped by defining one and nothing else.
+      Errors: &(&1[:kind] == :exception),
 
       # The vocabulary every other group is written in.
       Music: ~r/^OnePlaylist\.Music\./,
