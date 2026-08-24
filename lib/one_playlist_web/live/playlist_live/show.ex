@@ -14,6 +14,21 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   `OnePlaylist.Library.remove_entry/3` and not the adapter's `remove_tracks/4`,
   which takes recordings and deliberately removes every occurrence.
 
+  ## "No confident match" is not "not found"
+
+  The marker for an unidentified recording said **not found at MusicBrainz**,
+  and that asserts something usually untrue. Most of these were found: the
+  search returns the right recording, often ranked first, and the ladder then
+  declines it because the stored album carries a subtitle the catalogue does not
+  use and nothing else corroborates. *Footsteps* from *Lost Dogs: Rarities and B
+  Sides* comes back at rank one and is declined at `0.860`.
+
+  A user reading "not found" concludes the catalogue is missing a record it
+  holds, and reports a matching bug that is really a scoring decision. The
+  wording now says what actually happened. Saying *which* — nothing returned, or
+  returned and declined — would be better still and needs enrichment to record
+  the reason; that is a column and a decision, not a rename.
+
   ## What "identified by ISRC" is doing in the header
 
   The count is the honest measure of what
@@ -448,7 +463,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
             {@entry.musicbrainz.recording_id}
           </a>
           <span :if={!@entry.musicbrainz.recording_id} class="opacity-40 font-sans">
-            {if @entry.enriched?, do: "not found", else: "not looked up yet"}
+            {if @entry.enriched?, do: "no confident match", else: "not looked up yet"}
           </span>
         </dd>
 
@@ -522,7 +537,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp marker_title(entry) do
     case state(entry) do
       :identified -> "Identified at MusicBrainz"
-      :unidentified -> "MusicBrainz does not have this recording"
+      :unidentified -> "No confident match at MusicBrainz"
       :waiting -> "Waiting to be looked up"
     end
   end
@@ -532,7 +547,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp note(entry) do
     case {state(entry), entry.track.isrc} do
       {:waiting, _isrc} -> "waiting to be looked up"
-      {:unidentified, _isrc} -> "not found at MusicBrainz"
+      {:unidentified, _isrc} -> "no confident match at MusicBrainz"
       {:identified, nil} -> "MusicBrainz has no ISRC for this recording"
       {:identified, _isrc} -> nil
     end

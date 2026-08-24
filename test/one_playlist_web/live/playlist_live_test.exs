@@ -430,7 +430,7 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
 
       {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
 
-      assert html =~ "not found at MusicBrainz"
+      assert html =~ "no confident match at MusicBrainz"
       assert html =~ "waiting to be looked up"
       assert html =~ "Identified at MusicBrainz"
     end
@@ -453,7 +453,7 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
 
       assert html =~ "MusicBrainz has no ISRC for this recording"
-      refute html =~ "not found at MusicBrainz"
+      refute html =~ "no confident match at MusicBrainz"
       refute html =~ "waiting to be looked up"
     end
 
