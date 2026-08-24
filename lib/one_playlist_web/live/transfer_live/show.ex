@@ -154,9 +154,12 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   def handle_event("choose", %{"position" => position, "candidate" => index}, socket) do
     position = String.to_integer(position)
     item = item_at(socket, position)
-    chosen = if correctable?(item), do: Enum.at(item.candidates, String.to_integer(index))
 
-    {:noreply, apply_override(socket, position, chosen)}
+    chosen =
+      if correctable?(item, socket.assigns.can_replace?),
+        do: Enum.at(item.candidates, String.to_integer(index))
+
+    {:noreply, apply_override(socket, position, chosen, item && item.outcome)}
   end
 
   @impl true
@@ -287,7 +290,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                 <tr
                   :for={{dom_id, item} <- @streams.items}
                   id={dom_id}
-                  class={correctable?(item) && "bg-warning/5"}
+                  class={correctable?(item, @can_replace?) && "bg-warning/5"}
                 >
                   <td class="tabular-nums opacity-50 align-top">{item.position + 1}</td>
                   <td>
@@ -344,7 +347,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                           is the only action on the page, and as a ghost it
                           reads as decoration. --%>
                     <button
-                      :if={correctable?(item)}
+                      :if={correctable?(item, @can_replace?)}
                       phx-click="expand"
                       phx-value-position={item.position}
                       class={[
@@ -363,7 +366,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                         }
                         class="w-3 h-3"
                       />
-                      {if @expanded == item.position, do: "Close", else: "Fix this"}
+                      {action_label(item, @expanded == item.position)}
                     </button>
                   </td>
                 </tr>
@@ -444,8 +447,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     ~H"""
     <div class="mt-3 rounded-box bg-base-200 p-3">
       <p class="text-xs opacity-70 mb-2">
-        {length(@candidates)} considered on the destination. Pick the right one and we
-        will add it.
+        {length(@candidates)} considered on the destination. {panel_prompt(@item)}
       </p>
 
       <ul class="space-y-1">
@@ -461,7 +463,18 @@ defmodule OnePlaylistWeb.TransferLive.Show do
               <.cover url={candidate.artwork_url} available?={@artwork?} />
               <div class="min-w-0 flex-1">
                 <div class="flex items-baseline justify-between gap-3">
-                  <span class="font-medium text-sm truncate">{candidate.title}</span>
+                  <span class="font-medium text-sm truncate">
+                    {candidate.title}
+                    <%!-- Which one is in the playlist now. Replacing is a
+                          comparison, and it cannot be made against a list that
+                          does not say what it is being compared to. --%>
+                    <span
+                      :if={candidate.provider_id == @item.destination_track_id}
+                      class="badge badge-xs badge-ghost ml-1 align-middle"
+                    >
+                      current
+                    </span>
+                  </span>
                   <span class="text-xs opacity-60 shrink-0">{rejection(candidate)}</span>
                 </div>
                 <div class="text-xs opacity-60 truncate">
@@ -630,6 +643,12 @@ defmodule OnePlaylistWeb.TransferLive.Show do
       :destination_artwork?,
       Providers.supports?(transfer.destination_provider, :artwork)
     )
+    # Whether a wrong track can be taken back out, which decides whether a row
+    # that already matched may be corrected at all.
+    |> assign(
+      :can_replace?,
+      Providers.supports?(transfer.destination_provider, :remove_tracks)
+    )
     |> assign(:page_title, transfer.source_playlist_name || "Transfer")
     |> load_first_page()
   end
@@ -714,11 +733,11 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     end)
   end
 
-  defp apply_override(socket, _position, nil) do
+  defp apply_override(socket, _position, nil, _outcome) do
     put_flash(socket, :error, "That track is no longer among the alternatives.")
   end
 
-  defp apply_override(socket, position, chosen) do
+  defp apply_override(socket, position, chosen, outcome) do
     case Transfers.override(
            socket.assigns.current_session,
            socket.assigns.transfer,
@@ -727,7 +746,22 @@ defmodule OnePlaylistWeb.TransferLive.Show do
          ) do
       {:ok, transfer} ->
         socket
-        |> put_flash(:info, "Added #{chosen["title"] || "that track"}.")
+        |> put_flash(:info, applied_message(chosen, outcome))
+        |> assign(:expanded, nil)
+        |> assign_transfer(transfer)
+
+      # The right track is in the playlist and the wrong one is too. Said
+      # plainly rather than folded into the success: the report now disagrees
+      # with the playlist by exactly one track, and only the user can reconcile
+      # it. See `OnePlaylist.Transfers.override/4` for why this is not rolled
+      # back.
+      {:ok, transfer, :not_removed} ->
+        socket
+        |> put_flash(
+          :warning,
+          "#{applied_message(chosen, outcome)} The track it replaces could not be " <>
+            "removed, so it is still in the playlist."
+        )
         |> assign(:expanded, nil)
         |> assign_transfer(transfer)
 
@@ -735,6 +769,9 @@ defmodule OnePlaylistWeb.TransferLive.Show do
         put_flash(socket, :error, describe_failure(reason))
     end
   end
+
+  defp applied_message(chosen, :unmatched), do: "Added #{chosen["title"] || "that track"}."
+  defp applied_message(chosen, _outcome), do: "Swapped in #{chosen["title"] || "that track"}."
 
   # A correction that failed is worth naming: the destination refused the write,
   # or the connection expired, and either way nothing was recorded.
@@ -745,19 +782,36 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   defp describe_failure(:no_such_track), do: "That track is not part of this transfer any more."
   defp describe_failure(_reason), do: "That track could not be added."
 
-  # Unmatched rows only, and that is a real restriction rather than an accident
-  # of the UI.
+  # Any row with alternatives to choose from — but a row that already matched
+  # can only be corrected where the destination can take the wrong track back
+  # out. Adding the right one without removing the wrong one turns one wrong
+  # track into two, which is worse than the problem it set out to fix.
   #
-  # Correcting a row that already matched means the wrong track is *in* the
-  # destination playlist. Adding the right one would leave both, and there is
-  # currently no way to take one out: `OnePlaylist.Providers.Adapter` has
-  # `add_tracks/4` and no counterpart. Offering the button anyway would turn one
-  # wrong track into two, which is worse than the problem it set out to fix.
+  # This is the `:remove_tracks` capability's reason for existing: the question
+  # is asked before the button is drawn rather than after it is clicked.
   #
-  # A track that matched exactly also has no stored alternatives, so the second
-  # clause covers that case for free.
-  defp correctable?(%{outcome: :unmatched, candidates: [_ | _]}), do: true
-  defp correctable?(_item), do: false
+  # A track that matched on an exact identifier has no stored alternatives at
+  # all — `OnePlaylist.Transfers.Runner` keeps them only where somebody might
+  # act on them — so the last clause covers "do not second-guess an ISRC match"
+  # for free.
+  # "Fix this" is right for a row that found nothing and wrong for one that
+  # found the wrong thing — the second is a swap, and saying so before the click
+  # is what stops it reading as "add a second track".
+  defp action_label(_item, true), do: "Close"
+  defp action_label(%{outcome: :unmatched}, false), do: "Fix this"
+  defp action_label(_item, false), do: "Replace"
+
+  defp panel_prompt(%{outcome: :unmatched}), do: "Pick the right one and we will add it."
+
+  defp panel_prompt(_item),
+    do: "Pick the right one and we will swap it in, taking the current one out."
+
+  defp correctable?(%{outcome: :unmatched, candidates: [_ | _]}, _can_replace?), do: true
+
+  defp correctable?(%{candidates: [_ | _]} = item, can_replace?) when is_map(item),
+    do: can_replace?
+
+  defp correctable?(_item, _can_replace?), do: false
 
   # One provisional row: remembered so a filter change does not lose it, and
   # appended to the table if the current filter admits it.

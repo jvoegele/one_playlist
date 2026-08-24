@@ -412,26 +412,141 @@ defmodule OnePlaylistWeb.TransferLiveTest do
              "no placeholder where the service publishes no covers"
     end
 
-    test "a row that already matched offers no correction, because the wrong track stays", %{
-      conn: conn,
-      user_id: user_id
-    } do
-      # There is no `remove_tracks/4` on the adapter, so adding the right track
-      # to a row that already matched would leave both in the playlist. Checked
-      # server-side rather than only by hiding the button.
-      transfer = report_with_alternatives(user_id)
-
+    defp already_matched(transfer, destination_track_id) do
       [item] = Transfers.items(transfer)
 
       {1, _} =
         OnePlaylist.Repo.update_all(
           from(i in OnePlaylist.Transfers.TransferItem, where: i.id == ^item.id),
-          set: [outcome: :matched, destination_track_id: "d-live"]
+          set: [outcome: :matched, destination_track_id: destination_track_id]
         )
+
+      transfer
+    end
+
+    test "a row that already matched offers a replacement, not a fix", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # The wording is the whole point: this is a swap rather than an addition,
+      # and saying so before the click is what stops it reading as "add a second
+      # track to the playlist".
+      transfer = user_id |> report_with_alternatives() |> already_matched("d-live")
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert html =~ "Replace"
+      refute html =~ "Fix this"
+    end
+
+    test "the candidate already in the playlist is marked as the current one", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # Replacing is a comparison, and it cannot be made against a list that does
+      # not say what is being compared to.
+      transfer = user_id |> report_with_alternatives() |> already_matched("d-1")
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      html = view |> element("button[phx-value-position='0']", "Replace") |> render_click()
+
+      assert html =~ "current"
+      assert html =~ "swap it in"
+    end
+
+    test "replacing a matched row takes the wrong track out and puts the right one in", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # The whole point of `remove_tracks/4`: a correction that fixes the
+      # playlist rather than only the report.
+      {:ok, _connection} =
+        OnePlaylist.Providers.connect(user_id, :tidal, %{
+          provider_user_id: "67373615",
+          access_token: "at",
+          refresh_token: "rt",
+          access_token_expires_at: DateTime.add(DateTime.utc_now(), 3600),
+          country: "US"
+        })
+
+      calls = start_supervised!({Agent, fn -> [] end})
+
+      Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        Agent.update(calls, &[{conn.method, body} | &1])
+
+        case conn.method do
+          # The read `remove_tracks/4` makes to learn the item ids.
+          "GET" ->
+            Req.Test.json(conn, %{
+              "data" => [%{"id" => "d-live", "type" => "tracks", "meta" => %{"itemId" => "i-1"}}],
+              "links" => %{}
+            })
+
+          _post_or_delete ->
+            Req.Test.json(conn, %{})
+        end
+      end)
+
+      transfer = user_id |> report_with_alternatives() |> already_matched("d-live")
+
+      {:ok, transfer} =
+        Transfers.record_progress(transfer, %{
+          destination_playlist_id: "dest-1",
+          total_tracks: 1,
+          matched_count: 1,
+          added_count: 1,
+          unmatched_count: 0
+        })
+
+      conn = log_in_user(conn, AuthFixtures.session_fixture(user_id: user_id))
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      _ = view |> element("button[phx-value-position='0']", "Replace") |> render_click()
+
+      html = view |> element("button[phx-value-candidate='1']") |> render_click()
+
+      made = Agent.get(calls, &Enum.reverse/1)
+
+      assert Enum.any?(made, fn {method, body} -> method == "POST" and body =~ "d-studio" end),
+             "the chosen track has to reach the destination"
+
+      assert Enum.any?(made, fn {method, body} ->
+               method == "DELETE" and body =~ "d-live" and body =~ "i-1"
+             end),
+             "the superseded track has to be taken out, by track id and item id"
+
+      assert Enum.find_index(made, &(elem(&1, 0) == "POST")) <
+               Enum.find_index(made, &(elem(&1, 0) == "DELETE")),
+             "add before remove: a failed remove leaves an extra track, a failed " <>
+               "add after a remove leaves the report naming a track that is gone"
+
+      assert html =~ "Swapped in Corduroy"
+
+      assert [%{destination_track_id: "d-studio", strategy: "manual"}] = Transfers.items(transfer)
+
+      # Already matched and already written, so replacing moves no counter.
+      assert {:ok, updated} = Transfers.fetch(user_id, transfer.id)
+      assert {updated.matched_count, updated.added_count, updated.unmatched_count} == {1, 1, 0}
+    end
+
+    test "a matched row cannot be corrected where the service cannot remove", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # The `:remove_tracks` capability, doing the job it exists for. Adding the
+      # right track without taking the wrong one out turns one wrong track into
+      # two — so where an adapter cannot remove, the button is not drawn *and*
+      # the event is refused, because hiding a button is not a rule.
+      transfer =
+        user_id
+        |> report_with_alternatives(%{destination_provider: :spotify})
+        |> already_matched("d-live")
 
       {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")
 
-      refute html =~ "Fix this"
+      refute html =~ "Replace"
 
       html = render_hook(view, "choose", %{"position" => "0", "candidate" => "1"})
 

@@ -206,6 +206,28 @@ defmodule OnePlaylist.ContractsTest do
     end
   end
 
+  describe "Transfer.record_write/1 — the ledger move a correction makes" do
+    test "a row that resolved and was already there becomes one this run wrote" do
+      # `:already_present` counts toward `matched` and not toward `added`.
+      # Correcting it writes a track, so `added` moves and nothing else does.
+      counted =
+        Transfer.record_write(%Transfer{total_tracks: 3, matched_count: 3, added_count: 1})
+
+      assert {counted.matched_count, counted.added_count, counted.unmatched_count} == {3, 2, 0}
+    end
+
+    test "writing more than was matched is caught, not rendered as 133%" do
+      # Falsifiable by data rather than only by mutation: calling this for a row
+      # that was already `:matched` — already resolved *and* already written —
+      # pushes `added` past `matched`. Nothing raises without the invariant; the
+      # report simply claims more tracks were added than were found, and
+      # `match_rate/1` renders a number above 100%.
+      full = %Transfer{total_tracks: 3, matched_count: 2, added_count: 2}
+
+      assert_invariant_violation(Transfer.record_write(full), label: :added_at_most_matched)
+    end
+  end
+
   describe "TransferItem.tally/1 and Transfer.tally/1" do
     test "produce the same shape from the two representations" do
       # The whole point of the pair: one law, computed two ways, compared.

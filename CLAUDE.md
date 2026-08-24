@@ -441,7 +441,7 @@ A fresh session should read this before proposing what to build.
 | Import | Upload a CSV at `/imports/new` and it becomes a queued transfer, matched against a connected service |
 | Export | Download a playlist as CSV at `/exports/new`, via a signed URL |
 | Pruning | Four nightly `pg_cron` jobs: negative catalogue lookups, parsed import tracks, old export files, and uploads no transfer refers to. The last two call the Storage API through `pg_net` with a service key from Vault, because `storage.objects` refuses direct `DELETE` |
-| Correcting | An **unmatched** row shows the candidates the engine rejected and why each lost, and one click adds the right one. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry. Still offered only on an **unmatched** row: `remove_tracks/4` now exists, so correcting a matched one is possible, but the UI has not been lifted yet — see below |
+| Correcting | A row shows the candidates the engine rejected and why each lost, and one click puts the right one in. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry. A row that already **matched** offers *Replace*: the chosen track is added and the superseded one removed, add-first so a partial failure leaves an extra track rather than a report naming a track that is gone. Gated on `:remove_tracks`, which is the capability's reason for existing. A row that matched on an exact identifier still offers nothing — the runner keeps no candidates for those |
 | Reissues | An ISRC the destination does not carry is looked up in **MusicBrainz**, which says which codes name one recording, and the candidates already in hand are re-matched against the family. One request, only after a match has already failed, cached in two tiers with nightly `pg_cron` pruning. `Strategy.IsrcFamily` scores it below an exact identifier and keeps a duration check the rung above deliberately skips |
 | Capabilities | `Providers.Adapter.capabilities/0` declares only what *varies* between services — `:artwork` (TIDAL yes, Subsonic no, because its cover endpoint wants credentials on the request) and `:remove_tracks` (both, since 2026-08-24). `Providers.supports?/2` is the question |
 | Removing | `remove_tracks/4` on the adapter, implemented for both. **Neither provider can remove by track id**: TIDAL needs the track id *and* `meta.itemId` and rejects either alone with a `400` naming neither field, and Subsonic removes by zero-based *index* with no song id at all. So each adapter reads the playlist and resolves occurrences itself, which is also what makes a stale removal safe. Removes **every** occurrence, so calling it twice is harmless. Both verified live against TIDAL and Navidrome 0.58.0 |
@@ -461,10 +461,10 @@ veto, strict credit equality, and querying the primary artist instead of the who
 looked right and each is recorded in `docs/reference/domain.md` as a negative result. The replays
 cost seconds and need no API call.
 
-**Owed by hand** (the app can do this now — `remove_tracks/4` landed 2026-08-24 — but nothing
-calls it yet): two TIDAL playlists named `hard_playlist` (one is
-an accidental duplicate), and one orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* left in
-the Pearl Jam destination by a match that is now correctly refused.
+**Owed by hand:** two TIDAL playlists named `hard_playlist` (one is an accidental duplicate).
+The orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* in the Pearl Jam destination no
+longer needs hand-removal — open that transfer's report and use **Replace** on the row, which
+is exactly the case the button was built for.
 
 **Not built yet**, roughly in value order:
 
@@ -475,11 +475,10 @@ the Pearl Jam destination by a match that is now correctly refused.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
-  * **Spend `remove_tracks/4`.** The adapter callback exists and is verified against both live
-    services; nothing calls it yet. Three things it unlocks, in value order: a correction on an
-    *already matched* row, which fixes the playlist rather than only the report — the restriction
-    in `TransferLive.Show.correctable?/1` is now a UI decision rather than a missing capability;
-    Replace-mode scheduled sync; and undoing a wrong match.
+  * **Replace-mode scheduled sync.** `remove_tracks/4` is the piece that was missing and it is
+    now in place and spent once, on corrections. Sync is the other caller: a destination track
+    whose source track is gone should go too, which is the difference between Soundiiz's Add and
+    Replace modes — see `docs/reference/domain.md`.
 
   * **Tighten the classical corpus filter.** `dev/corpus/harvest_classical.py` matches on words
     like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —

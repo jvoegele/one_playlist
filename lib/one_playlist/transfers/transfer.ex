@@ -263,6 +263,31 @@ defmodule OnePlaylist.Transfers.Transfer do
   end
 
   @doc """
+  Records that a track the destination already held is now one this run wrote.
+
+  What correcting an `:already_present` row does to the ledger. The row resolved
+  before and still resolves, so `matched_count` does not move; what changes is
+  that this transfer has now written something for it, which `added_count`
+  counts and `:already_present` deliberately did not.
+
+  Distinct from `record_correction/1`, which moves a row that did not resolve at
+  all, and from correcting a `:matched` row, which replaces one written track
+  with another and moves nothing.
+  """
+  # `added_at_most_matched` is the module invariant and is the real guard here:
+  # this is the one transition that raises `added_count` without raising
+  # `matched_count`, so an off-by-one — calling it for a row that was already
+  # `:matched` — pushes added past matched and is caught on the way out rather
+  # than surfacing as "104% of the source" on the report.
+  @post one_more_added: result.added_count == transfer.added_count + 1
+  @post resolved_count_is_unchanged:
+          result.matched_count == transfer.matched_count and
+            result.unmatched_count == transfer.unmatched_count
+  @spec record_write(t()) :: t()
+  def record_write(%__MODULE__{} = transfer),
+    do: %{transfer | added_count: transfer.added_count + 1}
+
+  @doc """
   The proportion of the source that reached the destination.
 
   A transfer with nothing in it rates `1.0`: nothing was asked for and nothing

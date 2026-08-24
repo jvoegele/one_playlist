@@ -150,6 +150,41 @@ defmodule OnePlaylist.Transfers do
   the override before matching, resolves the track to the same destination id,
   finds it already in the playlist, and records `:already_present` — the same
   answer a re-run gives for anything it added last time.
+
+  ## Correcting a row that already matched
+
+  The wrong track is *in* the destination, so the right one replacing it means
+  taking the wrong one out — which is what `remove_tracks/4` is for.
+
+  `:already_present` is removed from too, and that is worth justifying, because
+  the name suggests a track the user had rather than one of ours. It is not:
+  `destination_playlist_id` is set in exactly one place,
+  `OnePlaylist.Transfers.Runner.ensure_destination/3`, which *creates* the
+  playlist — no path in this application transfers into a playlist somebody
+  else made. So everything in it arrived through this transfer, and a re-run is
+  precisely what turns last run's `:matched` into this run's
+  `:already_present`. Refusing to remove those would leave a wrong track that
+  this application put there, on the report row that says it was corrected —
+  which is the report disagreeing with the playlist, the failure this whole
+  application is organised against.
+
+  The residual case is a user adding that same recording to our playlist by
+  hand, where the removal takes their copy too. That is why what gets removed
+  is the report row's own `destination_track_id` and nothing wider.
+
+  The order is add, then remove, and the asymmetry is deliberate. Both failures
+  are possible and one is much worse:
+
+  | If this fails | Playlist | Report |
+  | --- | --- | --- |
+  | the add | unchanged | unchanged — nothing is recorded |
+  | the remove | holds both | says the new one, truthfully |
+
+  Removing first inverts that: a failed add would leave the playlist holding
+  neither while the report still names the old track, which is a report claiming
+  a track is somewhere it is not. An extra track nobody asked for is visible,
+  recoverable and honest; a lying report is none of those. A failed removal is
+  therefore reported to the user rather than rolled back.
   """
   # `already_added?` is the one thing worth asserting here and it cannot be
   # asserted: whether the destination accepted the write is a fact about a
@@ -157,15 +192,66 @@ defmodule OnePlaylist.Transfers do
   # outcome for a track the caller did not name.
   @pre position_is_real: is_integer(position) and position >= 0
   @spec override(Session.t(), Transfer.t(), non_neg_integer(), map()) ::
-          {:ok, Transfer.t()} | {:error, term()}
+          {:ok, Transfer.t()} | {:ok, Transfer.t(), :not_removed} | {:error, term()}
   def override(%Session{} = session, %Transfer{} = transfer, position, chosen) do
     with {:ok, connection} <-
            Providers.fetch_usable_connection(session.user_id, transfer.destination_provider),
          {:ok, adapter} <- Providers.adapter(transfer.destination_provider),
          {:ok, track} <- chosen_track(transfer, chosen),
+         {:ok, superseded} <- superseded_track(transfer, position, track),
          {:ok, _count} <-
            adapter.add_tracks(connection, transfer.destination_playlist_id, [track], []) do
-      persist_override(transfer, position, track)
+      removal = withdraw(adapter, connection, transfer, superseded)
+
+      case {persist_override(transfer, position, track), removal} do
+        {{:ok, updated}, :ok} -> {:ok, updated}
+        {{:ok, updated}, :not_removed} -> {:ok, updated, :not_removed}
+        {{:error, _reason} = error, _removal} -> error
+      end
+    end
+  end
+
+  # What this transfer put at that position and is about to stop pointing at, or
+  # `nil` when there is nothing to take out.
+  #
+  # Any row naming a destination track, which is `:matched` or
+  # `:already_present` — see the docstring for why the second is ours too. An
+  # `:unmatched` row named nothing and put nothing there.
+  defp superseded_track(%Transfer{} = transfer, position, %Track{} = chosen) do
+    case items(transfer, position: position) do
+      [%TransferItem{destination_track_id: id}] when is_binary(id) and id != "" ->
+        # Choosing the track that is already there is a no-op rather than a
+        # remove and re-add of the same thing.
+        if id == chosen.provider_id, do: {:ok, nil}, else: {:ok, track_at(transfer, id)}
+
+      [%TransferItem{}] ->
+        {:ok, nil}
+
+      [] ->
+        {:error, :no_such_track}
+    end
+  end
+
+  defp track_at(%Transfer{} = transfer, id),
+    do: %Track{provider: transfer.destination_provider, provider_id: id}
+
+  defp withdraw(_adapter, _connection, _transfer, nil), do: :ok
+
+  defp withdraw(adapter, connection, %Transfer{} = transfer, %Track{} = superseded) do
+    case adapter.remove_tracks(connection, transfer.destination_playlist_id, [superseded], []) do
+      {:ok, _removed} ->
+        :ok
+
+      {:error, reason} ->
+        # Not fatal, for the reason the docstring gives: the report is about to
+        # be true, and the cost is one extra track in the playlist. Logged and
+        # reported to the caller so it is not silent.
+        Logger.warning(
+          "transfer #{transfer.id}: could not remove the superseded track " <>
+            "#{superseded.provider_id}: #{inspect(reason)}"
+        )
+
+        :not_removed
     end
   end
 
@@ -251,9 +337,15 @@ defmodule OnePlaylist.Transfers do
         :unmatched ->
           Transfer.record_correction(transfer)
 
-        # Already counted as matched. The correction changes *which* track was
+        # It resolved before and still does, but to a track the destination
+        # already held rather than one this run wrote. Now this run has written
+        # one, so `added_count` moves and nothing else does.
+        :already_present ->
+          Transfer.record_write(transfer)
+
+        # Already matched *and* written. The correction changes which track was
         # added, not how many were, so no counter moves.
-        _matched_or_already_present ->
+        :matched ->
           transfer
       end
 

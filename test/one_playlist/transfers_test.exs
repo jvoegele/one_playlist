@@ -31,6 +31,7 @@ defmodule OnePlaylist.TransfersTest do
   alias OnePlaylist.Transfers.PlaylistTooLarge
   alias OnePlaylist.Transfers.Runner
   alias OnePlaylist.Transfers.Transfer
+  alias OnePlaylist.Transfers.TransferItem
   alias OnePlaylist.Transfers.TransferWorker
 
   setup :set_req_test_from_context
@@ -491,6 +492,37 @@ defmodule OnePlaylist.TransfersTest do
              "the track is in the destination now, so a re-run adds nothing"
 
       assert rerun.unmatched_count == 0
+    end
+
+    test "correcting a row that a re-run left already present counts the new write", %{
+      session: session,
+      transfer: transfer,
+      item: item
+    } do
+      # The subtle ledger case. A re-run turns last run's `:matched` into
+      # `:already_present`, which resolves but was not written by *that* run.
+      # Correcting it writes one, so `added_count` moves and nothing else does —
+      # and `added_at_most_matched` is what catches getting that wrong.
+      chosen = %{"provider_id" => "ds2", "title" => "Song s2", "artist" => "Somebody"}
+      {:ok, corrected} = Transfers.override(session, transfer, item.position, chosen)
+      {:ok, rerun} = Runner.run(corrected)
+
+      assert [%{outcome: :already_present}] =
+               Transfers.items(rerun) |> Enum.filter(&(&1.position == item.position))
+
+      before = {rerun.matched_count, rerun.added_count, rerun.unmatched_count}
+
+      other = %{"provider_id" => "ds1", "title" => "Song s1", "artist" => "Somebody"}
+      {:ok, again} = Transfers.override(session, rerun, item.position, other)
+
+      {matched, added, unmatched} = before
+
+      assert {again.matched_count, again.added_count, again.unmatched_count} ==
+               {matched, added + 1, unmatched},
+             "it resolved before and still does; what changed is that this run wrote one"
+
+      assert TransferItem.tally(Transfers.items(again)) == Transfer.tally(again),
+             "the report and the counters must still agree"
     end
 
     test "a correction naming no track is refused", %{
