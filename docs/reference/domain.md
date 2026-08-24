@@ -829,7 +829,7 @@ Measured over the 97 corpus cases carrying an ISRC: **81 recalled with the whole
 the primary only, and not one case rescued by the change.** The 16 that neither query finds are
 catalogue limits rather than query construction. Do not spend time here without new evidence.
 
-### Classical music does not work at all
+### Classical music: what a work rung fixed, and what it did not
 
 Found by building a playlist designed to fail (`dev/experiments/build_hard_playlist.py`) and
 transferring it. **0 of 8** classical tracks matched, and the diagnosis is three separate
@@ -855,6 +855,36 @@ None of this is fixable by tuning. It wants catalogue-number extraction (`Op.`, 
 `K.`, `D.`) treated as an identifier rung, and a credit model that knows composer and performer
 are different roles. That is a feature rather than a rule change, and it is the largest single
 gap this project has found in its own matching.
+
+#### What was built
+
+`OnePlaylist.Music.Work` reads a **work signature** out of a title — catalogue number, named
+form and number, key, movement — and `Strategy.Work` matches on it, above the text rungs and
+below the identifier ones.
+
+Two decisions carry it:
+
+  * **The composer stands in for the credit.** Rather than requiring `artists` to agree, which
+    is guaranteed to fail here, the rung asks whether the source's credit appears *anywhere* in
+    the candidate. "Vivaldi: The Four Seasons" is how a catalogue names the composer.
+  * **A generic form cannot identify a work.** Vivaldi wrote a *Concerto for Two Cellos No. 2 in
+    G minor* and a violin concerto also numbered 2 in G minor, both credited to Vivaldi. Form
+    plus number plus key agrees for both, and the rung matched them to each other until
+    `concerto`, `sonata`, `suite`, `prelude`, `fugue` and `aria` were excluded from that path.
+    `Concerto grosso No. 2` and `Brandenburg Concerto No. 2` each name one piece and are fine.
+
+Measured on 57 classical sources with real TIDAL candidates: **24 matched by the work rung and
+13 by text, against 0 of 8 before.** 15 remain below threshold and 5 were offered nothing at all.
+
+#### What it does not fix
+
+  * **Sources with no work signature.** Roughly a third of the corpus: a title naming a piece
+    without a catalogue number, and with a form too generic to substitute.
+  * **MusicBrainz cannot help here.** Only **16 of 294** classical tracks in a real library carry
+    an ISRC, so the equivalence lookup built for reissues has nothing to work with. Its *works*
+    endpoint could canonicalise "Brandenburg Concerto No. 2" to BWV 1047 and might reach part of
+    the remaining third — but that is a second lookup per track against a one-per-second API,
+    and it should be measured before it is built.
 
 ### What a deliberately adversarial playlist actually breaks
 

@@ -20,6 +20,7 @@ defmodule OnePlaylist.Matching do
   | 1 | `OnePlaylist.Matching.Strategy.Isrc` | Recording identifier |
   | 1b | `OnePlaylist.Matching.Strategy.IsrcFamily` | Another identifier for the same recording |
   | 2 | `OnePlaylist.Matching.Strategy.UpcPosition` | Release barcode plus position |
+  | 3 | `OnePlaylist.Matching.Strategy.Work` | The same movement of the same classical work |
   | 3 | `OnePlaylist.Matching.Strategy.Text` | Exact after normalization |
   | 5 | `OnePlaylist.Matching.Strategy.Fuzzy` | Approximate similarity |
 
@@ -65,6 +66,10 @@ defmodule OnePlaylist.Matching do
     # code agreeing outright. See `Strategy.IsrcFamily`.
     Strategy.IsrcFamily,
     Strategy.UpcPosition,
+    # Above the text rungs because a catalogue number is nearly an identifier
+    # and a title is not: comparing the words around `Op. 8 No. 1` ranked a
+    # recording of `Op. 8 No. 4` higher. See `Strategy.Work`.
+    Strategy.Work,
     Strategy.Text,
     Strategy.Fuzzy
   ]

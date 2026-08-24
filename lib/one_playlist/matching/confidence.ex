@@ -43,7 +43,7 @@ defmodule OnePlaylist.Matching.Confidence do
   shape. Giving it a name of its own is what stops a hand-picked track being
   reported as though an algorithm had found it.
   """
-  @type strategy :: :isrc | :isrc_family | :upc_position | :text | :fuzzy | :manual
+  @type strategy :: :isrc | :isrc_family | :upc_position | :work | :text | :fuzzy | :manual
 
   @typedoc "The coarse name for a score."
   @type t :: :exact_isrc | :linked_isrc | :exact_upc | :chosen | :high | :medium | :low | :none
@@ -74,6 +74,10 @@ defmodule OnePlaylist.Matching.Confidence do
     # identically, the winner was whichever the sort happened to put first, and
     # it was not the copy on the source's own album.
     isrc_family: {0.95, 0.99},
+    # The same band as the text rungs on purpose: a work match reads as `:high`
+    # or `:medium` like anything else, and what distinguishes it in a report is
+    # the strategy name rather than an invented confidence.
+    work: {0.80, 0.98},
     text: {0.80, 0.98},
     fuzzy: {0.0, 0.79},
     # A person is certain in a way no rung can be. The band exists so that
@@ -97,7 +101,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Enum.sort(Confidence.strategies())
-      [:fuzzy, :isrc, :isrc_family, :manual, :text, :upc_position]
+      [:fuzzy, :isrc, :isrc_family, :manual, :text, :upc_position, :work]
   """
   @spec strategies() :: [strategy()]
   def strategies, do: Map.keys(@bands)

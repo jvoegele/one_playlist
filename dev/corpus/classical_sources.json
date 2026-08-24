@@ -1,0 +1,458 @@
+[
+ {
+  "artist": "Johann Sebastian Bach",
+  "title": "Air in D major, BWV 1068 No. 2",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 200,
+  "composer": "Johann Sebastian Bach"
+ },
+ {
+  "artist": "Johann Sebastian Bach",
+  "title": "Brandenburg Concerto no. 2 in F major: Allegro assai",
+  "album": "Bach: Greatest Hits",
+  "isrc": null,
+  "duration_seconds": 178,
+  "composer": "Johann Sebastian Bach"
+ },
+ {
+  "artist": "Johann Sebastian Bach",
+  "title": "Aria \"You Shall Love God Your Master\", BWV 77",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 269,
+  "composer": "Johann Sebastian Bach"
+ },
+ {
+  "artist": "Johann Sebastian Bach",
+  "title": "Toccata and Fugue in D Minor, BWV 565 (Fantasia)",
+  "album": "Cartoon Classics",
+  "isrc": null,
+  "duration_seconds": 560,
+  "composer": "Johann Sebastian Bach"
+ },
+ {
+  "artist": "Wolfgang Amadeus Mozart",
+  "title": "Concerto for 2 Pianos & Orchestra no. 10 in E-flat major, K. 316a/365: III. Rondo. Allegro",
+  "album": "Amadeus",
+  "isrc": null,
+  "duration_seconds": 434,
+  "composer": "Wolfgang Amadeus Mozart"
+ },
+ {
+  "artist": "Wolfgang Amadeus Mozart",
+  "title": "Concerto for Piano no. 20 in D minor, K. 466: II. Romanze",
+  "album": "Amadeus",
+  "isrc": null,
+  "duration_seconds": 592,
+  "composer": "Wolfgang Amadeus Mozart"
+ },
+ {
+  "artist": "Wolfgang Amadeus Mozart",
+  "title": "Requiem in D minor, K. 626 (Süßmayr completion): I. Introitus: \"Requiem aeternam\"",
+  "album": "Requiem in D minor / Laudate Dominum",
+  "isrc": null,
+  "duration_seconds": 310,
+  "composer": "Wolfgang Amadeus Mozart"
+ },
+ {
+  "artist": "Wolfgang Amadeus Mozart",
+  "title": "Serenade No. 13 in G major, K. 525 \"Eine kleine Nachtmusik\": I. Allegro",
+  "album": "Serenade No. 13 (\"Eine kleine Nachtmusik\") / Serenade No. 7 (\"Haffner\")",
+  "isrc": null,
+  "duration_seconds": 472,
+  "composer": "Wolfgang Amadeus Mozart"
+ },
+ {
+  "artist": "Ludwig van Beethoven",
+  "title": "Symphony No. 1 in C major, Op. 21: I. Adagio molto - Allegro con brio",
+  "album": "Symphonies Nos. 1 & 2 / The Creatures of Prometheus",
+  "isrc": null,
+  "duration_seconds": 455,
+  "composer": "Ludwig van Beethoven"
+ },
+ {
+  "artist": "Ludwig van Beethoven",
+  "title": "Symphony No. 1 in C major, Op. 21: II. Andante cantabile con moto",
+  "album": "Symphonies Nos. 1 & 2 / The Creatures of Prometheus",
+  "isrc": null,
+  "duration_seconds": 386,
+  "composer": "Ludwig van Beethoven"
+ },
+ {
+  "artist": "Ludwig van Beethoven",
+  "title": "Symphony No. 4 in B-flat major, Op. 60: I. Adagio - Allegro vivace",
+  "album": "Symphonies Nos. 4 & 5",
+  "isrc": null,
+  "duration_seconds": 743,
+  "composer": "Ludwig van Beethoven"
+ },
+ {
+  "artist": "Ludwig van Beethoven",
+  "title": "Symphony No. 7 in A major, Op. 92: I. Poco sostenuto - Vivace",
+  "album": "Symphonies Nos. 7 & 8",
+  "isrc": null,
+  "duration_seconds": 785,
+  "composer": "Ludwig van Beethoven"
+ },
+ {
+  "artist": "George Frideric Handel",
+  "title": "Concerto grosso in F major, Op. 6 No. 2: I. Largo",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 223,
+  "composer": "George Frideric Handel"
+ },
+ {
+  "artist": "George Frideric Handel",
+  "title": "Concerto grosso in F major, Op. 6 No. 2: II. Allegro",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 140,
+  "composer": "George Frideric Handel"
+ },
+ {
+  "artist": "George Frideric Handel",
+  "title": "Organ Concerto in D minor, Op. 7 No. 4: Adagio",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 390,
+  "composer": "George Frideric Handel"
+ },
+ {
+  "artist": "George Frideric Handel",
+  "title": "Concerto Alexander Feast: Allegro",
+  "album": "The Best of George Frideric Handel",
+  "isrc": null,
+  "duration_seconds": 246,
+  "composer": "George Frideric Handel"
+ },
+ {
+  "artist": "The Section Quartet",
+  "title": "Airbag",
+  "album": "Strung Out on OK Computer: The String Quartet Tribute to Radiohead",
+  "isrc": null,
+  "duration_seconds": 278,
+  "composer": "The Section Quartet"
+ },
+ {
+  "artist": "The Section Quartet",
+  "title": "Climbing up the Walls",
+  "album": "Strung Out on OK Computer: The String Quartet Tribute to Radiohead",
+  "isrc": null,
+  "duration_seconds": 246,
+  "composer": "The Section Quartet"
+ },
+ {
+  "artist": "Claude Debussy",
+  "title": "\"La Mer\" Trois esquisses symphoniques: I. De l'aube jusqu'à midi sur la mer",
+  "album": "Prelude à l'après-midi d'un faune / Suite Bergamasque / \"La Mer\" / Arabesques",
+  "isrc": null,
+  "duration_seconds": 542,
+  "composer": "Claude Debussy"
+ },
+ {
+  "artist": "Claude Debussy",
+  "title": "\"La Mer\" Trois esquisses symphoniques: II. Jeu de vagues",
+  "album": "Prelude à l'après-midi d'un faune / Suite Bergamasque / \"La Mer\" / Arabesques",
+  "isrc": null,
+  "duration_seconds": 391,
+  "composer": "Claude Debussy"
+ },
+ {
+  "artist": "Antonio Vivaldi",
+  "title": "The Four Seasons - The Spring, Op. 8 No. 1: I. Allegro",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 202,
+  "composer": "Antonio Vivaldi"
+ },
+ {
+  "artist": "Antonio Vivaldi",
+  "title": "The Four Seasons - The Spring, Op. 8 No. 1: III. Allegro",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 240,
+  "composer": "Antonio Vivaldi"
+ },
+ {
+  "artist": "Antonio Vivaldi",
+  "title": "Concerto for Two Cellos and Orchestra No. 2 in G minor: Allegro",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 251,
+  "composer": "Antonio Vivaldi"
+ },
+ {
+  "artist": "Johannes Brahms",
+  "title": "Sonata No. 1 in F minor, Op. 120/1: I. Allegretto grazioso",
+  "album": "Symphony No. 1 & Sonata No. 1",
+  "isrc": null,
+  "duration_seconds": 258,
+  "composer": "Johannes Brahms"
+ },
+ {
+  "artist": "Johannes Brahms",
+  "title": "Sonata No. 1 in F minor, Op. 120/1: I. Allegro appassionato",
+  "album": "Symphony No. 1 & Sonata No. 1",
+  "isrc": null,
+  "duration_seconds": 498,
+  "composer": "Johannes Brahms"
+ },
+ {
+  "artist": "Frédéric Chopin",
+  "title": "Piano Concerto No. 1 in E minor, Op. 11: I. Allegro maestoso",
+  "album": "Piano Concertos Nos. 1 & 2",
+  "isrc": null,
+  "duration_seconds": 1200,
+  "composer": "Frédéric Chopin"
+ },
+ {
+  "artist": "Frédéric Chopin",
+  "title": "Piano Concerto No. 1 in E minor, Op. 11: II. Romance: Larghetto",
+  "album": "Piano Concertos Nos. 1 & 2",
+  "isrc": null,
+  "duration_seconds": 623,
+  "composer": "Frédéric Chopin"
+ },
+ {
+  "artist": "Pietro Antonio Locatelli",
+  "title": "Concerto grosso in C minor, Op. 1 No. 2: I. Adagio - Allegro",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 282,
+  "composer": "Pietro Antonio Locatelli"
+ },
+ {
+  "artist": "Pietro Antonio Locatelli",
+  "title": "Concerto grosso in C minor, Op. 1 No. 2: II. Allegro",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 80,
+  "composer": "Pietro Antonio Locatelli"
+ },
+ {
+  "artist": "Pietro Antonio Locatelli",
+  "title": "Concerto grosso in F minor, Op. 1 No. 8: I. Largo",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 67,
+  "composer": "Pietro Antonio Locatelli"
+ },
+ {
+  "artist": "Georg Philipp Telemann",
+  "title": "Concerto per due corni da caccia e orchestra in D major: I. Spiritoso, adagio",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 197,
+  "composer": "Georg Philipp Telemann"
+ },
+ {
+  "artist": "Georg Philipp Telemann",
+  "title": "Concerto per due corni da caccia e orchestra in D major: II. Allegro",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 104,
+  "composer": "Georg Philipp Telemann"
+ },
+ {
+  "artist": "Giuseppe Torelli",
+  "title": "Concerto a quattro in G minor, Op. 8 No. 6: I. Grave - Vivace",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 136,
+  "composer": "Giuseppe Torelli"
+ },
+ {
+  "artist": "Giuseppe Torelli",
+  "title": "Concerto a quattro in G minor, Op. 8 No. 6: II. Largo",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 148,
+  "composer": "Giuseppe Torelli"
+ },
+ {
+  "artist": "Tomaso Giovanni Albinoni",
+  "title": "Concerto a cinque in B-flat major: I. Allegro moderato",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 210,
+  "composer": "Tomaso Giovanni Albinoni"
+ },
+ {
+  "artist": "Tomaso Giovanni Albinoni",
+  "title": "Concerto a cinque in B-flat major: II. Adagio",
+  "album": "A Treasury of Baroque",
+  "isrc": null,
+  "duration_seconds": 89,
+  "composer": "Tomaso Giovanni Albinoni"
+ },
+ {
+  "artist": "Francesco Onofrio Manfredini",
+  "title": "Concerto grosso in C major, Op. 3 No. 12: Largo",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 123,
+  "composer": "Francesco Onofrio Manfredini"
+ },
+ {
+  "artist": "Francesco Onofrio Manfredini",
+  "title": "Concerto grosso in C major, Op. 3 No. 12: Pastorale (Largo)",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 244,
+  "composer": "Francesco Onofrio Manfredini"
+ },
+ {
+  "artist": "Justin Timberlake",
+  "title": "Sexy Ladies/Let Me Talk to You (prelude)",
+  "album": "FutureSex/LoveSounds",
+  "isrc": "USJI10600475",
+  "duration_seconds": 332,
+  "composer": "Justin Timberlake"
+ },
+ {
+  "artist": "Justin Timberlake",
+  "title": "Summer Love/Set the Mood (prelude)",
+  "album": "FutureSex/LoveSounds",
+  "isrc": "USJI10600481",
+  "duration_seconds": 384,
+  "composer": "Justin Timberlake"
+ },
+ {
+  "artist": "Marvin Gaye",
+  "title": "Symphony (demo vocal)",
+  "album": "Let's Get It On (deluxe edition)",
+  "isrc": null,
+  "duration_seconds": 168,
+  "composer": "Marvin Gaye"
+ },
+ {
+  "artist": "Marvin Gaye",
+  "title": "Symphony (undubbed version)",
+  "album": "Let's Get It On (deluxe edition)",
+  "isrc": null,
+  "duration_seconds": 171,
+  "composer": "Marvin Gaye"
+ },
+ {
+  "artist": "Alicia Keys",
+  "title": "Prelude to a Kiss",
+  "album": "As I Am",
+  "isrc": "USJAY0700224",
+  "duration_seconds": 127,
+  "composer": "Alicia Keys"
+ },
+ {
+  "artist": "Alicia Keys",
+  "title": "Harlem's Nocturne",
+  "album": "The Diary of Alicia Keys",
+  "isrc": "USJAY0300448",
+  "duration_seconds": 103,
+  "composer": "Alicia Keys"
+ },
+ {
+  "artist": "Various Artists",
+  "title": "Violin Concerto",
+  "album": "Audiophile Hi-Res System Test - Great Sampling Tracks Included",
+  "isrc": null,
+  "duration_seconds": 245,
+  "composer": "Various Artists"
+ },
+ {
+  "artist": "Henry Purcell",
+  "title": "Sonata for Trumpet: Pomposo",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 94,
+  "composer": "Henry Purcell"
+ },
+ {
+  "artist": "Domenico Scarlatti",
+  "title": "Sonata in D minor, L 413",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 242,
+  "composer": "Domenico Scarlatti"
+ },
+ {
+  "artist": "Arcangelo Corelli",
+  "title": "Concerto grosso, Op. 6 No. 8: Vivace - Grave - Allegro",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 223,
+  "composer": "Arcangelo Corelli"
+ },
+ {
+  "artist": "Remo Giazotto",
+  "title": "Adagio in G minor",
+  "album": "Best of Baroque",
+  "isrc": null,
+  "duration_seconds": 485,
+  "composer": "Remo Giazotto"
+ },
+ {
+  "artist": "Green Day",
+  "title": "American Eulogy: Mass Hysteria / Modern World",
+  "album": "21st Century Breakdown",
+  "isrc": "USRE10900680",
+  "duration_seconds": 266,
+  "composer": "Green Day"
+ },
+ {
+  "artist": "The Verve",
+  "title": "Bitter Sweet Symphony",
+  "album": "Urban Hymns",
+  "isrc": "GBAAA9700049;GBAAA9710049",
+  "duration_seconds": 358,
+  "composer": "The Verve"
+ },
+ {
+  "artist": "Lou Reed",
+  "title": "Goodby Mass (In a Chapel Bodily Termination)",
+  "album": "Magic and Loss",
+  "isrc": "USWB10000828",
+  "duration_seconds": 265,
+  "composer": "Lou Reed"
+ },
+ {
+  "artist": "Gang Starr",
+  "title": "Mass Appeal",
+  "album": "Hard to Earn",
+  "isrc": "USCH39400036",
+  "duration_seconds": 221,
+  "composer": "Gang Starr"
+ },
+ {
+  "artist": "Neil Young & Crazy Horse",
+  "title": "Running Dry (Requiem for the Rockets)",
+  "album": "Everybody Knows This Is Nowhere",
+  "isrc": "USRE10900234;USRE10900601",
+  "duration_seconds": 336,
+  "composer": "Neil Young & Crazy Horse"
+ },
+ {
+  "artist": "Rihanna",
+  "title": "Woo",
+  "album": "ANTI",
+  "isrc": null,
+  "duration_seconds": 235,
+  "composer": "Rihanna"
+ },
+ {
+  "artist": "The Decemberists",
+  "title": "Prelude",
+  "album": "The Hazards of Love",
+  "isrc": "USCA20807540",
+  "duration_seconds": 184,
+  "composer": "The Decemberists"
+ },
+ {
+  "artist": "Chris Botti",
+  "title": "Prelude No. 20 in C Minor",
+  "album": "Impressions",
+  "isrc": "USSM11201517",
+  "duration_seconds": 295,
+  "composer": "Chris Botti"
+ }
+]
