@@ -61,17 +61,83 @@ defmodule OnePlaylist.MixProject do
       main: "OnePlaylist",
       extras: [
         "CLAUDE.md",
+        # `contracts.md` is cited by sixteen modules in `lib/` and was missing
+        # from this list, so every one of those references pointed at a page
+        # that was never published.
+        "docs/reference/domain.md",
+        "docs/reference/contracts.md",
         "docs/reference/jv-libraries.md",
         "docs/reference/supabase.md",
-        "docs/reference/domain.md",
         "docs/library-feedback.md",
         "docs/supabase-sdk-issues.md"
       ],
-      groups_for_extras: [Reference: ~r/docs\/reference\//],
-      groups_for_modules: [
-        Providers: ~r/OnePlaylist\.Providers/,
-        Encryption: [OnePlaylist.Vault, OnePlaylist.Encrypted.Binary]
-      ]
+      groups_for_extras: [
+        Reference: ~r/docs\/reference\//,
+        Findings: ~r/docs\/(library-feedback|supabase-sdk-issues)\.md/
+      ],
+      groups_for_modules: groups_for_modules()
+    ]
+  end
+
+  # Patterns rather than lists of module names, so a module added to a namespace
+  # is grouped without anyone remembering to come back here. The one exception is
+  # `OnePlaylist` itself, which names no namespace of its own.
+  #
+  # Order is both match order and display order — the first pattern to match wins
+  # — so the groups that carve a subset out of a wider namespace use a negative
+  # lookahead rather than relying on being listed first. That keeps the sidebar
+  # in reading order (the shared thing above the specific ones) instead of in
+  # whatever order the matching happens to require.
+  #
+  # Anything left unmatched falls through to ExDoc's own categories: "Modules",
+  # plus an automatic "Exceptions" bucket for anything that defines one. That
+  # bucket is what put seven of this application's error types under `Providers`
+  # and the other eight under `Exceptions`, which is the split these patterns
+  # exist to remove — every error now sits with the domain that raises it.
+  defp groups_for_modules do
+    [
+      # The landing page, and the only module that is not part of a namespace.
+      Overview: [OnePlaylist],
+
+      # The vocabulary every other group is written in.
+      Music: ~r/^OnePlaylist\.Music\./,
+
+      # The technical core, and then the rungs of its ladder.
+      Matching: ~r/^OnePlaylist\.Matching($|\.(?!Strategy))/,
+      "Matching: the ladder": ~r/^OnePlaylist\.Matching\.Strategy($|\.)/,
+
+      # The pipeline that drives it.
+      Transfers: ~r/^OnePlaylist\.Transfers($|\.)/,
+
+      # The behaviour and the shared types, then one group per service. TIDAL
+      # and Subsonic are excluded from the first by lookahead, which is also
+      # what puts `SubsonicCredentials` with Subsonic rather than in the
+      # shared group.
+      Providers: ~r/^OnePlaylist\.Providers($|\.(?!Tidal|Subsonic|Navidrome))/,
+      "Providers: TIDAL": ~r/^OnePlaylist\.Providers\.Tidal($|\.)/,
+      "Providers: Subsonic": ~r/^OnePlaylist\.Providers\.(Subsonic|Navidrome)/,
+
+      # Playlists that are files rather than services — the counterpart to
+      # Providers, and deliberately not modelled as one.
+      "Playlist files": ~r/^OnePlaylist\.(Formats($|\.)|Imports$|Exports$)/,
+
+      # The outside reference data, and the two tiers that keep us off it.
+      MusicBrainz: ~r/^OnePlaylist\.MusicBrainz($|\.)/,
+      "Catalogue and caching": ~r/^OnePlaylist\.(Catalogue|Cache)($|\.)/,
+
+      # Who is asking, and what is kept for them.
+      Accounts: ~r/^OnePlaylist\.Accounts($|\.)/,
+      "Storage and encryption": ~r/^OnePlaylist\.(Storage($|\.)|Vault$|Encrypted\.)/,
+
+      # The seams onto Postgres, Supabase and OTP.
+      Platform: ~r/^OnePlaylist\.(Repo|Supabase|Application|Mailer)$/,
+
+      # Everything web-facing, kept apart from the contexts above. The last of
+      # these is a catch-all and must stay last.
+      "Web: pages": ~r/^OnePlaylistWeb\.\w+Live\./,
+      "Web: controllers": ~r/^OnePlaylistWeb\.\w*(Controller|HTML|JSON)$/,
+      "Web: components": ~r/^OnePlaylistWeb\.(\w*Components|Layouts)$/,
+      "Web: plumbing": ~r/^OnePlaylistWeb($|\.)/
     ]
   end
 
