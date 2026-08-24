@@ -15,19 +15,19 @@ defmodule OnePlaylist.Catalogue do
   | L2 | Postgres, shared | ~1 ms | deploys, restarts, other nodes |
   | — | the provider | 100–500 ms **and quota** | — |
 
-  L1 alone was the previous design and it does not scale, for reasons that get
-  worse rather than better as the application succeeds:
+  L1 alone does not scale, for reasons that get worse rather than better as the
+  application succeeds:
 
     * it is per node, so scaling out means N caches learning the same global
       facts independently — adding capacity makes each one *less* effective;
     * it dies on every deploy, so a team shipping five times a day buys the
       working set back from a provider's quota five times a day;
-    * the data is user-independent and was being stored per node, which is the
-      opposite of the asset that compounds.
+    * the data is user-independent, and storing it per node is the opposite of
+      the asset that compounds.
 
   L2 fixes all three, and it costs a single indexed primary-key read. A cold
-  node now refills from Postgres at millisecond cost instead of from a provider
-  at quota cost.
+  node refills from Postgres at millisecond cost instead of from a provider at
+  quota cost.
 
   ## Negative results are cached, and only they expire
 

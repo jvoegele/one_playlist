@@ -255,8 +255,8 @@ defmodule OnePlaylistWeb.TransferLive.Show do
         </div>
 
         <%!-- `@progress` as well as the counters, because `total_tracks` is not
-              persisted until the run finishes: gating on it alone kept the
-              table hidden for exactly the period the live rows are for. --%>
+              persisted until the run finishes: gating on it alone hides the
+              table for exactly the period the live rows are for. --%>
         <div :if={@transfer.total_tracks > 0 or @progress}>
           <div role="tablist" class="tabs tabs-bordered mb-2">
             <button
@@ -301,12 +301,12 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                       </div>
                     </div>
 
-                    <%!-- What it actually chose. A row used to carry only the
-                          destination's opaque id, so a matched row said
-                          "isrc · exact" and nothing about *what* it matched —
-                          which is the one question a person asks of a match.
-                          The album is what answers it: Vitalogy against Live On
-                          Two Legs settles in a glance what a score does not. --%>
+                    <%!-- What it actually chose. Without this a matched row
+                          says "isrc · exact" and nothing about *what* it
+                          matched, which is the one question a person asks of a
+                          match. The album is what answers it: Vitalogy against
+                          Live On Two Legs settles in a glance what a score does
+                          not. --%>
                     <div
                       :if={item.destination_title}
                       class="text-xs mt-1 pl-3 border-l-2 border-base-300"
@@ -341,8 +341,8 @@ defmodule OnePlaylistWeb.TransferLive.Show do
                     <div><.why item={item} /></div>
 
                     <%!-- Outlined and coloured rather than a ghost button. This
-                          is the only action on the page and it was being read
-                          as decoration. --%>
+                          is the only action on the page, and as a ghost it
+                          reads as decoration. --%>
                     <button
                       :if={correctable?(item)}
                       phx-click="expand"
@@ -478,10 +478,6 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     """
   end
 
-  # Why this candidate was not chosen, in the order that decides it. A veto is
-  # absolute and outranks any score, so it is reported first even when the score
-  # was high — otherwise "0.94" would read as though the engine had merely been
-  # fussy.
   # Minutes and seconds. A duration is one of the two things that tells three
   # recordings of a song apart, and "278" is not a length anybody reads.
   defp duration(seconds) when is_integer(seconds) and seconds >= 0,
@@ -489,6 +485,10 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
   defp duration(_seconds), do: nil
 
+  # Why this candidate was not chosen, in the order that decides it. A veto is
+  # absolute and outranks any score, so it is reported first even when the score
+  # was high — otherwise "0.94" would read as though the engine had merely been
+  # fussy.
   defp rejection(%Candidate{version_conflict: true}), do: "a different version"
   defp rejection(%Candidate{editorial_conflict: true}), do: "explicit or clean differs"
 
@@ -765,10 +765,10 @@ defmodule OnePlaylistWeb.TransferLive.Show do
     socket |> remember(item) |> insert_if_shown(item)
   end
 
-  # Bounded, because this map is held by the LiveView process for the whole run.
-  # Unbounded it grew one entry per resolved track, which is exactly the thing
-  # this change exists to stop. The oldest positions go first: a watcher looking
-  # at a run in flight is looking at the end of it.
+  # Bounded, because this map is held by the LiveView process for the whole run:
+  # unbounded it grows one entry per resolved track, which is the memory this
+  # window exists to cap. The oldest positions go first — a watcher looking at a
+  # run in flight is looking at the end of it.
   defp remember(socket, item) do
     provisional = Map.put(socket.assigns.provisional, item.position, item)
 

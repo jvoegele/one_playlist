@@ -13,14 +13,14 @@ defmodule OnePlaylist.Music.Track do
 
     * `isrc` — the International Standard Recording Code. Globally unique per
       *recording*, so an ISRC match is an exact match rather than a guess. This
-      is the whole reason the struct exists; everything else is fallback.
+      is the whole reason the struct exists; everything else is fallback. `nil`
+      is expected and normal: local files, podcasts, and some regional
+      catalogue entries have none.
     * `title`, `artists` — normalized text matching, when ISRC is absent or
       differs across territorial releases.
     * `album` — disambiguates a title that appears on several releases.
     * `duration_seconds` — the cheapest signal for rejecting covers, edits and
       karaoke versions, which often match on title and artist alone.
-    * `isrc` being `nil` is expected and normal: local files, podcasts, and
-      some regional catalogue entries have none.
     * `album_upc`, `track_number`, `volume_number` — rung 2 of the ladder, which
       recovers tracks whose ISRC differs across territorial releases. Note that
       a UPC alone is not a match: it identifies a *release*, so it only becomes
@@ -36,6 +36,9 @@ defmodule OnePlaylist.Music.Track do
 
   `provider` and `provider_id` identify where this came from, so a match can be
   cached as "this recording is that id over there" rather than re-derived.
+
+  `artwork_url`, `isrc_family` and `work_titles` are not ladder inputs in the
+  same sense; each is documented on the `defstruct` below, beside its default.
   """
 
   use Bond
@@ -93,10 +96,10 @@ defmodule OnePlaylist.Music.Track do
   # What a track *is*, stated once, on the type rather than at each of the
   # several places that build one.
   #
-  # These fire on entry to and exit from the functions below — which is why they
-  # can exist at all. Until `search_query/1` and friends moved here, this module
-  # had no function taking or returning a `%Track{}`, so an invariant would have
-  # been checked nowhere. See `docs/reference/contracts.md`.
+  # These fire on entry to and exit from the functions below, which is why they
+  # can exist at all: a module with no function taking or returning its own
+  # struct has nowhere for an invariant to be checked. See
+  # `docs/reference/contracts.md`.
   #
   # `identifiable` is the law the whole application leans on without saying so.
   # `to_string(nil)` is `""`, so a provider omitting an id yields a track that
@@ -123,10 +126,10 @@ defmodule OnePlaylist.Music.Track do
   @doc """
   The track as a person would type it into a search box: title, then artists.
 
-  Every provider that can only search by text needs exactly this string, and
-  both `OnePlaylist.Providers.Tidal` and `OnePlaylist.Providers.Navidrome` had
-  written it out identically — one rule in two places, with nothing keeping them
-  in step.
+  Every provider that can only search by text needs exactly this string, so it
+  belongs on the track rather than in each adapter —
+  `OnePlaylist.Providers.Tidal` and `OnePlaylist.Providers.Navidrome` would
+  otherwise be one rule in two places, with nothing keeping them in step.
 
   Deliberately the **raw** title rather than the normalized one.
   `OnePlaylist.Matching.Normalize` exists to compare two strings that already

@@ -70,10 +70,10 @@ defmodule OnePlaylist.Matching.Report do
   # here for the same reason: "the match rate is a proportion" is what the
   # function *means*, and a caller comparing two reports relies on it.
   #
-  # Under this file's former rule it was left out as implied by the arithmetic —
-  # which was true of the body as written and is not a reason. `length(matched)`
-  # and `total/1` are two counts that a plausible rewrite could take from
-  # different places; the inverted-division typo is the obvious one.
+  # Not omitted as implied by the arithmetic. That is true of the body as
+  # written and is not a reason: `length(matched)` and `total/1` are two counts
+  # a plausible rewrite could take from different places, and the
+  # inverted-division typo is the obvious one.
   @post is_a_proportion: result >= 0.0 and result <= 1.0
   @spec match_rate(t()) :: float()
   def match_rate(%__MODULE__{} = report) do

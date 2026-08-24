@@ -109,8 +109,8 @@ defmodule OnePlaylist.Providers.Connection do
     navidrome: "Navidrome",
     subsonic: "Subsonic",
     # Not a service, and here because a transfer's *source* can be one — see
-    # `OnePlaylist.Transfers.Transfer.source_provider/0`. Anywhere a source is
-    # shown, this is the other thing it might say.
+    # the `t:OnePlaylist.Transfers.Transfer.source_provider/0` type. Anywhere a
+    # source is shown, this is the other thing it might say.
     file: "File"
   }
 
@@ -260,17 +260,16 @@ defmodule OnePlaylist.Providers.Connection do
   @doc """
   Whether this connection was granted a scope.
 
-  A question about a connection that was being asked inside
-  `OnePlaylist.Providers.Tidal`, spelled `"search.read" in (connection.scopes || [])`.
-  It belongs here: `scopes` is this struct's field, the `|| []` was working
-  around this struct's nilable column, and the next OAuth provider will ask the
-  same question.
+  Here rather than in each adapter: `scopes` is this struct's field, the
+  `|| []` below works around this struct's nilable column, and every OAuth
+  provider asks the same question.
 
-  Not hypothetical. The TIDAL account connected to this project had to be
-  re-authorized to grant `search.read`, because without it TIDAL answers
-  `400 INVALID_RESOURCE_ID` — an error naming neither scopes nor the parameter
-  it is really complaining about. Asking before calling is what turns that into
-  a message telling the user to reconnect.
+  Worth asking at all because a missing scope is not reported as one. TIDAL
+  answers a search without `search.read` with `400 INVALID_RESOURCE_ID`, naming
+  neither scopes nor the parameter it is really complaining about, and a
+  connection authorized before that scope was requested simply does not have
+  it. Asking first is what turns that into a message telling the user to
+  reconnect.
 
       iex> alias OnePlaylist.Providers.Connection
       iex> Connection.grants?(%Connection{scopes: ["playlists.read", "search.read"]}, "search.read")
@@ -302,9 +301,9 @@ defmodule OnePlaylist.Providers.Connection do
   """
   @spec usable?(connection :: %__MODULE__{}) :: boolean()
   # `token != ""` is load-bearing, not defensive. An empty string is a binary, so
-  # the guard alone answered `true` for a connection carrying no credential at
-  # all — `fetch_usable_connection/2` handed it back as healthy and every call
-  # 401'd, blaming the provider.
+  # `is_binary/1` alone answers `true` for a connection carrying no credential
+  # at all: `fetch_usable_connection/2` hands it back as healthy and every call
+  # 401s, blaming the provider.
   #
   # This is deliberately *not* an `@invariant` forbidding a blank token. Such a
   # row is reachable — `OnePlaylist.Providers.SubsonicCredentials` documents the

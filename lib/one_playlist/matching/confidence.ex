@@ -2,34 +2,34 @@ defmodule OnePlaylist.Matching.Confidence do
   @moduledoc """
   The scale a match is graded on: the bands, the names, and their order.
 
-  Split out of `OnePlaylist.Matching.Match`, which held two things at once. A
-  match is an *instance* — this source, that track, this score. This module is
-  the *rules* by which any match is judged, and the two have different lifetimes:
-  the rules are consulted before a match exists (`confidence_for/2` is what
-  `Match.new/1` calls to derive the name it stores) and long after
-  (`Report.needs_review/2` compares one).
-
-  Bond made the split visible. Four functions in `Match` had to suppress its
-  `warn_skipped_invariants` linter because none of them took or returned a
-  `%Match{}` — a module declaring an invariant, with most of its API not about
-  the struct. See `docs/reference/contracts.md`.
+  Separate from `OnePlaylist.Matching.Match` because the two have different
+  lifetimes. A match is an *instance* — this source, that track, this score.
+  This module is the *rules* by which any match is judged, and they are
+  consulted both before a match exists (`for_score/2` is what `Match.new/1`
+  calls to derive the name it stores) and long after (`Report.needs_review/2`
+  compares one).
 
   ## Score bands
 
   Each rung of the ladder scores within its own band, so a score orders matches
-  *across* strategies and not only within one:
+  *across* strategies and not only within one. This table is the prose form of
+  `@bands` below, which is the authority:
 
   | Strategy | Band | Meaning |
   | --- | --- | --- |
   | `:isrc` | `1.0` | The same recording, by identifier. Not an opinion. |
   | `:upc_position` | `1.0` | The same track of the same release. Not an opinion. |
+  | `:manual` | `1.0` | A person chose it. Not an opinion either, and not the engine's. |
+  | `:isrc_family` | `0.95`–`0.99` | An identifier a third party says names the same recording. |
+  | `:work` | `0.80`–`0.98` | The same movement of the same classical work. |
   | `:text` | `0.80`–`0.98` | Every compared field agreed after normalization. |
   | `:fuzzy` | `0.0`–`0.79` | Approximate. Review the middle of this range. |
 
   The ceiling below `1.0` on the inexact rungs is deliberate: **text can never
   be certain**, however perfectly it matches, because two different recordings
-  can carry identical metadata. Reserving `1.0` for identifier rungs keeps
-  `:exact_isrc` meaning what it says.
+  can carry identical metadata. `1.0` is reserved for a claim nobody is
+  guessing at — an identifier that agrees outright, or a person's own choice —
+  which is what keeps `:exact_isrc` meaning what it says.
   """
 
   use Bond
@@ -192,8 +192,8 @@ defmodule OnePlaylist.Matching.Confidence do
   """
   # A precondition rather than a tolerant `rank/1` that treats the unknown as
   # lowest, because there is no sensible answer to "is this thing I have never
-  # heard of at least `:high`?" — and silently answering `false` would hide the
-  # typo that produced it just as effectively as the `true` this replaced.
+  # heard of at least `:high`?" — and answering `false` would hide the typo that
+  # produced it just as effectively as the `true` an unranked atom yields.
   #
   # Discharged everywhere it is called: `Match.at_least?/2` passes a stored
   # confidence, which `for_score/2` guarantees; `Matching.threshold/1` validates

@@ -9,10 +9,10 @@ ExUnit.start(exclude: [:supabase])
 # vacuous contract Bond's guides warn about — it looks like coverage while
 # asserting nothing. Enabled by `config :bond, coverage: true` in config/test.exs.
 #
-# The `:ets.new/2` workaround that used to live here is gone as of bond 1.15.0:
-# `install_reporter/0` now creates the coverage table itself, so it is owned by
-# this process rather than by whichever test first evaluated a contract — and no
-# longer dies with it. See docs/library-feedback.md.
+# No `:ets.new/2` preamble is needed: as of bond 1.15.0 `install_reporter/0`
+# creates the coverage table itself, so it is owned by this process rather than
+# by whichever test first evaluated a contract, and does not die with it. See
+# docs/library-feedback.md.
 Bond.Coverage.install_reporter()
 
 Ecto.Adapters.SQL.Sandbox.mode(OnePlaylist.Repo, :manual)

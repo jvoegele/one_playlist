@@ -84,14 +84,13 @@ defmodule OnePlaylist.Transfers.Runner do
   # Here the run is over, so equality is the honest claim, and that difference is
   # the whole reason this assertion exists separately.
   #
-  # `added_at_most_matched` used to sit here beside it and was removed when the
-  # invariant landed: unlike the equality above it is *identical* to the
-  # invariant, and every counter this function returns passes through
-  # `Transfer.reset_counters/1`, `with_total/2`, `record_matched/2` or
-  # `record_unmatched/1` — each of which now checks it on the way out. Meyer's
-  # Non-Redundancy principle, and the invariant is also the better locus: it
-  # names the counter update that broke the law rather than the run that
-  # contained it.
+  # `added_at_most_matched` deliberately does *not* sit here beside it. Unlike
+  # the equality above, it is identical to `Transfer`'s invariant, and every
+  # counter this function returns passes through `Transfer.reset_counters/1`,
+  # `with_total/2`, `record_matched/2` or `record_unmatched/1` — each of which
+  # checks it on the way out. Meyer's Non-Redundancy principle, and the
+  # invariant is also the better locus: it names the counter update that broke
+  # the law rather than the run that contained it.
   @post whenever({:ok, completed} <- result),
     every_track_accounted_for:
       completed.matched_count + completed.unmatched_count == completed.total_tracks,
@@ -215,9 +214,9 @@ defmodule OnePlaylist.Transfers.Runner do
          {:ok, adapter} <- Providers.adapter(transfer.source_provider),
          {:ok, stream} <- adapter.stream_tracks(connection, transfer.source_playlist_id, []) do
       # One past the limit, so `within_limit/1` can tell "at the limit" from
-      # "over it" without the unbounded `Enum.to_list/1` this replaced. A
-      # provider that reports a playlist size it then exceeds, or a paging bug
-      # that never terminates, stops here instead of in the worker's memory.
+      # "over it" without draining the stream. A provider that reports a
+      # playlist size it then exceeds, or a paging bug that never terminates,
+      # stops here rather than in the worker's memory.
       {:ok, Enum.take(stream, max_tracks() + 1)}
     end
   rescue
@@ -251,9 +250,10 @@ defmodule OnePlaylist.Transfers.Runner do
   # rate-limited provider search per track, so a 58 track import is a minute or
   # more of a page that otherwise says only "running".
   #
-  # Batched through `Progress`, because "as it goes" used to mean one broadcast
-  # per track and that does not survive a 5,000 track playlist. The final flush
-  # is not optional: without it a run ending mid-batch strands its last tracks.
+  # Batched through `Progress`, because the naive reading of "as it goes" is one
+  # broadcast per track and that does not survive a 5,000 track playlist. The
+  # final flush is not optional: without it a run ending mid-batch strands its
+  # last tracks.
   defp resolve_all(transfer, tracks, adapter, connection, threshold) do
     total = length(tracks)
 
@@ -315,8 +315,8 @@ defmodule OnePlaylist.Transfers.Runner do
   # A provisional row is drawn by the same template as a persisted one, so it
   # has to carry the same fields. Asserted rather than commented, because the
   # failure mode is a `KeyError` in the middle of a running transfer and the
-  # thing that causes it is a migration in a different file — adding the
-  # destination's title and album to the report is exactly what broke it.
+  # thing that causes it is a migration in a different file — adding a column to
+  # the report is all it takes.
   #
   # `TransferItem.display_fields/0` is derived from the schema, so a column
   # added later is required here without anyone remembering to come back.
@@ -409,16 +409,14 @@ defmodule OnePlaylist.Transfers.Runner do
   # The second chance an ISRC deserves, and only ever a second chance.
   #
   # An ISRC names a recording *as issued*, so the same master carries a
-  # different code on every reissue: Roon exports Eddie Vedder's "Setting Forth"
-  # as the 2007 soundtrack's code and TIDAL holds the 2017 reissue's. The direct
-  # lookup finds nothing and the track is reported missing while sitting in the
-  # catalogue under another number.
+  # different code on every reissue and a direct lookup can miss a track the
+  # destination plainly has. `MusicBrainz.family/2` says which codes name one
+  # recording — see that module for the case it was built for.
   #
-  # `MusicBrainz.family/2` says which codes name one recording, and the
-  # candidates are the ones already in hand — so this costs **one** MusicBrainz
-  # request and no provider call at all. It runs only after a match has already
-  # failed, which measured at about one ISRC-bearing track in seven, and every
-  # answer is cached in two tiers.
+  # The candidates are the ones already in hand, so this costs **one**
+  # MusicBrainz request and no provider call at all. It runs only after a match
+  # has already failed, which measured at about one ISRC-bearing track in seven,
+  # and every answer is cached in two tiers.
   defp retry_with_isrc_family(%Track{isrc: isrc} = track, candidates, opts, failed)
        when is_binary(isrc) do
     case MusicBrainz.family(isrc) do

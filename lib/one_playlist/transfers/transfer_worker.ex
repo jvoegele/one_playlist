@@ -89,8 +89,8 @@ defmodule OnePlaylist.Transfers.TransferWorker do
 
   # `Errata.retryable?/1` raises on anything that is not an Errata error, and
   # plenty of what reaches here is not — a `Req` transport error, an
-  # `Ecto.Changeset`, an exception from a mapper. Those keep the old behaviour
-  # of being retried, because for them a retry is exactly the right answer.
+  # `Ecto.Changeset`, an exception from a mapper. Those are retried, because for
+  # them a retry is exactly the right answer.
   defp retryable?(reason) when Errata.is_error(reason), do: Errata.retryable?(reason)
   defp retryable?(_reason), do: true
 end

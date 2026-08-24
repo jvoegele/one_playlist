@@ -18,10 +18,11 @@ defmodule OnePlaylist.Repo do
   application asks. A query here that forgets `where user_id == ^user_id`
   returns every user's rows, and nothing notices.
 
-  That is not hypothetical. `TransferLive.Show.mount/3` shipped exactly that bug:
-  any signed-in user could read any transfer by id. It was fixed by adding the
-  scope, and `as_user/3` is the answer to the more useful question — what would
-  have caught it.
+  That is not hypothetical. `TransferLive.Show.mount/3` shipped exactly that
+  bug: it fetched a transfer by id alone, so any signed-in user could read any
+  transfer — playlist name, providers, status and the whole per-track report —
+  from `/transfers/<uuid>`. Adding the `where` fixed it. `as_user/3` is the
+  answer to the more useful question, which is what would have *caught* it.
 
   ## What `as_user/3` does
 

@@ -213,13 +213,12 @@ defmodule OnePlaylist.MatchingTest do
       # Ys" is a backing band, so the band goes beside the featured credits and
       # only "bruce springsteen" has to agree.
       #
-      # This used to work because the credit check accepted a subset in either
-      # direction, over every name at once. That was too generous — see the
-      # collaboration test below — and the cost was noted in this comment at the
-      # time: "it also matches a genuine solo recording to a band one, which is
-      # why duration and album still have to corroborate". They cannot. This
-      # rung's band floor is 0.80, above the default threshold, so corroboration
-      # only moves a match between 0.80 and 0.98 and can never decline one.
+      # The tempting cheaper rule is to accept a subset in either direction over
+      # every name at once. That is too generous — see the collaboration test
+      # below — and the usual defence, that duration and album still have to
+      # corroborate, does not hold: this rung's band floor is 0.80, above the
+      # default threshold, so corroboration only moves a match between 0.80 and
+      # 0.98 and can never decline one.
       source = track(artists: ["Bruce Springsteen and the E Street Band"], title: "Badlands")
       candidate = track(artists: ["Bruce Springsteen"], title: "Badlands", provider_id: "c1")
 

@@ -20,7 +20,7 @@ defmodule OnePlaylist.Matching.Strategy do
 
   Declared here, inherited by every rung via
   `use Bond, behaviours: [OnePlaylist.Matching.Strategy]`. There is no contract
-  code in any of the four implementations, and a fifth rung — the pgvector one
+  code in any of the six implementations, and the next rung — the pgvector one
   sketched in `docs/reference/domain.md` — gets them for free.
   """
 
@@ -46,15 +46,13 @@ defmodule OnePlaylist.Matching.Strategy do
   surface much later, as a `KeyError` from a band lookup, or — worse — as a
   match whose confidence silently failed to derive.
   """
-  # Asked of `Confidence` rather than listed here, because the list here was
-  # wrong the first time a rung was added: `Strategy.IsrcFamily` reported a name
-  # `Confidence` knew and this assertion did not, and the failure arrived from
-  # `strategy/0` while the mistake was in a literal three files away.
-  #
+  # Asked of `Confidence` rather than listed here. A literal list is a copy that
+  # has to be kept in step, and adding a rung to one and not the other reports
+  # the failure from `strategy/0` while the mistake sits three files away.
   # `Confidence.strategies/0` is derived from the band table, which is the thing
   # that would actually break — a rung with no band cannot have a confidence
-  # derived at all. So this now names the real requirement instead of a copy of
-  # it that has to be kept in step.
+  # derived at all — so this names the real requirement.
+  #
   # Fully qualified, and it has to be: an inherited contract's expression is
   # resolved in the *implementing* module's aliases, not this one's. Written as
   # `Confidence.strategies()` it compiles here and fails in every rung that does

@@ -4,9 +4,9 @@ defmodule OnePlaylistWeb.TransferLive.New do
 
   ## Both ends are chosen, and either may be any connected service
 
-  This page used to be TIDAL to TIDAL, hard coded at five separate call sites,
-  which made the application's whole premise unreachable from its own UI. The
-  source and the destination are now both picked from the user's connections.
+  The source and the destination are both picked from the user's connections.
+  Hard-coding either would make the application's whole premise unreachable
+  from its own UI.
 
   Nothing stops them being the same. TIDAL to TIDAL is a real operation — it
   duplicates a playlist — and the transfer engine already treats a re-run

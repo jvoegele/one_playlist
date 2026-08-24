@@ -2,9 +2,9 @@ defmodule OnePlaylist.Transfers.Progress do
   @moduledoc """
   Batches per-track results so a large transfer does not flood its watchers.
 
-  A run broadcast once per resolved track, which is right for a 58 track import
-  and wrong for a 5,000 track one: 5,000 PubSub messages, 5,000 LiveView diffs,
-  and a browser asked to append 5,000 table rows one at a time.
+  Broadcasting once per resolved track is right for a 58 track import and wrong
+  for a 5,000 track one: 5,000 PubSub messages, 5,000 LiveView diffs, and a
+  browser asked to append 5,000 table rows one at a time.
 
   This holds results and hands them back in batches — when `:batch` of them have
   accumulated, or when `:interval` milliseconds have passed since the last

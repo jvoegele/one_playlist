@@ -45,10 +45,10 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
         # wrong candidate over the threshold.
         #
         # `OnePlaylist.Providers.Tidal.Mapper` states the same law one level
-        # down, on `OnePlaylist.Providers.Payload.duration/1`, and so does not repeat it
-        # here. This mapper has no such parser — Subsonic sends seconds as an
-        # integer and a private helper filters it — so without this the law is
-        # written nowhere a caller can see.
+        # down, on `OnePlaylist.Providers.Payload.duration/1`, and so does not
+        # repeat it. This mapper has no such parser — Subsonic sends seconds as
+        # an integer — so without this the law is written nowhere a caller can
+        # see.
         duration_is_never_negative:
           is_nil(result.duration_seconds) or result.duration_seconds >= 0
   @spec track(map()) :: Track.t()
@@ -98,6 +98,7 @@ defmodule OnePlaylist.Providers.Subsonic.Mapper do
   # different Subsonic implementation might send, because the protocol has
   # several servers and this field is an OpenSubsonic extension rather than part
   # of 1.16.1.
+  #
   # Normalised, not merely extracted. A Subsonic ISRC comes from a file tag,
   # which is as untrusted as a spreadsheet cell — and an ISRC that is not in
   # canonical form is rejected by the providers it is looked up against. See

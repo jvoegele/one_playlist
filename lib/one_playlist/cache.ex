@@ -5,13 +5,13 @@ defmodule OnePlaylist.Cache do
   ## Why Nebulex here and not for L2
 
   `Nebulex.Adapters.Local` is a **generational** cache, and that is the whole
-  reason for the dependency. The hand-rolled ETS table this replaced bounded
-  itself by emptying completely at a cap, which is the worst possible behaviour
-  once the working set exceeds the bound: a successful application would throw
-  away everything it knew and buy it back from a provider's quota, over and
-  over. Generational eviction drops the oldest generation instead, so a full
-  cache loses a fraction and keeps the hot set — approximate LRU without
-  per-read bookkeeping.
+  reason for the dependency. The obvious hand-rolled ETS table bounds itself by
+  emptying completely at a cap, which is the worst possible behaviour once the
+  working set exceeds the bound: a successful application throws away
+  everything it knows and buys it back from a provider's quota, over and over.
+  Generational eviction drops the oldest generation instead, so a full cache
+  loses a fraction and keeps the hot set — approximate LRU without per-read
+  bookkeeping.
 
   It also bounds by memory as well as by count, which is the bound that
   actually matters, and neither is something worth hand-rolling badly.

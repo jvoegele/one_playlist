@@ -1,6 +1,6 @@
 defmodule OnePlaylist.Matching.Strategy.Work do
   @moduledoc """
-  Rung 3: the same movement of the same classical work.
+  Rung 2b: the same movement of the same classical work.
 
   Sits above the text rungs because a catalogue number is nearly an identifier
   and a title is not. `Op. 8 No. 1` names one concerto; comparing the words

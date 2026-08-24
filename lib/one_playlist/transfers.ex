@@ -73,9 +73,9 @@ defmodule OnePlaylist.Transfers do
   number nobody reads after the run finishes. A watcher that misses a message
   gets the next one; a watcher that arrives late reads the counters.
 
-  This is what makes a progress bar possible at all: before it, the only thing
-  broadcast between "queued" and "completed" was the destination playlist being
-  created.
+  This is what makes a progress bar possible at all. The only other thing
+  broadcast between "queued" and "completed" is the destination playlist being
+  created, which is one message for a run of any length.
 
   `items` carries the rows a watcher can show straight away — the same shape
   `OnePlaylist.Transfers.TransferItem.matched/4` builds, minus the fields that
@@ -316,10 +316,8 @@ defmodule OnePlaylist.Transfers do
   # would satisfy the *type* while returning anybody's row if the `user_id` key
   # were dropped in a refactor, and this is the assertion that notices.
   #
-  # Written because it was violated. `TransferLive.Show.mount/3` called the
-  # unscoped fetch and rendered whatever came back, so any signed-in user could
-  # read any transfer — playlist name, providers, status and the whole per-track
-  # report — from `/transfers/<uuid>`. See the regression test.
+  # Written because it was violated — see `OnePlaylist.Repo`, and the regression
+  # test.
   @post whenever({:ok, transfer} <- result, belongs_to_the_caller: transfer.user_id == user_id)
   @spec fetch(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
   def fetch(user_id, id) do
@@ -345,8 +343,9 @@ defmodule OnePlaylist.Transfers do
 
   Named to be conspicuous at the call site. The scoped `fetch/2` is the one
   almost everything should reach for, and making the dangerous form the longer
-  name is the whole point — the bug this pair replaced was a user-facing
-  LiveView calling a function that looked like the ordinary way to load a row.
+  name is the whole point: the failure this pair guards against is a
+  user-facing LiveView reaching for whatever looks like the ordinary way to
+  load a row.
   """
   @spec fetch_unscoped(Ecto.UUID.t()) :: {:ok, Transfer.t()} | :error
   def fetch_unscoped(id) do
@@ -598,7 +597,7 @@ defmodule OnePlaylist.Transfers do
         # attempt said. Without this a retried transfer renders as `completed`
         # *and* shows the error that the retry fixed — a report that contradicts
         # itself, which is the failure mode this application is organised
-        # against. Found by looking at the screen.
+        # against.
         last_error: nil,
         total_tracks: counted.total_tracks,
         matched_count: counted.matched_count,

@@ -95,18 +95,16 @@ defmodule OnePlaylist.Providers do
   that needs the user to reconnect, and a usable one.
 
   It **does** refresh an access token at or near expiry, via `ensure_fresh/2`.
-
-  That reverses an earlier decision, which was that refreshing needs an HTTP
-  call and therefore belonged in the adapter. The layering was tidier and the
-  refresh never happened: `ensure_fresh/2` is documented as "the function every
-  provider call should go through" and had **no callers at all**. A TIDAL
-  connection stopped working an hour after it was made, every call answering
-  `unauthorized`, until somebody reconnected by hand — which is what
-  `docs/reference/domain.md` calls the highest-risk component failing silently.
+  Refreshing needs an HTTP call, so putting it behind a fetch looks like a
+  layering violation. It is not one worth avoiding: this is where every caller
+  already comes, and a refresh that lives somewhere tidier is a refresh that
+  nothing invokes — a TIDAL connection then stops working an hour after it is
+  made, every call answering `unauthorized`, which is
+  `docs/reference/domain.md`'s highest-risk component failing silently.
 
   The HTTP call still goes through `ExternalService`, because `refresh/1`
-  reaches the provider through `adapter.refresh_tokens/1`. What changed is only
-  *who asks*, and this is where everything already comes.
+  reaches the provider through `adapter.refresh_tokens/1`. Only *who asks*
+  differs.
 
   Cheap in the common case: a token with more than the skew left is returned
   untouched, with no request.
@@ -562,6 +560,16 @@ defmodule OnePlaylist.Providers do
   """
   @spec adapter(Connection.provider()) ::
           {:ok, module()} | {:error, ProviderNotSupported.t()}
+  def adapter(provider) do
+    case Map.fetch(@adapters, provider) do
+      {:ok, module} ->
+        {:ok, module}
+
+      :error ->
+        {:error, Errata.create(ProviderNotSupported, context: %{provider: provider})}
+    end
+  end
+
   @doc """
   Whether a service can do a given thing.
 
@@ -581,16 +589,6 @@ defmodule OnePlaylist.Providers do
     case adapter(provider) do
       {:ok, module} -> capability in module.capabilities()
       {:error, _reason} -> false
-    end
-  end
-
-  def adapter(provider) do
-    case Map.fetch(@adapters, provider) do
-      {:ok, module} ->
-        {:ok, module}
-
-      :error ->
-        {:error, Errata.create(ProviderNotSupported, context: %{provider: provider})}
     end
   end
 

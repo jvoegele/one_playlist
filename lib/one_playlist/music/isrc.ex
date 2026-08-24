@@ -7,22 +7,22 @@ defmodule OnePlaylist.Music.Isrc do
   Twelve alphanumeric characters, upper case, is the form everything here
   compares and every provider accepts.
 
-  ## Why this is not in the matching strategy any more
+  ## Why the canonical form belongs to the identifier
 
-  `OnePlaylist.Matching.Strategy.Isrc` owned this, and that was one function too
-  many for a module about *comparing* two tracks. The distinction was invisible
-  until it cost something.
+  The obvious home is `OnePlaylist.Matching.Strategy.Isrc`, which is the rung
+  that compares two of them. That is one caller too few. Comparison is not the
+  only thing that needs a canonical ISRC: a *lookup* does too, and
+  `Tidal.candidates/3` passes one straight to TIDAL's `filter[isrc]`, which
+  rejects a lower-case identifier outright.
 
-  A Roon export writes ISRCs in lower case. The matching rung normalised before
-  comparing, so a lower-case identifier still matched correctly, and it looked
-  like the case was handled. It was not: `Tidal.candidates/3` passes an ISRC
-  straight to TIDAL's `filter[isrc]`, which rejects a lower-case one outright.
-  Fifty-seven of fifty-eight tracks in a real import failed, and the one that
-  succeeded was the only row in the file with no ISRC at all.
+  Normalising only at comparison time therefore looks correct and is not. A
+  Roon export writes ISRCs in lower case; the rung compares them successfully
+  while the provider lookup refuses every one. Fifty-seven of fifty-eight
+  tracks in a real import failed that way, and the one that succeeded was the
+  only row in the file with no ISRC at all.
 
-  So the canonical form belongs to the *identifier*, where a lookup can reach it
-  too, not to one of the things that reads it. `OnePlaylist.Music.Barcode` was
-  already this shape for UPCs.
+  So it lives with the identifier, where everything that reads one can reach it.
+  `OnePlaylist.Music.Barcode` is the same shape for UPCs.
   """
 
   use Bond

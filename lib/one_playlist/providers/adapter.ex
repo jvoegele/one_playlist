@@ -57,9 +57,8 @@ defmodule OnePlaylist.Providers.Adapter do
   @typedoc """
   A fresh token set from the provider.
 
-  Was a map declared here *and* in `OnePlaylist.Providers.Tidal.OAuth`, with the
-  two declarations disagreeing about which keys were optional. See
-  `OnePlaylist.Providers.Tokens` for what that cost and why it is a struct.
+  A struct rather than a map, so that every adapter and every consumer agrees
+  about which keys exist — see `OnePlaylist.Providers.Tokens`.
   """
   @type tokens :: Tokens.t()
 
@@ -117,9 +116,8 @@ defmodule OnePlaylist.Providers.Adapter do
   refresh: it is stored, looks healthy, and fails at the next call with an error
   that points at the wrong thing.
 
-  Two clauses, and the reason they are both spelled out here rather than
-  delegated to `OnePlaylist.Providers.Tokens`' invariant is worth recording,
-  because an earlier version of this comment got it wrong.
+  Two clauses, and both are spelled out here rather than delegated to
+  `OnePlaylist.Providers.Tokens`' invariant. The reason is easy to get wrong:
 
     * **`well_formed`.** A blank access token, or a blank refresh token that
       `Providers.refresh/1`'s `||` fallback would store over a working one.
@@ -135,8 +133,8 @@ defmodule OnePlaylist.Providers.Adapter do
   So the two surfaces need two assertions. `Tokens.well_formed?/1` is what keeps
   that from being two *copies*: it states the structural law once, in a form that
   answers rather than raises. An adapter that hand-builds `%Tokens{}` rather
-  than going through `Tokens.new/1` is exactly the case this covers — and the
-  case the previous arrangement silently did not.
+  than going through `Tokens.new/1` is exactly the case this covers, and the
+  case an invariant alone would silently miss.
   """
   #
   # `OnePlaylist.Providers.Tokens` is spelled out rather than using the `Tokens`

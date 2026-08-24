@@ -93,10 +93,11 @@ defmodule OnePlaylist.Providers.SubsonicCredentials do
   # These two are that debt, stated.
   #
   # `usable_base_url` is what `OnePlaylist.Providers.Subsonic.Client` assumes
-  # when it builds the request URL by concatenating `/rest/<endpoint>`. A trailing slash yields
-  # `//rest/...`, which some Subsonic servers answer and others do not — a
-  # failure that depends on which server the user happens to run. `Client` trims
-  # defensively too, and that is belt-and-braces rather than the guarantee.
+  # when it builds the request URL by concatenating `/rest/<endpoint>`. A
+  # trailing slash yields `//rest/...`, which some Subsonic servers answer and
+  # others do not — a failure that depends on which server the user happens to
+  # run. `Client` trims defensively too, and that is belt-and-braces rather than
+  # the guarantee.
   #
   # `credentials_are_present` mirrors `Tokens`' `access_token_present`, and for
   # the same reason: the password becomes `Connection.access_token`, and

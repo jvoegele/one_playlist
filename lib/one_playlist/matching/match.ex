@@ -16,19 +16,10 @@ defmodule OnePlaylist.Matching.Match do
   ## Score bands
 
   Each rung of the ladder scores within its own band, so a score orders matches
-  *across* strategies and not only within one:
-
-  | Strategy | Band | Meaning |
-  | --- | --- | --- |
-  | `:isrc` | `1.0` | The same recording, by identifier. Not an opinion. |
-  | `:upc_position` | `1.0` | The same track of the same release. Not an opinion. |
-  | `:text` | `0.80`–`0.98` | Every compared field agreed after normalization. |
-  | `:fuzzy` | `0.0`–`0.79` | Approximate. Review the middle of this range. |
-
-  The ceiling below `1.0` on the inexact rungs is deliberate: **text can never
-  be certain**, however perfectly it matches, because two different recordings
-  can carry identical metadata. Reserving `1.0` for identifier rungs keeps
-  `:exact_isrc` meaning what it says.
+  *across* strategies and not only within one. The bands themselves, and why
+  the inexact rungs are capped below `1.0`, are in
+  `OnePlaylist.Matching.Confidence` — which owns the table rather than
+  repeating it here.
   """
 
   use Bond
@@ -150,9 +141,9 @@ defmodule OnePlaylist.Matching.Match do
   # the invariant — which is *this function*. So the predicate would raise on
   # precisely the matches it exists to identify: its `false` branch would be
   # unreachable at every call site outside an assertion, and a public function
-  # documented as answering a question could only ever answer `true`. Measured:
-  # before this changed, `score_in_band?/1` on an out-of-band match raised
-  # `Bond.InvariantError` instead of returning `false`.
+  # documented as answering a question could only ever answer `true`. Measured,
+  # not assumed — with a pattern-matched head, `score_in_band?/1` on an
+  # out-of-band match raises `Bond.InvariantError` instead of returning `false`.
   #
   # This is not the Assertion Evaluation rule at work — that rule handles the
   # call *from* the invariant correctly on its own. It is the narrower conflict

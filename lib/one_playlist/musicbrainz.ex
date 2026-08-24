@@ -11,8 +11,8 @@ defmodule OnePlaylist.MusicBrainz do
   reported as "nothing found on the destination" while sitting in the catalogue
   under another number.
 
-  `family/2` answers with both, so `OnePlaylist.Matching.Strategy.Isrc` can
-  recognise a candidate the direct lookup missed.
+  `family/2` answers with both, so `OnePlaylist.Matching.Strategy.IsrcFamily`
+  can recognise a candidate the direct lookup missed.
 
   ## Called on failure, never on the happy path
 
@@ -67,8 +67,8 @@ defmodule OnePlaylist.MusicBrainz do
   # track it was looked up for, and nothing downstream would report it.
   # Against the *canonical* form of the argument, not the argument. A caller may
   # pass "usjy5-070-0001"; the family holds "USJY50700001", and every consumer
-  # compares canonical identifiers. Stating it over the raw input made the
-  # assertion fire on the very normalisation it was meant to permit.
+  # compares canonical identifiers. Stated over the raw input, this would fire
+  # on the very normalisation it exists to permit.
   @post whenever([_ | _] <- result, contains_the_key: Isrc.normalize(isrc) in result)
   @spec family(String.t() | nil, keyword()) :: [String.t()]
   def family(isrc, opts \\ [])

@@ -8,8 +8,9 @@ defmodule OnePlaylist.Formats.UnreadablePlaylist do
   nothing, and the only useful response is telling the user what is wrong with
   their file — which is why every reason below names something they can see.
 
-  `context` carries `:line` where a line is to blame, because "row 47 has no
-  title" is actionable and "the file is invalid" is not.
+  `context` carries whatever narrows the problem down — the first row as it was
+  read, the columns that were recognised — because "these are the columns we
+  found" is actionable and "the file is invalid" is not.
   """
 
   use Errata.Error,

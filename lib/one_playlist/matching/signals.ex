@@ -137,9 +137,10 @@ defmodule OnePlaylist.Matching.Signals do
   recording, so both scoring rungs and `OnePlaylist.Matching`'s own
   postcondition ask this before they ask anything else.
 
-  Named rather than left as a field read because it appeared in three places
-  spelled three slightly different ways, and because `discriminating_conflict`
-  describes the data while `vetoed?` describes what to do about it.
+  Named rather than left as a field read, because `discriminating_conflict`
+  describes the data while `vetoed?` describes what to do about it — and
+  because three call sites spelling one rule for themselves is three places for
+  it to drift.
 
   > #### `duration_conflict` is deliberately not here {: .info}
   >
@@ -176,10 +177,9 @@ defmodule OnePlaylist.Matching.Signals do
   silence: two tracks with no tags at all would earn a point for it. `nil` is
   how `Similarity.weighted_mean/1` is told to leave the term out entirely.
 
-  This was written out identically as a private function in both
-  `OnePlaylist.Matching.Strategy.Text` and
-  `OnePlaylist.Matching.Strategy.Fuzzy` — one rule, two copies, and no test that
-  would have noticed them drifting apart.
+  Here rather than in each rung because `OnePlaylist.Matching.Strategy.Text`
+  and `OnePlaylist.Matching.Strategy.Fuzzy` both want it, and one rule in two
+  private copies is a rule nothing keeps in step.
 
       iex> alias OnePlaylist.Matching.Signals
       iex> Signals.editorial_penalty(%Signals{editorial_conflict: true})
@@ -191,7 +191,6 @@ defmodule OnePlaylist.Matching.Signals do
   def editorial_penalty(%__MODULE__{editorial_conflict: true}), do: 0.0
   def editorial_penalty(%__MODULE__{}), do: nil
 
-  # A title's own artists, plus anyone the title credited as a guest.
   # Who made the recording, and who guested on it. A `(feat. X)` in the *title*
   # is a guest credit like any other, so it joins the featured side rather than
   # the set of names that has to agree.
@@ -247,15 +246,11 @@ defmodule OnePlaylist.Matching.Signals do
     end
   end
 
-  # Containment rather than equality: services disagree about how many artists
-  # to credit far more often than they disagree about who the artists are, so
-  # requiring the same set would reject true matches wholesale. What must not
-  # happen is a *disjoint* credit — that is a different recording.
   # How two credits relate, in three values rather than a yes/no.
   #
-  # The boolean it replaces had to decide, on its own, whether a one-name
-  # difference meant "same recording, described differently" or "a different
-  # recording". It cannot: `Neil Young & Pearl Jam` against `Neil Young` and
+  # A boolean would have to decide, on its own, whether a one-name difference
+  # meant "same recording, described differently" or "a different recording".
+  # It cannot: `Neil Young & Pearl Jam` against `Neil Young` and
   # `Neil Young & Crazy Horse` against `Neil Young` are the same string problem,
   # scoring an identical 0.667 artist similarity. One is a collaboration and one
   # is a backing band, and no rule over those strings knows which.
@@ -265,9 +260,7 @@ defmodule OnePlaylist.Matching.Signals do
   # corroborated by something else; `:unrelated` is refused outright.
   #
   #   * `:same` — the primary credits are the same set, or the names scramble
-  #     into each other ("Beatles, The" against "The Beatles"). A backing band
-  #     lands here too, because `Normalize.credits/1` puts "and *the* Ys" beside
-  #     the guests rather than among the primaries.
+  #     into each other ("Beatles, The" against "The Beatles").
   #   * `:contained` — one primary set is strictly inside the other. Either a
   #     credit one service spells out and another does not, or a collaboration
   #     matched to a solo take. Genuinely ambiguous, and treated as such.

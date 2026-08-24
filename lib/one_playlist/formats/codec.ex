@@ -61,10 +61,9 @@ defmodule OnePlaylist.Formats.Codec do
   #
   # These precede the `@callback` they belong to: `Bond.Behaviour` attaches
   # `@pre`/`@post` to the *following* callback, so writing them underneath
-  # silently moves them onto the next one. Here that put `parse/2`'s
-  # postconditions on `render/2`, where `tracks` is not even bound — the
-  # compiler warning about an unused variable in a generated function was the
-  # only sign.
+  # silently moves them onto the next one. Put below, `parse/2`'s postconditions
+  # land on `render/2`, where `tracks` is not even bound — and the only sign is
+  # a compiler warning about an unused variable in a generated function.
   #
   # `every_track_is_identifiable` is `Track`'s own invariant restated as an
   # obligation on the parser, because a codec builds tracks from nothing and has

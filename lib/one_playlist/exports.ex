@@ -54,9 +54,9 @@ defmodule OnePlaylist.Exports do
   # under whoever was named. The provider connection and the storage path are
   # both derived from the same session, so they cannot disagree.
   #
-  # The precondition sits on `opts`, because that is where the format arrives. A precondition can only
-  # name parameters, and stating it against the derived value would mean
-  # asserting nothing until the body had already run.
+  # The precondition sits on `opts`, because that is where the format arrives.
+  # A precondition can only name parameters, and stating it against the derived
+  # value would mean asserting nothing until the body had already run.
   @pre known_format: Keyword.get(opts, :format, :csv) in Formats.known()
   @spec export(Session.t(), Connection.provider(), String.t(), keyword()) ::
           {:ok, %{path: String.t(), filename: String.t(), track_count: non_neg_integer()}}

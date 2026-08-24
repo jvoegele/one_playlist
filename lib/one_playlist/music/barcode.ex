@@ -20,16 +20,16 @@ defmodule OnePlaylist.Music.Barcode do
 
   ## Why this is its own module
 
-  It lived in `OnePlaylist.Matching.Signals` because barcode comparison was
-  first needed there, and it accumulated callers in `OnePlaylist.Catalogue`,
-  `OnePlaylist.Providers.Tidal` and `OnePlaylist.Matching.Strategy.UpcPosition`
-  — none of which are about comparing two tracks.
+  Barcode comparison is first needed by `OnePlaylist.Matching.Signals`, but the
+  callers are `OnePlaylist.Catalogue`, `OnePlaylist.Providers.Tidal` and
+  `OnePlaylist.Matching.Strategy.UpcPosition` — none of which are about
+  comparing two tracks.
 
-  Bond is what pointed this out. `Signals` declares an `@invariant`, and Bond's
-  linter warns when such a module has a public function that never mentions its
-  struct: the entry check is skipped, so the function is not what the module is
-  about. That warning had to be suppressed there. Here there is nothing to
-  suppress, which is the tidier answer and the one the linter was asking for.
+  Bond is what makes that visible. `Signals` declares an `@invariant`, and
+  Bond's linter warns when such a module has a public function that never
+  mentions its struct: the entry check is skipped, so the function is not what
+  the module is about. Housing this here means there is no warning to suppress,
+  which is what the linter was asking for.
   """
 
   use Bond
@@ -78,7 +78,7 @@ defmodule OnePlaylist.Music.Barcode do
   @post normalized_form: is_nil(result) or Regex.match?(~r/^[1-9][0-9]*$/, result)
   # `normalize/1` is a **projection**, and that is a different claim from the
   # shape above rather than a consequence of it — checked rather than assumed,
-  # because it was first left out on exactly that assumption.
+  # because assuming it is the easy mistake.
   #
   # A plausible edit separates them: deciding the trailing check digit is not
   # part of a release's identity and slicing it off. On a real barcode —

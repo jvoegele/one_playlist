@@ -52,9 +52,9 @@ defmodule OnePlaylist.Formats.Csv do
 
   # `use Bond, behaviours:` rather than a bare `@behaviour`: that is what draws
   # `Codec`'s inherited contracts into this module. With only `@behaviour` the
-  # callback's postconditions compile fine and are never applied to anything —
-  # which is exactly how they were first written here, and the reason the two
-  # tests at the bottom of `csv_test.exs` exist.
+  # callback's postconditions compile fine and are never applied to anything,
+  # silently — which is why the two tests at the bottom of `csv_test.exs` prove
+  # they fire.
   use Bond, behaviours: [OnePlaylist.Formats.Codec]
   use Errata
 
@@ -63,11 +63,10 @@ defmodule OnePlaylist.Formats.Csv do
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Payload
 
-  # `NimbleCSV.RFC4180` rather than a `NimbleCSV.define/2` of our own, which
-  # started out as a byte-for-byte copy of it: comma, double-quote, and — the
-  # part that was wrong — `\r\n` line endings. A private definition is a place
-  # to drift from the standard we claim to implement, and it had already drifted
-  # before the golden test in `csv_test.exs` caught it.
+  # `NimbleCSV.RFC4180` rather than a `NimbleCSV.define/2` of our own. A private
+  # definition of the standard we claim to implement is a place to drift from
+  # it, and the drift is invisible: the obvious hand-written copy differs only
+  # in line endings. The golden test in `csv_test.exs` is what pins this.
   #
   # It reads both line endings and writes CRLF, which is the "strict out,
   # permissive in" rule this module follows everywhere else.
@@ -331,11 +330,11 @@ defmodule OnePlaylist.Formats.Csv do
   defp track(row, index, position, provider) do
     title = Payload.text(at(row, index, "title"))
 
-    # Canonicalised here rather than stored as written. An earlier version kept
-    # the file's spelling on the grounds that comparison normalises anyway —
-    # true, and not enough: `Tidal.candidates/3` sends the ISRC to the provider,
-    # and TIDAL rejects a lower-case one. Roon writes them lower case, and 57 of
-    # 58 tracks in a real import failed because of it.
+    # Canonicalised here rather than stored as written. Keeping the file's
+    # spelling looks safe, because comparison normalises anyway — and is not
+    # enough: `Tidal.candidates/3` sends the ISRC to the provider, and TIDAL
+    # rejects a lower-case one. Roon writes them lower case. See
+    # `OnePlaylist.Music.Isrc`.
     isrc = row |> at(index, "isrc") |> Payload.text() |> Isrc.normalize()
 
     if is_nil(title) and is_nil(isrc) do

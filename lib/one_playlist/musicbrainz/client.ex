@@ -1,15 +1,21 @@
 defmodule OnePlaylist.MusicBrainz.Client do
   @moduledoc """
-  The one MusicBrainz call this application makes.
+  The two MusicBrainz calls this application makes.
 
-  `GET /ws/2/isrc/{isrc}?inc=isrcs` answers with every recording that ISRC names
-  and, because of `inc=isrcs`, every *other* ISRC each of those recordings is
-  known by. One request, which is the whole reason this is affordable at one
-  request per second.
+  Both are a single request, which is the whole reason they are affordable at
+  one request per second.
+
+  `isrc_family/2` — `GET /ws/2/isrc/{isrc}?inc=isrcs` — answers with every
+  recording that ISRC names and, because of `inc=isrcs`, every *other* ISRC
+  each of those recordings is known by:
 
       /ws/2/isrc/USJY50700001?fmt=json&inc=isrcs
       → recording ea8c7b4c…  "Setting Forth"
         isrcs: ["USJY50700001", "USJY51700100"]
+
+  `works/2` — `GET /ws/2/work?query=…` — answers with the works a title names,
+  which is where a classical catalogue number comes from when the title omits
+  one.
 
   ## A contactful User-Agent is required
 
@@ -76,8 +82,6 @@ defmodule OnePlaylist.MusicBrainz.Client do
     |> handle(isrc)
   end
 
-  # 503 is how MusicBrainz says "slow down", so it is the one status worth
-  # retrying. `ExternalService` sees `:retry` and applies the backoff.
   @doc """
   Titles of the works MusicBrainz thinks a query names.
 
@@ -116,6 +120,8 @@ defmodule OnePlaylist.MusicBrainz.Client do
     |> handle_works()
   end
 
+  # 503 is how MusicBrainz says "slow down", so it is the one status worth
+  # retrying. `ExternalService` sees `:retry` and applies the backoff.
   defp handle_works({:ok, %{status: 503}}), do: :retry
 
   defp handle_works({:ok, %{status: 200, body: body}}) do

@@ -2,8 +2,8 @@ defmodule OnePlaylist.Matching.SignalsTest do
   @moduledoc """
   The per-comparison signals, and the invariant bounding them.
 
-  Barcode normalization used to live here too, and moved out with the function
-  itself — see `OnePlaylist.Music.BarcodeTest`.
+  Barcode normalization is tested with the function itself, in
+  `OnePlaylist.Music.BarcodeTest`, rather than here.
   """
 
   use ExUnit.Case, async: true

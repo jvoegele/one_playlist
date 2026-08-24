@@ -3,11 +3,11 @@ defmodule OnePlaylistWeb.AuthComponentsTest do
   The shared credentials form.
 
   Tested as a component rather than through a controller because its two states
-  are a *parameter*, not an ambient fact. An earlier version of this assertion
-  lived in the controller test and read `OnePlaylist.Supabase.configured?/0`,
-  which made it pass or fail depending on whether the environment happened to
-  have `SUPABASE_URL` set — green in the default suite, red as soon as the
-  tagged integration tests were included.
+  are a *parameter*, not an ambient fact. Asserted through the controller, the
+  same claim has to read `OnePlaylist.Supabase.configured?/0`, so it passes or
+  fails depending on whether the environment happens to have `SUPABASE_URL`
+  set — green in the default suite, red as soon as the tagged integration tests
+  are included.
   """
 
   use OnePlaylistWeb.ConnCase, async: true

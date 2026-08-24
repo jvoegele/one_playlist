@@ -2,13 +2,11 @@ defmodule OnePlaylist.Providers.Payload do
   @moduledoc """
   Turning untrusted values out of a provider's JSON into domain values.
 
-  Every provider mapper needs the same handful of coercions, and each had
-  written its own. `blank_to_nil/1` was byte-identical in
+  Every provider mapper needs the same handful of coercions —
   `OnePlaylist.Providers.Tidal.Mapper` and
-  `OnePlaylist.Providers.Subsonic.Mapper`; so was `parse_datetime/1`; and
-  `non_negative_count/1` and `non_negative_integer/1` were the same two lines
-  under two names. One rule per concept, written twice, with nothing keeping the
-  copies in step.
+  `OnePlaylist.Providers.Subsonic.Mapper` want identical answers about a blank
+  string, a timestamp and a count. One rule per concept, in one place, with
+  nothing to keep in step.
 
   ## Why the boundary deserves a module of its own
 
@@ -26,9 +24,8 @@ defmodule OnePlaylist.Providers.Payload do
   ## Naming
 
   Named for what they produce rather than for the check they perform —
-  `count/1`, not `non_negative_integer/1`. The old names described the guard;
-  these describe the value, which is what a reader of `Mapper.playlist/1` needs
-  to know.
+  `count/1`, not `non_negative_integer/1`. A reader of `Mapper.playlist/1`
+  needs to know what the value *is*, not which guard it survived.
   """
 
   use Bond
@@ -63,8 +60,8 @@ defmodule OnePlaylist.Providers.Payload do
       iex> {Payload.count(14), Payload.count(0), Payload.count(-3), Payload.count("14")}
       {14, 0, nil, nil}
   """
-  # The bug on record: TIDAL's `numberOfItems` was passed straight through, and a
-  # negative reached `Playlist.track_count`, where it is counted against in
+  # The bug on record: TIDAL's `numberOfItems` passed straight through, so a
+  # negative reaches `Playlist.track_count`, where it is counted against in
   # transfer reports. A report reading "-3 tracks transferred" is worse than one
   # that fails.
   @post never_negative: is_nil(result) or (is_integer(result) and result >= 0)

@@ -13,6 +13,14 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   `[%{"id" => "17123", "type" => "artists"}]`, with the artist's `name`
   somewhere else in the document. `index_included/1` builds the `{type, id}`
   lookup once per page so resolving is not quadratic over a large playlist.
+
+  ## The contracts describe what this emits, never what it received
+
+  This is a parsing boundary, so nothing here rejects an input: a provider
+  sending nonsense is not a programming error, and a contract that raised on it
+  would turn their bad data into our crash. Field-level sanitizing is
+  `OnePlaylist.Providers.Payload`'s; the postconditions below are conservation
+  laws about the tracks that come out.
   """
 
   use Bond
@@ -357,9 +365,4 @@ defmodule OnePlaylist.Providers.Tidal.Mapper do
   end
 
   defp sharing_url(_links), do: nil
-
-  # External data, so this sanitizes rather than trusts. The postcondition above
-  # is then a law about what this module *produces*, which is the only thing it
-  # controls — a provider sending nonsense is not a programming error, and a
-  # contract that raised on it would turn their bad data into our crash.
 end

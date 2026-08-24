@@ -42,10 +42,9 @@ defmodule OnePlaylist.Transfers.Transfer do
   *transition* rather than a value: it relates the result to the argument, which
   is something no invariant can see.
 
-  (Until Bond 1.15.0 the invariant was impossible here — weaving reached
-  `Ecto.Schema`'s generated `__schema__/2` and failed to compile. The laws were
-  stated as postconditions on the three producing functions instead. See
-  `docs/library-feedback.md`.)
+  (This needs **bond 1.15.0 or later**. Earlier versions cannot weave an
+  `@invariant` onto an `Ecto.Schema` at all — weaving reaches the generated
+  `__schema__/2` and fails to compile. See `docs/library-feedback.md`.)
   """
 
   use Ecto.Schema
@@ -186,8 +185,8 @@ defmodule OnePlaylist.Transfers.Transfer do
 
   This is not a hypothetical tidiness. Without it the second run of a
   three-track transfer reports six matched out of three total, and the
-  `ledger_balances` postcondition on `record_matched/2` catches it on the very
-  first track. That is how this function came to exist.
+  `ledger_balances` invariant catches it on the very first track that
+  `record_matched/2` counts.
   """
   @spec reset_counters(t()) :: t()
   def reset_counters(%__MODULE__{} = transfer),
@@ -275,9 +274,9 @@ defmodule OnePlaylist.Transfers.Transfer do
   # up — and `OnePlaylistWeb.TransferLive.Show` renders it as "150% of the
   # source" rather than as an error. The counters are independent columns rather
   # than values derived from one list, so this is reachable from any write that
-  # skips `record_matched/2`: a migration, a manual fix, a future writer. It
-  # nearly happened once already, when a re-run accumulated onto the previous
-  # run's numbers and reported six matched of three total.
+  # skips `record_matched/2`: a migration, a manual fix, a future writer. A
+  # re-run accumulating onto the previous run's numbers gets there in one step —
+  # six matched of three total — which is what `reset_counters/1` prevents.
   #
   # Raising here is the intended behaviour rather than a regrettable side
   # effect. The alternative is rendering a number this application knows to be
@@ -299,8 +298,8 @@ defmodule OnePlaylist.Transfers.Transfer do
   produces.
 
   Exists so the two can be compared. A transfer's counters and its report are
-  accumulated by separate folds over the same resolutions, and until this pair
-  existed nothing checked that they came out agreeing — see the precondition on
+  accumulated by separate folds over the same resolutions, and nothing else
+  checks that they come out agreeing — see the precondition on
   `OnePlaylist.Transfers.record_run/3`.
   """
   @spec tally(t()) :: %{

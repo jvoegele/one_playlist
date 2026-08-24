@@ -1,14 +1,14 @@
 defmodule OnePlaylist.Music.TrackTest do
   @moduledoc """
-  The core domain struct, and the questions about a track that used to be asked
-  in four other modules.
+  The core domain struct, and the questions about a track that belong on it
+  rather than in the modules that ask them.
 
-  `search_query/1` was written out identically in `Providers.Tidal` and
-  `Providers.Navidrome`; `same_position?/2` was private to TIDAL even though
-  Subsonic already carries the fields it needs; `identity/1` was private to
-  `Matching`. Gathering them here is also what made the invariant possible —
-  before it, nothing in this module took or returned a `%Track{}`, so an
-  invariant would have been checked nowhere.
+  `search_query/1` is wanted identically by `Providers.Tidal` and
+  `Providers.Navidrome`; `same_position?/2` reads fields Subsonic carries as
+  well as TIDAL; `identity/1` is the key `Matching` builds its ledger from.
+  Housing them here is also what makes the invariant possible — a module with
+  no function taking or returning a `%Track{}` has nowhere for one to be
+  checked.
   """
 
   use ExUnit.Case, async: true

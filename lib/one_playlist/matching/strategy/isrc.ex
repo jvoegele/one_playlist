@@ -4,8 +4,10 @@ defmodule OnePlaylist.Matching.Strategy.Isrc do
 
   An ISRC identifies a *recording*, globally and uniquely. Two tracks sharing
   one are the same performance, mastered from the same source — not a good
-  guess, not a confident opinion, the same thing. This rung is the only one
-  besides `OnePlaylist.Matching.Strategy.UpcPosition` allowed to score `1.0`.
+  guess, not a confident opinion, the same thing. That is why this rung scores
+  `1.0`; the only other rung allowed to is
+  `OnePlaylist.Matching.Strategy.UpcPosition`, which is also an identifier
+  rather than an opinion.
 
   It is also the rung that matters most in practice, because the services this
   product transfers between all expose ISRCs on most of their catalogue. The
@@ -43,11 +45,10 @@ defmodule OnePlaylist.Matching.Strategy.Isrc do
   @doc """
   Canonical form of an ISRC.
 
-  Delegates to `OnePlaylist.Music.Isrc.normalize/1`, which is where it lives
-  now. It moved because this module is about *comparing* two tracks, and a
-  lookup needs the same canonical form — `Tidal.candidates/3` sends an ISRC to
-  the provider, and normalising only at comparison time let a lower-case
-  identifier reach TIDAL and be rejected. See that module.
+  Delegates to `OnePlaylist.Music.Isrc.normalize/1`, which is where the rule
+  lives: a *lookup* needs the same canonical form a comparison does, and this
+  module is only about the comparison. See that module for what happens
+  otherwise.
 
       iex> alias OnePlaylist.Matching.Strategy.Isrc
       iex> Isrc.normalize("gb-aye-06-01477")

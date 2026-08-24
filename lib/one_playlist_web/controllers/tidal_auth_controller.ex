@@ -106,9 +106,11 @@ defmodule OnePlaylistWeb.TidalAuthController do
     end
   end
 
-  # TIDAL returns a JSON:API resource; the useful identity bits are its `id` and
-  # whatever the attributes happen to be called. Being liberal here because the
-  # exact attribute names are unverified until this runs against the real API.
+  # TIDAL returns a JSON:API resource whose identity lives in `id` and
+  # `attributes`. Verified live: `attributes.username` and `attributes.country`
+  # are both populated for a real account. `display_name/1` still falls through
+  # several attribute names, because which of them a given account carries
+  # depends on how it was registered.
   defp store(conn, user, tokens) do
     Providers.connect(current_user_id(conn), :tidal, %{
       provider_user_id: to_string(user["id"]),

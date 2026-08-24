@@ -104,14 +104,14 @@ defmodule OnePlaylist.Matching.Normalize do
   # of punctuation, so "(feat. X)" has become "feat x" and the marker is no
   # longer hidden behind a bracket.
   #
-  # The lookarounds are the other half. The previous version used `\bx\b`, for
-  # the "Sonny x Cher" convention, and a `\b` boundary is satisfied by the start
-  # of the string — so an artist *named* X was its own separator and split into
-  # nothing at all. `Normalize.title("Song (feat. X)")` returned `featuring: []`:
-  # a credited artist silently dropped, taking the text rung with it, since
-  # `artists_agree?/2` answers `false` for an empty set. Requiring a non-space on
-  # both sides is what makes a name a name — and it is `\s` rather than `\s+`
-  # because `text/1` has already guaranteed single spacing.
+  # The lookarounds are the other half, and `\b` will not do. A word boundary is
+  # satisfied by the start of the string, so under `\bx\b` — there for the
+  # "Sonny x Cher" convention — an artist *named* X is its own separator and
+  # splits into nothing at all: `Normalize.title("Song (feat. X)")` yields
+  # `featuring: []`, a credited artist silently dropped, taking the text rung
+  # with it since an empty credit set cannot agree with anything. Requiring a
+  # non-space on both sides is what makes a name a name — and it is `\s` rather
+  # than `\s+` because `text/1` has already guaranteed single spacing.
   #
   # Splitting in this order is also what makes `artists/1` idempotent, which is
   # load-bearing: `featured_names/1` normalizes a segment and then hands it here,
@@ -131,10 +131,8 @@ defmodule OnePlaylist.Matching.Normalize do
   # "Song (with X)" names a guest on one artist's recording. "A with B", as a
   # credit, names a recording the two made together: Neil Young *with* Pearl Jam
   # is the Mirror Ball collaboration, not a Neil Young track Pearl Jam appear on.
-  #
-  # This was the other way round for an afternoon, and a local library spelling
-  # the same collaboration "with" where a Roon export spelled it "&" is what
-  # caught it.
+  # A local library spells that collaboration "with" where a Roon export spells
+  # it "&", so the two have to reach the same answer.
   @featuring_separators ~r/(?<=\S)\s(?:feat|ft|featuring)\s(?=\S)/u
   @cobilling_separators ~r/(?<=\S)\s(?:x|and|with|vs)\s(?=\S)/u
 
@@ -174,19 +172,19 @@ defmodule OnePlaylist.Matching.Normalize do
   # reason this user's matches are bad?" is a question answerable from a remote
   # console mid-incident rather than a rebuild.
   #
-  # There were four of these. A `decomposed: not Regex.match?(~r/\p{Mn}/u, ...)`
-  # sat between the first and second, naming the accent-folding bug directly —
-  # until an exhaustive scan showed that no combining mark is also a letter, a
-  # digit or a space, so `only_letters_digits_and_spaces` already implies it and
-  # it could never fail first. Dropped: a marginally better error message is not
-  # worth an assertion that cannot fail independently, evaluated 70,000 times a
-  # test run. A leftover combining mark still fails the assertion below.
+  # Deliberately three and not four: a `decomposed:` assertion naming the
+  # accent-folding bug directly does not belong here, because no combining mark
+  # is also a letter, a digit or a space — an exhaustive scan confirms it — so
+  # `only_letters_digits_and_spaces` already implies it and it could never fail
+  # first. A marginally better error message is not worth an assertion that
+  # cannot fail independently, evaluated 70,000 times a test run. A leftover
+  # combining mark still fails the assertion below.
   @post case_folded: result == String.downcase(result)
   @post only_letters_digits_and_spaces: not Regex.match?(~r/[^\p{L}\p{N} ]/u, result)
   @post single_spaced: result == String.trim(result) and not String.contains?(result, "  ")
-  # Added after the other three, and independent of them despite looking like a
-  # consequence — which was worth proving rather than assuming, since a
-  # `decomposed:` assertion was dropped from this very list for being implied.
+  # Independent of the three above despite looking like a consequence, which is
+  # worth proving rather than assuming — a `decomposed:` assertion is absent
+  # from this very list for being implied.
   #
   # The three above constrain what the output *looks like*; this one constrains
   # what `text/1` *is*: a projection. Nothing in "lowercase, letters and digits
@@ -322,12 +320,12 @@ defmodule OnePlaylist.Matching.Normalize do
     |> Enum.filter(&is_binary/1)
     |> Enum.flat_map(&String.split(&1, @punctuation_separators, trim: true))
     |> Enum.map(&text/1)
-    # No `Enum.reject(&(&1 == ""))` after this, and its absence is deliberate.
-    # It was here, and the two-stage split made it unreachable — `trim: true`
-    # already drops the empty that a credit like "???" normalizes to. Keeping it
-    # would have left `no_empty_names` guarded twice over and falsifiable only by
-    # a double mutation, which is another way of saying the contract could never
-    # earn its place. Removed, so that losing the `trim: true` above is caught.
+    # No `Enum.reject(&(&1 == ""))` after this, and its absence is deliberate:
+    # the `trim: true` below already drops the empty that a credit like "???"
+    # normalizes to. Adding one would guard `no_empty_names` twice over, leaving
+    # it falsifiable only by a double mutation — which is another way of saying
+    # the contract could no longer earn its place. Without it, losing that
+    # `trim: true` is caught.
     |> Enum.flat_map(&String.split(&1, @word_separators, trim: true))
     |> MapSet.new()
   end
@@ -355,14 +353,12 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> {Enum.sort(credits.primary), Enum.sort(credits.featured)}
       {["pearl jam"], ["eddie vedder"]}
   """
-  # Every name goes to exactly one side. A credit that landed in neither would
-  # be a collaborator silently dropped, which is the bug this exists to prevent
-  # wearing different clothes.
-  # The two sides together are exactly what `artists/1` reports, which is the
-  # useful form of "no name was lost": the separator lists have to stay a
-  # partition of `@word_separators`, and nothing else checks that. Adding a
-  # marker to one list and forgetting the other silently drops a collaborator,
-  # which is the very bug this function exists to fix wearing other clothes.
+  # Every name goes to exactly one side, and the two sides together are exactly
+  # what `artists/1` reports — which is the useful form of "no name was lost".
+  # `@featuring_separators` and `@cobilling_separators` have to stay a partition
+  # of `@word_separators`, and nothing else checks that: adding a marker to one
+  # list and forgetting the other silently drops a collaborator, which is the
+  # very bug this function exists to fix wearing other clothes.
   #
   # Two implementations of one rule, cross-checked, in the shape
   # `docs/reference/contracts.md` recommends looking for.

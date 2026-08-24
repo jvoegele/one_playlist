@@ -15,21 +15,24 @@ defmodule OnePlaylist.Matching do
   the ladder a ladder rather than an ensemble, and it is deliberate: mixing a
   weak signal into a strong one can only make the strong one worse.
 
+  Numbered after the ladder in `docs/reference/domain.md`, with a letter where
+  this application has inserted a rung that reference does not describe:
+
   | Rung | Module | Evidence |
   | --- | --- | --- |
   | 1 | `OnePlaylist.Matching.Strategy.Isrc` | Recording identifier |
   | 1b | `OnePlaylist.Matching.Strategy.IsrcFamily` | Another identifier for the same recording |
   | 2 | `OnePlaylist.Matching.Strategy.UpcPosition` | Release barcode plus position |
-  | 3 | `OnePlaylist.Matching.Strategy.Work` | The same movement of the same classical work |
+  | 2b | `OnePlaylist.Matching.Strategy.Work` | The same movement of the same classical work |
   | 3 | `OnePlaylist.Matching.Strategy.Text` | Exact after normalization |
   | 5 | `OnePlaylist.Matching.Strategy.Fuzzy` | Approximate similarity |
 
-  Rung 4 of `docs/reference/domain.md` — duration proximity — is not a rung
-  here. It never identifies a track on its own; it is a tiebreaker and a
-  corroborator, so it lives inside `OnePlaylist.Matching.Signals` and feeds
-  rungs 3 and 5. Rung 6, embedding similarity over pgvector, is not built. It
-  slots in as another module in `strategies/0` when the cheaper rungs are shown
-  to be insufficient, which is a measurement this project has not yet made.
+  Rung 4 of that reference — duration proximity — is not a rung here. It never
+  identifies a track on its own; it is a tiebreaker and a corroborator, so it
+  lives inside `OnePlaylist.Matching.Signals` and feeds rungs 3 and 5. Rung 6,
+  embedding similarity over pgvector, is not built. It slots in as another
+  module in `strategies/0` when the cheaper rungs are shown to be insufficient,
+  which is a measurement this project has not yet made.
 
   ## Ties are resolved, not hidden
 

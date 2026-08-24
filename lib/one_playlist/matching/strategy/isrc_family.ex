@@ -19,9 +19,9 @@ defmodule OnePlaylist.Matching.Strategy.IsrcFamily do
   The certainty is different in kind. `Strategy.Isrc` needs no third party: two
   identical identifiers are the same recording by definition. Here the claim
   rests on MusicBrainz's judgment, which is edited by volunteers and can be
-  wrong. Scoring `0.99` under `:linked_isrc` rather than `1.0` under
-  `:exact_isrc` puts that difference in the report, where a person reviewing a
-  transfer can see where the confidence came from.
+  wrong. Scoring inside `0.95`–`0.99` under `:linked_isrc`, rather than `1.0`
+  under `:exact_isrc`, puts that difference in the report, where a person
+  reviewing a transfer can see where the confidence came from.
 
   And it lets this rung be **more careful than the one above it**. An identifier
   match deliberately ignores the version veto — a provider mislabelling a

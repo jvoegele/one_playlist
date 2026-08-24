@@ -128,14 +128,14 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   # Precondition Availability rule, since a postcondition is a promise the
   # function makes rather than an obligation on its caller.
   #
-  # `usable` used to sit beside this, asserting a non-blank access token. It is
-  # now an invariant of `OnePlaylist.Providers.Tokens`, which fires when
+  # Freshness only. A non-blank access token is not asserted here because it is
+  # an invariant of `OnePlaylist.Providers.Tokens`, which fires when
   # `from_oauth_response/2` builds the struct — earlier, in the module that owns
-  # the type, and strictly stronger: it also rejects the blank *refresh* token
-  # that `Providers.refresh/1`'s `||` fallback would otherwise store.
+  # the type, and strictly stronger, since it also rejects the blank *refresh*
+  # token that `Providers.refresh/1`'s `||` fallback would otherwise store.
   #
-  # Freshness stays here, because it is not an invariant. See the moduledoc of
-  # `OnePlaylist.Providers.Tokens`.
+  # Freshness cannot go there: it is a property of the producer rather than of
+  # the value. See the moduledoc of `OnePlaylist.Providers.Tokens`.
   @post whenever({:ok, tokens} <- result, fresh: Tokens.fresh?(tokens))
   defp post_token(config, params) do
     params = Map.put(params, "client_id", config[:client_id])

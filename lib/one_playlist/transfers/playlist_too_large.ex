@@ -14,12 +14,13 @@ defmodule OnePlaylist.Transfers.PlaylistTooLarge do
   `docs/reference/domain.md` treats "moves the library you actually have" as the
   thing this application is for.
 
-  What it guards against is concrete. `read_source/1` used to call
-  `Enum.to_list/1` on a provider's track stream with nothing bounding it, so a
-  pathological or misreported playlist could pull an unbounded number of rows
-  into the worker's memory before the first track was even matched. And the run
-  that follows is one rate-limited provider call per track: at TIDAL's 8 calls a
-  second, ten thousand tracks is already twenty minutes of a job that cannot be
+  What it guards against is concrete. A provider's track stream is unbounded
+  from this side, so a pathological or misreported playlist would pull an
+  unbounded number of rows into the worker's memory before the first track was
+  even matched — which is why `OnePlaylist.Transfers.Runner` reads one item
+  past the limit rather than draining it. And the run that follows is one
+  rate-limited provider call per track: at TIDAL's 8 calls a second, ten
+  thousand tracks is already twenty minutes of a job that cannot be
   meaningfully watched.
 
   Raise it with:

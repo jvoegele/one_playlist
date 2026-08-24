@@ -30,8 +30,8 @@ defmodule OnePlaylist.Providers.Tidal.WriteService do
   ## The read service's settings are not transferable, twice over
 
   Two of the four option groups here differ from
-  `OnePlaylist.Providers.Tidal.Service`, and in both cases the first draft copied
-  it and was wrong:
+  `OnePlaylist.Providers.Tidal.Service`, and copying either across is wrong in
+  a way that does not announce itself:
 
     * `:within` on the breaker is a property of the **retry budget**, not the
       provider. 30s is right next door, where the retry window is ~1.5s, and
@@ -41,7 +41,7 @@ defmodule OnePlaylist.Providers.Tidal.WriteService do
       a page; it sheds a background job that should simply have slept.
 
   Copying a whole configuration between two services for the same dependency
-  looks like consistency and is how both of those happened.
+  looks like consistency. It is how both of those go wrong.
 
   ## Retries are the same shape, deliberately
 
@@ -74,10 +74,10 @@ defmodule OnePlaylist.Providers.Tidal.WriteService do
     # `the call was throttled beyond the configured rate limit wait time`.
     rate_limit: [limit: 1, per: :timer.seconds(2), wait: :infinity],
     # `within` is 75s rather than the read service's 30s, and the number is not
-    # mine: `ExternalService`'s compile-time linter rejected 30s here and
-    # computed this one. The write retry budget is longer (5 attempts, a 10s
+    # a guess: `ExternalService`'s compile-time linter rejects 30s here and
+    # computes this one. The write retry budget is longer (5 attempts, a 10s
     # cap), so six failing calls spread their melts over ~37.5s — wider than a
-    # 30s window counts over, which would have left the breaker decorative for
+    # 30s window counts over, which would leave the breaker decorative for
     # exactly the sequential caller a transfer is.
     #
     # Worth noting that the same 30s is correct next door, where the retry

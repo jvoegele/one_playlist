@@ -185,25 +185,23 @@ defmodule OnePlaylist.Providers.Tidal do
   defp candidates(connection, %Track{} = track, opts),
     do: text_candidates(connection, track, opts)
 
-  # A miss falls back to text, and so does a failure. This is the same shape as
-  # the release-position rung above, and it did not used to be.
+  # A miss falls back to text, and so does a failure — the same shape as the
+  # release-position rung above.
   #
-  # It used to stop on an empty result, on the reasoning that "an ISRC names one
-  # recording, so a catalogue without it does not have that recording". **That
-  # reasoning is wrong**, and a real import disproved it. An ISRC identifies a
-  # recording *as issued on a particular release*, and a reissue is a new issue:
-  # the same master gets a new code. Roon exports Eddie Vedder's "Setting Forth"
-  # as `USJY50700001`, the 2007 soundtrack. TIDAL has the recording as
-  # `USJY51700100`, the 2017 reissue. Asking TIDAL for the first returns nothing
-  # at all, and the track was reported "nothing found on the destination" while
-  # sitting in the catalogue under a different number. Searching by name finds it
-  # first result.
+  # The tempting alternative is to stop on an empty result, reasoning that "an
+  # ISRC names one recording, so a catalogue without it does not have that
+  # recording". That reasoning is wrong: an ISRC identifies a recording *as
+  # issued on a particular release*, and a reissue is a new issue with a new
+  # code. See `OnePlaylist.MusicBrainz` for the case that demonstrates it.
+  # Asking TIDAL for a code it does not carry returns nothing at all, and the
+  # track would be reported "nothing found on the destination" while sitting in
+  # the catalogue under a different number.
   #
-  # The fear behind the old rule — that text search finds a *different* recording
+  # The fear behind stopping — that text search finds a *different* recording
   # and reports it as a match — is real and is defended against, but not here.
   # It is defended by the version veto, the duration conflict and the confidence
-  # threshold, which every text candidate goes through. Refusing to look was
-  # never what made the answer safe; it only made a findable track unfindable.
+  # threshold, which every text candidate goes through. Refusing to look is not
+  # what makes the answer safe; it only makes a findable track unfindable.
   #
   # The cost is one extra call per ISRC that misses, and only for tracks that
   # would otherwise have been reported unmatched.
@@ -214,10 +212,9 @@ defmodule OnePlaylist.Providers.Tidal do
     end
   end
 
-  # Needs this scope, which a connection authorized before it was
-  # requested will not have — checked here because TIDAL reports its absence as
-  # `400 INVALID_RESOURCE_ID`, which names neither scopes nor the parameter it
-  # is really complaining about.
+  # Needs `@search_scope`, which a connection authorized before that scope was
+  # requested will not have. Asked rather than discovered, for the reason given
+  # where the attribute is defined.
   defp text_candidates(connection, %Track{} = track, opts) do
     if Connection.grants?(connection, @search_scope) do
       Client.search_tracks(connection.access_token, Track.search_query(track), opts)

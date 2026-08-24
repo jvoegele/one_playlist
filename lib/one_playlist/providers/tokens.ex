@@ -2,26 +2,19 @@ defmodule OnePlaylist.Providers.Tokens do
   @moduledoc """
   A set of OAuth credentials as a provider just issued them.
 
-  ## Why this is a struct
+  ## Why this is a struct rather than a map
 
-  It was a plain map, declared **twice** — once in
-  `OnePlaylist.Providers.Adapter` and once in
-  `OnePlaylist.Providers.Tidal.OAuth` — and the two declarations disagreed.
-  `Adapter` marked `:refresh_token` and `:scopes` as *optional keys*; `OAuth`
-  marked them as always present and possibly `nil`. Both were reasonable
-  readings, and consumers split along the same line:
+  A map has to decide whether `:refresh_token` and `:scopes` are *optional
+  keys* or keys that are always present and possibly `nil`, and both readings
+  are defensible. Consumers then split along the same line — one writing
+  `tokens[:refresh_token] || connection.refresh_token`, another writing
+  `tokens.refresh_token` — and both work for as long as the only producer is
+  TIDAL, which always sets every key. The second raises on the first adapter
+  that does not, and "add a provider" is the roadmap rather than a
+  hypothetical.
 
-      # OnePlaylist.Providers.refresh/1 — defensive, keys may be absent
-      tokens[:refresh_token] || connection.refresh_token
-
-      # OnePlaylistWeb.TidalAuthController — direct, keys are always there
-      refresh_token: tokens.refresh_token
-
-  Both worked, because the only producer was TIDAL and TIDAL always sets every
-  key. The second would have raised on the first adapter that did not — and
-  "add a provider" is the roadmap, not a hypothetical. A struct settles it: the
-  keys always exist, `nil` and `[]` are the absences, and dot access is correct
-  everywhere.
+  A struct settles it: the keys always exist, `nil` and `[]` are the absences,
+  and dot access is correct everywhere.
 
   ## What the invariant is for, and what it is not for
 
@@ -80,9 +73,9 @@ defmodule OnePlaylist.Providers.Tokens do
         }
 
   # A blank access token is stored, looks healthy, and 401s on the next call
-  # with an error that points at the provider rather than at us. This is the law
-  # the `:usable` postcondition on the adapter callback used to state, moved to
-  # where the value is built.
+  # with an error that points at the provider rather than at us. Stated here, on
+  # the type, rather than as a postcondition on the adapter callback that
+  # receives one: this is where the value is built.
   @invariant access_token_present: is_binary(subject.access_token) and subject.access_token != "",
              # A nil expiry does not mean "expires soon", it means **never**:
              # `Connection.needs_refresh?/3` answers `false` for it by design, so

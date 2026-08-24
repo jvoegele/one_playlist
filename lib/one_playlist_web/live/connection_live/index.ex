@@ -2,11 +2,10 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   @moduledoc """
   The services this user has connected, and how to connect another.
 
-  Until this existed, a Subsonic server could only be attached by running
-  `dev/navidrome/connect.exs` against a live node — which made the second
-  provider real for the developer and invisible to everybody else. It is the
-  first screen where the two providers look genuinely different, because they
-  are: one is an OAuth redirect, the other is a form.
+  The first screen where the two providers look genuinely different, because
+  they are: one is an OAuth redirect, the other is a form. The alternative to
+  the form is `dev/navidrome/connect.exs` against a live node, which makes the
+  second provider real for the developer and invisible to everybody else.
 
   ## Connecting is asynchronous, and says so
 

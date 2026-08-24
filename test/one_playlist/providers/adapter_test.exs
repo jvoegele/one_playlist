@@ -87,9 +87,9 @@ defmodule OnePlaylist.Providers.AdapterTest do
     end
 
     test "a provider that returns a blank access token is caught" do
-      # This used to be a `:usable` postcondition here. It is now an invariant of
-      # OnePlaylist.Providers.Tokens, so it fires at construction rather than at
-      # this boundary — earlier, and naming the field rather than the callback.
+      # An invariant of OnePlaylist.Providers.Tokens rather than a postcondition
+      # on this callback, so it fires at construction rather than at this
+      # boundary — earlier, and naming the field rather than the callback.
       Req.Test.stub(Tidal, fn conn ->
         Req.Test.json(conn, %{"access_token" => "", "expires_in" => 3600})
       end)

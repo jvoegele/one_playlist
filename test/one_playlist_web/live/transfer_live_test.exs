@@ -618,8 +618,8 @@ defmodule OnePlaylistWeb.TransferLiveTest do
     end
 
     test "rows appear as their tracks resolve", %{conn: conn, user_id: user_id} do
-      # The point: a 58 track import used to show an empty table for the whole
-      # matching pass, then every row at once.
+      # The point: without this, a 58 track import shows an empty table for the
+      # whole matching pass and then every row at once.
       transfer = user_id |> transfer_fixture() |> with_status(:running)
 
       {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")

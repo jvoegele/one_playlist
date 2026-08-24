@@ -1,9 +1,11 @@
 defmodule OnePlaylist.Supabase do
   @moduledoc """
-  Builds the Supabase client this application talks to GoTrue through.
+  Builds the Supabase client this application talks to GoTrue and Storage
+  through.
 
-  A function, not a process. `OnePlaylist.Accounts` is the only module that
-  should call it — everything else goes through that context.
+  A function, not a process. Its two callers are `OnePlaylist.Accounts` and
+  `OnePlaylist.Storage`, each the only module in its context that touches the
+  SDK; everything else goes through one of them.
 
   ## Why there is no Agent here
 
@@ -52,10 +54,10 @@ defmodule OnePlaylist.Supabase do
   @doc """
   A client for calls made with the application's own publishable key.
 
-  `{:error, :not_configured}` rather than a raise, so `OnePlaylist.Accounts` can
-  report the fresh-checkout case at the sign-in form instead of crashing a
-  request. Distinguishing "not configured" from "configured and failing" matters:
-  they are different problems with different fixes.
+  `{:error, :not_configured}` rather than a raise, so a caller can report the
+  fresh-checkout case at the sign-in form instead of crashing a request.
+  Distinguishing "not configured" from "configured and failing" matters: they
+  are different problems with different fixes.
   """
   @spec client() :: {:ok, Supabase.Client.t()} | {:error, :not_configured}
   def client do
