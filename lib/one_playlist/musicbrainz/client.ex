@@ -18,11 +18,14 @@ defmodule OnePlaylist.MusicBrainz.Client do
   which is where a classical catalogue number comes from when the title omits
   one.
 
-  `search_recordings/3`, `recording/2` and `release_has_artwork?/2` are
-  enrichment's: find a recording by name, learn everything about it in one
-  lookup, and ask whether Cover Art Archive has a cover before an artwork URL is
-  stored. Each documents what was verified live rather than assumed, because two
-  of the three behave differently from the obvious guess.
+  `search_recordings/3` and `recording/2` are enrichment's: find a recording by
+  name, and learn everything about it in one lookup. Both document what was
+  verified live rather than assumed, because both behave differently from the
+  obvious guess.
+
+  Cover art is **not** here. It belongs to an album rather than to a recording or
+  a pressing, and the Cover Art Archive is a separate service — see
+  `OnePlaylist.CoverArt.Client`.
 
   ## A contactful User-Agent is required
 
@@ -192,14 +195,16 @@ defmodule OnePlaylist.MusicBrainz.Client do
   @doc """
   Everything one recording is known by, in a single request.
 
-  `inc=artist-credits+releases+isrcs+work-rels`, which is what makes enrichment
-  affordable: verified live, one lookup returns the ISRCs, the length, the
-  artist credit, the releases — with each release's own title, barcode and id —
-  and the work relations a classical recording performs.
+  `inc=artist-credits+releases+release-groups+isrcs+work-rels`, which is what
+  makes enrichment affordable: verified live, one lookup returns the ISRCs, the
+  length, the artist credit, the releases — with each release's own title,
+  barcode, id and **release group** — and the work relations a classical
+  recording performs.
 
-  The releases are what artwork comes from. They do **not** carry Cover Art
-  Archive information themselves, though; only a release lookup does. See
-  `release_has_artwork?/2`.
+  The release group is what artwork comes from, and it costs nothing extra here:
+  see `OnePlaylist.CoverArt.Client` for why a cover belongs to the album rather
+  than to whichever pressing won the barcode. Nothing in this response says
+  whether a cover exists — that is the archive's own question to answer.
 
   `{:ok, nil}` is MusicBrainz answering 404 — an identifier it does not hold.
   That is an answer rather than a failure, and the caller records it as one.
@@ -210,7 +215,7 @@ defmodule OnePlaylist.MusicBrainz.Client do
       [
         base_url: @base_url,
         url: "/recording/#{mbid}",
-        params: [fmt: "json", inc: "artist-credits+releases+isrcs+work-rels"],
+        params: [fmt: "json", inc: "artist-credits+releases+release-groups+isrcs+work-rels"],
         headers: [{"user-agent", user_agent()}],
         receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
       ]
@@ -231,60 +236,6 @@ defmodule OnePlaylist.MusicBrainz.Client do
   end
 
   defp handle_lookup({:error, _reason}, _mbid), do: :retry
-
-  @doc """
-  Whether Cover Art Archive holds a front cover for a release.
-
-  Asked before an artwork URL is stored, because the URL is *constructed* rather
-  than fetched — `coverartarchive.org/release/{mbid}/front-250` needs no
-  lookup — and storing one for a release with no art puts a broken image in
-  every report and playlist that shows it.
-
-  Verified live: a recording lookup's embedded releases do **not** carry
-  `cover-art-archive`, and a release lookup does. That is one request per
-  *release* rather than per recording, which is why the caller caches it: an
-  album's worth of recordings asks the same question twelve times.
-  """
-  @spec release_has_artwork?(String.t(), keyword()) :: {:ok, boolean()} | {:error, Exception.t()}
-  def release_has_artwork?(release_mbid, opts \\ []) when is_binary(release_mbid) do
-    Service.call(fn ->
-      [
-        base_url: @base_url,
-        url: "/release/#{release_mbid}",
-        params: [fmt: "json"],
-        headers: [{"user-agent", user_agent()}],
-        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
-      ]
-      |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
-      |> Req.new()
-      |> Req.get()
-      |> case do
-        {:ok, %{status: 503}} ->
-          :retry
-
-        {:ok, %{status: 200, body: body}} ->
-          {:ok, get_in(body, ["cover-art-archive", "front"]) == true}
-
-        {:ok, %{status: _other}} ->
-          {:ok, false}
-
-        {:error, _reason} ->
-          :retry
-      end
-    end)
-  end
-
-  @doc """
-  The Cover Art Archive URL for a release's front cover.
-
-  Constructed rather than requested. 250px because it is drawn at 40px in a
-  report row and at list size elsewhere — the same reasoning
-  `OnePlaylist.Providers.Tidal.Mapper` applies when it picks the smallest
-  usable file rather than the largest.
-  """
-  @spec artwork_url(String.t()) :: String.t()
-  def artwork_url(release_mbid),
-    do: "https://coverartarchive.org/release/#{release_mbid}/front-250"
 
   # A MusicBrainz recording as a candidate the matching ladder can score. The
   # album comes from the first release it names, which is what the ladder

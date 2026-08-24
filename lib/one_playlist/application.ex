@@ -30,6 +30,12 @@ defmodule OnePlaylist.Application do
       # in two tiers — see OnePlaylist.MusicBrainz.
       {OnePlaylist.MusicBrainz.Service,
        Application.get_env(:one_playlist, :musicbrainz_service_opts, [])},
+      # The same organisation, a different service, and deliberately its own
+      # front door: no one-per-second rule, a redirect to archive.org, and
+      # failures that cost a thumbnail rather than a transfer. See
+      # OnePlaylist.CoverArt.Service.
+      {OnePlaylist.CoverArt.Service,
+       Application.get_env(:one_playlist, :cover_art_service_opts, [])},
       # A user's own server, so this one is sized to protect us from it rather
       # than it from us. See Subsonic.Service.
       {OnePlaylist.Providers.Subsonic.Service,

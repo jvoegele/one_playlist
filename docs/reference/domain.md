@@ -1554,6 +1554,43 @@ The general lesson: **normalization belongs on the way out, not on the way in.**
 value is the source's and has to survive; the query is ours and can be rebuilt any number of
 ways.
 
+### Cover art belongs to the album, not to the pressing
+
+Found by looking at the playlist: fully enriched tracks with an ISRC and a barcode showing no
+cover, on albums that certainly have one.
+
+Enrichment asked whether the release it had chosen **for the barcode** held a front cover. That
+is the wrong question, and obviously so once stated: which pressing wins a barcode has nothing
+to do with which pressing somebody uploaded a scan for. Measured on *Pearl Jam* (2006) — of six
+releases in the group, **three have a cover and three do not**, and the one chosen for its
+barcode was among the three that do not.
+
+A cover belongs to a **release group**, which is MusicBrainz's model of an album across all its
+pressings. Asking the group is correct, and also cheaper: one question per album rather than one
+per pressing, and the group id arrives free in the recording lookup by adding `release-groups`
+to the `inc` list. Cover Art Archive answers for a group directly, so
+`OnePlaylist.CoverArt.Client` replaced the release check entirely and the release-preference rule
+that existed to find artwork was deleted — it was spending a request per candidate on a question
+that belonged elsewhere.
+
+The archive gets **its own `ExternalService`** rather than sharing MusicBrainz's, per `CLAUDE.md`'s
+one-per-provider rule, and the reasons are real rather than formal: it publishes no
+one-per-second limit, it redirects to archive.org so a call is two round trips through a CDN,
+and its failures cost a thumbnail where MusicBrainz's cost a transfer.
+
+Two lessons worth keeping:
+
+  * **The second bug was in the repair, not the code.** The earlier release-selection repair
+    detected an album as broken when *some* of its tracks had art and others did not. An album
+    where **none** did looked consistent and was never re-run, leaving 48 rows still holding
+    pre-`choose_release` metadata. A detector written from the symptom missed the worse case of
+    the same fault.
+  * **A URL is better provenance than an inference.** `Enrichment.reset/1` clears a barcode
+    based on `musicbrainz_release_id` being set, which is a proxy and imperfect. For artwork it
+    needs no proxy at all: a cover this application fetched carries the archive's host and one
+    from TIDAL does not. Verified on the repair — 116 archive covers cleared, all 7 TIDAL covers
+    kept.
+
 ### Is MusicBrainz the right catalogue to lean on?
 
 Asked while building L4, and worth recording because the answer is not obvious.

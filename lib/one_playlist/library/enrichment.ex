@@ -111,6 +111,21 @@ defmodule OnePlaylist.Library.Enrichment do
   MusicBrainz simply does not hold, and one of them was a recording MusicBrainz
   demonstrably *does* have under its own name.
 
+  ## Artwork belongs to the album, not to the pressing
+
+  A separate question from the one below, and it was got wrong first. Enrichment
+  asked whether the release it had chosen *for the barcode* had a front cover —
+  but which pressing wins a barcode has nothing to do with which pressing
+  somebody uploaded a scan for. Of six releases of *Pearl Jam* (2006), three have
+  a cover and three do not, and the one chosen for its barcode was among the
+  three that do not. Nine albums here showed no artwork while their cover sat in
+  the archive.
+
+  So the cover comes from the **release group** — MusicBrainz's model of an album
+  across all its pressings — which is correct and also cheaper: one question per
+  album rather than one per pressing, and the group id arrives free in the
+  recording lookup. See `OnePlaylist.CoverArt.Client`.
+
   ## A recording has many releases, and they disagree
 
   MusicBrainz lists every release a recording appears on — the original pressing,
@@ -132,11 +147,13 @@ defmodule OnePlaylist.Library.Enrichment do
     2. **The release should be the album the track says it is on.** Candidates
        whose title matches the recording's stored album are preferred over a
        compilation the track also happens to appear on.
-    3. **Prefer a cover we can actually show,** then the earliest release, then
-       the lowest id — so the result is deterministic rather than merely stable.
+    3. **The earliest release, then the lowest id** — so the result is
+       deterministic rather than merely stable.
 
-  Rule 3's artwork check costs a request per candidate, so it is capped and
-  cached; rule 1 means it is paid once per album rather than once per track.
+  All three are decided from the response already in hand, at no extra cost. An
+  earlier version made rule 3 "prefer a pressing that has cover art", which spent
+  a request per candidate to answer a question that turned out to belong to the
+  release group instead.
 
   Measured on the dev library: thirteen albums disagreed with themselves before,
   and afterwards the only one that still does is *Pearl Jam - Non-Album Tracks* —
@@ -169,6 +186,7 @@ defmodule OnePlaylist.Library.Enrichment do
   """
 
   alias OnePlaylist.Cache
+  alias OnePlaylist.CoverArt.Client, as: CoverArt
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Normalize
@@ -193,8 +211,6 @@ defmodule OnePlaylist.Library.Enrichment do
   # candidate. Bounded because each is a request; small because rule 1 means the
   # question is asked once per album, and the album's own pressing is almost
   # always among the first few once the title match has sorted it forward.
-  @artwork_candidates 3
-
   # The top of `OnePlaylist.Matching.Confidence`'s `:text` band, which that
   # module defines as "every compared field agreed after normalization". Used as
   # the search path's threshold because it is a *statement about corroboration*
@@ -207,10 +223,19 @@ defmodule OnePlaylist.Library.Enrichment do
   # these can be cleared unconditionally.
   @always_cleared [:enriched_at, :musicbrainz_recording_id, :musicbrainz_release_id]
 
-  # These come from a *release*, so a non-null `musicbrainz_release_id` is proof
-  # enrichment wrote them — the nearest thing to provenance this schema has. With
-  # it null they came from the track's own source and are not ours to clear.
-  @cleared_with_a_release [:album_upc, :artwork_url]
+  # A barcode comes from a *release*, so a non-null `musicbrainz_release_id` is
+  # evidence enrichment wrote it — the nearest thing to provenance this schema
+  # has. Imperfect, and worth naming: a track that arrived from TIDAL with its
+  # own barcode, and later had a release chosen for it, would have that barcode
+  # cleared here. Closing that needs the provenance model `enrich/1`'s moduledoc
+  # twice defers, and until then this errs toward re-fetching a value rather
+  # than keeping a stale one.
+  @cleared_with_a_release [:album_upc]
+
+  # Artwork needs no such proxy, because the URL says who wrote it. Only a cover
+  # this application fetched from the archive is cleared; one from TIDAL is the
+  # source's and stays.
+  @our_artwork "https://coverartarchive.org/%"
 
   @doc """
   Enriches one recording, returning it as it now stands.
@@ -289,10 +314,13 @@ defmodule OnePlaylist.Library.Enrichment do
   replace it with MusicBrainz's — which is precisely the overwrite `enrich/1`
   refuses to perform, reached by the back door.
 
-  `album_upc` and `artwork_url` are the exception, and only where
-  `musicbrainz_release_id` is set. That column is proof enrichment chose the
-  release those two were read from, which is the nearest thing to provenance
-  available here. Where it is null they came from the track's source and stay.
+  `album_upc` is the exception, and only where `musicbrainz_release_id` is set —
+  the nearest thing to provenance available here, and imperfect in a way named
+  at the attribute itself.
+
+  `artwork_url` needs no proxy, because the URL says who wrote it: a cover this
+  application fetched carries the archive's own host, and one from TIDAL does
+  not and stays.
   """
   @spec reset([Ecto.UUID.t()]) :: non_neg_integer()
   def reset([]), do: 0
@@ -308,6 +336,11 @@ defmodule OnePlaylist.Library.Enrichment do
       Recording
       |> where([r], r.id in ^from_release)
       |> Repo.update_all(set: Enum.map(@cleared_with_a_release, &{&1, nil}))
+
+    {_count, _returned} =
+      Recording
+      |> where([r], r.id in ^recording_ids and like(r.artwork_url, ^@our_artwork))
+      |> Repo.update_all(set: [artwork_url: nil])
 
     {count, _returned} =
       Recording
@@ -469,7 +502,7 @@ defmodule OnePlaylist.Library.Enrichment do
       album: release["title"],
       album_upc: release["barcode"],
       duration_seconds: details["length"] && div(details["length"], 1000),
-      artwork_url: artwork(recording, release["id"])
+      artwork_url: artwork(recording, get_in(release, ["release-group", "id"]))
     }
   end
 
@@ -507,15 +540,15 @@ defmodule OnePlaylist.Library.Enrichment do
 
   # Rules 2 and 3. Sorting rather than filtering on the album title, so a
   # recording whose only releases are compilations still gets one of those.
+  #
+  # No request is made here. An earlier version asked the first few candidates
+  # whether they had cover art and preferred one that did — which was the wrong
+  # question in the wrong place, and is now the release group's. Deciding this
+  # from the response already in hand is the whole of it.
   defp best(recording, releases) do
-    candidates = Enum.sort_by(releases, &ranking(recording, &1))
-
-    with_art =
-      candidates
-      |> Enum.take(@artwork_candidates)
-      |> Enum.find(&has_artwork?(&1["id"]))
-
-    with_art || List.first(candidates)
+    releases
+    |> Enum.sort_by(&ranking(recording, &1))
+    |> List.first()
   end
 
   # `false` sorts before `true`, so naming the track's own album comes first.
@@ -531,30 +564,28 @@ defmodule OnePlaylist.Library.Enrichment do
     Normalize.text(album) == Normalize.text(release["title"])
   end
 
-  # Only asked when there is nothing already, and only ever once per release —
-  # an album's worth of recordings names the same one. `Cache` is L1 only here:
-  # a cover either exists or does not, so a miss after a deploy costs one
-  # request rather than a wrong answer.
-  defp artwork(%Recording{artwork_url: existing}, _release_mbid) when is_binary(existing), do: nil
+  # Only asked when there is nothing already, and only ever once per **album** —
+  # see `OnePlaylist.CoverArt.Client` for why the release group rather than the
+  # release, and for the measurement that forced the change.
+  defp artwork(%Recording{artwork_url: existing}, _group_mbid) when is_binary(existing), do: nil
   defp artwork(_recording, nil), do: nil
-
-  defp artwork(_recording, release_mbid) do
-    if has_artwork?(release_mbid), do: Client.artwork_url(release_mbid)
-  end
 
   # `Cache` is L1 only: a cover either exists or does not, so a miss after a
   # deploy costs one request rather than a wrong answer. An error is *not*
   # cached, for the reason `OnePlaylist.MusicBrainz` gives — an outage is a fact
-  # about MusicBrainz, not about the release.
-  defp has_artwork?(nil), do: false
+  # about the archive, not about the album.
+  defp artwork(_recording, group_mbid) do
+    case Cache.read_through({:cover_art_group, group_mbid}, fn -> ask_archive(group_mbid) end) do
+      {:ok, url} -> url
+      {:error, _unknown} -> nil
+    end
+  end
 
-  defp has_artwork?(release_mbid) do
-    Cache.read_through({:mb_release_art, release_mbid}, fn ->
-      case Client.release_has_artwork?(release_mbid) do
-        {:ok, answer} -> {:ok, answer}
-        {:error, _reason} -> {:error, :unknown}
-      end
-    end) == {:ok, true}
+  defp ask_archive(group_mbid) do
+    case CoverArt.front_url(group_mbid) do
+      {:ok, url} -> {:ok, url}
+      {:error, _reason} -> {:error, :unknown}
+    end
   end
 
   # Blank values are dropped rather than written, so a MusicBrainz field that is

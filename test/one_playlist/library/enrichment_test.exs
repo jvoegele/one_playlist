@@ -13,6 +13,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   import Req.Test, only: [set_req_test_from_context: 1]
 
   alias OnePlaylist.Cache
+  alias OnePlaylist.CoverArt
   alias OnePlaylist.Library.Enrichment
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.MusicBrainz.Client
@@ -29,6 +30,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   @isrc "USSM11100234"
   @mbid "ea8c7b4c-bd88-4029-96ba-fb483eb29e8b"
   @release "9c5b2d61-4e8c-4f43-9b71-2c8bd0e1a5f0"
+  # The release *group* — the album across all its pressings, which is what a
+  # cover belongs to. See `OnePlaylist.CoverArt.Client`.
+  @group "7a1f0f0e-2c44-4a1e-9d3f-6b8e5c2a1d90"
 
   setup :set_req_test_from_context
 
@@ -37,7 +41,28 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     Repo.delete_all(IsrcLookup)
 
     Application.put_env(:one_playlist, :musicbrainz_req_options, plug: {Req.Test, Client})
-    on_exit(fn -> Application.delete_env(:one_playlist, :musicbrainz_req_options) end)
+
+    Application.put_env(:one_playlist, :cover_art_req_options, plug: {Req.Test, CoverArt.Client})
+
+    stub_cover_art(:found)
+
+    on_exit(fn ->
+      Application.delete_env(:one_playlist, :musicbrainz_req_options)
+      Application.delete_env(:one_playlist, :cover_art_req_options)
+    end)
+  end
+
+  # A separate service from MusicBrainz, so a separate stub. `counter` records
+  # each call so a test can assert an album is asked about only once.
+  defp stub_cover_art(answer, counter \\ nil) do
+    Req.Test.stub(CoverArt.Client, fn conn ->
+      if counter, do: Agent.update(counter, &(&1 + 1))
+
+      case answer do
+        :found -> Req.Test.json(conn, %{"images" => [%{"front" => true}]})
+        :none -> Plug.Conn.send_resp(conn, 404, ~s({"error":"Not Found"}))
+      end
+    end)
   end
 
   defp recording(attrs) do
@@ -81,7 +106,14 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       "length" => 285_000,
       "isrcs" => [@isrc],
       "artist-credit" => [%{"name" => "Pearl Jam"}],
-      "releases" => [%{"id" => @release, "title" => "Vitalogy", "barcode" => "074646690123"}]
+      "releases" => [
+        %{
+          "id" => @release,
+          "title" => "Vitalogy",
+          "barcode" => "074646690123",
+          "release-group" => %{"id" => @group}
+        }
+      ]
     }
   end
 
@@ -96,7 +128,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
               "title" => "Corduroy",
               "length" => 285_000,
               "artist-credit" => [%{"name" => "Pearl Jam"}],
-              "releases" => [%{"id" => @release, "title" => "Vitalogy"}]
+              "releases" => [
+                %{"id" => @release, "title" => "Vitalogy", "release-group" => %{"id" => @group}}
+              ]
             }
           ]
     }
@@ -112,7 +146,10 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert enriched.album == "Vitalogy"
       assert enriched.album_upc == "074646690123"
       assert enriched.duration_seconds == 285
-      assert enriched.artwork_url == "https://coverartarchive.org/release/#{@release}/front-250"
+
+      assert enriched.artwork_url ==
+               "https://coverartarchive.org/release-group/#{@group}/front-250"
+
       assert enriched.enriched_at
     end
 
@@ -147,22 +184,40 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert enriched.album_upc == "074646690123", "the gaps should still be filled"
     end
 
-    test "asks about a release's artwork once, however many recordings name it" do
-      {:ok, calls} = Agent.start_link(fn -> [] end)
-      stub_musicbrainz(%{}, calls)
+    test "asks about an album's artwork once, however many recordings name it" do
+      {:ok, covers} = Agent.start_link(fn -> 0 end)
+      stub_musicbrainz()
+      stub_cover_art(:found, covers)
 
       {:ok, _first} = Enrichment.enrich(recording(%{isrc: @isrc}))
       {:ok, _second} = Enrichment.enrich(recording(%{isrc: @isrc, title: "Nothingman"}))
 
-      release_lookups = Agent.get(calls, &Enum.count(&1, fn path -> path =~ "/release/" end))
+      assert Agent.get(covers, & &1) == 1, "an album's worth of recordings asks this once"
+    end
 
-      assert release_lookups == 1, "an album's worth of recordings asks this question once"
+    test "asks the release group rather than the release" do
+      # The bug this replaced: which pressing wins the barcode has nothing to do
+      # with which pressing somebody uploaded a scan for. Of six releases of
+      # Pearl Jam (2006) three have a cover, and the one chosen for its barcode
+      # was not among them.
+      {:ok, asked} = Agent.start_link(fn -> [] end)
+      stub_musicbrainz()
+
+      Req.Test.stub(CoverArt.Client, fn conn ->
+        Agent.update(asked, &[conn.request_path | &1])
+        Req.Test.json(conn, %{"images" => []})
+      end)
+
+      {:ok, _enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
+
+      assert Agent.get(asked, & &1) == ["/release-group/#{@group}"]
     end
 
     test "stores no artwork URL when the archive has no cover" do
       # The URL is constructed rather than fetched, so storing one unasked
       # would put a broken image in every playlist that shows the track.
-      stub_musicbrainz(%{release: %{"cover-art-archive" => %{"front" => false}}})
+      stub_musicbrainz()
+      stub_cover_art(:none)
 
       {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
 
@@ -571,6 +626,19 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert refreshed.duration_seconds == 285
       assert refreshed.album_upc == "074646690123", "not enrichment's to clear"
       assert refreshed.artwork_url == "https://tidal.test/cover.jpg", "nor this"
+    end
+
+    test "clears a cover it fetched even when no release was chosen" do
+      # The URL says who wrote it, so artwork needs no provenance proxy at all.
+      fetched =
+        recording(%{
+          isrc: @isrc,
+          artwork_url: "https://coverartarchive.org/release-group/#{@group}/front-250"
+        })
+
+      Enrichment.reset([fetched.id])
+
+      refute Repo.get!(Recording, fetched.id).artwork_url
     end
 
     test "resetting nothing is not an error" do
