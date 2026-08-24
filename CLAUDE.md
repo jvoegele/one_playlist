@@ -500,6 +500,23 @@ backlog below is the road to it, not a separate list.
     Covers agree; barcodes do not. The fix is to resolve the album once and map its
     tracks onto it.
 
+  * **Editing a recording's own metadata.** Roon's CSV export writes the **album
+    artist** into the track artist column, so every track on a compilation or tribute
+    album is credited to its subject: *Crucible*'s twelve different performers all
+    arrive as "Hunters & Collectors", and *Throw Your Arms Around Me* — actually Neil
+    Finn & Eddie Vedder — cannot be found at MusicBrainz from that credit. No enrichment
+    fixes this, because a search is only as good as the credit it is given.
+
+    The fix is to let a user correct title, artists, album and version in the app. That
+    raises a design question worth answering before building: the editor works one row
+    at a time, and correcting a whole album's credits one row at a time is miserable.
+    Options are an inline edit on the expanded row, a table view over the playlist, or
+    a bulk "set the artist for these rows" action; a table is the obvious shape and the
+    worst one for the *reordering* the same screen has to support. It also needs an
+    answer to what an edit means for enrichment — a corrected field must be re-enriched
+    and must not be overwritten, which is what `Enrichment.reset/1` and the
+    fill-gaps-never-correct rule are already built around.
+
   * **Adding a track to a library playlist by hand.** L2 covers rename, delete,
     remove and reorder; *adding* needs something to add **from**, which is a
     search UI over either the shared recording store or a connected service.
@@ -509,12 +526,6 @@ backlog below is the road to it, not a separate list.
     now in place and spent once, on corrections. Sync is the other caller: a destination track
     whose source track is gone should go too, which is the difference between Soundiiz's Add and
     Replace modes — see `docs/reference/domain.md`.
-
-  * **Split multi-artist credits on import.** Two library recordings carry the single
-    string `"Nusrat Fateh Ali Khan, Eddie Vedder"` as one artist, so every search for
-    them asks MusicBrainz for an artist of that name and gets nothing.
-    `Normalize.credits/1` already knows how to split a credit; the fix belongs in
-    `Formats.CSV` where the metadata is read, not where it is used.
 
   * **Tighten the classical corpus filter.** `dev/corpus/harvest_classical.py` matches on words
     like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —

@@ -1516,13 +1516,43 @@ carries a different code on whichever pressing it holds. Rejecting those made th
 correct answers **worse** — swapping *Earthling* for *Earthling Expansion: The Adventurous
 Cuts* — and did nothing at all for the wrong one.
 
-#### Still open: multi-artist credits imported as one string
+#### The query is not the stored strings — and the CSV was not the bug
 
-Two of the ten return **zero** candidates because their credit is the single string
-`"Nusrat Fateh Ali Khan, Eddie Vedder"` rather than two artists, so the query asks MusicBrainz
-for an artist of that name. That is a CSV import defect rather than an enrichment one, and
-`Normalize.credits/1` already knows how to split a credit — but fixing it belongs where the
-metadata is read, not where it is used.
+Two recordings returned **zero** candidates, and the first diagnosis of that here was wrong
+twice over. It blamed the credit being one string, `"Nusrat Fateh Ali Khan, Eddie Vedder"`,
+and proposed splitting it in `Formats.CSV`. Both halves were mistaken:
+
+  * **Matching was never affected.** `Normalize`'s `@punctuation_separators` is
+    `/\s*[,&\/+]\s*/`, so the engine has always read that credit as two names. The stored
+    string is only a problem for the *search query*.
+  * **Splitting it on import would be destructive.** `Formats.CSV` splits on `;` and nothing
+    else, deliberately and with the reason written down: a comma is a real character in
+    *Earth, Wind & Fire*, *Tyler, The Creator* and *Crosby, Stills & Nash*. Splitting at
+    read time would corrupt those permanently, where splitting at query time cannot — a bad
+    query returns candidates that fail to corroborate and are declined.
+
+Measured across the six recordings still unidentified:
+
+| Query | Identified |
+| --- | --- |
+| The stored title and the stored credit | 0 |
+| The **parsed** title, stored credit | 0 |
+| The parsed title **and** the credit's first name | **2**, both at `0.98` |
+
+Neither change works alone. A stored title carries in parentheses what MusicBrainz keeps out
+of the title entirely — *"The Face Of Love (with Eddie Vedder)"* matches no recording, *"the
+face of love"* matches it exactly — and `Normalize.title/1` already parses that, returning
+`featuring: ["eddie vedder"]` alongside. Nothing is lost by querying the parsed form: the
+ladder still scores the *raw* track, so a stripped version marker still applies to whatever
+comes back, and the two recordings whose queries broadened were both correctly declined.
+
+A search that comes back **empty** is then retried with the credit's first name. Empty rather
+than unconvincing: an empty answer says the *question* was wrong, while a search that found
+candidates and declined them was asked a good question and given a bad answer.
+
+The general lesson: **normalization belongs on the way out, not on the way in.** The stored
+value is the source's and has to survive; the query is ours and can be rebuilt any number of
+ways.
 
 ### Is MusicBrainz the right catalogue to lean on?
 

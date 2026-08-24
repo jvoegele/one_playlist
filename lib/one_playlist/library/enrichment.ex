@@ -74,6 +74,32 @@ defmodule OnePlaylist.Library.Enrichment do
   the wrong one at all. Fourth negative result of this kind in the project; the
   others are in `docs/reference/domain.md`.
 
+  ### The query is not the stored strings
+
+  Two more things measured rather than assumed, and neither works without the
+  other. Across the six recordings still unidentified after the fallback landed:
+
+  | Query | Identified |
+  | --- | --- |
+  | The stored title and the stored credit | 0 |
+  | The **parsed** title, stored credit | 0 |
+  | The parsed title **and** the credit's first name | **2**, both at `0.98` |
+
+  A stored title often carries in parentheses what MusicBrainz keeps out of the
+  title entirely — *"The Face Of Love (with Eddie Vedder)"* matches no recording
+  and *"the face of love"* matches it exactly — so the query uses
+  `Normalize.title/1`'s parsed title. Nothing is lost by that: the ladder still
+  scores the *raw* track, so the version marker stripped from the query is still
+  applied to whatever comes back, and the two recordings whose queries got
+  broader as a result were both correctly declined.
+
+  And a credit naming several people is often written as one string, which
+  MusicBrainz matches to no artist at all and answers with nothing. So a search
+  that comes back **empty** is retried with the credit's first name. Empty
+  rather than unconvincing, because that is the signal that the query itself was
+  wrong; a search that found candidates and declined them was asked a good
+  question and given a bad answer, and asking a narrower one would not help.
+
   ## An ISRC MusicBrainz has never seen is not a dead end
 
   The identifier path is tried first and answers directly when it can. When it
@@ -332,18 +358,83 @@ defmodule OnePlaylist.Library.Enrichment do
 
   defp identify(%Recording{} = recording), do: by_name(recording)
 
-  defp by_name(%Recording{title: title} = recording) when is_binary(title) and title != "" do
-    case Client.search_recordings(title, List.first(recording.artists || [])) do
+  defp by_name(%Recording{title: raw} = recording) when is_binary(raw) and raw != "" do
+    credit = List.first(recording.artists || [])
+    # The *parsed* title, because a stored title often carries a credit or a
+    # version in parentheses that MusicBrainz keeps out of the title entirely.
+    # "The Face Of Love (with Eddie Vedder)" matches no recording; "the face of
+    # love" matches it exactly. `Normalize.title/1` already knows how to take
+    # one apart, and the version it strips is not lost — the ladder still scores
+    # the raw track, so its version veto and tags apply to whatever comes back.
+    title = Normalize.title(raw).title
+
+    case search(title, credit) do
+      # A credit naming several people is often written as one string — a CSV
+      # import carries `"Nusrat Fateh Ali Khan, Eddie Vedder"` as a single
+      # artist — and MusicBrainz has no artist of that name, so the query
+      # answers with nothing at all. Asking again for the first name finds them.
+      {:ok, []} -> retry_named(recording, title, credit)
+      {:ok, candidates} -> chosen(recording, candidates)
+      :error -> :error
+    end
+  end
+
+  defp by_name(%Recording{}), do: :none
+
+  defp retry_named(recording, title, credit) do
+    case lead_name(credit) do
+      nil ->
+        :none
+
+      ^credit ->
+        # Nothing to narrow: the credit already names one artist, and asking the
+        # identical question again would spend a request to be told the same
+        # thing.
+        :none
+
+      lead ->
+        case search(title, lead) do
+          {:ok, candidates} -> chosen(recording, candidates)
+          :error -> :error
+        end
+    end
+  end
+
+  # The first name in a credit written as one string.
+  #
+  # Deliberately *not* `OnePlaylist.Matching.Normalize.credits/1`, which returns
+  # an unordered set of normalized names — "first" would be arbitrary, and the
+  # query is better with the original spelling. Deliberately not applied to the
+  # stored value either: `Earth, Wind & Fire` splits into three here, which is
+  # harmless for a second attempt at a search and would be data corruption in
+  # `OnePlaylist.Formats.CSV`, which refuses to do it for exactly that reason.
+  #
+  # A wrong split can only cost recall. The candidates it finds are still scored
+  # by the ladder at `@every_field_agreed`, so a query that names the wrong
+  # artist answers with recordings that fail to corroborate and are declined.
+  defp lead_name(nil), do: nil
+
+  defp lead_name(credit) do
+    credit
+    |> String.split(~r/\s*[,&\/+]\s*/u, parts: 2)
+    |> List.first()
+    |> String.trim()
+    |> case do
+      "" -> nil
+      name -> name
+    end
+  end
+
+  defp search(title, artist) do
+    case Client.search_recordings(title, artist) do
       {:ok, candidates} ->
-        chosen(recording, candidates)
+        {:ok, candidates}
 
       {:error, reason} ->
         Logger.warning("musicbrainz recording search failed for #{title}: #{inspect(reason)}")
         :error
     end
   end
-
-  defp by_name(%Recording{}), do: :none
 
   # The ladder, at text's own ceiling. See the moduledoc for why that number is a
   # meaning rather than a tuning.

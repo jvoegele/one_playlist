@@ -196,6 +196,127 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     end
   end
 
+  describe "how the search query is built" do
+    # The stub answers the *first* search with nothing and the second with the
+    # real body, so a test can tell whether a retry happened at all.
+    defp stub_second_attempt_only(counter) do
+      Req.Test.stub(Client, fn conn ->
+        cond do
+          conn.request_path =~ "/isrc/" ->
+            Req.Test.json(conn, %{"isrc" => @isrc, "recordings" => []})
+
+          conn.request_path =~ "/recording/" ->
+            Req.Test.json(conn, lookup_body())
+
+          search?(conn.request_path) ->
+            attempt = Agent.get_and_update(counter, &{&1 + 1, &1 + 1})
+
+            Req.Test.json(
+              conn,
+              if(attempt == 1, do: %{"recordings" => []}, else: search_body(collaboration()))
+            )
+
+          conn.request_path =~ "/release/" ->
+            Req.Test.json(conn, %{"cover-art-archive" => %{"front" => true}})
+        end
+      end)
+    end
+
+    # A candidate credited to both names, so the retry has something that can
+    # actually reach the threshold.
+    defp collaboration do
+      [
+        %{
+          "id" => @mbid,
+          "score" => 100,
+          "title" => "Corduroy",
+          "length" => 285_000,
+          "artist-credit" => [
+            %{"name" => "Nusrat Fateh Ali Khan"},
+            %{"name" => "Eddie Vedder"}
+          ],
+          "releases" => [%{"id" => @release, "title" => "Vitalogy"}]
+        }
+      ]
+    end
+
+    test "asks for the parsed title, not the stored one" do
+      # A stored title often carries in parentheses what MusicBrainz keeps out
+      # of the title entirely. Verified live: "The Face Of Love (with Eddie
+      # Vedder)" matches no recording and "the face of love" matches it exactly.
+      {:ok, asked} = Agent.start_link(fn -> [] end)
+
+      Req.Test.stub(Client, fn conn ->
+        if search?(conn.request_path) do
+          Agent.update(asked, &[conn.query_string | &1])
+        end
+
+        Req.Test.json(conn, search_body())
+      end)
+
+      Enrichment.enrich(recording(%{isrc: nil, album: "Vitalogy", title: "Corduroy (Live)"}))
+
+      query = asked |> Agent.get(& &1) |> List.first() |> URI.decode()
+
+      assert query =~ ~s(recording:"corduroy")
+      refute query =~ "Live", "the version belongs to the ladder, not to the query"
+    end
+
+    test "retries an empty search with the credit's first name" do
+      # A credit naming several people is often written as one string — a CSV
+      # import carries "Nusrat Fateh Ali Khan, Eddie Vedder" as one artist — and
+      # MusicBrainz has no artist of that name, so it answers with nothing.
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+      stub_second_attempt_only(counter)
+
+      {:ok, enriched} =
+        Enrichment.enrich(
+          recording(%{
+            isrc: nil,
+            album: "Vitalogy",
+            artists: ["Nusrat Fateh Ali Khan, Eddie Vedder"]
+          })
+        )
+
+      assert Agent.get(counter, & &1) == 2, "the empty answer should have been retried"
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+
+    test "does not retry when the credit already names one artist" do
+      # Nothing to narrow, so a second attempt would spend a request to be told
+      # the same thing.
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+      stub_second_attempt_only(counter)
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: nil, artists: ["Pearl Jam"]}))
+
+      assert Agent.get(counter, & &1) == 1
+      refute enriched.musicbrainz_recording_id
+    end
+
+    test "does not retry a search that found candidates and declined them" do
+      # An empty answer says the *question* was wrong. A search that found
+      # candidates was asked a good question and given a bad answer, and a
+      # narrower question would not improve it.
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(Client, fn conn ->
+        if search?(conn.request_path), do: Agent.update(counter, &(&1 + 1))
+
+        cond do
+          conn.request_path =~ "/isrc/" -> Req.Test.json(conn, %{"recordings" => []})
+          search?(conn.request_path) -> Req.Test.json(conn, search_body())
+          true -> Req.Test.json(conn, lookup_body())
+        end
+      end)
+
+      # No album, so the candidate cannot reach the threshold and is declined.
+      Enrichment.enrich(recording(%{isrc: nil, album: nil, artists: ["A, B"]}))
+
+      assert Agent.get(counter, & &1) == 1
+    end
+  end
+
   describe "enrich/1 without an ISRC" do
     test "declines a plausible top hit that nothing corroborates" do
       # The case the whole design exists for. Verified live: MusicBrainz scores
