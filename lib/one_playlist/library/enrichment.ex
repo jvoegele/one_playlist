@@ -127,6 +127,26 @@ defmodule OnePlaylist.Library.Enrichment do
   MusicBrainz simply does not hold, and one of them was a recording MusicBrainz
   demonstrably *does* have under its own name.
 
+  ## A release may only describe the album it is a release of
+
+  The rules below once *preferred* a release whose title matched the recording's
+  album and fell back to "the earliest" when none did. Preference is not enough,
+  and the failure was visible on the playlist screen: seven *Vs.* recordings were
+  described by a release titled **Vitalogy**, so they showed Vitalogy's cover.
+  *No Code* tracks showed *rearviewmirror*'s. Three release groups were each
+  serving two different albums.
+
+  Two things compounded. A recording appears on many releases, and if none of
+  them is titled like the album the track says it is on — because MusicBrainz
+  lists it only on compilations and box sets — the fallback chose one anyway,
+  from an unrelated album. Then rule 1 propagated that choice to every sibling
+  of the same album, because it checked only that the release was in the
+  sibling's list and never that it was the right album.
+
+  So rule 2 is a **filter**, and rule 1 re-checks what it inherits. A recording
+  that names an album now gets a release of that album or none at all, which
+  costs a barcode occasionally and never shows the wrong cover.
+
   ## Artwork belongs to the album, not to the pressing
 
   A separate question from the one below, and it was got wrong first. Enrichment
@@ -156,13 +176,13 @@ defmodule OnePlaylist.Library.Enrichment do
   from a barcode. Three rules, in order:
 
     1. **An album agrees with itself.** If another recording of the same album
-       already settled on a release, and this recording appears on it, that one
-       wins outright. Read from Postgres rather than a cache, because the
-       agreement has to survive a restart — the ninth track of an album enriched
-       tomorrow must reach the same answer as the first eight.
-    2. **The release should be the album the track says it is on.** Candidates
-       whose title matches the recording's stored album are preferred over a
-       compilation the track also happens to appear on.
+       already settled on a release, this recording appears on it, **and it is a
+       release of this album**, that one wins outright. Read from Postgres rather
+       than a cache, because the agreement has to survive a restart — the ninth
+       track of an album enriched tomorrow must reach the same answer as the
+       first eight.
+    2. **The release must be the album the track says it is on.** A filter, not a
+       preference — see below.
     3. **The earliest release, then the lowest id** — so the result is
        deterministic rather than merely stable.
 
@@ -589,7 +609,7 @@ defmodule OnePlaylist.Library.Enrichment do
   # will not be in the winner's list.
   defp settled(%Recording{album: nil}, _releases), do: nil
 
-  defp settled(%Recording{album: album, id: id}, releases) do
+  defp settled(%Recording{album: album, id: id} = recording, releases) do
     chosen =
       Recording
       |> where([r], r.album == ^album and not is_nil(r.musicbrainz_release_id))
@@ -598,16 +618,35 @@ defmodule OnePlaylist.Library.Enrichment do
       |> limit(1)
       |> Repo.one()
 
-    chosen && Enum.find(releases, &(&1["id"] == chosen))
+    # Adopted only if it is *also* a release of this album. A sibling's choice is
+    # worth inheriting for consistency, never for authority: propagating one
+    # without re-checking it is how a single bad choice became an album-wide
+    # one — see the moduledoc.
+    case chosen && Enum.find(releases, &(&1["id"] == chosen)) do
+      nil -> nil
+      release -> if same_album?(recording, release), do: release
+    end
   end
 
-  # Rules 2 and 3. Sorting rather than filtering on the album title, so a
-  # recording whose only releases are compilations still gets one of those.
+  # Rules 2 and 3. A recording that names an album may only be described by a
+  # release **of that album** — `Enum.filter/2` rather than a sort, and that is
+  # the whole of the fix described in the moduledoc. Sorting merely *preferred*
+  # a matching release, so when none matched it fell through to "the earliest",
+  # which is any album the recording happens to appear on.
+  #
+  # A recording that names no album has nothing to be wrong about, so anything
+  # it appears on is as good as anything else.
   #
   # No request is made here. An earlier version asked the first few candidates
-  # whether they had cover art and preferred one that did — which was the wrong
-  # question in the wrong place, and is now the release group's. Deciding this
-  # from the response already in hand is the whole of it.
+  # whether they had cover art and preferred one that did — the wrong question
+  # in the wrong place, and now the release group's.
+  defp best(%Recording{album: album} = recording, releases) when is_binary(album) do
+    releases
+    |> Enum.filter(&same_album?(recording, &1))
+    |> Enum.sort_by(&ranking(recording, &1))
+    |> List.first()
+  end
+
   defp best(recording, releases) do
     releases
     |> Enum.sort_by(&ranking(recording, &1))

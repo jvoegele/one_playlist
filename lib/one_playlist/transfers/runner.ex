@@ -285,6 +285,12 @@ defmodule OnePlaylist.Transfers.Runner do
   # How many alternatives a person is offered for one track. Enough to choose
   # between three recordings of a song and few enough that a report full of them
   # stays a reasonable row.
+  # The weakest evidence allowed to conclude that two recordings are one. The
+  # same bar `OnePlaylist.Library.Identities` uses, for the same reason: below
+  # this, a claim is good enough to act on once and not good enough to assert
+  # permanently.
+  @identifier_strength :exact_upc
+
   @candidate_limit 5
 
   # Kept only where somebody might act on them. An exact identifier match is not
@@ -533,7 +539,7 @@ defmodule OnePlaylist.Transfers.Runner do
   defp store_if_accepted(outcome, _track, _adapter, _connection), do: outcome
 
   defp decide(track, candidates, threshold, adapter) do
-    opts = [threshold: threshold]
+    opts = [threshold: threshold_for(threshold, adapter)]
 
     case Matching.match(track, candidates, opts) do
       {:ok, _match} = matched ->
@@ -564,6 +570,27 @@ defmodule OnePlaylist.Transfers.Runner do
   end
 
   defp accepts_any_track?(adapter), do: :accepts_any_track in adapter.capabilities()
+
+  # A destination that can hold anything is matched at **identifier strength**,
+  # whatever the transfer asked for, and the reason is that the cost of a wrong
+  # answer inverts.
+  #
+  # Against a catalogue, a wrong match puts a wrong track in a playlist: visible
+  # in the report, correctable with one click, and confined to that transfer.
+  # Against the library, a wrong match **merges two recordings** — the source
+  # track stops existing as itself, every playlist naming it now points at the
+  # other one, and there is no split to undo it with. Measured on a real import:
+  # *Hard to Imagine* from *Lost Dogs* matched the *Chicago Cab* recording at
+  # `0.8950` on the strength of a shared title, was reported `already_present`,
+  # and vanished. Two different studio sessions, one row.
+  #
+  # `OnePlaylist.Library`'s own rule is that merging is destructive where adding
+  # is not, and `find_or_create/1` is carefully conservative about it — but it is
+  # only reached once matching has *failed*, so a permissive ladder in front of
+  # it undoes the care behind it. This is where the two are reconciled.
+  defp threshold_for(requested, adapter) do
+    if accepts_any_track?(adapter), do: @identifier_strength, else: requested
+  end
 
   # The second chance an ISRC deserves, and only ever a second chance.
   #

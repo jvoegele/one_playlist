@@ -1732,6 +1732,47 @@ honest fix is in **normalization** — deciding when *Touring Band 2000 - Instru
 *Touring Band 2000* are the same album — and it needs its own corpus, because the same rule
 would make *Greatest Hits* and *Greatest Hits Vol. 2* the same album too.
 
+### Two bugs a real re-import found, both about the cost of being wrong
+
+A user deleted a 143-track playlist and re-added it, and the screen showed things the tests
+did not: covers from the wrong album, and a track that had simply disappeared.
+
+**A release may only describe the album it is a release of.** `choose_release/2` *preferred* a
+release whose title matched the recording's album and fell back to "the earliest" when none
+did — so seven *Vs.* recordings were described by a release titled **Vitalogy** and showed
+Vitalogy's cover. Three release groups were each serving two different albums. Rule 1 then
+propagated the bad choice to every sibling, because it checked only that the release was in the
+sibling's list. The fix is a filter rather than a preference, and rule 1 re-checks what it
+inherits.
+
+The cost is real and is asserted in a test: an album carrying a subtitle the catalogue does not
+use — *Lost Dogs: Rarities and B Sides* against *Lost Dogs* — now matches no release and gains
+no barcode or cover. That is the same album-normalization problem the MusicBrainz query section
+ends on, and it errs toward showing nothing over showing another album's cover.
+
+**A destination that accepts anything is matched at identifier strength.** *Hard to Imagine*
+appears twice in that playlist — once from *Lost Dogs*, once from the *Chicago Cab*
+soundtrack, two separate studio sessions. The second matched the first at `0.8950` on a shared
+title, was reported `already_present`, and vanished. *Wishlist* from a 2006 bootleg merged into
+the studio recording on *Yield* at `0.8734`.
+
+The threshold that is right for a catalogue is wrong for the library, because the cost of being
+wrong inverts:
+
+| | A wrong match costs |
+| --- | --- |
+| Against a catalogue | one row in one report — visible, correctable, confined to that transfer |
+| Against the library | **two recordings merged** — the track stops existing as itself, every playlist naming it now points at the other, and there is no split to undo it |
+
+This is the same asymmetry the identity spine turns on, and it had been sitting in the transfer
+path unnoticed since the library became a destination. `Library.find_or_create/1` was already
+carefully conservative about what counts as the same recording — but it is only reached once
+matching has *failed*, so a permissive ladder in front of it undid the care behind it.
+
+Worth generalising: **`accepts_any_track` inverts more than what a miss means.** It was
+introduced as "a failed match is an instruction to store", and it turns out also to change what
+a *successful* match is allowed to conclude.
+
 ### Is MusicBrainz the right catalogue to lean on?
 
 Asked while building L4, and worth recording because the answer is not obvious.

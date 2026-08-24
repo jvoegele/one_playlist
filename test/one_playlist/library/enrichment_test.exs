@@ -176,7 +176,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
         recording(%{
           isrc: @isrc,
           title: "Corduroy (Remastered)",
-          album: "Vitalogy [2011 Reissue]",
+          album: "Vitalogy",
           duration_seconds: 999
         })
 
@@ -185,7 +185,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       {:ok, enriched} = Enrichment.enrich(existing)
 
       assert enriched.title == "Corduroy (Remastered)"
-      assert enriched.album == "Vitalogy [2011 Reissue]"
+      assert enriched.album == "Vitalogy"
       assert enriched.duration_seconds == 999
       assert enriched.album_upc == "074646690123", "the gaps should still be filled"
     end
@@ -580,24 +580,6 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
 
       assert enriched.musicbrainz_release_id == @release
-    end
-
-    test "falls back to a compilation when that is all there is" do
-      only_compilation = %{
-        lookup: %{
-          "id" => @mbid,
-          "title" => "Wreckage",
-          "releases" => [
-            %{"id" => @second_release, "title" => "Rearviewmirror", "date" => "2004"}
-          ]
-        }
-      }
-
-      stub_musicbrainz(only_compilation)
-
-      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
-
-      assert enriched.musicbrainz_release_id == @second_release
     end
 
     test "a recording on no releases at all is still enriched with what there is" do

@@ -739,6 +739,49 @@ defmodule OnePlaylist.TransfersTest do
       assert Enum.all?(rows, &(&1.confidence == "stored"))
     end
 
+    test "two different recordings sharing a title are not merged", %{user: user_id} do
+      # Found on a real import and it lost data. "Hard to Imagine" appears twice
+      # in one playlist — once from Lost Dogs, once from the Chicago Cab
+      # soundtrack, two separate studio sessions — and the second matched the
+      # first at 0.8950 on the strength of a shared title, was reported
+      # `already_present`, and vanished from the playlist entirely.
+      #
+      # Against a catalogue a wrong match is one visible, correctable row.
+      # Against the library it *merges two recordings*: the track stops existing
+      # as itself and no split undoes it. So a destination that accepts anything
+      # matches at identifier strength, whatever the transfer asked for.
+      {:ok, first} =
+        Library.create_playlist(user_id, "Two sessions")
+
+      same_title = fn album ->
+        %Track{
+          provider: :file,
+          provider_id: "f-#{System.unique_integer([:positive])}",
+          title: "Hard to Imagine",
+          artists: ["Pearl Jam"],
+          album: album
+        }
+      end
+
+      Library.append(user_id, first.id, [same_title.("Lost Dogs")])
+
+      {:ok, library} = Providers.fetch_usable_connection(user_id, :library)
+
+      # The second arrival, resolved the way the runner resolves it.
+      {:ok, adapter} = Providers.adapter(:library)
+
+      {:ok, candidates} =
+        adapter.search_tracks(library, same_title.("Chicago Cab"), [])
+
+      assert candidates != [], "the title search still offers it, which is right"
+
+      assert {:error, _declined} =
+               OnePlaylist.Matching.match(same_title.("Chicago Cab"), candidates,
+                 threshold: :exact_upc
+               ),
+             "but nothing below an identifier may conclude they are the same recording"
+    end
+
     test "the destination ids are the library's own, so the write confirms", %{user: user_id} do
       # The reason `accept_track/3` returns a track rather than the runner
       # reusing the source: `confirm_written/5` re-reads the destination and
