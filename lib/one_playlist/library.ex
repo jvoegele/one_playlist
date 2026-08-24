@@ -44,6 +44,21 @@ defmodule OnePlaylist.Library do
 
   use Bond
 
+  @typedoc """
+  One row of a playlist as the editor sees it.
+
+  Carries the **entry's** id as well as the recording, because a playlist may
+  hold the same recording twice and "remove this one" is a question about an
+  entry. `enriched?` says whether MusicBrainz has been *asked* about the
+  recording, which is not the same as whether it had anything to say.
+  """
+  @type entry :: %{
+          id: Ecto.UUID.t(),
+          position: integer(),
+          track: Track.t(),
+          enriched?: boolean()
+        }
+
   @doc """
   A user's library playlists, most recently made first, with their sizes.
 
@@ -133,9 +148,7 @@ defmodule OnePlaylist.Library do
   may hold the same recording twice, so "remove this one" and "move this one"
   are questions about an entry, and a recording id cannot answer them.
   """
-  @spec entries(Ecto.UUID.t(), Ecto.UUID.t()) :: [
-          %{id: Ecto.UUID.t(), position: integer(), track: Track.t()}
-        ]
+  @spec entries(Ecto.UUID.t(), Ecto.UUID.t()) :: [entry()]
   def entries(user_id, playlist_id) do
     query =
       from(i in PlaylistItem,
@@ -149,7 +162,16 @@ defmodule OnePlaylist.Library do
     {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(query) end)
 
     Enum.map(rows, fn {item, recording} ->
-      %{id: item.id, position: item.position, track: Recording.to_track(recording)}
+      %{
+        id: item.id,
+        position: item.position,
+        track: Recording.to_track(recording),
+        # Whether MusicBrainz has been *asked* about this recording, which is a
+        # different question from whether it had anything to say. A view that
+        # conflates the two tells a user their fully-resolved playlist is still
+        # loading, forever. See `OnePlaylist.Library.Enrichment`.
+        enriched?: not is_nil(recording.enriched_at)
+      }
     end)
   end
 
@@ -223,8 +245,7 @@ defmodule OnePlaylist.Library do
   # "No entry was lost" belongs in a test, where the sandbox makes the state
   # genuinely exclusive and the strong assertion is sound.
   @post positions_stay_distinct: distinct_positions?(result)
-  @spec move_entry(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), :up | :down) ::
-          [%{id: Ecto.UUID.t(), position: integer(), track: Track.t()}]
+  @spec move_entry(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), :up | :down) :: [entry()]
   def move_entry(user_id, playlist_id, entry_id, direction)
       when direction in [:up, :down] do
     ordered = entries(user_id, playlist_id)

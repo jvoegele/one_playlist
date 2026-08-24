@@ -15,8 +15,10 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
 
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Library
+  alias OnePlaylist.Library.Recording
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers
+  alias OnePlaylist.Repo
 
   setup :set_req_test_from_context
 
@@ -211,6 +213,86 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       assert html =~ "Nothing in here yet"
       assert html =~ "Transfer a playlist in"
       assert html =~ "import a file"
+    end
+  end
+
+  describe "how far enrichment has got" do
+    setup %{user_id: user_id} do
+      %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}
+    end
+
+    defp set_enrichment(user_id, playlist, states) do
+      user_id
+      |> Library.entries(playlist.id)
+      |> Enum.zip(states)
+      |> Enum.each(fn {entry, {isrc, enriched_at}} ->
+        Recording
+        |> Repo.get!(entry.track.provider_id)
+        |> Ecto.Changeset.change(isrc: isrc, enriched_at: enriched_at)
+        |> Repo.update!()
+      end)
+    end
+
+    test "says how many are still waiting while any are", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [
+        {"ZZZ9925000001", now},
+        {nil, nil},
+        {nil, nil}
+      ])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "1 of 3 identified by ISRC"
+      assert html =~ "2 still being looked up"
+    end
+
+    test "a recording MusicBrainz has no ISRC for is not 'still being looked up'", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The bug this pins. Missing an ISRC and not having been asked are
+      # different states, and inferring the second from the first told a user
+      # whose playlist was fully resolved that it was still working — for ever.
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [
+        {"ZZZ9925000002", now},
+        {nil, now},
+        {nil, now}
+      ])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "1 of 3 identified by ISRC"
+      refute html =~ "still being looked up"
+      assert html =~ "MusicBrainz has no ISRC for the other 2"
+    end
+
+    test "says nothing extra once every entry carries an ISRC", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [
+        {"ZZZ9925000003", now},
+        {"ZZZ9925000004", now},
+        {"ZZZ9925000005", now}
+      ])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "3 of 3 identified by ISRC"
+      refute html =~ "still being looked up"
+      refute html =~ "MusicBrainz has no ISRC"
     end
   end
 

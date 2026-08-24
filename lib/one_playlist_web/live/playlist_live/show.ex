@@ -23,8 +23,17 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   carry one will transfer perfectly and one where none do will not.
 
   It is also why the number moves on its own: enrichment is a background job on
-  a queue of one, so a freshly imported playlist starts low and climbs. Saying
-  so is better than a spinner nobody can interpret.
+  a queue of one, so a freshly imported playlist starts low and climbs.
+
+  **"Missing an ISRC" and "not looked up yet" are different, and the first
+  version of this conflated them.** It inferred "still being looked up" from a
+  track having no ISRC, so a playlist whose every recording had been resolved —
+  MusicBrainz simply having no ISRC for thirteen live cuts and soundtrack
+  appearances — reported that it was still working, permanently. Enrichment
+  looked broken while it was in fact finished and correct.
+
+  So the sentence is driven by `enriched?`, which says whether MusicBrainz has
+  been *asked*, and the terminal state says so plainly rather than trailing off.
 
   ## Reordering is two buttons, not a drag
 
@@ -162,8 +171,9 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
             </p>
             <p :if={@entries != []} class="text-xs opacity-60 mt-1">
               {@identified} of {length(@entries)} identified by ISRC
-              <span :if={@identified < length(@entries)}>
-                — the rest are still being looked up
+              <span :if={@pending > 0}>· {@pending} still being looked up</span>
+              <span :if={@pending == 0 and @identified < length(@entries)}>
+                · MusicBrainz has no ISRC for the other {length(@entries) - @identified}
               </span>
             </p>
           </div>
@@ -258,5 +268,6 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
     socket
     |> assign(:entries, entries)
     |> assign(:identified, Enum.count(entries, &is_binary(&1.track.isrc)))
+    |> assign(:pending, Enum.count(entries, &(not &1.enriched?)))
   end
 end
