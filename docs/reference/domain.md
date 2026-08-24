@@ -1192,3 +1192,178 @@ A defensible `one_playlist` v1:
    sync slots mirroring the incumbents' pricing shape.
 4. **Transparency and correctness as the brand.** Every transfer produces a durable,
    inspectable, shareable report.
+
+---
+
+## 5. Beyond transfer: One Playlist as a place playlists live
+
+Everything above treats this application as a **pipe**: playlists live at services, and the
+product moves them between. The direction below makes it a **place** as well — playlists live
+here too, fully editable, and the app is a legitimate source and destination for its own
+transfers and syncs.
+
+That reads like a change of subject and is not one. It follows from §2. The whole difficulty of
+transfer is that a recording has a different identity at every service; the answer this project
+has been building — ISRC, then UPC and position, then work, then text, with MusicBrainz as the
+tie-breaker — produces a *correspondence* between services that is thrown away the moment a
+transfer finishes. A library is where that correspondence gets to live.
+
+### The feature set
+
+| | Feature | What it means | Rests on |
+| --- | --- | --- | --- |
+| **L1** | The library | Playlists stored by this application, owned by a user | new schema |
+| **L2** | Editing | Create, rename, delete, reorder, add and remove tracks | L1 |
+| **L3** | The library as a transfer endpoint | Source *and* destination for transfer and sync | L1, `Runner` |
+| **L4** | Enrichment | Every library track resolved to as much metadata as can be obtained | `MusicBrainz`, `Catalogue`, `Matching` |
+| **L5** | The identity spine | A library track carries its id at every service it is known at | L4, `Matching` |
+| **L6** | Files in and out | Import a file into the library; export a library playlist to any format | `Formats`, `Imports`, `Exports` |
+| **L7** | My Playlists | One page listing everything, grouped by where it is stored | L1, `Providers` |
+
+L1–L3 are the product. L4 and L5 are what make it worth more than a folder of CSVs. L6 and L7
+are largely re-pointing machinery that already exists.
+
+### The library is the identity spine, and that is the point
+
+§2 ends with a note to *cache resolutions* — `(source_service, source_id) → (dest_service,
+dest_id, confidence)` — and calls it "the asset that compounds". The library is that cache with
+a face on it.
+
+A library track is not a copy of a TIDAL track. It is **a recording**, carrying every identifier
+it is known by: ISRC and its MusicBrainz family, a MusicBrainz recording id, a release barcode
+and position, and the provider id at each service where it has been located. Once a track is in
+that state, moving it somewhere is a **lookup rather than a match**.
+
+That is the strategic claim worth testing, because it inverts the product's economics:
+
+| | Cost of transferring one track |
+| --- | --- |
+| Today | one search per track per transfer, matched every time, with the failure rate §2 measures |
+| With a spine | one search per track *ever*, then an id lookup |
+
+It also compounds in the direction the matching work already points. A track the ladder resolved
+confidently once never has to be resolved again; a track a person corrected by hand
+(`transfer_overrides`) has been corrected **for every future transfer of that recording**, not
+just for the report row that prompted it. That is a materially better answer to §1's
+"match quality is the product" than more scoring.
+
+### Matching inverts when the destination is the library
+
+The most important design consequence, and the easiest to get wrong.
+
+Everywhere else in this application a failure to match is a **failure**: the destination
+catalogue does not have the recording, the track cannot be transferred, and the report says so.
+That anxiety is what `TrackNotMatched`, the confidence threshold and the version veto all exist
+to serve.
+
+The library has no catalogue. It can hold any recording, so a track arriving at it can always be
+stored. Matching still runs — against the user's own recordings, to decide whether this is
+something they already have — but a miss means **create a new recording**, not "unmatched".
+
+So the failure mode flips. Transferring *out* of the library risks a wrong match; transferring
+*into* it risks a **duplicate** — the same recording stored twice because the second arrival was
+not recognised. Duplicates are the library's version of the silent wrong answer, and the same
+rule applies: never merge two recordings on weak evidence, and make the join inspectable and
+reversible. Merging is destructive in a way adding is not.
+
+`Formats` already documents this asymmetry for files, where export "cannot fail to match". The
+library is the same shape with dedup added.
+
+### Is the library a provider?
+
+The open question, and the one that decides how much code this costs.
+
+`OnePlaylist.Transfers.Runner` is written entirely against `adapter.*`. If the library
+implements `OnePlaylist.Providers.Adapter`, transfer and sync work with **no pipeline changes**
+at all — `create_playlist/3`, `add_tracks/4`, `remove_tracks/4`, `playlist_track_ids/3` and
+`stream_tracks/3` become database operations and nothing above notices. That is a large prize.
+
+What resists it is `OnePlaylist.Providers.Connection`. Every callback takes one; `provider/0`
+carries a postcondition that the answer is in `Connection.providers()`; and `usable?/1` requires
+a non-blank `access_token`. A library needs no credential at all.
+
+**Recommendation, not a decision:** implement the behaviour, and let `Connection` become what it
+has been drifting toward — *a user's authorization to act at a place*, rather than *an OAuth
+grant*. Navidrome already moved it halfway: no expiry, nothing to refresh, a password where a
+token was assumed. A `:library` connection moves it the rest of the way, with `usable?/1`
+gaining an honest clause saying a library connection needs no credential to be usable.
+
+Worth saying plainly that this would be the **second** stretch of that type. A third should
+prompt splitting it rather than widening it again.
+
+The alternative — a third kind of endpoint beside "provider" and "file" — keeps `Connection`
+clean and puts a branch in every stage of the runner. `:file` is precedent for exactly one such
+branch, in `read_source/1`, and it is tolerable because a file is source-only. The library is
+both, so the branching would not stay contained.
+
+### The recording store is global; the playlists are per user
+
+Two tables doing different jobs, and conflating them is the mistake to avoid.
+
+  * **Recordings** are facts about the world — this ISRC, this MusicBrainz id, this id at TIDAL.
+    They belong to nobody, are worth sharing between users, and are the thing that compounds.
+    `catalogue_release_lookups` and `musicbrainz_isrc_lookups` are already this shape, so the
+    RLS pattern for an ownerless table exists and is documented in the migration that created
+    the first one.
+  * **Playlists and their contents** are the user's, protected by the usual `auth.uid()` policy
+    shape.
+
+Nothing about who owns what leaks from a shared recording store: membership lives in the
+per-user table. Ordering wants a position that can be changed without rewriting every row after
+it — fractional or lexicographic ranks rather than dense integers — because reordering a
+5,000-track playlist by hand should not be a 5,000-row update.
+
+### Enrichment is a budget, not a step
+
+MusicBrainz asks for one request a second and means it (§3). A 5,000-track library needing one
+lookup each is **83 minutes**; needing a recording lookup and a work lookup each is closer to
+three hours. So enrichment cannot be something that happens on import while somebody waits.
+
+What that implies:
+
+  * **Background and resumable.** Oban, one job per track or per batch, safe to re-run.
+  * **Incremental, and visible as such.** A track enters the library with whatever its source
+    carried and improves over time. The UI has to be honest about a partly-enriched track rather
+    than hiding it until it is complete.
+  * **Cheapest source first.** Much of what enrichment wants is already free: a track arriving
+    from TIDAL brings an ISRC, a barcode, artwork and a duration. MusicBrainz is for what no
+    single service knows — the ISRC family, the work, the cross-service identity — which is
+    exactly the ordering `OnePlaylist.MusicBrainz` already follows in only being consulted after
+    a lookup has missed.
+  * **Prioritised by attention.** A playlist the user is looking at is worth enriching before
+    one they imported and closed.
+
+### My Playlists: one page, several origins
+
+Grouped by where a playlist is stored: one group for the library, one per connected service.
+
+The cost is not in the library half. Listing a user's playlists at *N* services is *N*
+independent, rate-limited, individually-failing reads — 216 playlists at TIDAL is 11 requests
+before anything renders. So each group loads independently and says so, in the shape
+`TransferLive.New` already uses (`assign_async/3` per source), and one service being down or
+rate-limited degrades its own group rather than the page.
+
+### What this is deliberately not
+
+  * **Not a player.** No audio, ever. The library holds metadata about recordings, which is also
+    why it raises no licensing question at all — an important thing to be able to say plainly.
+  * **Not a catalogue.** It holds what users have put in it, not the world's music. It has no
+    ambition to be MusicBrainz and every reason to lean on it.
+  * **Not social.** No sharing, no following, no public profiles. Each of those is a different
+    product with a different threat model.
+
+### What it raises that transfer never did
+
+Transfer is stateless about user content: lose every row and a user re-runs a transfer. A
+library is the opposite — it is the thing a user would be angriest to lose — and that raises the
+bar in ways worth naming before building:
+
+  * **Export must be complete and easy.** A library nobody can leave is a hostage. L6 is not a
+    nice-to-have; it is the thing that makes L1 acceptable to depend on.
+  * **Deletion must be real.** Deleting an account deletes its playlists.
+  * **Backups become a product concern** rather than an operational one.
+  * **Bidirectional sync becomes a genuine question.** Today sync has a source and a
+    destination. A library playlist synced with a service playlist that both sides can edit
+    needs a conflict answer, and "last writer wins" quietly loses somebody's edit. Soundiiz
+    sidesteps this by making sync one-directional (§1); doing better is possible and should be a
+    deliberate decision rather than an accident.

@@ -466,6 +466,12 @@ The orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* in the Pearl Jam 
 longer needs hand-removal — open that transfer's report and use **Replace** on the row, which
 is exactly the case the button was built for.
 
+**Where this is going.** `docs/reference/domain.md` §5 defines the direction: One Playlist as a
+*place* playlists live, not only a pipe between services — an editable, enriched library that is
+itself a transfer source and destination, and that holds the cross-service identity of a
+recording so a match made once is never made again. Read it before proposing anything large; the
+backlog below is the road to it, not a separate list.
+
 **Not built yet**, roughly in value order:
 
   * **Magic link, then Google OAuth.** Both are ways of obtaining a GoTrue session and feed the
@@ -506,7 +512,7 @@ INVALID_RESOURCE_ID` that names neither scopes nor the parameter.
 | `AGENTS.md` | Phoenix/Elixir/LiveView coding conventions (generated; authoritative for code style) |
 | `docs/reference/jv-libraries.md` | Deep reference for `external_service`, `errata`, `bond`, `wait_for_it` |
 | `docs/reference/supabase.md` | Supabase platform reference oriented to Elixir/Phoenix |
-| `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits |
+| `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits, and (§5) where the product is going |
 | `docs/reference/contracts.md` | **House style for Bond contracts** — read before adding or changing one |
 | `docs/library-feedback.md` | Running log of friction found while dogfooding the four libraries |
 | `docs/supabase-sdk-issues.md` | Defects found in the Supabase Elixir SDK, with offline reproductions and upstream status |
