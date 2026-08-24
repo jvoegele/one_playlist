@@ -97,16 +97,6 @@ defmodule OnePlaylist.Matching.Normalize do
   # "JAY-Z, Alicia Keys" into a single name.
   @punctuation_separators ~r/\s*[,&\/+]\s*/u
 
-  # What introduces an annotation on an album title: a colon or an opening
-  # bracket. Never a bare space, which is what keeps *Greatest Hits Vol. 2*
-  # whole — and never a spaced hyphen, which was tried and measured and is not
-  # a subtitle marker at all. `Pearl Jam - Non-Album Tracks` is a store's own
-  # bucket, and stripping at the hyphen leaves `Pearl Jam`, which is a real
-  # album — so a pseudo-album silently adopted the self-titled record's cover
-  # and identity. The hyphen is the "Artist - Album" separator at least as often
-  # as it is a subtitle. See `album/1`.
-  @album_annotation ~r/\s*[:(\[]/u
-
   # **Separator words are split on the normalized form instead**, which is what
   # makes them reliable. By then the text is lowercased — so the provider's
   # capitalization cannot change the answer, as it did when "Simon and
@@ -375,22 +365,44 @@ defmodule OnePlaylist.Matching.Normalize do
       "greatest hits vol 2"
       iex> Normalize.album("Pearl Jam - Non-Album Tracks")
       "pearl jam non album tracks"
+      iex> Normalize.album("Live: 05-03-03 - State College, Pennsylvania")
+      "live 05 03 03 state college pennsylvania"
   """
   @spec album(String.t() | nil) :: String.t()
   def album(nil), do: ""
 
   def album(title) when is_binary(title) do
-    case String.split(title, @album_annotation, parts: 2) do
-      [core | _rest] ->
-        # An empty core means the whole title *is* an annotation — "(Live)" as an
-        # album name. Nothing has been learned, so nothing is stripped.
-        case text(core) do
-          "" -> text(title)
-          stripped -> stripped
-        end
+    title
+    |> strip_trailing_brackets()
+    |> strip_subtitle()
+    |> text()
+    |> case do
+      "" -> text(title)
+      core -> core
+    end
+  end
 
-      _whole ->
-        text(title)
+  # Repeatedly, because an album can carry more than one: "2000.08.24 - Jones
+  # Beach, New York (NYC) (Live)". Only *trailing* ones — a bracket in the middle
+  # is part of the name.
+  defp strip_trailing_brackets(title) do
+    stripped = String.replace(title, ~r/\s*[(\[][^()\[\]]*[)\]]\s*$/u, "")
+
+    if stripped == title, do: title, else: strip_trailing_brackets(stripped)
+  end
+
+  # A colon subtitle, and **only when more than one word precedes it**. A single
+  # word before a colon is a category prefix rather than an album name — "Live:
+  # 05-03-03 - State College, Pennsylvania" reduces to "Live", which matches
+  # every live record ever made. Two or more is a name with a subtitle after it:
+  # "Lost Dogs: Rarities and B Sides".
+  defp strip_subtitle(title) do
+    case String.split(title, ~r/\s*:\s*/u, parts: 2) do
+      [core, _subtitle] ->
+        if length(String.split(core, ~r/\s+/u, trim: true)) > 1, do: core, else: title
+
+      _none ->
+        title
     end
   end
 

@@ -1335,3 +1335,70 @@ A `log_level: :debug` option on `rate_limit:` would settle it, defaulting to tod
 nothing changes for existing users. Given the telemetry event already exists, `log_level: false`
 would be defensible too: an application that wants this in production has a better channel for
 it than the log.
+
+---
+
+## `errata` — `retryable?/1` raises, and the documented pattern cannot be used where it matters
+
+`Errata.retryable?/1` is presented as the function that answers "should this be retried", and
+its own documentation shows the intended shape:
+
+```elixir
+if Errata.retryable?(error), do: retry(), else: {:error, error}
+```
+
+That is exactly the code an Oban worker wants. It is also code an Oban worker cannot write,
+because `retryable?/1` **raises `ArgumentError` on anything that is not an Errata error** — and
+the boundary where the question gets asked is precisely the boundary where other error shapes
+arrive:
+
+```
+** (ArgumentError) expected an Errata error, got: #Ecto.Changeset<...>
+    (errata 1.7.0) lib/errata.ex:912: Errata.retryable?/1
+```
+
+`OnePlaylist.Library.EnrichmentWorker` receives `{:error, term}` from a function that can fail
+three ways — the archive was unreachable (Errata), the search was unreachable (Errata), or the
+write was rejected (`%Ecto.Changeset{}`). Every one of them is a legitimate error at that point
+and only two are Errata's.
+
+The workaround is a guard, and it is fine:
+
+```elixir
+import Errata, only: [is_error: 1]
+
+{:error, reason} when is_error(reason) ->
+  if Errata.retryable?(reason), do: {:snooze, 60}, else: give_up(reason)
+
+{:error, reason} ->
+  give_up(reason)
+```
+
+But it means every call site repeats the guard, and the failure mode for one that forgets is a
+**raise inside error handling** — the worst place for one, because it replaces a real error with
+an unrelated one and loses the original.
+
+### The shape of the fix
+
+`retryable?/1` is a *predicate*, and a predicate that raises rather than answering `false` is
+surprising in Elixir regardless of context. Two defensible resolutions:
+
+  * **Answer `false` for a non-error.** "Is this thing retryable?" has an obvious answer for a
+    changeset, and it is not "crash". This is what the calling code wants and what the
+    documentation's example silently assumes.
+  * **Keep raising, and offer `retryable?/2` with a default** — `Errata.retryable?(term, false)`
+    — mirroring `Errata.Aggregate.retryable?/2`, which *already* takes a fallback. That
+    asymmetry is itself a hint: the aggregate version was given one because the question is
+    genuinely open when the input is not an error, and the single version has the same problem.
+
+`Errata.reason/1` is worth checking for the same thing — it is reached from the same handlers,
+usually in a log line, where a raise is just as unwelcome.
+
+### The part that is right
+
+The design this exercised is good and worth saying so. Moving the retry decision *into the
+error* removed a branch on the **shape** of what came back — a `%Ecto.Changeset{}` meant give up
+and anything else meant retry — which worked and said nothing about why. Declaring
+`:archive_unreachable` and `:search_unavailable` on one `Errata.InfrastructureError` put the
+decision where it belongs, and a queue dashboard showing that reason on a discarded job is worth
+the type on its own.

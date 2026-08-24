@@ -231,7 +231,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       stored = recording(%{isrc: @isrc})
 
-      assert {:error, :artwork_unavailable} = Enrichment.enrich(stored)
+      assert {:error, error} = Enrichment.enrich(stored)
+      assert Errata.reason(error) == :archive_unreachable
+      assert Errata.retryable?(error), "so the worker snoozes rather than giving up"
 
       refreshed = Repo.get!(Recording, stored.id)
 
@@ -515,7 +517,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       stored = recording(%{isrc: "GBAYE0601477"})
 
-      assert {:error, :search_unavailable} = Enrichment.enrich(stored)
+      assert {:error, error} = Enrichment.enrich(stored)
+      assert Errata.reason(error) == :search_unavailable
+      assert Errata.retryable?(error)
       refute Repo.get!(Recording, stored.id).enriched_at
     end
 

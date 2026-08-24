@@ -570,7 +570,6 @@ defmodule OnePlaylist.Library do
     Recording
     # The index the library migration added for exactly this lookup.
     |> where([r], fragment("lower(?)", r.title) == ^String.downcase(title))
-    |> where([r], is_nil(r.isrc))
     |> Repo.all()
     |> Enum.find(&same_recording?(&1, track))
   end

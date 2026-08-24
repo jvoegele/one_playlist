@@ -57,6 +57,8 @@ defmodule OnePlaylist.Library.EnrichmentWorker do
 
   require Logger
 
+  import Errata, only: [is_error: 1]
+
   @doc """
   Queues one recording for enrichment.
 
@@ -94,21 +96,35 @@ defmodule OnePlaylist.Library.EnrichmentWorker do
     end
   end
 
+  # The error says what to do about itself. Before this the worker branched on
+  # the *shape* of what came back — a `%Ecto.Changeset{}` meant give up and
+  # anything else meant retry — which worked and said nothing about why.
+  #
+  # `Errata.retryable?/1` **raises** on anything that is not an Errata error, so
+  # it cannot be asked directly at a boundary where a changeset or a `Req` error
+  # can arrive. `is_error/1` is the guard that makes it safe, and anything else
+  # is not retryable: a rejected changeset will be rejected identically in a
+  # minute.
   defp enrich(recording) do
     case Enrichment.enrich(recording) do
       {:ok, _enriched} ->
         :ok
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        Logger.warning(
-          "enrichment of #{recording.id} produced an invalid recording: " <>
-            inspect(changeset.errors)
-        )
+      {:error, reason} when is_error(reason) ->
+        if Errata.retryable?(reason) do
+          {:snooze, 60}
+        else
+          give_up(recording, reason)
+        end
 
-        {:cancel, :invalid}
-
-      {:error, _unreachable} ->
-        {:snooze, 60}
+      {:error, reason} ->
+        give_up(recording, reason)
     end
+  end
+
+  defp give_up(recording, reason) do
+    Logger.warning("enrichment of #{recording.id} gave up: #{inspect(reason)}")
+
+    {:cancel, :not_retryable}
   end
 end

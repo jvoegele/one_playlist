@@ -181,7 +181,9 @@ defmodule OnePlaylist.LibraryTest do
 
       assert Library.find_or_create(track(%{isrc: "GBAYE0601477"})).id == lower.id
 
-      junk = Library.find_or_create(track(%{isrc: "not-an-isrc"}))
+      # A distinct title, so the metadata key cannot recognise it as the
+      # recording above — this test is about the ISRC column, not about dedup.
+      junk = Library.find_or_create(track(%{isrc: "not-an-isrc", title: "Zzyzx Junk"}))
 
       assert junk.isrc == nil,
              "junk that compares equal to other junk is worse than no identifier"

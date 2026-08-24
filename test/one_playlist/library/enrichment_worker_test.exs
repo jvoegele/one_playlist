@@ -73,6 +73,27 @@ defmodule OnePlaylist.Library.EnrichmentWorkerTest do
     end
   end
 
+  describe "deciding whether to try again" do
+    test "an unreachable source snoozes rather than giving up" do
+      # The error says what to do about itself. Before this the worker branched
+      # on the *shape* of what came back, which worked and said nothing about
+      # why — and a queue dashboard showing `:archive_unreachable` is worth the
+      # error type on its own.
+      error = OnePlaylist.Library.EnrichmentUnavailable.new(reason: :archive_unreachable)
+
+      assert Errata.retryable?(error)
+    end
+
+    test "asking a non-Errata error whether it is retryable raises" do
+      # Worth pinning, because it is the whole reason the worker guards with
+      # `is_error/1`. `Errata.retryable?/1` is documented as *the* decision
+      # function — `if Errata.retryable?(error), do: retry()` — and it cannot be
+      # used that way at a boundary where a changeset or a `Req` error can
+      # arrive, which at an Oban worker is always.
+      assert_raise ArgumentError, fn -> Errata.retryable?(%Ecto.Changeset{}) end
+    end
+  end
+
   describe "the nightly sweep" do
     test "queues the never-enriched and leaves the freshly asked alone" do
       Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])

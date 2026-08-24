@@ -223,6 +223,7 @@ defmodule OnePlaylist.Library.Enrichment do
 
   alias OnePlaylist.Cache
   alias OnePlaylist.CoverArt.Client, as: CoverArt
+  alias OnePlaylist.Library.EnrichmentUnavailable
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Normalize
@@ -321,7 +322,7 @@ defmodule OnePlaylist.Library.Enrichment do
         # and recording it as one would make an outage permanent — `due/1` never
         # offers a stamped recording again. The same rule the artwork lookup
         # follows, and for the same reason.
-        {:error, :search_unavailable}
+        {:error, EnrichmentUnavailable.new(reason: :search_unavailable)}
     end
   end
 
@@ -623,7 +624,7 @@ defmodule OnePlaylist.Library.Enrichment do
     case artwork do
       :unavailable ->
         _ = write(recording, learned)
-        {:error, :artwork_unavailable}
+        {:error, EnrichmentUnavailable.new(reason: :archive_unreachable)}
 
       _asked_and_answered ->
         record_attempt(
