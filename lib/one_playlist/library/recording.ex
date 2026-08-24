@@ -37,6 +37,11 @@ defmodule OnePlaylist.Library.Recording do
     field :isrc, :string
     field :musicbrainz_recording_id, Ecto.UUID
 
+    # Which release the album, barcode and cover came from. A recording appears
+    # on many, and they disagree — see the migration, and
+    # `OnePlaylist.Library.Enrichment` for how one is chosen.
+    field :musicbrainz_release_id, Ecto.UUID
+
     field :title, :string
     field :artists, {:array, :string}, default: []
     field :album, :string
@@ -64,7 +69,7 @@ defmodule OnePlaylist.Library.Recording do
     timestamps(type: :utc_datetime_usec)
   end
 
-  @fields ~w(isrc musicbrainz_recording_id title artists album album_upc track_number
+  @fields ~w(isrc musicbrainz_recording_id musicbrainz_release_id title artists album album_upc track_number
              volume_number version duration_seconds explicit artwork_url
              origin_provider origin_provider_id enriched_at)a
 

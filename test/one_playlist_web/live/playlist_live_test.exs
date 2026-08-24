@@ -225,10 +225,20 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       user_id
       |> Library.entries(playlist.id)
       |> Enum.zip(states)
-      |> Enum.each(fn {entry, {isrc, enriched_at}} ->
+      |> Enum.each(fn {entry, state} ->
+        {isrc, enriched_at, mbid} =
+          case state do
+            {isrc, enriched_at} -> {isrc, enriched_at, nil}
+            {_isrc, _enriched_at, _mbid} = full -> full
+          end
+
         Recording
         |> Repo.get!(entry.track.provider_id)
-        |> Ecto.Changeset.change(isrc: isrc, enriched_at: enriched_at)
+        |> Ecto.Changeset.change(
+          isrc: isrc,
+          enriched_at: enriched_at,
+          musicbrainz_recording_id: mbid
+        )
         |> Repo.update!()
       end)
     end
@@ -293,6 +303,117 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       assert html =~ "3 of 3 identified by ISRC"
       refute html =~ "still being looked up"
       refute html =~ "MusicBrainz has no ISRC"
+    end
+  end
+
+  describe "what a row says about one recording" do
+    setup %{user_id: user_id} do
+      %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}
+    end
+
+    defp entry_ids(user_id, playlist),
+      do: Library.entries(user_id, playlist.id) |> Enum.map(& &1.id)
+
+    test "distinguishes waiting, not found, and identified", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [
+        # asked, identified, carries an ISRC — the ordinary case, says nothing
+        {"ZZZ9925000010", now, "aaaaaaaa-1111-2222-3333-444444444444"},
+        # asked, MusicBrainz has no such recording
+        {nil, now, nil},
+        # never asked
+        {nil, nil, nil}
+      ])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "not found at MusicBrainz"
+      assert html =~ "waiting to be looked up"
+      assert html =~ "Identified at MusicBrainz"
+    end
+
+    test "an identified recording MusicBrainz has no ISRC for says so", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # Identified but without an ISRC is its own state, and the one most likely
+      # to be misread as a failure. It is not: the recording is resolved.
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [
+        {nil, now, "bbbbbbbb-1111-2222-3333-444444444444"},
+        {nil, now, "bbbbbbbb-1111-2222-3333-444444444444"},
+        {nil, now, "bbbbbbbb-1111-2222-3333-444444444444"}
+      ])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "MusicBrainz has no ISRC for this recording"
+      refute html =~ "not found at MusicBrainz"
+      refute html =~ "waiting to be looked up"
+    end
+
+    test "expanding a row shows what enrichment found, and collapsing hides it", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      now = DateTime.utc_now()
+      mbid = "cccccccc-1111-2222-3333-444444444444"
+
+      set_enrichment(user_id, playlist, [
+        {"ZZZ9925000011", now, mbid},
+        {nil, nil, nil},
+        {nil, nil, nil}
+      ])
+
+      [first | _rest] = entry_ids(user_id, playlist)
+
+      {:ok, view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      refute html =~ mbid, "detail is hidden until asked for"
+
+      expanded =
+        view
+        |> element(~s{button[phx-value-entry="#{first}"][phx-click="toggle_detail"]})
+        |> render_click()
+
+      assert expanded =~ mbid
+      assert expanded =~ "ZZZ9925000011"
+      assert expanded =~ "Looked up"
+
+      collapsed =
+        view
+        |> element(~s{button[phx-value-entry="#{first}"][phx-click="toggle_detail"]})
+        |> render_click()
+
+      refute collapsed =~ mbid
+    end
+
+    test "an unenriched row's detail says it is queued rather than showing blanks", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      set_enrichment(user_id, playlist, [{nil, nil, nil}, {nil, nil, nil}, {nil, nil, nil}])
+
+      [first | _rest] = entry_ids(user_id, playlist)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      expanded =
+        view
+        |> element(~s{button[phx-value-entry="#{first}"][phx-click="toggle_detail"]})
+        |> render_click()
+
+      assert expanded =~ "not looked up yet"
+      assert expanded =~ "enrichment runs one recording a second"
     end
   end
 

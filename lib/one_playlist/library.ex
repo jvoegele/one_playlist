@@ -49,14 +49,26 @@ defmodule OnePlaylist.Library do
 
   Carries the **entry's** id as well as the recording, because a playlist may
   hold the same recording twice and "remove this one" is a question about an
-  entry. `enriched?` says whether MusicBrainz has been *asked* about the
-  recording, which is not the same as whether it had anything to say.
+  entry.
+
+  The `musicbrainz` half is what the editor shows when a row is expanded, and it
+  is deliberately not on `t:OnePlaylist.Music.Track.t/0`: a track is what gets
+  transferred, and where its metadata was resolved from is a fact about the
+  *stored recording* rather than about the music. `enriched?` says whether
+  MusicBrainz has been **asked**, which is not the same as whether it had
+  anything to say — three states, and a view that collapses them to two tells a
+  finished playlist it is still loading.
   """
   @type entry :: %{
           id: Ecto.UUID.t(),
           position: integer(),
           track: Track.t(),
-          enriched?: boolean()
+          enriched?: boolean(),
+          musicbrainz: %{
+            recording_id: Ecto.UUID.t() | nil,
+            release_id: Ecto.UUID.t() | nil,
+            looked_up_at: DateTime.t() | nil
+          }
         }
 
   @doc """
@@ -166,11 +178,12 @@ defmodule OnePlaylist.Library do
         id: item.id,
         position: item.position,
         track: Recording.to_track(recording),
-        # Whether MusicBrainz has been *asked* about this recording, which is a
-        # different question from whether it had anything to say. A view that
-        # conflates the two tells a user their fully-resolved playlist is still
-        # loading, forever. See `OnePlaylist.Library.Enrichment`.
-        enriched?: not is_nil(recording.enriched_at)
+        enriched?: not is_nil(recording.enriched_at),
+        musicbrainz: %{
+          recording_id: recording.musicbrainz_recording_id,
+          release_id: recording.musicbrainz_release_id,
+          looked_up_at: recording.enriched_at
+        }
       }
     end)
   end

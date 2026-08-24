@@ -18,6 +18,13 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
 
+  # `ZZ` is an unassigned ISRC country code, so a fixture cannot collide with
+  # music somebody imported into the dev database this shares.
+  defp unique_isrc do
+    "ZZZ9925" <>
+      String.pad_leading(to_string(rem(System.unique_integer([:positive]), 100_000)), 5, "0")
+  end
+
   @isrc "USSM11100234"
   @mbid "ea8c7b4c-bd88-4029-96ba-fb483eb29e8b"
   @release "9c5b2d61-4e8c-4f43-9b71-2c8bd0e1a5f0"
@@ -236,6 +243,170 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert {:error, _reason} = Enrichment.enrich(stored)
 
       assert %Recording{enriched_at: nil} = Repo.get!(Recording, stored.id)
+    end
+  end
+
+  describe "choosing which release the metadata comes from" do
+    @second_release "3f2a1c88-7d55-4e2b-9a10-6c4e0b7d2e91"
+
+    defp releases(recording_ids) do
+      Recording
+      |> Ecto.Query.where([r], r.id in ^recording_ids)
+      |> Repo.all()
+      |> Enum.map(& &1.musicbrainz_release_id)
+    end
+
+    defp two_releases_body do
+      %{
+        lookup: %{
+          "id" => @mbid,
+          "title" => "Wreckage",
+          "length" => 300_000,
+          "releases" => [
+            # Listed first, and the wrong answer: a compilation the track also
+            # appears on. MusicBrainz returns these in no meaningful order.
+            %{"id" => @second_release, "title" => "Rearviewmirror", "date" => "2004"},
+            %{
+              "id" => @release,
+              "title" => "Dark Matter",
+              "barcode" => "602458971163",
+              "date" => "2024"
+            }
+          ]
+        }
+      }
+    end
+
+    test "prefers the release naming the album the track says it is on" do
+      stub_musicbrainz(two_releases_body())
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
+
+      assert enriched.musicbrainz_release_id == @release
+      assert enriched.album_upc == "602458971163", "the barcode must come from the same release"
+    end
+
+    test "an album agrees with itself, even when a later track sees a better candidate" do
+      # The defect this was written for: eight tracks of one album resolved to
+      # three releases, so the album contradicted itself about its own barcode
+      # and showed a cover on two tracks out of eight.
+      stub_musicbrainz(two_releases_body())
+
+      first = recording(%{isrc: unique_isrc(), album: "Dark Matter"})
+      {:ok, first} = Enrichment.enrich(first)
+
+      # The second track's own ranking would prefer the *other* release, because
+      # nothing here names the album. Rule 1 should override that.
+      second = recording(%{isrc: unique_isrc(), album: "Dark Matter", title: "Won't Tell"})
+      {:ok, second} = Enrichment.enrich(second)
+
+      assert first.musicbrainz_release_id == second.musicbrainz_release_id
+      assert releases([first.id, second.id]) |> Enum.uniq() |> length() == 1
+    end
+
+    test "a settled release from a different album cannot mislead" do
+      # Two albums may share a name. The membership test is what makes matching
+      # on title alone safe: the other album's release is not in this
+      # recording's list, so it is ignored rather than adopted.
+      Repo.insert!(%Recording{
+        title: "Something Else",
+        album: "Dark Matter",
+        musicbrainz_release_id: "11111111-2222-3333-4444-555555555555"
+      })
+
+      stub_musicbrainz(two_releases_body())
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
+
+      assert enriched.musicbrainz_release_id == @release
+    end
+
+    test "falls back to a compilation when that is all there is" do
+      only_compilation = %{
+        lookup: %{
+          "id" => @mbid,
+          "title" => "Wreckage",
+          "releases" => [
+            %{"id" => @second_release, "title" => "Rearviewmirror", "date" => "2004"}
+          ]
+        }
+      }
+
+      stub_musicbrainz(only_compilation)
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Dark Matter"}))
+
+      assert enriched.musicbrainz_release_id == @second_release
+    end
+
+    test "a recording on no releases at all is still enriched with what there is" do
+      stub_musicbrainz(%{lookup: %{"id" => @mbid, "length" => 300_000, "isrcs" => [@isrc]}})
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: nil}))
+
+      refute enriched.musicbrainz_release_id
+      assert enriched.duration_seconds == 300
+    end
+  end
+
+  describe "reset/1" do
+    test "puts a recording back in front of due/1" do
+      stub_musicbrainz()
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
+
+      assert Enrichment.reset([enriched.id]) == 1
+
+      refreshed = Repo.get!(Recording, enriched.id)
+
+      refute refreshed.enriched_at
+      refute refreshed.musicbrainz_recording_id
+      refute refreshed.musicbrainz_release_id
+    end
+
+    test "clears a barcode and cover it chose the release for" do
+      stub_musicbrainz()
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
+
+      assert enriched.album_upc && enriched.artwork_url
+
+      Enrichment.reset([enriched.id])
+      refreshed = Repo.get!(Recording, enriched.id)
+
+      refute refreshed.album_upc
+      refute refreshed.artwork_url
+    end
+
+    test "leaves alone what the track brought with it" do
+      # The rule that stops `reset/1` becoming the overwrite `enrich/1` refuses
+      # to do, reached by the back door. Nothing here came from MusicBrainz, so
+      # `musicbrainz_release_id` is null and none of it is ours to clear.
+      own =
+        recording(%{
+          isrc: @isrc,
+          title: "Corduroy",
+          album: "Vitalogy",
+          album_upc: "074646690123",
+          artwork_url: "https://tidal.test/cover.jpg",
+          duration_seconds: 285
+        })
+
+      assert Enrichment.reset([own.id]) == 1
+
+      refreshed = Repo.get!(Recording, own.id)
+
+      assert refreshed.title == "Corduroy"
+      assert refreshed.artists == ["Pearl Jam"]
+      assert refreshed.isrc == @isrc
+      assert refreshed.album == "Vitalogy"
+      assert refreshed.duration_seconds == 285
+      assert refreshed.album_upc == "074646690123", "not enrichment's to clear"
+      assert refreshed.artwork_url == "https://tidal.test/cover.jpg", "nor this"
+    end
+
+    test "resetting nothing is not an error" do
+      assert Enrichment.reset([]) == 0
     end
   end
 

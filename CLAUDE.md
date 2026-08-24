@@ -493,6 +493,13 @@ backlog below is the road to it, not a separate list.
     this is a table and a write, not new logic. It is what §5's economics argument rests
     on and the largest remaining piece of the library.
 
+  * **Resolve the album, not each track.** Enrichment picks a MusicBrainz release per
+    *recording*, with a rule that makes an album agree with itself where it can. Seven
+    of the dev library's albums still span more than one release, because a widely
+    reissued album's pressings are not all listed against every one of its recordings.
+    Covers agree; barcodes do not. The fix is to resolve the album once and map its
+    tracks onto it.
+
   * **Adding a track to a library playlist by hand.** L2 covers rename, delete,
     remove and reorder; *adding* needs something to add **from**, which is a
     search UI over either the shared recording store or a connected service.

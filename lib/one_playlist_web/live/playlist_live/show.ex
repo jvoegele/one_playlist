@@ -57,6 +57,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:playlist, playlist)
          |> assign(:page_title, playlist.name)
          |> assign(:renaming?, false)
+         |> assign(:expanded, MapSet.new())
          |> load_entries()}
 
       # Indistinguishable from a playlist that never existed, exactly as
@@ -70,6 +71,19 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   end
 
   @impl true
+  def handle_event("toggle_detail", %{"entry" => entry_id}, socket) do
+    expanded = socket.assigns.expanded
+
+    toggled =
+      if MapSet.member?(expanded, entry_id) do
+        MapSet.delete(expanded, entry_id)
+      else
+        MapSet.put(expanded, entry_id)
+      end
+
+    {:noreply, assign(socket, :expanded, toggled)}
+  end
+
   def handle_event("rename", _params, socket), do: {:noreply, assign(socket, :renaming?, true)}
 
   def handle_event("cancel_rename", _params, socket),
@@ -85,7 +99,8 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          socket
          |> assign(:playlist, updated)
          |> assign(:page_title, updated.name)
-         |> assign(:renaming?, false)}
+         |> assign(:renaming?, false)
+         |> assign(:expanded, MapSet.new())}
 
       _otherwise ->
         {:noreply, put_flash(socket, :error, "A playlist needs a name.")}
@@ -221,7 +236,32 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
                   <span :if={entry.track.album}>
                     · <em>{entry.track.album}</em>
                   </span>
+                  <span :if={entry.track.duration_seconds}>
+                    · {duration(entry.track.duration_seconds)}
+                  </span>
                 </div>
+                <div :if={note(entry)} class="text-xs opacity-50 mt-0.5 truncate">
+                  {note(entry)}
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1 shrink-0">
+                <span title={marker_title(entry)} aria-label={marker_title(entry)}>
+                  <.icon name={marker_icon(entry)} class={"w-4 h-4 " <> marker_class(entry)} />
+                </span>
+
+                <button
+                  phx-click="toggle_detail"
+                  phx-value-entry={entry.id}
+                  class="btn btn-ghost btn-xs"
+                  aria-expanded={to_string(expanded?(@expanded, entry))}
+                  aria-label="What is known about this recording"
+                >
+                  <.icon
+                    name={if expanded?(@expanded, entry), do: "hero-chevron-up", else: "hero-chevron-down"}
+                    class="w-4 h-4"
+                  />
+                </button>
               </div>
 
               <div class="flex items-center gap-1 shrink-0">
@@ -255,11 +295,129 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
                 </button>
               </div>
             </div>
+
+            <.detail :if={expanded?(@expanded, entry)} entry={entry} />
           </li>
         </ul>
       </div>
     </Layouts.app>
     """
+  end
+
+  attr :entry, :map, required: true
+
+  defp detail(assigns) do
+    ~H"""
+    <div class="px-4 pb-3 -mt-1">
+      <dl class="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-xs bg-base-100 rounded p-3">
+        <.fact label="ISRC" value={@entry.track.isrc} missing="none at MusicBrainz" />
+
+        <dt class="opacity-60">MusicBrainz</dt>
+        <dd class="font-mono break-all">
+          <a
+            :if={@entry.musicbrainz.recording_id}
+            href={"https://musicbrainz.org/recording/#{@entry.musicbrainz.recording_id}"}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="link"
+          >
+            {@entry.musicbrainz.recording_id}
+          </a>
+          <span :if={!@entry.musicbrainz.recording_id} class="opacity-40 font-sans">
+            {if @entry.enriched?, do: "not found", else: "not looked up yet"}
+          </span>
+        </dd>
+
+        <.fact label="Album" value={@entry.track.album} />
+        <.fact label="Barcode" value={@entry.track.album_upc} />
+
+        <dt :if={@entry.musicbrainz.release_id} class="opacity-60">Release</dt>
+        <dd :if={@entry.musicbrainz.release_id} class="font-mono break-all">
+          <a
+            href={"https://musicbrainz.org/release/#{@entry.musicbrainz.release_id}"}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="link"
+          >
+            {@entry.musicbrainz.release_id}
+          </a>
+        </dd>
+
+        <.fact
+          label="Length"
+          value={@entry.track.duration_seconds && duration(@entry.track.duration_seconds)}
+        />
+
+        <dt class="opacity-60">Looked up</dt>
+        <dd>
+          <span :if={@entry.musicbrainz.looked_up_at}>
+            {Calendar.strftime(@entry.musicbrainz.looked_up_at, "%d %b %Y, %H:%M UTC")}
+          </span>
+          <span :if={!@entry.musicbrainz.looked_up_at} class="opacity-40">
+            queued — enrichment runs one recording a second
+          </span>
+        </dd>
+      </dl>
+    </div>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :value, :string, default: nil
+  attr :missing, :string, default: "—"
+
+  defp fact(assigns) do
+    ~H"""
+    <dt class="opacity-60">{@label}</dt>
+    <dd class={if @value, do: "break-all", else: "opacity-40"}>{@value || @missing}</dd>
+    """
+  end
+
+  # Three states, because there are three. Collapsing "not asked" into "nothing
+  # found" is the bug this screen already shipped once.
+  defp state(%{enriched?: false}), do: :waiting
+  defp state(%{musicbrainz: %{recording_id: nil}}), do: :unidentified
+  defp state(_entry), do: :identified
+
+  defp marker_icon(entry) do
+    case state(entry) do
+      :identified -> "hero-check-circle"
+      :unidentified -> "hero-minus-circle"
+      :waiting -> "hero-clock"
+    end
+  end
+
+  defp marker_class(entry) do
+    case state(entry) do
+      :identified -> "text-success/70"
+      :unidentified -> "opacity-30"
+      :waiting -> "opacity-40"
+    end
+  end
+
+  defp marker_title(entry) do
+    case state(entry) do
+      :identified -> "Identified at MusicBrainz"
+      :unidentified -> "MusicBrainz does not have this recording"
+      :waiting -> "Waiting to be looked up"
+    end
+  end
+
+  # Only says something when there is something to say. An identified recording
+  # carrying an ISRC is the ordinary case and gets no third line.
+  defp note(entry) do
+    case {state(entry), entry.track.isrc} do
+      {:waiting, _isrc} -> "waiting to be looked up"
+      {:unidentified, _isrc} -> "not found at MusicBrainz"
+      {:identified, nil} -> "MusicBrainz has no ISRC for this recording"
+      {:identified, _isrc} -> nil
+    end
+  end
+
+  defp expanded?(expanded, entry), do: MapSet.member?(expanded, entry.id)
+
+  defp duration(seconds) when is_integer(seconds) do
+    "#{div(seconds, 60)}:#{String.pad_leading(to_string(rem(seconds, 60)), 2, "0")}"
   end
 
   defp load_entries(socket) do

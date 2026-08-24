@@ -1402,6 +1402,44 @@ three tracks from a 2022 album, an extended version, a live cut — and one, a n
 had no ISRC and was correctly declined rather than guessed at. Nothing was matched to the wrong
 recording, which is the number that actually matters here.
 
+### A recording has many releases, and they disagree
+
+Found by looking at the screen rather than the tests. Eight tracks of *Dark Matter*
+resolved to **three** different MusicBrainz releases, so the album contradicted itself:
+two barcodes, and a cover on two tracks out of eight. Thirteen of the library's albums were
+affected.
+
+The cause was one line — `List.first(releases)` — and it is worth naming why that was
+wrong rather than merely unlucky. MusicBrainz lists every release a recording appears on:
+the original pressing, reissues, regional editions, compilations. They are returned in no
+meaningful order, and they hold **different barcodes and different cover art**. Picking
+arbitrarily therefore produces a per-track answer where the user sees a per-album fact.
+
+The release is now chosen deliberately and stored in `musicbrainz_release_id`, which makes
+the decision auditable instead of inferable from a barcode. Three rules: an album agrees
+with itself (read from Postgres, so the agreement survives a restart); a release naming the
+track's own album beats a compilation it also appears on; and among those, prefer one Cover
+Art Archive actually holds a cover for, then the earliest, then the lowest id.
+
+After the repair, cover coverage went 104 → 119 of 150 and *Dark Matter* is uniform. Seven
+albums still span more than one release, and the reason is worth keeping: a widely reissued
+album has dozens of pressings, and MusicBrainz lists for each recording only the ones it
+appears on, so the release the first track settles on may simply not be among the fifth
+track's options. Their covers agree; their barcodes do not. Resolving the **album** once and
+mapping its tracks onto it would fix that, and is a larger piece of work than it sounds.
+
+Two lessons, both general:
+
+  * **A field filled correctly per row can still be wrong per album.** Nothing in the
+    matching corpora would ever have caught this, because it is not a matching error — every
+    one of those recordings was identified correctly.
+  * **"Fill gaps, never correct" means a wrong value is permanent** until something explicitly
+    clears it. `Enrichment.reset/1` is that something, and it is deliberately narrower than the
+    repair this needed: it clears a barcode and cover only where `musicbrainz_release_id` proves
+    enrichment chose the release they came from. The wider one-off clear lives in
+    `dev/probes/repair_release_choice.exs`, where the argument for its safety is written down
+    because it does not generalise.
+
 ### Is MusicBrainz the right catalogue to lean on?
 
 Asked while building L4, and worth recording because the answer is not obvious.
