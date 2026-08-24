@@ -388,7 +388,7 @@ defmodule OnePlaylist.Transfers.Runner do
     if Matching.searchable?(track) do
       case adapter.search_tracks(connection, track, []) do
         {:ok, candidates} ->
-          {outcome, ranked} = decide(track, candidates, threshold)
+          {outcome, ranked} = decide(track, candidates, threshold, adapter)
 
           {store_if_accepted(outcome, track, adapter, connection), ranked}
 
@@ -420,7 +420,7 @@ defmodule OnePlaylist.Transfers.Runner do
   # look for the *source's* id in the destination and declare its own write
   # missing.
   defp store_if_accepted({:error, %TrackNotMatched{}} = failed, track, adapter, connection) do
-    if :accepts_any_track in adapter.capabilities() do
+    if accepts_any_track?(adapter) do
       case adapter.accept_track(connection, track, []) do
         {:ok, accepted} -> {:ok, Match.stored(track, accepted)}
         {:error, _reason} -> failed
@@ -432,14 +432,38 @@ defmodule OnePlaylist.Transfers.Runner do
 
   defp store_if_accepted(outcome, _track, _adapter, _connection), do: outcome
 
-  defp decide(track, candidates, threshold) do
+  defp decide(track, candidates, threshold, adapter) do
     opts = [threshold: threshold]
 
     case Matching.match(track, candidates, opts) do
-      {:ok, _match} = matched -> {matched, Matching.rank(track, candidates, opts)}
-      {:error, _reason} = failed -> retry_with_isrc_family(track, candidates, opts, failed)
+      {:ok, _match} = matched ->
+        {matched, Matching.rank(track, candidates, opts)}
+
+      {:error, _reason} = failed ->
+        if accepts_any_track?(adapter) do
+          # No rescue to attempt. Both fallbacks below exist to save a match
+          # against a **catalogue** — a track the destination really does carry
+          # under another identifier, or a classical title whose catalogue
+          # number is missing. A destination that will store the track either
+          # way has nothing to be saved from, so a MusicBrainz request here
+          # cannot change the outcome; it only changes whether the track is
+          # deduplicated onto a recording already held.
+          #
+          # That is worth having and does not belong here. MusicBrainz allows
+          # one request a second, so a 153-track import into an empty library
+          # spent one on every track to learn nothing — minutes of a job for a
+          # question whose answer was already "store it". Identity is
+          # enrichment's business, in the background, where the same lookup is
+          # paid for once per *recording* rather than once per import. See
+          # `docs/reference/domain.md` §5.
+          {failed, Matching.rank(track, candidates, opts)}
+        else
+          retry_with_isrc_family(track, candidates, opts, failed)
+        end
     end
   end
+
+  defp accepts_any_track?(adapter), do: :accepts_any_track in adapter.capabilities()
 
   # The second chance an ISRC deserves, and only ever a second chance.
   #

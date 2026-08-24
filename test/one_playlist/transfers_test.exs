@@ -610,6 +610,36 @@ defmodule OnePlaylist.TransfersTest do
                Enum.map(held, & &1.provider_id) |> Enum.sort()
     end
 
+    test "no MusicBrainz request is spent on a destination that will store anything", %{
+      user: user_id
+    } do
+      # The fallbacks in `decide/4` rescue a match against a *catalogue*. A
+      # library will hold the track either way, so a request that cannot change
+      # the outcome must not be spent on the import path — MusicBrainz allows
+      # one a second, and a 153-track import once paid it per track to learn
+      # nothing. Identity is enrichment's business.
+      Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
+        Req.Test.json(conn, source_document())
+      end)
+
+      Req.Test.stub(OnePlaylist.MusicBrainz.Service, fn _conn ->
+        flunk("a library destination must not reach MusicBrainz during a transfer")
+      end)
+
+      {:ok, transfer} =
+        Transfers.create(%{
+          user_id: user_id,
+          source_provider: :tidal,
+          source_playlist_id: "src",
+          destination_provider: :library,
+          destination_playlist_name: "From TIDAL",
+          threshold: 0.75
+        })
+
+      assert {:ok, run} = Runner.run(transfer)
+      assert run.unmatched_count == 0
+    end
+
     test "running it twice deduplicates rather than doubling the library", %{user: user_id} do
       # Both halves at once: the recordings are recognised the second time, and
       # the playlist diff means nothing is appended again.
