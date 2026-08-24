@@ -170,6 +170,29 @@ defmodule OnePlaylist.LibraryTest do
       assert one.id == other.id
     end
 
+    test "two callers racing on one ISRC produce one recording" do
+      # Reading and then inserting is a race, and the store is shared: two users
+      # transferring the same track at the same moment both miss and both
+      # insert. Observed on a real import — two overlapping runs of one transfer
+      # produced exactly two of every recording, sub-millisecond apart.
+      #
+      # The database is what settles it. Racing here would be flaky; inserting
+      # the row behind `find_or_create/1`'s back is the same collision without
+      # the timing.
+      shared = isrc("USSM11100234")
+      first = Library.find_or_create(track(%{isrc: "USSM11100234"}))
+
+      assert %Recording{} =
+               Repo.get_by(Recording, isrc: shared),
+             "the first insert is the one to collide with"
+
+      # A second caller that has already decided the row is absent.
+      second = Library.find_or_create(track(%{isrc: "USSM11100234", title: "Corduroy"}))
+
+      assert second.id == first.id
+      assert Repo.aggregate(from(r in Recording, where: r.isrc == ^shared), :count) == 1
+    end
+
     test "the ISRC is stored canonical, or not at all" do
       # The bug this caught, and it is the one this project keeps meeting: every
       # lookup normalises its query, so an ISRC stored as the source wrote it is

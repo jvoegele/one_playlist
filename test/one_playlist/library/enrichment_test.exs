@@ -27,7 +27,10 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   end
 
   @second_release "3f2a1c88-7d55-4e2b-9a10-6c4e0b7d2e91"
-  @isrc "USSM11100234"
+  # `ZZ` is an unassigned ISRC country code. A real one here collides with dev
+  # data in the shared database — and now that one ISRC is one recording, the
+  # collision is a constraint violation rather than a surprising row.
+  @isrc "ZZZ992500090"
   @mbid "ea8c7b4c-bd88-4029-96ba-fb483eb29e8b"
   @release "9c5b2d61-4e8c-4f43-9b71-2c8bd0e1a5f0"
   # The release *group* — the album across all its pressings, which is what a
@@ -195,8 +198,10 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       stub_musicbrainz()
       stub_cover_art(:found, covers)
 
+      # Two *different* recordings — one ISRC is one recording — that resolve to
+      # the same release group, which is the thing asked about once.
       {:ok, _first} = Enrichment.enrich(recording(%{isrc: @isrc}))
-      {:ok, _second} = Enrichment.enrich(recording(%{isrc: @isrc, title: "Nothingman"}))
+      {:ok, _second} = Enrichment.enrich(recording(%{isrc: unique_isrc(), title: "Nothingman"}))
 
       assert Agent.get(covers, & &1) == 1, "an album's worth of recordings asks this once"
     end

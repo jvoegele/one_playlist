@@ -527,7 +527,36 @@ defmodule OnePlaylist.Library do
   def find_or_create(%Track{} = track) do
     case existing(track) do
       %Recording{} = found -> found
-      nil -> track |> Recording.from_track() |> Repo.insert!() |> enqueue_enrichment()
+      nil -> create(track)
+    end
+  end
+
+  # Reading and then inserting is a race, and the store is **shared**: two users
+  # transferring the same track at the same moment both miss and both insert.
+  # Observed, not theorised — two overlapping runs of one transfer produced
+  # exactly two of every recording, sub-millisecond apart.
+  #
+  # `on_conflict: :nothing` against the ISRC index makes the loser's insert a
+  # no-op rather than a second row, and the re-read then finds the winner's. The
+  # index is what makes this true; without it there is no conflict to detect.
+  defp create(track) do
+    track
+    |> Recording.from_track()
+    # The index is **partial** — `where isrc is not null` — and Postgres will not
+    # infer a partial index from a bare column list, so the predicate has to be
+    # repeated here. A track with no ISRC does not satisfy it and simply inserts.
+    |> Repo.insert(
+      on_conflict: :nothing,
+      conflict_target: {:unsafe_fragment, "(isrc) where isrc is not null"}
+    )
+    |> case do
+      {:ok, %Recording{id: nil}} ->
+        # The conflict fired: somebody else inserted this ISRC between our read
+        # and our write, so their row is the one to use.
+        existing(track)
+
+      {:ok, %Recording{} = created} ->
+        enqueue_enrichment(created)
     end
   end
 
