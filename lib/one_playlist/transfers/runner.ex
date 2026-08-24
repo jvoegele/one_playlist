@@ -43,6 +43,7 @@ defmodule OnePlaylist.Transfers.Runner do
   use Bond
   use Errata
 
+  alias OnePlaylist.Library.Identities
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Matching.TrackNotMatched
@@ -376,8 +377,19 @@ defmodule OnePlaylist.Transfers.Runner do
 
   defp resolve(track, _adapter, connection, _threshold, %TransferOverride{} = override) do
     chosen = TransferOverride.as_track(override, connection.provider)
+    match = Match.chosen_by_hand(track, chosen)
 
-    {{:ok, Match.chosen_by_hand(track, chosen)}, []}
+    # The strongest evidence the spine can be given, and the reason
+    # `docs/reference/domain.md` §5 argues a correction is worth more than a
+    # better scorer: corrected once, it is corrected for **every future
+    # transfer of that recording**, not only for the report row that prompted
+    # it. `learn/2` admits it because `:chosen` outranks every identifier rung.
+    recording = Identities.anchor(track)
+
+    Identities.record_source(recording, track)
+    learn(recording, {:ok, match})
+
+    {{:ok, match}, []}
   end
 
   # A correction the user already made. Consulted before the ladder rather than
@@ -385,6 +397,53 @@ defmodule OnePlaylist.Transfers.Runner do
   # a correction living there would be destroyed by the next retry. See the
   # migration that creates `transfer_overrides`.
   defp resolve(track, adapter, connection, threshold, nil) do
+    # A destination that accepts any track has no catalogue to look anything up
+    # in, so there is nothing to recall — and anchoring first would change what
+    # the search sees, because `anchor/1` writes to `library_recordings`, which
+    # is the very store `OnePlaylist.Providers.Library` searches. It would turn
+    # every `stored` row into an identifier match against a recording this run
+    # had just created. So the spine learns from that case afterwards, not
+    # before.
+    if accepts_any_track?(adapter) do
+      {resolved, ranked} = search_and_decide(track, adapter, connection, threshold)
+
+      recording = Identities.anchor(track)
+      Identities.record_source(recording, track)
+      learn(recording, resolved)
+
+      {resolved, ranked}
+    else
+      spine_first(track, adapter, connection, threshold)
+    end
+  end
+
+  defp spine_first(track, adapter, connection, threshold) do
+    recording = Identities.anchor(track)
+
+    # Recall *before* recording the source, so the spine answers from what an
+    # earlier transfer learned rather than from this one's own write.
+    remembered = Identities.recall(recording, track, connection.provider)
+
+    Identities.record_source(recording, track)
+
+    case remembered do
+      %Match{} = match ->
+        # No search, no request, no scoring. This is L5's whole claim, and the
+        # answer is only here because a previous transfer resolved it at an
+        # exact identifier or a person chose it by hand — see
+        # `OnePlaylist.Library.Identities`.
+        {{:ok, match}, []}
+
+      nil ->
+        {resolved, ranked} = search_and_decide(track, adapter, connection, threshold)
+
+        learn(recording, resolved)
+
+        {resolved, ranked}
+    end
+  end
+
+  defp search_and_decide(track, adapter, connection, threshold) do
     if Matching.searchable?(track) do
       case adapter.search_tracks(connection, track, []) do
         {:ok, candidates} ->
@@ -402,6 +461,21 @@ defmodule OnePlaylist.Transfers.Runner do
       {Matching.match(track, [], threshold: threshold), []}
     end
   end
+
+  # Teaches the spine where the destination holds this recording, but only from
+  # evidence strong enough to assert as a fact. `Identities.record/4` states that
+  # rule as a precondition, so the confidence is checked here rather than left
+  # for it to raise on — a transfer must not fail because it matched a track by
+  # text.
+  defp learn(recording, {:ok, %Match{} = match}) do
+    if Identities.trustworthy?(match.confidence) do
+      Identities.record(recording, match.track, match.strategy, match.score)
+    end
+
+    :ok
+  end
+
+  defp learn(_recording, _not_matched), do: :ok
 
   # The one place the pipeline knows that a miss is not always a dead end.
   #

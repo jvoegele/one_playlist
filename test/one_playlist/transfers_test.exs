@@ -28,11 +28,23 @@ defmodule OnePlaylist.TransfersTest do
   alias OnePlaylist.Cache
   alias OnePlaylist.Library
   alias OnePlaylist.Providers
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.PlaylistTooLarge
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.Runner
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.Transfer
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.TransferItem
+  alias OnePlaylist.Library.Identities
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Transfers.TransferWorker
 
   setup :set_req_test_from_context
@@ -135,6 +147,7 @@ defmodule OnePlaylist.TransfersTest do
 
         # Candidate lookup by ISRC.
         conn.method == "GET" and path == "/v2/tracks" ->
+          Agent.update(state, &%{&1 | searches: &1.searches + 1})
           isrc = get_in(conn.query_params, ["filter", "isrc"])
           # Downcased because an ISRC is canonically upper case now, and this
           # fixture derives its ids from one. `Music.Isrc.normalize/1` upcases
@@ -194,7 +207,11 @@ defmodule OnePlaylist.TransfersTest do
   end
 
   defp provider_state(opts \\ []) do
-    {:ok, state} = Agent.start_link(fn -> %{added: [], add_calls: 0, playlists_created: 0} end)
+    {:ok, state} =
+      Agent.start_link(fn ->
+        %{added: [], add_calls: 0, playlists_created: 0, searches: 0}
+      end)
+
     stub_provider(state, opts)
     state
   end
@@ -383,6 +400,74 @@ defmodule OnePlaylist.TransfersTest do
       assert {:ok, completed} = Runner.run(transfer)
       assert completed.status == :completed
       assert completed.total_tracks == 3
+    end
+  end
+
+  describe "the identity spine" do
+    test "a recording already located at the destination is not searched for again", %{
+      user: user
+    } do
+      # L5's whole claim, and the only test that can show it: recall costs no
+      # request at all. `docs/reference/domain.md` §5.
+      state = provider_state()
+      transfer = transfer_for(user)
+
+      # What an earlier transfer would have learned. Anchored on the same ISRC
+      # the fixture gives source track `s1`, and naming an id the source track
+      # does not have — a same-service identity that is a real memory rather
+      # than the source restating itself.
+      recording =
+        Identities.anchor(%Track{
+          provider: :tidal,
+          provider_id: "earlier",
+          isrc: isrc("s1"),
+          title: "Song s1"
+        })
+
+      :ok =
+        Identities.record(
+          recording,
+          %Track{provider: :tidal, provider_id: "remembered", title: "Song s1"},
+          :isrc,
+          1.0
+        )
+
+      {:ok, completed} = Runner.run(transfer)
+
+      assert "remembered" in Agent.get(state, & &1.added),
+             "the remembered id should have been written, not one found by searching"
+
+      assert Agent.get(state, & &1.searches) == 2,
+             "three tracks, and only the two the spine had never seen were searched for"
+
+      assert completed.matched_count == 3
+    end
+
+    test "a transfer teaches the spine where both ends of it live", %{user: user} do
+      _state = provider_state()
+
+      {:ok, _completed} = Runner.run(transfer_for(user))
+
+      recording = Identities.anchor(%Track{provider: :tidal, provider_id: "x", isrc: isrc("s1")})
+
+      assert [%{provider: :tidal, provider_id: id}] = Identities.for_recording(recording)
+
+      assert id in ~w(s1 ds1),
+             "either end is a true identity at TIDAL; one row per service is the rule"
+    end
+
+    test "a text match is not strong enough to become a fact", %{user: user} do
+      # The asymmetry the spine turns on: `:high` is good enough to put a track
+      # in a playlist, where a person sees the result, and not good enough to
+      # assert about the world's music for ever.
+      _state = provider_state(rejected: ~w(s2))
+
+      {:ok, _completed} = Runner.run(transfer_for(user))
+
+      recording = Identities.anchor(%Track{provider: :tidal, provider_id: "x", isrc: isrc("s2")})
+
+      refute Enum.any?(Identities.for_recording(recording), &(&1.provider_id == "ws2")),
+             "the wrong candidate the text rung saw must not have been remembered"
     end
   end
 

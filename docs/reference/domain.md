@@ -1216,7 +1216,7 @@ transfer finishes. A library is where that correspondence gets to live.
 | **L2** | Editing | Create, rename, delete, reorder, add and remove tracks | L1 |
 | **L3** | The library as a transfer endpoint | Source *and* destination for transfer and sync | L1, `Runner` |
 | **L4** | Enrichment | Every library track resolved to as much metadata as can be obtained | `MusicBrainz`, `Catalogue`, `Matching` |
-| **L5** | The identity spine | A library track carries its id at every service it is known at | L4, `Matching` |
+| **L5** | The identity spine | A library track carries its id at every service it is known at | L4, `Matching` | *(built)* |
 | **L6** | Files in and out | Import a file into the library; export a library playlist to any format | `Formats`, `Imports`, `Exports` |
 | **L7** | My Playlists | One page listing everything, grouped by where it is stored | L1, `Providers` |
 
@@ -1246,6 +1246,46 @@ confidently once never has to be resolved again; a track a person corrected by h
 (`transfer_overrides`) has been corrected **for every future transfer of that recording**, not
 just for the report row that prompted it. That is a materially better answer to §1's
 "match quality is the product" than more scoring.
+
+### L5, once built
+
+`recording_identities`, one row per recording per service, hung off `library_recordings` —
+so a transfer between two services *neither of which is the library* still teaches it both
+ids, and a later transfer out of the library gets them for free. A pairwise cache would have
+been simpler and wrong twice: it grows with the square of the number of services, and it has
+nowhere to put the ISRC enrichment found or the correction a user made.
+
+Three decisions, each of which could have gone the other way:
+
+**Anchored on a canonical ISRC, or not recorded at all.** `find_or_create/1` joins only on an
+ISRC, never on a title, because merging two recordings that turn out to be one is reversible
+and splitting one that was never two is not. So a Subsonic library with no ISRCs teaches the
+spine nothing rather than filling the shared store with duplicates. That makes the duplicate
+risk structurally impossible rather than merely unlikely.
+
+**Only evidence at `:exact_upc` or better gets in** — the identifier rungs, a person's own
+choice, and a verbatim store. Deliberately stricter than the threshold the same transfer
+matches at, and the asymmetry is the whole point: a `:high` text match is good enough to put a
+track in a playlist, where a person sees the result and a wrong answer is one row in one
+report. It is not good enough to assert as a fact about the world's music, for ever,
+unreviewed. The rule is a `Bond` precondition on `Identities.record/4` rather than a
+convention each call site remembers.
+
+**The row carries a snapshot of the destination's track.** No adapter has a *fetch one track
+by id* callback, so without `title`, `album` and `artwork_url` a recalled identity could name a
+track but not describe it — and a transfer report has to show what it matched to. With them,
+recall costs **no request at all**, which is the economic claim above made real. The price is
+a snapshot that can go stale, and it is bounded: `confirm_written/5` reads the destination
+playlist after every run, so an id that has stopped working surfaces as a track reported
+written and not found. Nothing crawls the services on a schedule to re-check; that would be a
+lot of requests for a question that answers itself in use.
+
+One thing deliberately **not** taken: `recall/3` refuses to answer with the source track
+itself. On a same-provider transfer everything the spine knows about the source is trivially
+true of the destination, so answering would skip the search to "match" a track to itself.
+That shortcut is real and worth taking — a TIDAL→TIDAL copy needs no searches at all — but it
+is a different feature from recall, and folding it in silently would make it impossible to
+reason about either. It is in the backlog.
 
 ### Matching inverts when the destination is the library
 

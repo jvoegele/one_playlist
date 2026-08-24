@@ -459,6 +459,7 @@ A fresh session should read this before proposing what to build.
 | Correcting | A row shows the candidates the engine rejected and why each lost, and one click puts the right one in. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry. A row that already **matched** offers *Replace*: the chosen track is added and the superseded one removed, add-first so a partial failure leaves an extra track rather than a report naming a track that is gone. Gated on `:remove_tracks`, which is the capability's reason for existing. A row that matched on an exact identifier still offers nothing — the runner keeps no candidates for those |
 | Reissues | An ISRC the destination does not carry is looked up in **MusicBrainz**, which says which codes name one recording, and the candidates already in hand are re-matched against the family. One request, only after a match has already failed, cached in two tiers with nightly `pg_cron` pruning. `Strategy.IsrcFamily` scores it below an exact identifier and keeps a duration check the rung above deliberately skips |
 | Capabilities | `Providers.Adapter.capabilities/0` declares only what *varies* between services — `:artwork` (TIDAL yes, Subsonic no, because its cover endpoint wants credentials on the request) and `:remove_tracks` (both, since 2026-08-24). `Providers.supports?/2` is the question |
+| Identity spine | Where a recording lives at every service, in `recording_identities`, hung off a **library recording** so a TIDAL→Navidrome transfer teaches the spine both ids and a later transfer out of the library gets them free. A recalled identity costs **no request**: the row carries a snapshot of what the destination called the track, because no adapter can fetch one track by id. Two rules do the work — an identity is anchored on a **canonical ISRC** or not recorded at all, so the duplicate-recording risk is structurally impossible; and only evidence at `:exact_upc` or better gets in, which is deliberately stricter than the transfer threshold because a wrong row here is asserted about every future transfer, unreviewed |
 | Library | **One Playlist is itself a place playlists live.** `Providers.Library` implements the whole adapter behaviour over `library_recordings` (ownerless, shared, the asset that compounds) and `library_playlists` (the user's). It is a transfer source *and* destination with no pipeline branch — `:file` remains the only branch, because a file is source-only. Every user gets a `:library` connection carrying no credential; `Connection.usable?/1` has a clause saying so. See `docs/reference/domain.md` §5 |
 | My playlists | `/playlists` lists everything a user has, grouped by where it is stored: the library first, then one group per connected service. Each service group is its own `assign_async/3`, so a slow or failing service degrades inside its own box rather than taking the page — 216 playlists at TIDAL is eleven requests before anything can be drawn |
 | Editing | `/playlists/:id` — rename, delete, remove an entry, move one up or down. Every action names an **entry** rather than a recording, because a playlist may hold the same recording twice and a recording id cannot answer "remove this one". Deleting a playlist takes its entries and leaves the recordings, which belong to nobody. Reordering is a **drag from a handle**, and the hook reports what was dropped where rather than submitting an ordering — `place_entry/5` derives it, so a client cannot say anything the server does not check. The handle is a button, so the arrow keys still work; HTML5 drag does not fire on touch, which is the known gap. Dense integers were kept: §5 guessed at fractional ranks and measurement rejected it |
@@ -501,12 +502,11 @@ backlog below is the road to it, not a separate list.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
-  * **L5, the identity spine.** L4 resolves a recording against MusicBrainz; L5 is the
-    other half — storing the **provider id at each service** a recording has been located
-    at, so a later transfer of it is a lookup rather than a match. The matching already
-    happens on every transfer and the answer is currently thrown away when the run ends;
-    this is a table and a write, not new logic. It is what §5's economics argument rests
-    on and the largest remaining piece of the library.
+  * **Skip the search on a same-provider transfer.** A TIDAL→TIDAL transfer searches
+    TIDAL for tracks it already has TIDAL ids for. `Identities.recall/3` deliberately
+    refuses to answer with the source track itself, because that shortcut is a different
+    feature from recall and should be reasoned about on its own — but it is real, free,
+    and would make a same-service copy cost no searches at all.
 
   * **Resolve the album, not each track.** Enrichment picks a MusicBrainz release per
     *recording*, with a rule that makes an album agree with itself where it can. Seven
