@@ -1669,6 +1669,69 @@ Two lessons worth keeping:
     from TIDAL does not. Verified on the repair — 116 archive covers cleared, all 7 TIDAL covers
     kept.
 
+### The album is the best term a MusicBrainz query has
+
+A hand-labelled corpus, `dev/Unmatched PJ Favorites.csv`: twelve library recordings
+MusicBrainz could not identify, nine with the recording they *should* have resolved to and
+three marked as genuinely absent. Replayable with
+`bin/remote dev/probes/replay_unmatched_corpus.exs`.
+
+The first question to ask of a miss is which kind it is, and it had never been asked of
+MusicBrainz:
+
+  * **Not offered** — the search never returned the right recording. No scoring change can
+    help; the query is wrong.
+  * **Offered and declined** — it was in the candidate list and did not reach the threshold. No
+    query change can help.
+
+Four were offered and declined; **five were never offered at all**. And the cause is
+structural rather than incidental: a prolific artist has more recordings of a title than a
+page of results can hold. Pearl Jam has a bootleg of nearly every song from nearly every show,
+so `recording:"Yellow Ledbetter" AND artist:"Pearl Jam"` has hundreds of true matches and
+relevance buries the one on *Lost Dogs*.
+
+| | Wanted recording found |
+| --- | --- |
+| Title and artist, ten results | 1 of 6 |
+| Title and artist, **a hundred** results | 3 of 6 |
+| Title, artist **and release** | **5 of 6**, four ranked first |
+
+A bigger page is the obvious fix and the weaker one — it found three, two at #3 and #84, where
+the ladder still has to pick out of noise. Naming the release finds five and puts them at the
+top. The release term is unquoted deliberately: a stored album is routinely *longer* than the
+release MusicBrainz holds — *Lost Dogs: Rarities and B Sides* against *Lost Dogs*, *Touring
+Band 2000 - Instrumentals* against *Touring Band 2000* — and a phrase query matches in neither
+direction.
+
+#### Rejected: trusting a release-qualified candidate more
+
+The argument was good and the measurement killed it, which makes this the fifth negative result
+recorded here. A candidate found by a release-qualified query has had its album corroborated by
+MusicBrainz's own index, so the ceiling — which exists to demand corroboration — looked like it
+was asking for the same evidence twice. Dropping to `:high` for that path only:
+
+| | correct | missed | wrong |
+| --- | --- | --- | --- |
+| At the ceiling | 3 | 9 | **0** |
+| Release-qualified at `:high` | 6 | 3 | **3** |
+
+Three gained and three wrong, including a recording matched to something for a track the label
+says has **no** MusicBrainz recording at all. The flaw is in the premise: the release term
+matches on *tokens*, so *Lost Dogs: Rarities and B Sides* reaches a great many bootlegs and the
+corroboration is far weaker than it looks.
+
+#### What is left, and why it is not a threshold
+
+Recall is now fixed and **nothing converted**: the right candidate is offered, ranked first, and
+declined. The blocker is that the stored album is a disc subtitle MusicBrainz does not use, so
+the ceiling's "every compared field agreed" can never be satisfied.
+
+The tempting move is a threshold between the `0.9637` those score and whatever the wrong answers
+score. That is tuning to twelve cases, which this project has rejected four times before. The
+honest fix is in **normalization** — deciding when *Touring Band 2000 - Instrumentals* and
+*Touring Band 2000* are the same album — and it needs its own corpus, because the same rule
+would make *Greatest Hits* and *Greatest Hits Vol. 2* the same album too.
+
 ### Is MusicBrainz the right catalogue to lean on?
 
 Asked while building L4, and worth recording because the answer is not obvious.

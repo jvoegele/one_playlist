@@ -153,6 +153,24 @@ defmodule OnePlaylist.MusicBrainz.Client do
   Search results also carry **no ISRCs** (verified: the field is absent, not
   empty), so an identity found this way still needs `recording/2` to be worth
   anything.
+
+  ## `:album` is worth more than any other option here
+
+  Measured against the twelve hand-labelled cases in
+  `dev/Unmatched PJ Favorites.csv`. A prolific artist has more recordings of a
+  title than a page can hold — Pearl Jam has a bootleg of nearly every song from
+  nearly every show — so relevance alone buries the wanted one:
+
+  | | Wanted recording found |
+  | --- | --- |
+  | Title and artist, ten results | 1 of 6 |
+  | Title and artist, **a hundred** results | 3 of 6 |
+  | Title, artist **and release** | **5 of 6**, four of them ranked first |
+
+  A bigger page is the obvious fix and the weaker one: it found three, two of
+  them at #3 and #84, where the ladder still has to pick correctly out of noise.
+  Naming the release finds five and puts them at the top, because it is the one
+  piece of corroborating evidence these tracks actually carry.
   """
   @spec search_recordings(String.t(), String.t() | nil, keyword()) ::
           {:ok, [Track.t()]} | {:error, Exception.t()}
@@ -162,7 +180,16 @@ defmodule OnePlaylist.MusicBrainz.Client do
 
   defp recording_search(title, artist, opts) do
     query =
-      [~s(recording:"#{escape(title)}"), artist && ~s(artist:"#{escape(artist)}")]
+      [
+        ~s(recording:"#{escape(title)}"),
+        artist && ~s(artist:"#{escape(artist)}"),
+        # Unquoted, deliberately. A stored album is routinely longer than the
+        # release MusicBrainz holds — "Lost Dogs: Rarities and B Sides" against
+        # "Lost Dogs", "Touring Band 2000 - Instrumentals" against "Touring Band
+        # 2000" — and a phrase query would match in neither direction. Matching
+        # on tokens finds it.
+        opts[:album] && "release:(#{escape(opts[:album])})"
+      ]
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" AND ")
 

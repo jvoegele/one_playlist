@@ -136,6 +136,24 @@ defmodule OnePlaylist.StoragePruningTest do
   end
 
   describe "orphaned imports" do
+    # `storage.objects` is shared with the dev stack and refuses direct deletion,
+    # so these cannot be scoped by emptying it and must not assert a global
+    # count: a day's real imports made "one orphan was swept" read as eighteen.
+    # Every assertion below is therefore about *this test's own object* — swept
+    # or not swept — which is the claim each one was making anyway.
+    defp swept?(path) do
+      %{rows: rows} =
+        SQL.query!(
+          Repo,
+          "select convert_from(body, 'UTF8') from net.http_request_queue order by id desc limit 50",
+          []
+        )
+
+      rows
+      |> Enum.flat_map(fn [body] -> Jason.decode!(body)["prefixes"] || [] end)
+      |> Enum.member?(path)
+    end
+
     defp put_transfer(path) do
       user = OnePlaylist.AuthFixtures.user_id_fixture()
 
@@ -169,8 +187,8 @@ defmodule OnePlaylist.StoragePruningTest do
       # has no rollback, so the second is not avoidable, only recoverable.
       put_object(:imports, "abandoned.csv", 30)
 
-      assert prune_orphans(1) == 1
-      assert queued().body["prefixes"] == ["#{@user}/imports/abandoned.csv"]
+      assert prune_orphans(1) >= 1
+      assert swept?("#{@user}/imports/abandoned.csv")
     end
 
     test "an upload a transfer still points at is left alone" do
@@ -178,8 +196,9 @@ defmodule OnePlaylist.StoragePruningTest do
       put_object(:imports, "in-use.csv", 30)
       put_transfer(path)
 
-      assert prune_orphans(1) == 0
-      assert queued() == nil
+      prune_orphans(1)
+
+      refute swept?(path)
     end
 
     test "a recent upload is spared, however orphaned it looks" do
@@ -188,8 +207,9 @@ defmodule OnePlaylist.StoragePruningTest do
       # upload is briefly an orphan.
       put_object(:imports, "just-uploaded.csv", 0)
 
-      assert prune_orphans(1) == 0
-      assert queued() == nil
+      prune_orphans(1)
+
+      refute swept?("#{@user}/imports/just-uploaded.csv")
     end
 
     test "exports are not its business" do
@@ -197,7 +217,9 @@ defmodule OnePlaylist.StoragePruningTest do
       # ownership. An export is never referenced by anything.
       put_object(:exports, "old.csv", 30)
 
-      assert prune_orphans(1) == 0
+      prune_orphans(1)
+
+      refute swept?("#{@user}/exports/old.csv")
     end
   end
 end

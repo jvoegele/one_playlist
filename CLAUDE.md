@@ -537,6 +537,15 @@ backlog below is the road to it, not a separate list.
     whose source track is gone should go too, which is the difference between Soundiiz's Add and
     Replace modes — see `docs/reference/domain.md`.
 
+  * **Album normalization, with its own corpus.** The binding constraint on MusicBrainz
+    matching is now that a stored album is often a disc subtitle the catalogue does not
+    use — *Touring Band 2000 - Instrumentals* against *Touring Band 2000*, *Lost Dogs:
+    Rarities and B Sides* against *Lost Dogs*. The right candidate is offered and ranked
+    first and still declines, because "every compared field agreed" cannot be satisfied.
+    A threshold tuned to the twelve cases in `dev/Unmatched PJ Favorites.csv` would be
+    tuning; the real question is when two album titles name one album, and the same rule
+    must not make *Greatest Hits* and *Greatest Hits Vol. 2* the same.
+
   * **Tighten the classical corpus filter.** `dev/corpus/harvest_classical.py` matches on words
     like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —
     Justin Timberlake, The Verve, Gang Starr, Rihanna. Every classical number is therefore a floor.

@@ -74,6 +74,22 @@ defmodule OnePlaylist.Library.Enrichment do
   the wrong one at all. Fourth negative result of this kind in the project; the
   others are in `docs/reference/domain.md`.
 
+  ### The album is the best term the query has
+
+  Measured against twelve hand-labelled cases in `dev/Unmatched PJ Favorites.csv`,
+  and the largest single improvement to this feature so far. A prolific artist
+  has more recordings of a title than a page of results can hold, so relevance
+  buries the wanted one — Pearl Jam has a bootleg of nearly every song from
+  nearly every show. Title and artist alone found the wanted recording once in
+  six; adding the release found it **five times in six**, four of them ranked
+  first.
+
+  So `by_release/3` asks the narrow question first and `by_title/3` is the
+  fallback, because naming a release can also over-narrow — the stored album may
+  be a disc subtitle MusicBrainz does not use. Ordering them this way can only
+  add: everything that matched before still matches, at the cost of one extra
+  request when the narrow question fails.
+
   ### The query is not the stored strings
 
   Two more things measured rather than assumed, and neither works without the
@@ -401,6 +417,29 @@ defmodule OnePlaylist.Library.Enrichment do
     # the raw track, so its version veto and tags apply to whatever comes back.
     title = Normalize.title(raw).title
 
+    # Narrowest first. Naming the release is worth more than any other term the
+    # query can carry — see `OnePlaylist.MusicBrainz.Client.search_recordings/3`
+    # — but it can also over-narrow, so a decline here falls through to the
+    # broader question rather than ending the search.
+    case by_release(recording, title, credit) do
+      :none -> by_title(recording, title, credit)
+      found -> found
+    end
+  end
+
+  defp by_name(%Recording{}), do: :none
+
+  defp by_release(%Recording{album: album} = recording, title, credit)
+       when is_binary(album) and album != "" do
+    case search(title, credit, album: album) do
+      {:ok, candidates} -> chosen(recording, candidates)
+      :error -> :none
+    end
+  end
+
+  defp by_release(_recording, _title, _credit), do: :none
+
+  defp by_title(recording, title, credit) do
     case search(title, credit) do
       # A credit naming several people is often written as one string — a CSV
       # import carries `"Nusrat Fateh Ali Khan, Eddie Vedder"` as a single
@@ -411,8 +450,6 @@ defmodule OnePlaylist.Library.Enrichment do
       :error -> :error
     end
   end
-
-  defp by_name(%Recording{}), do: :none
 
   defp retry_named(recording, title, credit) do
     case lead_name(credit) do
@@ -458,8 +495,8 @@ defmodule OnePlaylist.Library.Enrichment do
     end
   end
 
-  defp search(title, artist) do
-    case Client.search_recordings(title, artist) do
+  defp search(title, artist, opts \\ []) do
+    case Client.search_recordings(title, artist, opts) do
       {:ok, candidates} ->
         {:ok, candidates}
 
