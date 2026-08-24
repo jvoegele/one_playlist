@@ -78,9 +78,24 @@ defmodule OnePlaylistWeb.TransferNewLiveTest do
     end)
   end
 
-  describe "with no connected service" do
-    test "says so rather than offering a form that cannot work", %{conn: conn} do
+  describe "with nothing connected but the library" do
+    test "still offers a form, because the library is always somewhere to go", %{conn: conn} do
       conn = log_in_user(conn, user_id_fixture())
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/new")
+
+      refute html =~ "No music service connected"
+      assert html =~ ~s(id="source")
+      assert html =~ "One Playlist"
+    end
+
+    test "says so when there is genuinely nothing", %{conn: conn} do
+      # Reachable because `ensure_library/1` failing is logged rather than
+      # raised, so a session can exist without one.
+      user_id = user_id_fixture()
+      conn = log_in_user(conn, user_id)
+
+      {:ok, _removed} = Providers.disconnect(user_id, :library)
 
       {:ok, _view, html} = live(conn, ~p"/transfers/new")
 

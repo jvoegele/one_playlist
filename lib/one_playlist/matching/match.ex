@@ -119,6 +119,42 @@ defmodule OnePlaylist.Matching.Match do
   end
 
   @doc """
+  A track a destination accepted verbatim, because it could hold anything.
+
+  Not a match in the sense every other strategy means. Nothing was compared:
+  the destination is `OnePlaylist.Providers.Library`, which has no catalogue to
+  fail to find the track in, so it stored what it was given. `accepted` is that
+  destination's own representation, with an id of its own.
+
+  Scores `1.0` under `:stored`, which reads as `:stored`. That is the honest
+  number rather than a flattering one — there is nothing to doubt about a
+  recording that *is* the source track — and naming the strategy is what keeps
+  it from being mistaken for an identifier match in the report.
+
+      iex> alias OnePlaylist.Matching.Match
+      iex> alias OnePlaylist.Music.Track
+      iex> source = Track.new(%{provider: :tidal, provider_id: "9", title: "Corduroy"})
+      iex> held = Track.new(%{provider: :library, provider_id: "r-1", title: "Corduroy"})
+      iex> match = Match.stored(source, held)
+      iex> {match.strategy, match.confidence, match.track.provider}
+      {:stored, :stored, :library}
+  """
+  # One-hop delegation, the third legitimate shape in
+  # `docs/reference/contracts.md`: `new/1` takes the entry check and this
+  # function's own exit check still fires.
+  @bond_warn_skipped_invariants false
+  @spec stored(Track.t(), Track.t()) :: t()
+  def stored(%Track{} = source, %Track{} = accepted) do
+    new(
+      source: source,
+      track: accepted,
+      score: 1.0,
+      strategy: :stored,
+      evidence: [stored: :verbatim]
+    )
+  end
+
+  @doc """
   Whether a match's score lies inside the band its strategy is allowed.
 
   Public because the invariant names it, and an assertion rendered into the

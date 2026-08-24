@@ -37,7 +37,7 @@ defmodule OnePlaylist.Providers do
   @type user_id :: Ecto.UUID.t()
 
   @doc """
-  Lists a user's connections, most recently connected first.
+  Lists a user's connections, most recently connected first, library last.
 
   Runs under `OnePlaylist.Repo.as_user/3`, so the `where` below is not the only
   thing standing between one user and another's credentials — Postgres applies
@@ -48,9 +48,17 @@ defmodule OnePlaylist.Providers do
   def list_connections(user_id) do
     {:ok, connections} =
       Repo.as_user(user_id, fn ->
+        # The library sorts last rather than by when it was made, and that is a
+        # product decision rather than tidiness. It is created at first sign-in,
+        # so by recency it would usually be *newest* — and every picker built
+        # from this list takes the first entry as its default. A user with TIDAL
+        # connected would land on "New transfer" defaulted to a library that is
+        # empty until they have put something in it, which reads as a broken
+        # page rather than a choice. Whatever they actually connected is the
+        # better default; the library is always there and can wait.
         Connection
         |> where(user_id: ^user_id)
-        |> order_by(desc: :inserted_at)
+        |> order_by([c], asc: fragment("(? = 'library')", c.provider), desc: c.inserted_at)
         |> Repo.all()
       end)
 
@@ -222,6 +230,37 @@ defmodule OnePlaylist.Providers do
          ]},
       conflict_target: [:user_id, :provider]
     )
+  end
+
+  @doc """
+  Makes sure this user has a library connection, creating it if not.
+
+  Every user has a library — `docs/reference/domain.md` §5 — and it is reached
+  through `OnePlaylist.Providers.Adapter` like any other place, so it needs a
+  row here for the adapter to be handed. There is no credential to obtain and
+  nothing to authorize: the row *is* the authorization, which is why
+  `Connection.usable?/1` has a clause for it.
+
+  Called when a session is established rather than at sign-up, because sign-up
+  does not always produce one — a project with email confirmation switched on
+  creates the user and issues no tokens. Idempotent, so calling it on every
+  sign-in costs one indexed read in the common case.
+
+  Users who existed before the library did were given a row by the migration
+  that added it.
+  """
+  @spec ensure_library(user_id()) :: {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
+  def ensure_library(user_id) do
+    case fetch_connection(user_id, :library) do
+      {:ok, connection} ->
+        {:ok, connection}
+
+      {:error, %ConnectionNotFound{}} ->
+        connect(user_id, :library, %{
+          provider_user_id: user_id,
+          display_name: "Your library"
+        })
+    end
   end
 
   @doc """
@@ -544,6 +583,7 @@ defmodule OnePlaylist.Providers do
   end
 
   @adapters %{
+    library: OnePlaylist.Providers.Library,
     tidal: OnePlaylist.Providers.Tidal,
     navidrome: OnePlaylist.Providers.Navidrome
   }

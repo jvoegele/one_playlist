@@ -26,6 +26,7 @@ defmodule OnePlaylist.TransfersTest do
 
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Cache
+  alias OnePlaylist.Library
   alias OnePlaylist.Providers
   alias OnePlaylist.Transfers
   alias OnePlaylist.Transfers.PlaylistTooLarge
@@ -531,6 +532,115 @@ defmodule OnePlaylist.TransfersTest do
       item: item
     } do
       assert :error = Transfers.override(session, transfer, item.position, %{"provider_id" => ""})
+    end
+  end
+
+  describe "transferring into the library" do
+    # The inversion `docs/reference/domain.md` §5 describes, exercised through
+    # the whole pipeline rather than at the adapter. The library has no
+    # catalogue, so a track it does not hold is not a track that cannot be
+    # transferred — and an `:unmatched` row is impossible.
+    setup %{user: user_id} do
+      {:ok, library} = Providers.ensure_library(user_id)
+
+      %{library: library}
+    end
+
+    test "a recording the library has never seen is stored, not reported missing", %{
+      user: user_id
+    } do
+      Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
+        Req.Test.json(conn, source_document())
+      end)
+
+      {:ok, transfer} =
+        Transfers.create(%{
+          user_id: user_id,
+          source_provider: :tidal,
+          source_playlist_id: "src",
+          destination_provider: :library,
+          destination_playlist_name: "From TIDAL",
+          threshold: 0.75
+        })
+
+      assert {:ok, run} = Runner.run(transfer)
+
+      assert run.total_tracks == 3
+      assert run.matched_count == 3
+      assert run.added_count == 3
+
+      assert run.unmatched_count == 0,
+             "a destination that can hold anything cannot fail to hold a track"
+
+      rows = Transfers.items(run)
+
+      assert Enum.map(rows, & &1.outcome) == [:matched, :matched, :matched]
+
+      assert Enum.map(rows, & &1.strategy) == ~w(stored stored stored),
+             "the report has to say nothing was compared, rather than claim a match"
+
+      assert Enum.all?(rows, &(&1.confidence == "stored"))
+    end
+
+    test "the destination ids are the library's own, so the write confirms", %{user: user_id} do
+      # The reason `accept_track/3` returns a track rather than the runner
+      # reusing the source: `confirm_written/5` re-reads the destination and
+      # looks for the ids it recorded. A source id would never be there.
+      Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
+        Req.Test.json(conn, source_document())
+      end)
+
+      {:ok, transfer} =
+        Transfers.create(%{
+          user_id: user_id,
+          source_provider: :tidal,
+          source_playlist_id: "src",
+          destination_provider: :library,
+          destination_playlist_name: "From TIDAL",
+          threshold: 0.75
+        })
+
+      {:ok, run} = Runner.run(transfer)
+
+      held = Library.tracks(user_id, run.destination_playlist_id)
+
+      assert Enum.map(held, & &1.provider) == [:library, :library, :library]
+
+      assert Enum.map(Transfers.items(run), & &1.destination_track_id) |> Enum.sort() ==
+               Enum.map(held, & &1.provider_id) |> Enum.sort()
+    end
+
+    test "running it twice deduplicates rather than doubling the library", %{user: user_id} do
+      # Both halves at once: the recordings are recognised the second time, and
+      # the playlist diff means nothing is appended again.
+      Req.Test.stub(OnePlaylist.Providers.Tidal, fn conn ->
+        Req.Test.json(conn, source_document())
+      end)
+
+      {:ok, transfer} =
+        Transfers.create(%{
+          user_id: user_id,
+          source_provider: :tidal,
+          source_playlist_id: "src",
+          destination_provider: :library,
+          destination_playlist_name: "From TIDAL",
+          threshold: 0.75
+        })
+
+      {:ok, first} = Runner.run(transfer)
+      {:ok, second} = Runner.run(first)
+
+      assert second.added_count == 0, "a re-run writes nothing"
+      assert second.matched_count == 3
+
+      assert Enum.map(Transfers.items(second), & &1.outcome) ==
+               [:already_present, :already_present, :already_present]
+
+      assert length(Library.tracks(user_id, second.destination_playlist_id)) == 3,
+             "and the playlist is not doubled"
+
+      assert Enum.map(Transfers.items(second), & &1.strategy) == ~w(isrc isrc isrc),
+             "the second time there is something to match against, so it matches"
     end
   end
 

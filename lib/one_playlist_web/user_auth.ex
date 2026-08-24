@@ -136,6 +136,22 @@ defmodule OnePlaylistWeb.UserAuth do
   destination logic.
   """
   def put_user_session(conn, %Session{} = session) do
+    # Every user has a library, and this is where one first becomes reachable in
+    # this application — sign-up does not always produce a session, so it is not
+    # a hook that can be relied on. Idempotent; see
+    # `OnePlaylist.Providers.ensure_library/1`.
+    #
+    # A failure here must not stop somebody signing in: the library is one place
+    # among several, and a user with a working TIDAL connection has plenty to do
+    # without it. Logged rather than raised, and the next sign-in tries again.
+    case OnePlaylist.Providers.ensure_library(session.user_id) do
+      {:ok, _connection} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("could not ensure a library for #{session.user_id}: #{inspect(reason)}")
+    end
+
     conn
     |> renew_session()
     |> put_session(@session_key, session)

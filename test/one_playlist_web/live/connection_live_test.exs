@@ -127,7 +127,9 @@ defmodule OnePlaylistWeb.ConnectionLiveTest do
       # the form where the credential was just typed for the first time.
       assert html =~ "rejected that username and password"
       refute html =~ "reconnect to continue"
-      assert Providers.list_connections(user_id) == []
+
+      assert Providers.list_connections(user_id) |> Enum.map(& &1.provider) == [:library],
+             "the rejected server is not stored; the library was never in question"
     end
 
     test "a server that cannot be reached blames the server, not the retrying", %{conn: conn} do
@@ -203,7 +205,9 @@ defmodule OnePlaylistWeb.ConnectionLiveTest do
       html = live |> element("button", "Disconnect") |> render_click()
 
       assert html =~ "Connect"
-      assert Providers.list_connections(user_id) == []
+
+      assert Providers.list_connections(user_id) |> Enum.map(& &1.provider) == [:library],
+             "the library is not something you connected, so it is not something you disconnect"
     end
 
     test "refuses a provider the schema has never heard of", %{conn: conn, user_id: user_id} do
@@ -214,7 +218,9 @@ defmodule OnePlaylistWeb.ConnectionLiveTest do
       html = render_click(live, "disconnect", %{"provider" => "not_a_provider"})
 
       assert html =~ "not a service this application knows"
-      assert [_still_there] = Providers.list_connections(user_id)
+
+      assert Providers.list_connections(user_id) |> Enum.map(& &1.provider) |> Enum.sort() ==
+               [:library, :navidrome]
     end
   end
 

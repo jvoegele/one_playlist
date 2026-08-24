@@ -45,6 +45,7 @@ defmodule OnePlaylist.Transfers.Runner do
 
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Match
+  alias OnePlaylist.Matching.TrackNotMatched
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Music.Work
   alias OnePlaylist.MusicBrainz
@@ -386,8 +387,13 @@ defmodule OnePlaylist.Transfers.Runner do
   defp resolve(track, adapter, connection, threshold, nil) do
     if Matching.searchable?(track) do
       case adapter.search_tracks(connection, track, []) do
-        {:ok, candidates} -> decide(track, candidates, threshold)
-        {:error, _reason} = error -> {error, []}
+        {:ok, candidates} ->
+          {outcome, ranked} = decide(track, candidates, threshold)
+
+          {store_if_accepted(outcome, track, adapter, connection), ranked}
+
+        {:error, _reason} = error ->
+          {error, []}
       end
     else
       # Skipping the search rather than letting the adapter's precondition fire:
@@ -396,6 +402,35 @@ defmodule OnePlaylist.Transfers.Runner do
       {Matching.match(track, [], threshold: threshold), []}
     end
   end
+
+  # The one place the pipeline knows that a miss is not always a dead end.
+  #
+  # Every provider is a catalogue: a track it does not carry cannot be put
+  # there, and that is what an unmatched row means. `OnePlaylist.Providers.Library`
+  # is not — it can hold anything — so against a destination declaring
+  # `:accepts_any_track` a failed match is an instruction to store the track and
+  # carry on. See `docs/reference/domain.md` §5.
+  #
+  # Narrow on purpose, in three ways. Only a `TrackNotMatched` is converted, so
+  # a provider that was *unreachable* still fails rather than being quietly
+  # stored. Only where the capability is declared, asked before calling rather
+  # than by trying and interpreting the error. And the accepted track is the
+  # destination's own — `accept_track/3` returns a track with an id that
+  # `playlist_track_ids/3` will report, without which `confirm_written/5` would
+  # look for the *source's* id in the destination and declare its own write
+  # missing.
+  defp store_if_accepted({:error, %TrackNotMatched{}} = failed, track, adapter, connection) do
+    if :accepts_any_track in adapter.capabilities() do
+      case adapter.accept_track(connection, track, []) do
+        {:ok, accepted} -> {:ok, Match.stored(track, accepted)}
+        {:error, _reason} -> failed
+      end
+    else
+      failed
+    end
+  end
+
+  defp store_if_accepted(outcome, _track, _adapter, _connection), do: outcome
 
   defp decide(track, candidates, threshold) do
     opts = [threshold: threshold]

@@ -71,9 +71,30 @@ defmodule OnePlaylistWeb.ExportLiveTest do
     end)
   end
 
-  describe "with no connected service" do
-    test "says so instead of listing nothing", %{conn: conn} do
+  describe "with nothing connected but the library" do
+    # Every user has one, so this is what a brand-new account actually sees.
+    # Exporting a library playlist to CSV needs no external service at all, so
+    # the page is usable rather than a dead end — which is the point of the
+    # library existing.
+    test "offers the library rather than telling you to connect something", %{conn: conn} do
       conn = log_in_user(conn, session_fixture())
+
+      {:ok, _view, html} = live(conn, ~p"/exports/new")
+
+      refute html =~ "No music service connected"
+      assert html =~ "One Playlist"
+    end
+
+    test "the empty state is still reachable, because ensuring a library can fail", %{
+      conn: conn
+    } do
+      # `UserAuth.put_user_session/2` logs and continues if the library cannot be
+      # made, rather than refusing the sign-in — so a user with no connections at
+      # all is a state this page still has to render.
+      user_id = user_id_fixture()
+      conn = log_in_user(conn, session_fixture(user_id: user_id))
+
+      {:ok, _removed} = Providers.disconnect(user_id, :library)
 
       {:ok, _view, html} = live(conn, ~p"/exports/new")
 

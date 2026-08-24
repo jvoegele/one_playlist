@@ -39,11 +39,27 @@ defmodule OnePlaylistWeb.ImportLiveTest do
       })
   end
 
-  describe "with no connected service" do
-    test "says so, and does not offer to import", %{conn: conn} do
-      # An import needs somewhere to put the tracks. Offering the form anyway
-      # would produce a submit whose only outcome is ConnectionNotFound.
+  describe "with nothing connected but the library" do
+    test "offers the import anyway, because the library can hold the tracks", %{conn: conn} do
+      # The case the library most obviously improves: uploading a CSV into your
+      # own library needs no external service, so what used to be a dead end is
+      # now the ordinary first thing a new account can do.
       conn = log_in_user(conn, session_fixture())
+
+      {:ok, _view, html} = live(conn, ~p"/imports/new")
+
+      refute html =~ "No music service connected"
+      assert html =~ "One Playlist"
+    end
+
+    test "says so, and does not offer to import, when there is nowhere at all", %{conn: conn} do
+      # An import needs somewhere to put the tracks. Offering the form anyway
+      # would produce a submit whose only outcome is ConnectionNotFound. Still
+      # reachable: `ensure_library/1` failing is logged rather than raised.
+      user_id = user_id_fixture()
+      conn = log_in_user(conn, session_fixture(user_id: user_id))
+
+      {:ok, _removed} = Providers.disconnect(user_id, :library)
 
       {:ok, _view, html} = live(conn, ~p"/imports/new")
 

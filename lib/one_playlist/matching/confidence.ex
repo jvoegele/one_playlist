@@ -20,6 +20,7 @@ defmodule OnePlaylist.Matching.Confidence do
   | `:isrc` | `1.0` | The same recording, by identifier. Not an opinion. |
   | `:upc_position` | `1.0` | The same track of the same release. Not an opinion. |
   | `:manual` | `1.0` | A person chose it. Not an opinion either, and not the engine's. |
+  | `:stored` | `1.0` | A destination with no catalogue held it verbatim. Nothing was compared. |
   | `:isrc_family` | `0.95`–`0.99` | An identifier a third party says names the same recording. |
   | `:work` | `0.80`–`0.98` | The same movement of the same classical work. |
   | `:text` | `0.80`–`0.98` | Every compared field agreed after normalization. |
@@ -28,8 +29,9 @@ defmodule OnePlaylist.Matching.Confidence do
   The ceiling below `1.0` on the inexact rungs is deliberate: **text can never
   be certain**, however perfectly it matches, because two different recordings
   can carry identical metadata. `1.0` is reserved for a claim nobody is
-  guessing at — an identifier that agrees outright, or a person's own choice —
-  which is what keeps `:exact_isrc` meaning what it says.
+  guessing at — an identifier that agrees outright, a person's own choice, or a
+  destination that simply stored what it was given — which is what keeps
+  `:exact_isrc` meaning what it says.
   """
 
   use Bond
@@ -37,16 +39,26 @@ defmodule OnePlaylist.Matching.Confidence do
   @typedoc """
   Which rung of the ladder produced a score.
 
-  `:manual` is not a rung. It is here because a person overruling the ladder
-  produces a `%OnePlaylist.Matching.Match{}` like any rung does, and everything
-  downstream — the write, the confirmation, the report — is written against that
-  shape. Giving it a name of its own is what stops a hand-picked track being
-  reported as though an algorithm had found it.
+  `:manual` and `:stored` are not rungs. They are here because a person
+  overruling the ladder, and a destination accepting a track it had no need to
+  find, each produce a `%OnePlaylist.Matching.Match{}` like any rung does —
+  everything downstream is written against that shape. Giving each a name of its
+  own is what stops either being reported as though an algorithm had found it.
   """
-  @type strategy :: :isrc | :isrc_family | :upc_position | :work | :text | :fuzzy | :manual
+  @type strategy ::
+          :isrc | :isrc_family | :upc_position | :work | :text | :fuzzy | :manual | :stored
 
   @typedoc "The coarse name for a score."
-  @type t :: :exact_isrc | :linked_isrc | :exact_upc | :chosen | :high | :medium | :low | :none
+  @type t ::
+          :exact_isrc
+          | :linked_isrc
+          | :exact_upc
+          | :chosen
+          | :stored
+          | :high
+          | :medium
+          | :low
+          | :none
 
   # Ordered worst-to-best so `Enum.find/2` from the top reads naturally, and so
   # `rank/1` can use the index directly.
@@ -59,7 +71,11 @@ defmodule OnePlaylist.Matching.Confidence do
   # name one recording rather than from the codes agreeing. Above, because that
   # judgment is still an identifier claim, and stronger than a barcode plus a
   # track number.
-  @ordering [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen]
+  # `:stored` sits above even `:chosen`. A person choosing is still choosing
+  # between candidates; a stored track *is* the source track, held by a
+  # destination that has no catalogue to be wrong about. Nothing was compared,
+  # so there is nothing to have got wrong.
+  @ordering [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen, :stored]
 
   @bands %{
     isrc: {1.0, 1.0},
@@ -83,7 +99,10 @@ defmodule OnePlaylist.Matching.Confidence do
     # A person is certain in a way no rung can be. The band exists so that
     # `Match`'s `score_within_its_strategys_band` invariant holds for a
     # hand-picked match rather than having to be excused for it.
-    manual: {1.0, 1.0}
+    manual: {1.0, 1.0},
+    # Not a rung either, and not a judgement at all: the destination accepted
+    # the source track verbatim. See `OnePlaylist.Matching.Match.stored/2`.
+    stored: {1.0, 1.0}
   }
 
   @doc """
@@ -91,7 +110,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Confidence.all()
-      [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen]
+      [:none, :low, :medium, :high, :exact_upc, :linked_isrc, :exact_isrc, :chosen, :stored]
   """
   @spec all() :: [t()]
   def all, do: @ordering
@@ -101,7 +120,7 @@ defmodule OnePlaylist.Matching.Confidence do
 
       iex> alias OnePlaylist.Matching.Confidence
       iex> Enum.sort(Confidence.strategies())
-      [:fuzzy, :isrc, :isrc_family, :manual, :text, :upc_position, :work]
+      [:fuzzy, :isrc, :isrc_family, :manual, :stored, :text, :upc_position, :work]
   """
   @spec strategies() :: [strategy()]
   def strategies, do: Map.keys(@bands)
@@ -133,6 +152,7 @@ defmodule OnePlaylist.Matching.Confidence do
   # one recording and is not a different kind of claim.
   def for_score(score, :isrc_family) when is_float(score), do: :linked_isrc
   def for_score(1.0, :manual), do: :chosen
+  def for_score(1.0, :stored), do: :stored
 
   def for_score(score, _strategy) when is_float(score) do
     cond do

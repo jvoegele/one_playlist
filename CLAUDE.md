@@ -444,6 +444,8 @@ A fresh session should read this before proposing what to build.
 | Correcting | A row shows the candidates the engine rejected and why each lost, and one click puts the right one in. Stored in `transfer_overrides` and read *before* the ladder on every later run, so a correction survives a retry. A row that already **matched** offers *Replace*: the chosen track is added and the superseded one removed, add-first so a partial failure leaves an extra track rather than a report naming a track that is gone. Gated on `:remove_tracks`, which is the capability's reason for existing. A row that matched on an exact identifier still offers nothing — the runner keeps no candidates for those |
 | Reissues | An ISRC the destination does not carry is looked up in **MusicBrainz**, which says which codes name one recording, and the candidates already in hand are re-matched against the family. One request, only after a match has already failed, cached in two tiers with nightly `pg_cron` pruning. `Strategy.IsrcFamily` scores it below an exact identifier and keeps a duration check the rung above deliberately skips |
 | Capabilities | `Providers.Adapter.capabilities/0` declares only what *varies* between services — `:artwork` (TIDAL yes, Subsonic no, because its cover endpoint wants credentials on the request) and `:remove_tracks` (both, since 2026-08-24). `Providers.supports?/2` is the question |
+| Library | **One Playlist is itself a place playlists live.** `Providers.Library` implements the whole adapter behaviour over `library_recordings` (ownerless, shared, the asset that compounds) and `library_playlists` (the user's). It is a transfer source *and* destination with no pipeline branch — `:file` remains the only branch, because a file is source-only. Every user gets a `:library` connection carrying no credential; `Connection.usable?/1` has a clause saying so. See `docs/reference/domain.md` §5 |
+| Storing, not missing | A destination declaring `:accepts_any_track` inverts what a failed match means: the library has no catalogue, so a miss is an instruction to **store** the track via `accept_track/4`, reported `stored`. An `:unmatched` row is impossible for a library destination. Deduplication replaces matching as the risk, so `Library.find_or_create/1` joins only on a canonical ISRC and never on a title — a wrong join is not undoable by adding |
 | Removing | `remove_tracks/4` on the adapter, implemented for both. **Neither provider can remove by track id**: TIDAL needs the track id *and* `meta.itemId` and rejects either alone with a `400` naming neither field, and Subsonic removes by zero-based *index* with no song id at all. So each adapter reads the playlist and resolves occurrences itself, which is also what makes a stale removal safe. Removes **every** occurrence, so calling it twice is harmless. Both verified live against TIDAL and Navidrome 0.58.0 |
 | Limits | A source playlist over `max_tracks` (10,000 by default) is refused with `PlaylistTooLarge`, before a track is read past the limit. The worker cancels rather than retries any error whose `retryable?/1` says not to |
 | Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
@@ -481,6 +483,14 @@ backlog below is the road to it, not a separate list.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
+  * **The library, beyond L1 and L3.** The store and the adapter are in;
+    `docs/reference/domain.md` §5 lists what is not. In value order: **L2 editing**
+    (create, rename, reorder, add and remove by hand — reordering wants the
+    fractional-rank decision §5 records before it is built), **L7 My Playlists**
+    (one page grouped by where each playlist is stored), and **L4 enrichment**
+    (MusicBrainz at one request a second, so background and resumable, never on
+    the import path).
+
   * **Replace-mode scheduled sync.** `remove_tracks/4` is the piece that was missing and it is
     now in place and spent once, on corrections. Sync is the other caller: a destination track
     whose source track is gone should go too, which is the difference between Soundiiz's Add and

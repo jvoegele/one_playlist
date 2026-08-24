@@ -40,7 +40,7 @@ defmodule OnePlaylist.Providers.Connection do
   # *transition* law and stays where it is.
   @invariant failures_never_negative: subject.consecutive_failures >= 0
 
-  @providers ~w(spotify apple_music youtube_music tidal deezer plex jellyfin navidrome subsonic)a
+  @providers ~w(library spotify apple_music youtube_music tidal deezer plex jellyfin navidrome subsonic)a
   @statuses ~w(active expired revoked reauth_required)a
 
   @typedoc "A user's authorization at one music service."
@@ -48,7 +48,8 @@ defmodule OnePlaylist.Providers.Connection do
 
   @typedoc "A music service this application can connect to."
   @type provider ::
-          :spotify
+          :library
+          | :spotify
           | :apple_music
           | :youtube_music
           | :tidal
@@ -99,6 +100,7 @@ defmodule OnePlaylist.Providers.Connection do
   # atom would produce "Apple_music" or "Tidal" — neither of which is the
   # service's name.
   @display_names %{
+    library: "One Playlist",
     spotify: "Spotify",
     apple_music: "Apple Music",
     youtube_music: "YouTube Music",
@@ -311,6 +313,15 @@ defmodule OnePlaylist.Providers.Connection do
   # refresh token must fail cleanly rather than crash, because "a contract does
   # not retroactively clean a database". Answering `false` sends the user down
   # the reconnect path; raising would take the request down instead.
+  # The library needs no credential: the row *is* the authorization, so there is
+  # nothing for a token to prove. Stated as its own clause rather than by giving
+  # the row a placeholder token, because a placeholder would be a lie that
+  # `Providers.refresh/1` and every log line would then have to carry.
+  #
+  # The second stretch of this type, after Subsonic's password-with-no-expiry.
+  # A third should split it — see the migration that added `:library`.
+  def usable?(%__MODULE__{provider: :library, status: :active}), do: true
+
   def usable?(%__MODULE__{status: :active, access_token: token})
       when is_binary(token) and token != "",
       do: true

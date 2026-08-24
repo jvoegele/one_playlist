@@ -57,6 +57,12 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   # on the one button whose whole job is to leave the application.
   defp catalogue do
     %{
+      library: %{
+        name: "One Playlist",
+        blurb: "Playlists kept here, editable and usable as either end of a transfer.",
+        kind: :builtin,
+        icon: "hero-queue-list"
+      },
       tidal: %{
         name: "TIDAL",
         blurb: "Playlists, albums and liked tracks. Sign in with your TIDAL account.",
@@ -258,6 +264,18 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   attr :service, :map, required: true
   attr :connection, :map, required: true
 
+  # The library is always there. It is listed because this page answers "where
+  # can my playlists be?", and leaving it out would make One Playlist the one
+  # place a user cannot see they have — but there is nothing to authorize and
+  # nothing to revoke, so it carries no action at all. Disconnecting your own
+  # library would mean deleting it, which is a different operation with a
+  # different confirmation.
+  defp connected_actions(%{service: %{kind: :builtin}} = assigns) do
+    ~H"""
+    <span class="badge badge-ghost">Always on</span>
+    """
+  end
+
   defp connected_actions(assigns) do
     ~H"""
     <div class="flex items-center gap-2">
@@ -285,6 +303,12 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   attr :service, :map, required: true
   attr :form_open?, :boolean, required: true
   attr :connecting?, :boolean, required: true
+
+  defp connect_action(%{service: %{kind: :builtin}} = assigns) do
+    ~H"""
+    <span class="badge badge-ghost">Always on</span>
+    """
+  end
 
   defp connect_action(%{service: %{kind: :oauth}} = assigns) do
     ~H"""

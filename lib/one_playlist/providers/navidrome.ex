@@ -117,6 +117,23 @@ defmodule OnePlaylist.Providers.Navidrome do
   end
 
   @impl true
+  def accept_track(%Connection{} = _connection, %Track{} = track, _opts \\ []) do
+    # A catalogue holds what it holds. Declared as unsupported by
+    # `capabilities/0` rather than left optional, so the behaviour stays total.
+    {:error,
+     Errata.create(ConnectionUnusable,
+       reason: :reauth_required,
+       context: %{
+         provider: :navidrome,
+         detail:
+           "Navidrome carries a fixed catalogue, so a recording it does not have " <>
+             "cannot be added to it — only found or not found",
+         track: track.provider_id
+       }
+     )}
+  end
+
+  @impl true
   def create_playlist(%Connection{} = connection, name, _opts \\ []) do
     Client.create_playlist(connection, name, [])
   end

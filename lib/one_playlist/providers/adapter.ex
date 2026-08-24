@@ -78,6 +78,15 @@ defmodule OnePlaylist.Providers.Adapter do
       them; that is a design problem rather than a missing field, and until it
       is solved Subsonic honestly does not have this.
 
+    * `:accepts_any_track` — this destination can hold a recording it does not
+      already have, so `c:accept_track/3` will succeed. True of
+      `OnePlaylist.Providers.Library` and of nothing else: TIDAL and Subsonic
+      can only hold what their catalogues carry. Asked before calling because it
+      changes what a *failure to match* means — against a destination that
+      accepts anything, an unmatched track is not a track that cannot be
+      transferred, it is one that has not been stored yet. See
+      `docs/reference/domain.md` §5.
+
     * `:remove_tracks` — a track can be taken *out* of a playlist, via
       `c:remove_tracks/4`. Both adapters can, so today this does not vary and
       nothing branches on it; it is declared because the question is asked
@@ -86,7 +95,7 @@ defmodule OnePlaylist.Providers.Adapter do
       offers the button. If a later adapter cannot remove, this is how it says
       so; if the answer stays universal, the rule above says retire it.
   """
-  @type capability :: :artwork | :remove_tracks
+  @type capability :: :artwork | :accepts_any_track | :remove_tracks
 
   @doc """
   What this service can do that others may not.
@@ -243,6 +252,41 @@ defmodule OnePlaylist.Providers.Adapter do
               tracks :: [Track.t()],
               opts :: keyword()
             ) :: {:ok, non_neg_integer()} | {:error, Exception.t()}
+
+  @doc """
+  This destination's own representation of a track, storing it if need be.
+
+  The callback behind `:accepts_any_track`, and the reason the library can be a
+  transfer destination without every track arriving as `:unmatched`.
+
+  Every other destination is a **catalogue**: it holds what it holds, a track it
+  does not carry cannot be put there, and that is what a failed match means. The
+  library is not — it can hold anything — so a match that finds nothing is not a
+  dead end but an instruction to store the track and carry on.
+
+  Returns a track belonging to *this* provider, with a `provider_id` that is
+  addressable immediately. That is not a formality: `OnePlaylist.Transfers.Runner`
+  diffs against `playlist_track_ids/3` and re-reads afterwards to confirm the
+  write, so a returned track still carrying the *source's* id would be
+  reported missing by its own confirmation step.
+
+  Adapters that cannot do this return an error and declare no capability, rather
+  than the callback being optional — the behaviour stays total, so "every
+  adapter implements every callback" remains something the suite can check.
+  """
+  # Same shape as `create_playlist/3`'s `addressable`, and the same reason: a
+  # value that cannot be addressed is worse than a failure, because the transfer
+  # proceeds on it and reports success.
+  @post whenever(
+          {:ok, accepted} <- result,
+          addressable: is_binary(accepted.provider_id) and accepted.provider_id != "",
+          from_this_provider: accepted.provider == provider()
+        )
+  @callback accept_track(
+              connection :: Connection.t(),
+              track :: Track.t(),
+              opts :: keyword()
+            ) :: {:ok, Track.t()} | {:error, Exception.t()}
 
   @doc """
   Removes tracks from a playlist, returning how many entries went.
