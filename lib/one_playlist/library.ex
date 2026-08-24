@@ -68,7 +68,9 @@ defmodule OnePlaylist.Library do
           musicbrainz: %{
             recording_id: Ecto.UUID.t() | nil,
             release_id: Ecto.UUID.t() | nil,
-            looked_up_at: DateTime.t() | nil
+            looked_up_at: DateTime.t() | nil,
+            outcome: atom() | nil,
+            candidates: integer() | nil
           }
         }
 
@@ -183,7 +185,9 @@ defmodule OnePlaylist.Library do
         musicbrainz: %{
           recording_id: recording.musicbrainz_recording_id,
           release_id: recording.musicbrainz_release_id,
-          looked_up_at: recording.enriched_at
+          looked_up_at: recording.enriched_at,
+          outcome: recording.enrichment_outcome,
+          candidates: recording.enrichment_candidates
         }
       }
     end)

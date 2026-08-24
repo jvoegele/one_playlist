@@ -319,6 +319,15 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}
     end
 
+    defp set_outcome(user_id, playlist, index, attrs) do
+      entry = user_id |> Library.entries(playlist.id) |> Enum.at(index)
+
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      |> Ecto.Changeset.change(attrs)
+      |> Repo.update!()
+    end
+
     defp set_enrichment(user_id, playlist, states) do
       user_id
       |> Library.entries(playlist.id)
@@ -433,6 +442,49 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       assert html =~ "no confident match at MusicBrainz"
       assert html =~ "waiting to be looked up"
       assert html =~ "Identified at MusicBrainz"
+    end
+
+    test "says which kind of not-found it was", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The distinction a user asked for after reading "not found at
+      # MusicBrainz" for a recording MusicBrainz plainly holds. One is a gap in
+      # the catalogue; the other is a decision this application made.
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [{nil, now, nil}, {nil, now, nil}, {nil, now, nil}])
+
+      set_outcome(user_id, playlist, 0, %{enrichment_outcome: :no_candidates})
+
+      set_outcome(user_id, playlist, 1, %{
+        enrichment_outcome: :declined,
+        enrichment_candidates: 12
+      })
+
+      set_outcome(user_id, playlist, 2, %{enrichment_outcome: :unnameable})
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "MusicBrainz has no such recording"
+      assert html =~ "12 found at MusicBrainz, none certain enough"
+      assert html =~ "too little to search MusicBrainz with"
+    end
+
+    test "a recording enriched before the reason was recorded says only what is known", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [{nil, now, nil}, {nil, now, nil}, {nil, now, nil}])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "no confident match at MusicBrainz"
+      refute html =~ "none certain enough", "no number is better than an invented one"
     end
 
     test "an identified recording MusicBrainz has no ISRC for says so", %{

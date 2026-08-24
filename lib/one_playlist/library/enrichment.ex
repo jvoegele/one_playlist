@@ -257,7 +257,18 @@ defmodule OnePlaylist.Library.Enrichment do
   # What `reset/1` may clear, and the two lists are different for a reason worth
   # reading. Only these three are written by enrichment and nothing else, so only
   # these can be cleared unconditionally.
-  @always_cleared [:enriched_at, :musicbrainz_recording_id, :musicbrainz_release_id]
+  @always_cleared [
+    :enriched_at,
+    :musicbrainz_recording_id,
+    :musicbrainz_release_id,
+    :enrichment_outcome,
+    :enrichment_candidates
+  ]
+
+  # Enrichment's own record of what it did, rather than facts about the music.
+  # Every other field it writes only ever fills a gap; these are overwritten on
+  # every attempt, because last time's reason is not this time's.
+  @bookkeeping [:enriched_at, :enrichment_outcome, :enrichment_candidates]
 
   # A barcode comes from a *release*, so a non-null `musicbrainz_release_id` is
   # evidence enrichment wrote it — the nearest thing to provenance this schema
@@ -299,8 +310,18 @@ defmodule OnePlaylist.Library.Enrichment do
   @spec enrich(Recording.t()) :: {:ok, Recording.t()} | {:error, term()}
   def enrich(%Recording{} = recording) do
     case identify(recording) do
-      {:ok, mbid} when is_binary(mbid) -> describe(recording, mbid)
-      _nothing_found -> record_attempt(recording, %{})
+      {:ok, mbid} when is_binary(mbid) ->
+        describe(recording, mbid)
+
+      {:none, why} ->
+        record_attempt(recording, outcome(why))
+
+      :error ->
+        # A search that could not be *made* is not a search that found nothing,
+        # and recording it as one would make an outage permanent — `due/1` never
+        # offers a stamped recording again. The same rule the artwork lookup
+        # follows, and for the same reason.
+        {:error, :search_unavailable}
     end
   end
 
@@ -442,12 +463,41 @@ defmodule OnePlaylist.Library.Enrichment do
     # — but it can also over-narrow, so a decline here falls through to the
     # broader question rather than ending the search.
     case by_release(recording, title, credit) do
-      :none -> by_title(recording, title, credit)
+      {:none, from_release} -> merge(from_release, by_title(recording, title, credit))
       found -> found
     end
   end
 
-  defp by_name(%Recording{}), do: :none
+  # No title to search with, so nothing was ever asked. Its own outcome, because
+  # "we could not form a question" is not "MusicBrainz has no such recording".
+  defp by_name(%Recording{}), do: {:none, %{outcome: :unnameable, candidates: 0}}
+
+  # Two failed attempts describe one outcome, and the more informative half
+  # wins: if either question returned candidates then MusicBrainz does hold
+  # something, and "nothing came back" would be the wrong thing to report.
+  defp merge(_from_release, {:ok, _mbid} = found), do: found
+
+  defp merge(from_release, {:none, from_title}) do
+    {:none,
+     %{
+       outcome:
+         if(from_release.candidates + from_title.candidates > 0,
+           do: :declined,
+           else: :no_candidates
+         ),
+       candidates: max(from_release.candidates, from_title.candidates)
+     }}
+  end
+
+  # Propagated rather than flattened: see `enrich/1`.
+  defp merge(_from_release, :error), do: :error
+
+  # The ways a search can fail to identify anything, kept apart because they are
+  # what a reader most wants told apart. See the migration for
+  # `enrichment_outcome`.
+  defp outcome(%{outcome: name, candidates: count}) do
+    %{enrichment_outcome: name, enrichment_candidates: count}
+  end
 
   defp by_release(%Recording{album: album} = recording, title, credit)
        when is_binary(album) and album != "" do
@@ -457,7 +507,8 @@ defmodule OnePlaylist.Library.Enrichment do
     end
   end
 
-  defp by_release(_recording, _title, _credit), do: :none
+  defp by_release(_recording, _title, _credit),
+    do: {:none, %{outcome: :no_candidates, candidates: 0}}
 
   defp by_title(recording, title, credit) do
     case search(title, credit) do
@@ -472,15 +523,17 @@ defmodule OnePlaylist.Library.Enrichment do
   end
 
   defp retry_named(recording, title, credit) do
+    nothing = {:none, %{outcome: :no_candidates, candidates: 0}}
+
     case lead_name(credit) do
       nil ->
-        :none
+        nothing
 
       ^credit ->
         # Nothing to narrow: the credit already names one artist, and asking the
         # identical question again would spend a request to be told the same
         # thing.
-        :none
+        nothing
 
       lead ->
         case search(title, lead) do
@@ -528,17 +581,22 @@ defmodule OnePlaylist.Library.Enrichment do
 
   # The ladder, at text's own ceiling. See the moduledoc for why that number is a
   # meaning rather than a tuning.
+  defp chosen(_recording, []), do: {:none, %{outcome: :no_candidates, candidates: 0}}
+
   defp chosen(recording, candidates) do
     case Matching.match(Recording.to_track(recording), candidates, threshold: @every_field_agreed) do
-      {:ok, match} -> {:ok, match.track.provider_id}
-      {:error, _not_matched} -> :none
+      {:ok, match} ->
+        {:ok, match.track.provider_id}
+
+      {:error, _not_matched} ->
+        {:none, %{outcome: :declined, candidates: length(candidates)}}
     end
   end
 
   defp describe(recording, mbid) do
     case Client.recording(mbid) do
       {:ok, nil} ->
-        record_attempt(recording, %{})
+        record_attempt(recording, outcome(%{outcome: :no_candidates, candidates: 0}))
 
       {:ok, details} ->
         apply_details(recording, details, mbid)
@@ -568,7 +626,10 @@ defmodule OnePlaylist.Library.Enrichment do
         {:error, :artwork_unavailable}
 
       _asked_and_answered ->
-        record_attempt(recording, learned)
+        record_attempt(
+          recording,
+          Map.merge(learned, outcome(%{outcome: :identified, candidates: 0}))
+        )
     end
   end
 
@@ -705,7 +766,7 @@ defmodule OnePlaylist.Library.Enrichment do
       learned
       |> Enum.reject(fn {field, value} ->
         value in [nil, "", []] or
-          (field != :enriched_at and not is_nil(Map.fetch!(recording, field)))
+          (field not in @bookkeeping and not is_nil(Map.fetch!(recording, field)))
       end)
       |> Map.new()
 

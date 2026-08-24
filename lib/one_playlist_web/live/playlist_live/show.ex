@@ -24,10 +24,13 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   Sides* comes back at rank one and is declined at `0.860`.
 
   A user reading "not found" concludes the catalogue is missing a record it
-  holds, and reports a matching bug that is really a scoring decision. The
-  wording now says what actually happened. Saying *which* — nothing returned, or
-  returned and declined — would be better still and needs enrichment to record
-  the reason; that is a column and a decision, not a rename.
+  holds, and reports a matching bug that is really a scoring decision.
+
+  So enrichment records **why** it declined, and `why_not/1` says which: *"no
+  such recording"* is a gap in the catalogue, *"twelve found, none certain
+  enough"* is a decision this application made and a number the reader can
+  judge. A recording enriched before the reason was recorded falls back to the
+  neutral wording rather than guessing at which case it was.
 
   ## What "identified by ISRC" is doing in the header
 
@@ -463,7 +466,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
             {@entry.musicbrainz.recording_id}
           </a>
           <span :if={!@entry.musicbrainz.recording_id} class="opacity-40 font-sans">
-            {if @entry.enriched?, do: "no confident match", else: "not looked up yet"}
+            {if @entry.enriched?, do: why_not(@entry.musicbrainz), else: "not looked up yet"}
           </span>
         </dd>
 
@@ -547,11 +550,26 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp note(entry) do
     case {state(entry), entry.track.isrc} do
       {:waiting, _isrc} -> "waiting to be looked up"
-      {:unidentified, _isrc} -> "no confident match at MusicBrainz"
+      {:unidentified, _isrc} -> why_not(entry.musicbrainz)
       {:identified, nil} -> "MusicBrainz has no ISRC for this recording"
       {:identified, _isrc} -> nil
     end
   end
+
+  # Says *which* kind of not-found it was. "Nothing came back" is a gap in the
+  # catalogue; "these came back and none was certain" is a decision this
+  # application made, and reads as a matching bug when the two are collapsed —
+  # which is exactly the report that produced this.
+  defp why_not(%{outcome: :no_candidates}), do: "MusicBrainz has no such recording"
+  defp why_not(%{outcome: :unnameable}), do: "too little to search MusicBrainz with"
+
+  defp why_not(%{outcome: :declined, candidates: n}) when is_integer(n) and n > 0 do
+    "#{n} found at MusicBrainz, none certain enough"
+  end
+
+  # A recording enriched before the reason was recorded. Says only what is
+  # known rather than guessing at which case it was.
+  defp why_not(_unknown), do: "no confident match at MusicBrainz"
 
   defp expanded?(expanded, entry), do: MapSet.member?(expanded, entry.id)
 

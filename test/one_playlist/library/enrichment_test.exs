@@ -482,14 +482,53 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
   describe "enrich/1 when MusicBrainz has nothing to say" do
     test "remembers the attempt, so an unknown recording is not asked about nightly" do
+      # 404 from the ISRC lookup — an identifier it does not hold — and an empty
+      # 200 from the search, which is how that endpoint says "nothing". An
+      # earlier version of this stub answered 404 to both, and the difference
+      # matters now: a search that *errors* is an outage, not an absence.
       Req.Test.stub(Client, fn conn ->
-        Plug.Conn.send_resp(conn, 404, ~s({"error":"Not Found"}))
+        if conn.request_path =~ "/isrc/" do
+          Plug.Conn.send_resp(conn, 404, ~s({"error":"Not Found"}))
+        else
+          Req.Test.json(conn, %{"recordings" => []})
+        end
       end)
 
       {:ok, enriched} = Enrichment.enrich(recording(%{isrc: "GBAYE0601477"}))
 
       assert enriched.enriched_at
       refute enriched.musicbrainz_recording_id
+      assert enriched.enrichment_outcome == :no_candidates
+    end
+
+    test "a search that could not be made is not an absence" do
+      # The same rule the artwork lookup follows. Recording an outage as "no such
+      # recording" would make it permanent, because `due/1` never offers a
+      # stamped recording again.
+      Req.Test.stub(Client, fn conn ->
+        if conn.request_path =~ "/isrc/" do
+          Plug.Conn.send_resp(conn, 404, "")
+        else
+          Req.Test.transport_error(conn, :econnrefused)
+        end
+      end)
+
+      stored = recording(%{isrc: "GBAYE0601477"})
+
+      assert {:error, :search_unavailable} = Enrichment.enrich(stored)
+      refute Repo.get!(Recording, stored.id).enriched_at
+    end
+
+    test "says how many candidates it declined" do
+      # The distinction the column exists for: "nothing came back" reads as a
+      # catalogue gap, "one came back and was not certain" reads as a scoring
+      # decision. Collapsing them made the screen report the second as the first.
+      stub_musicbrainz(%{isrc: %{"isrc" => @isrc, "recordings" => []}})
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Nowhere"}))
+
+      assert enriched.enrichment_outcome == :declined
+      assert enriched.enrichment_candidates == 1
     end
 
     test "does not remember an outage, because it says nothing about the recording" do

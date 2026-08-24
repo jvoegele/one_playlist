@@ -66,12 +66,21 @@ defmodule OnePlaylist.Library.Recording do
     # recording must not be re-asked about nightly forever.
     field :enriched_at, :utc_datetime_usec
 
+    # Why enrichment did not identify this recording, and how much it had to
+    # work with. Bookkeeping rather than a fact about the music — see the
+    # migration and `OnePlaylist.Library.Enrichment`.
+    field :enrichment_outcome, Ecto.Enum,
+      values: [:identified, :no_candidates, :declined, :unnameable]
+
+    field :enrichment_candidates, :integer
+
     timestamps(type: :utc_datetime_usec)
   end
 
   @fields ~w(isrc musicbrainz_recording_id musicbrainz_release_id title artists album album_upc track_number
              volume_number version duration_seconds explicit artwork_url
-             origin_provider origin_provider_id enriched_at)a
+             origin_provider origin_provider_id enriched_at enrichment_outcome
+             enrichment_candidates)a
 
   @doc """
   Builds a recording from a track that arrived from anywhere.
