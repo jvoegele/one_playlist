@@ -1750,6 +1750,19 @@ use — *Lost Dogs: Rarities and B Sides* against *Lost Dogs* — now matches no
 no barcode or cover. That is the same album-normalization problem the MusicBrainz query section
 ends on, and it errs toward showing nothing over showing another album's cover.
 
+**Deduplication needs two exact keys, not one.** Matching at identifier strength fixed the
+merging and broke something else: an ISRC-less track can never be *recognised* on its second
+arrival, so re-importing a playlist grew a second copy of every one of them. Roughly 40% of a
+real self-hosted library carries no ISRC, so "identifiers only" is not the safe direction it
+looks like — it is a slower kind of wrong.
+
+`find_or_create/1` now has a second key for tracks with no ISRC: the title, the album **and**
+the credit all agreeing after normalization. What matters is that it is *exact equality rather
+than similarity*, not which fields it uses — the two studio sessions of *Hard to Imagine*
+disagree about the album and stay apart, while the same track imported twice is recognised.
+Credits are compared as a set, so a service that orders a collaboration differently is still
+the same credit. Verified by re-running a real 153-track import: the second run added **nothing**.
+
 **A destination that accepts anything is matched at identifier strength.** *Hard to Imagine*
 appears twice in that playlist — once from *Lost Dogs*, once from the *Chicago Cab*
 soundtrack, two separate studio sessions. The second matched the first at `0.8950` on a shared

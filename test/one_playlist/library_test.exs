@@ -108,14 +108,66 @@ defmodule OnePlaylist.LibraryTest do
     end
 
     test "a matching title alone does NOT reuse a recording" do
-      # The deliberately conservative half. `search/2` will *offer* a
-      # title match as a candidate, because the ladder can throw it out; joining
-      # on one here would silently point somebody's playlist at a different
-      # recording, and that is not undoable by adding.
-      first = Library.find_or_create(track(%{isrc: nil, title: "Corduroy"}))
-      second = Library.find_or_create(track(%{isrc: nil, title: "Corduroy"}))
+      # The real case, from a real playlist. "Hard to Imagine" appears on both
+      # *Lost Dogs* and the *Chicago Cab* soundtrack and they are two different
+      # studio sessions. A title-similarity match merged them and one silently
+      # vanished from the playlist; requiring the album to agree keeps them
+      # apart.
+      lost_dogs =
+        Library.find_or_create(track(%{isrc: nil, title: "Hard to Imagine", album: "Lost Dogs"}))
 
-      refute first.id == second.id
+      chicago =
+        Library.find_or_create(
+          track(%{isrc: nil, title: "Hard to Imagine", album: "Chicago Cab"})
+        )
+
+      refute lost_dogs.id == chicago.id
+    end
+
+    test "a matching credit alone does NOT reuse a recording either" do
+      one = Library.find_or_create(track(%{isrc: nil, title: "Corduroy", album: "Vitalogy"}))
+
+      other =
+        Library.find_or_create(
+          track(%{isrc: nil, title: "Corduroy", artists: ["Eddie Vedder"], album: "Vitalogy"})
+        )
+
+      refute one.id == other.id
+    end
+
+    test "title, album and credit all agreeing IS the same recording" do
+      # The second key, and the reason it has to exist: without it an ISRC-less
+      # track can never be recognised on its second arrival, so a re-imported
+      # playlist grows a second copy of every one of them. Exact equality after
+      # normalization, never similarity.
+      first = Library.find_or_create(track(%{isrc: nil, title: "Corduroy", album: "Vitalogy"}))
+      again = Library.find_or_create(track(%{isrc: nil, title: "corduroy", album: "VITALOGY"}))
+
+      assert first.id == again.id
+    end
+
+    test "the credit is compared as a set, not as a sequence" do
+      # One service orders a collaboration one way and another the other way;
+      # that is not two recordings.
+      one =
+        Library.find_or_create(
+          track(%{
+            isrc: nil,
+            title: "The Long Road",
+            artists: ["Eddie Vedder", "Nusrat Fateh Ali Khan"]
+          })
+        )
+
+      other =
+        Library.find_or_create(
+          track(%{
+            isrc: nil,
+            title: "The Long Road",
+            artists: ["Nusrat Fateh Ali Khan", "Eddie Vedder"]
+          })
+        )
+
+      assert one.id == other.id
     end
 
     test "the ISRC is stored canonical, or not at all" do

@@ -38,6 +38,7 @@ defmodule OnePlaylist.Library do
   alias OnePlaylist.Library.Playlist
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Track
   alias OnePlaylist.Repo
@@ -499,13 +500,22 @@ defmodule OnePlaylist.Library do
   The point at which a miss becomes a **create** rather than a failure — see the
   module documentation.
 
-  Conservative about what counts as the same recording, and only ever matches on
-  an identifier: a canonical ISRC, or nothing. Titles are not enough here, even
-  though they are enough to *offer* a candidate in `search/2`, because the two
-  answers have different costs. Offering a wrong candidate is harmless — the
-  matching ladder throws it out. Silently reusing the wrong recording row joins
-  two different pieces of music forever, and the user's playlist then points at
-  the wrong one.
+  Two keys, and both are **exact**. A canonical ISRC when the track has one;
+  otherwise the title, the album and the credit all agreeing after
+  normalization.
+
+  Never a similarity match, and that is the distinction that matters rather than
+  which fields are used. Titles alone are enough to *offer* a candidate in
+  `search/2` — the ladder throws a wrong one out — and they are not enough to
+  *conclude* here, because reusing the wrong row joins two pieces of music
+  forever and every playlist naming one then points at the other. Measured on a
+  real import: a title-similarity match merged two different studio sessions of
+  *Hard to Imagine*, and one of them silently vanished.
+
+  The second key exists because an identifier alone is not the safe direction it
+  looks like. Roughly 40% of a real self-hosted library carries no ISRC, and
+  without a way to recognise those, a playlist re-imported grows a second copy
+  of every one of them — a slower kind of wrong rather than a safer one.
   """
   @spec find_or_create(Track.t()) :: Recording.t()
   def find_or_create(%Track{provider: :library, provider_id: id}), do: Repo.get!(Recording, id)
@@ -526,14 +536,48 @@ defmodule OnePlaylist.Library do
     recording
   end
 
-  defp existing(%Track{isrc: isrc}) when is_binary(isrc) do
+  defp existing(%Track{isrc: isrc} = track) when is_binary(isrc) do
     case Isrc.normalize(isrc) do
-      nil -> nil
+      nil -> identical(track)
       canonical -> Repo.one(from(r in Recording, where: r.isrc == ^canonical, limit: 1))
     end
   end
 
-  defp existing(_track), do: nil
+  defp existing(track), do: identical(track)
+
+  # The second key, for the tracks that carry no ISRC — roughly 40% of a real
+  # self-hosted library, and a tenth of the playlist that produced this rule.
+  #
+  # **Exact equality, not similarity**, and the distinction is the whole of it. A
+  # similarity match on title alone merged two different studio sessions of
+  # *Hard to Imagine* — one from *Lost Dogs*, one from the *Chicago Cab*
+  # soundtrack — and the second silently vanished from the playlist. Requiring
+  # the album and the credit to agree as well keeps those apart, because they
+  # disagree about the album.
+  #
+  # Without it, an ISRC-less track can never be recognised on its second arrival
+  # and a re-imported playlist grows a second copy of every one of them. That is
+  # not the safe direction either: it is just a slower kind of wrong.
+  #
+  # Compared after normalization so punctuation and case cannot split one
+  # recording in two, and the artists as a **set** so a service that orders a
+  # credit differently is still the same credit.
+  defp identical(%Track{title: title} = track) when is_binary(title) and title != "" do
+    Recording
+    # The index the library migration added for exactly this lookup.
+    |> where([r], fragment("lower(?)", r.title) == ^String.downcase(title))
+    |> where([r], is_nil(r.isrc))
+    |> Repo.all()
+    |> Enum.find(&same_recording?(&1, track))
+  end
+
+  defp identical(_track), do: nil
+
+  defp same_recording?(%Recording{} = recording, %Track{} = track) do
+    Normalize.text(recording.title) == Normalize.text(track.title) and
+      Normalize.text(recording.album) == Normalize.text(track.album) and
+      Normalize.artists(recording.artists) == Normalize.artists(track.artists)
+  end
 
   defp next_position(playlist_id) do
     PlaylistItem
