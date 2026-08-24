@@ -25,6 +25,16 @@ defmodule OnePlaylist.Providers.LibraryTest do
     %{user_id: user_id, connection: connection}
   end
 
+  # Recordings belong to nobody, so a fixture cannot be scoped to the test's own
+  # user the way everything else here is — and dev and test share the `postgres`
+  # database. A real ISRC would find whatever somebody imported into dev, which
+  # is exactly how this test started failing. `ZZ` is unassigned, so nothing
+  # real can carry one of these.
+  defp unique_isrc do
+    "ZZZ9925" <>
+      String.pad_leading(to_string(rem(System.unique_integer([:positive]), 100_000)), 5, "0")
+  end
+
   defp track(attrs \\ %{}) do
     struct!(
       %Track{
@@ -74,7 +84,7 @@ defmodule OnePlaylist.Providers.LibraryTest do
       connection: connection
     } do
       assert {:ok, %Track{provider: :library} = accepted} =
-               LibraryAdapter.accept_track(connection, track(%{isrc: "USSM11100234"}))
+               LibraryAdapter.accept_track(connection, track(%{isrc: unique_isrc()}))
 
       assert is_binary(accepted.provider_id) and accepted.provider_id != ""
 
@@ -83,8 +93,10 @@ defmodule OnePlaylist.Providers.LibraryTest do
     end
 
     test "accept_track reuses a recording it already holds", %{connection: connection} do
-      {:ok, first} = LibraryAdapter.accept_track(connection, track(%{isrc: "USSM11100234"}))
-      {:ok, second} = LibraryAdapter.accept_track(connection, track(%{isrc: "USSM11100234"}))
+      isrc = unique_isrc()
+
+      {:ok, first} = LibraryAdapter.accept_track(connection, track(%{isrc: isrc}))
+      {:ok, second} = LibraryAdapter.accept_track(connection, track(%{isrc: isrc}))
 
       assert first.provider_id == second.provider_id
     end
@@ -105,7 +117,7 @@ defmodule OnePlaylist.Providers.LibraryTest do
       assert playlist.provider == :library
       assert playlist.name == "Road Trip"
 
-      first = track(%{isrc: "USSM11100234", title: "One"})
+      first = track(%{isrc: unique_isrc(), title: "One"})
       second = track(%{isrc: nil, title: "Two"})
 
       assert {:ok, 2} = LibraryAdapter.add_tracks(connection, playlist, [first, second])
@@ -126,10 +138,12 @@ defmodule OnePlaylist.Providers.LibraryTest do
     test "searching answers with library tracks, as the contract requires", %{
       connection: connection
     } do
-      {:ok, _stored} = LibraryAdapter.accept_track(connection, track(%{isrc: "USSM11100234"}))
+      isrc = unique_isrc()
+
+      {:ok, _stored} = LibraryAdapter.accept_track(connection, track(%{isrc: isrc}))
 
       assert {:ok, [%Track{provider: :library}]} =
-               LibraryAdapter.search_tracks(connection, track(%{isrc: "USSM11100234"}))
+               LibraryAdapter.search_tracks(connection, track(%{isrc: isrc}))
     end
 
     test "listing playlists reports their sizes", %{connection: connection} do

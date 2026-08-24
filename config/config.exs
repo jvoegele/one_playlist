@@ -101,13 +101,21 @@ config :errata,
 config :one_playlist, Oban,
   repo: OnePlaylist.Repo,
   prefix: "oban",
-  queues: [transfers: 2],
+  # `enrichment: 1` is not caution, it is arithmetic: MusicBrainz asks for one
+  # request a second and `OnePlaylist.MusicBrainz.Service` enforces that for the
+  # whole node, so a second worker could only wait inside the limiter while
+  # holding a slot and a connection. See OnePlaylist.Library.EnrichmentWorker.
+  queues: [transfers: 2, enrichment: 1],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     # Rescues jobs orphaned by a node dying mid-run. Safe here only because the
     # runner is idempotent: a rescued transfer re-reads the destination and adds
     # what is missing. See Transfers.TransferWorker.
-    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
+    # 04:00 UTC, well clear of the pg_cron pruning jobs. See
+    # OnePlaylist.Library.EnrichmentSweeper for why this one is scheduled here
+    # rather than in Postgres with the others.
+    {Oban.Plugins.Cron, crontab: [{"0 4 * * *", OnePlaylist.Library.EnrichmentSweeper}]}
   ]
 
 # L1 of the catalogue cache. Bounded by memory rather than by a guessed entry

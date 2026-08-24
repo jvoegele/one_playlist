@@ -453,6 +453,7 @@ A fresh session should read this before proposing what to build.
 | Deleting | A transfer can be deleted from its page. `transfer_items` and `transfer_sources` cascade; the uploaded file goes too, best effort, with the nightly orphan sweep as the backstop |
 | Classical | `Music.Work` reads a **work signature** out of a title — catalogue number, form and number, key, movement — and `Strategy.Work` matches on it. Classical went from **0 of 8** to 24 work matches plus 13 text of 57. A last-resort MusicBrainz *works* lookup supplies a catalogue number the title omits, on three conditions: the match already failed, the source names no work, and some candidate does |
 | Artwork | Cover art on the report and in the candidate list, TIDAL only, free of extra requests via an `albums.coverArt` include. Subsonic's cover endpoint wants credentials, so it declares no `:artwork` capability and no placeholder is drawn |
+| Enrichment | A library recording is resolved against **MusicBrainz** in the background — ISRC, MBID, album, barcode, duration, cover — on an Oban queue of one, sized to the one-request-a-second limit rather than fighting it. Enqueued as each new recording arrives and swept nightly for backfill. Two rules, both load-bearing: **gaps are filled, never corrected** (a `Bond` postcondition, proven by mutation), and a candidate found by *search* is scored through the matching ladder at `:high` rather than trusted — MusicBrainz scores a live bootleg 100 for a studio track, and taking the top hit would attach the wrong ISRC. Backfilled the 150-recording dev library: **150 enriched, 140 identified, cover art from 8 to 104**, nothing overwritten. The 10 misses are MusicBrainz coverage rather than matching — soundtracks, extended versions and a bootleg whose ISRCs it does not index |
 | Match quality | Two corpora, both replayable offline. `dev/measure/replay.exs`: **82 certain, 12 duration-corroborated, 5 none, 1 wrong** of 100 random MusicBrainz recordings. `dev/corpus/replay_credit_cases.exs`: **96 correct, 12 equivalent, 7 missed, 0 wrong** of 115 hard credit cases, and **5 of 5** hand-labelled decline cases correctly declined. See `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
@@ -485,12 +486,12 @@ backlog below is the road to it, not a separate list.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
-  * **L4 enrichment.** The last of §5's library features not built. Every
-    recording resolved to as much metadata as can be obtained — the ISRC family,
-    the work, the id at each service — which is what turns the library into the
-    identity spine and makes a transfer out of it a lookup rather than a match.
-    MusicBrainz asks one request a second, so this is background, resumable and
-    visibly partial, never on the import path.
+  * **L5, the identity spine.** L4 resolves a recording against MusicBrainz; L5 is the
+    other half — storing the **provider id at each service** a recording has been located
+    at, so a later transfer of it is a lookup rather than a match. The matching already
+    happens on every transfer and the answer is currently thrown away when the run ends;
+    this is a table and a write, not new logic. It is what §5's economics argument rests
+    on and the largest remaining piece of the library.
 
   * **Adding a track to a library playlist by hand.** L2 covers rename, delete,
     remove and reorder; *adding* needs something to add **from**, which is a

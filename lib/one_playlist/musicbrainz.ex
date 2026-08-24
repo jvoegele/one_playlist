@@ -74,13 +74,36 @@ defmodule OnePlaylist.MusicBrainz do
   def family(isrc, opts \\ [])
 
   def family(isrc, opts) when is_binary(isrc) do
-    case Isrc.normalize(isrc) do
+    case lookup(isrc, opts) do
+      %{isrcs: isrcs} -> isrcs
       nil -> []
-      canonical -> cached_family(canonical, opts)
     end
   end
 
   def family(_isrc, _opts), do: []
+
+  @doc """
+  MusicBrainz's identifier for the recording an ISRC names, or `nil`.
+
+  The other half of the fact `family/2` already fetches and caches, which is why
+  this costs nothing on top of matching: an ISRC lookup answers with an MBID and
+  the codes beside it, and until now only the codes were being read back.
+
+  `OnePlaylist.Library.Enrichment` wants the MBID, because that is what a
+  recording lookup is addressed by. Never returns an error, for the reason given
+  on `family/2`.
+  """
+  @spec recording_mbid(String.t() | nil, keyword()) :: String.t() | nil
+  def recording_mbid(isrc, opts \\ [])
+
+  def recording_mbid(isrc, opts) when is_binary(isrc) do
+    case lookup(isrc, opts) do
+      %{recording_mbid: mbid} -> mbid
+      nil -> nil
+    end
+  end
+
+  def recording_mbid(_isrc, _opts), do: nil
 
   @doc """
   Titles of the works MusicBrainz thinks a classical title names.
@@ -197,27 +220,37 @@ defmodule OnePlaylist.MusicBrainz do
     end
   end
 
-  defp cached_family(isrc, opts) do
-    case Cache.read_through({:musicbrainz_isrc, isrc}, fn -> resolve(isrc, opts) end,
-           ttl: @l1_ttl
-         ) do
-      {:ok, isrcs} -> isrcs
-      {:error, _reason} -> []
+  # Both public readers share one cached fact, so asking for the MBID after the
+  # family — which enrichment does on every ISRC-bearing recording — is free.
+  defp lookup(isrc, opts) do
+    with canonical when is_binary(canonical) <- Isrc.normalize(isrc),
+         {:ok, answer} <-
+           Cache.read_through({:musicbrainz_isrc, canonical}, fn -> resolve(canonical, opts) end,
+             ttl: @l1_ttl
+           ) do
+      answer
+    else
+      _unknown -> nil
     end
   end
 
   defp resolve(isrc, opts) do
     case fetch_l2(isrc) do
-      {:ok, isrcs} -> {:ok, isrcs}
+      {:ok, answer} -> {:ok, answer}
       :miss -> ask(isrc, opts)
     end
   end
 
   defp fetch_l2(isrc) do
     case Repo.get(IsrcLookup, isrc) do
-      nil -> :miss
-      %IsrcLookup{isrcs: nil} -> {:ok, []}
-      %IsrcLookup{isrcs: isrcs} -> {:ok, isrcs}
+      nil ->
+        :miss
+
+      %IsrcLookup{isrcs: nil} ->
+        {:ok, %{recording_mbid: nil, isrcs: []}}
+
+      %IsrcLookup{recording_mbid: mbid, isrcs: isrcs} ->
+        {:ok, %{recording_mbid: mbid, isrcs: isrcs}}
     end
   end
 
@@ -225,18 +258,18 @@ defmodule OnePlaylist.MusicBrainz do
     case Client.isrc_family(isrc, opts) do
       {:ok, nil} ->
         remember(isrc, nil)
-        {:ok, []}
+        {:ok, %{recording_mbid: nil, isrcs: []}}
 
       {:ok, %{recording_mbid: mbid, isrcs: isrcs}} ->
         remember(isrc, %{recording_mbid: mbid, isrcs: isrcs})
-        {:ok, isrcs}
+        {:ok, %{recording_mbid: mbid, isrcs: isrcs}}
 
       {:error, reason} ->
         # Not remembered. A failure is about MusicBrainz being unreachable
         # rather than about the ISRC, and caching it would turn a minute's
         # outage into a month of wrong answers.
         Logger.warning("musicbrainz lookup failed for #{isrc}: #{inspect(reason)}")
-        {:ok, []}
+        {:ok, %{recording_mbid: nil, isrcs: []}}
     end
   end
 

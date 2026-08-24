@@ -1,9 +1,10 @@
 defmodule OnePlaylist.MusicBrainz.Client do
   @moduledoc """
-  The two MusicBrainz calls this application makes.
+  Every MusicBrainz call this application makes.
 
-  Both are a single request, which is the whole reason they are affordable at
-  one request per second.
+  Each is a single request, which is the whole reason they are affordable at one
+  request per second. Two serve matching, and three serve enrichment
+  (`OnePlaylist.Library.Enrichment`).
 
   `isrc_family/2` — `GET /ws/2/isrc/{isrc}?inc=isrcs` — answers with every
   recording that ISRC names and, because of `inc=isrcs`, every *other* ISRC
@@ -16,6 +17,12 @@ defmodule OnePlaylist.MusicBrainz.Client do
   `works/2` — `GET /ws/2/work?query=…` — answers with the works a title names,
   which is where a classical catalogue number comes from when the title omits
   one.
+
+  `search_recordings/3`, `recording/2` and `release_has_artwork?/2` are
+  enrichment's: find a recording by name, learn everything about it in one
+  lookup, and ask whether Cover Art Archive has a cover before an artwork URL is
+  stored. Each documents what was verified live rather than assumed, because two
+  of the three behave differently from the obvious guess.
 
   ## A contactful User-Agent is required
 
@@ -34,6 +41,7 @@ defmodule OnePlaylist.MusicBrainz.Client do
   use Bond
 
   alias OnePlaylist.Music.Isrc
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.MusicBrainz.Service
 
   require Logger
@@ -119,6 +127,187 @@ defmodule OnePlaylist.MusicBrainz.Client do
     |> Req.get()
     |> handle_works()
   end
+
+  @doc """
+  Recordings matching a title and artist, as candidate tracks.
+
+  For the case an ISRC cannot answer: a recording that arrived from a file with
+  a title and an artist and nothing else. Returns `OnePlaylist.Music.Track`
+  structs rather than MusicBrainz's JSON, because what happens to them next is
+  that they are scored by `OnePlaylist.Matching` like candidates from any other
+  service — see `OnePlaylist.Library.Enrichment` for why that is not a
+  convenience but the safeguard.
+
+  ## The score is not a verdict
+
+  Verified live on 2026-08-24: a search for *Corduroy* by *Pearl Jam* returns a
+  **live bootleg** from Barcelona at **score 100**. MusicBrainz is scoring how
+  well the text matched, which is not the same question as which recording was
+  meant, and a caller that treated the top hit as the answer would attach the
+  wrong identity — and then fill in that recording's ISRC, length and artwork,
+  making the data worse rather than better.
+
+  Search results also carry **no ISRCs** (verified: the field is absent, not
+  empty), so an identity found this way still needs `recording/2` to be worth
+  anything.
+  """
+  @spec search_recordings(String.t(), String.t() | nil, keyword()) ::
+          {:ok, [Track.t()]} | {:error, Exception.t()}
+  def search_recordings(title, artist, opts \\ []) when is_binary(title) do
+    Service.call(fn -> recording_search(title, artist, opts) end)
+  end
+
+  defp recording_search(title, artist, opts) do
+    query =
+      [~s(recording:"#{escape(title)}"), artist && ~s(artist:"#{escape(artist)}")]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" AND ")
+
+    [
+      base_url: @base_url,
+      url: "/recording",
+      params: [query: query, fmt: "json", limit: Keyword.get(opts, :limit, 10)],
+      headers: [{"user-agent", user_agent()}],
+      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+    ]
+    |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+    |> Req.new()
+    |> Req.get()
+    |> handle_search()
+  end
+
+  defp handle_search({:ok, %{status: 503}}), do: :retry
+
+  defp handle_search({:ok, %{status: 200, body: body}}) do
+    {:ok, body |> Map.get("recordings", []) |> Enum.map(&to_track/1)}
+  end
+
+  defp handle_search({:ok, %{status: status}}) do
+    Logger.warning("musicbrainz recording search returned #{status}")
+    {:error, %RuntimeError{message: "musicbrainz returned #{status}"}}
+  end
+
+  defp handle_search({:error, _reason}), do: :retry
+
+  @doc """
+  Everything one recording is known by, in a single request.
+
+  `inc=artist-credits+releases+isrcs+work-rels`, which is what makes enrichment
+  affordable: verified live, one lookup returns the ISRCs, the length, the
+  artist credit, the releases — with each release's own title, barcode and id —
+  and the work relations a classical recording performs.
+
+  The releases are what artwork comes from. They do **not** carry Cover Art
+  Archive information themselves, though; only a release lookup does. See
+  `release_has_artwork?/2`.
+
+  `{:ok, nil}` is MusicBrainz answering 404 — an identifier it does not hold.
+  That is an answer rather than a failure, and the caller records it as one.
+  """
+  @spec recording(String.t(), keyword()) :: {:ok, map() | nil} | {:error, Exception.t()}
+  def recording(mbid, opts \\ []) when is_binary(mbid) do
+    Service.call(fn ->
+      [
+        base_url: @base_url,
+        url: "/recording/#{mbid}",
+        params: [fmt: "json", inc: "artist-credits+releases+isrcs+work-rels"],
+        headers: [{"user-agent", user_agent()}],
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      ]
+      |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+      |> Req.new()
+      |> Req.get()
+      |> handle_lookup(mbid)
+    end)
+  end
+
+  defp handle_lookup({:ok, %{status: 503}}, _mbid), do: :retry
+  defp handle_lookup({:ok, %{status: 404}}, _mbid), do: {:ok, nil}
+  defp handle_lookup({:ok, %{status: 200, body: body}}, _mbid), do: {:ok, body}
+
+  defp handle_lookup({:ok, %{status: status}}, mbid) do
+    Logger.warning("musicbrainz recording lookup returned #{status} for #{mbid}")
+    {:error, %RuntimeError{message: "musicbrainz returned #{status}"}}
+  end
+
+  defp handle_lookup({:error, _reason}, _mbid), do: :retry
+
+  @doc """
+  Whether Cover Art Archive holds a front cover for a release.
+
+  Asked before an artwork URL is stored, because the URL is *constructed* rather
+  than fetched — `coverartarchive.org/release/{mbid}/front-250` needs no
+  lookup — and storing one for a release with no art puts a broken image in
+  every report and playlist that shows it.
+
+  Verified live: a recording lookup's embedded releases do **not** carry
+  `cover-art-archive`, and a release lookup does. That is one request per
+  *release* rather than per recording, which is why the caller caches it: an
+  album's worth of recordings asks the same question twelve times.
+  """
+  @spec release_has_artwork?(String.t(), keyword()) :: {:ok, boolean()} | {:error, Exception.t()}
+  def release_has_artwork?(release_mbid, opts \\ []) when is_binary(release_mbid) do
+    Service.call(fn ->
+      [
+        base_url: @base_url,
+        url: "/release/#{release_mbid}",
+        params: [fmt: "json"],
+        headers: [{"user-agent", user_agent()}],
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      ]
+      |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+      |> Req.new()
+      |> Req.get()
+      |> case do
+        {:ok, %{status: 503}} ->
+          :retry
+
+        {:ok, %{status: 200, body: body}} ->
+          {:ok, get_in(body, ["cover-art-archive", "front"]) == true}
+
+        {:ok, %{status: _other}} ->
+          {:ok, false}
+
+        {:error, _reason} ->
+          :retry
+      end
+    end)
+  end
+
+  @doc """
+  The Cover Art Archive URL for a release's front cover.
+
+  Constructed rather than requested. 250px because it is drawn at 40px in a
+  report row and at list size elsewhere — the same reasoning
+  `OnePlaylist.Providers.Tidal.Mapper` applies when it picks the smallest
+  usable file rather than the largest.
+  """
+  @spec artwork_url(String.t()) :: String.t()
+  def artwork_url(release_mbid),
+    do: "https://coverartarchive.org/release/#{release_mbid}/front-250"
+
+  # A MusicBrainz recording as a candidate the matching ladder can score. The
+  # album comes from the first release it names, which is what the ladder
+  # compares against a stored recording's own album.
+  defp to_track(recording) do
+    release = recording |> Map.get("releases", []) |> List.first() || %{}
+
+    %Track{
+      provider: :musicbrainz,
+      provider_id: recording["id"],
+      title: recording["title"],
+      artists: recording |> Map.get("artist-credit", []) |> Enum.map(& &1["name"]),
+      album: release["title"],
+      album_upc: release["barcode"],
+      # MusicBrainz reports length in milliseconds; everything here is seconds.
+      duration_seconds: recording["length"] && div(recording["length"], 1000),
+      isrc: recording |> Map.get("isrcs", []) |> List.first()
+    }
+  end
+
+  # Lucene syntax, so a quote or a backslash in a title would otherwise change
+  # the query rather than be searched for.
+  defp escape(text), do: String.replace(text, ~r/(["\\])/, "\\\\\\1")
 
   # 503 is how MusicBrainz says "slow down", so it is the one status worth
   # retrying. `ExternalService` sees `:retry` and applies the backoff.

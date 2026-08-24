@@ -14,6 +14,18 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   `OnePlaylist.Library.remove_entry/3` and not the adapter's `remove_tracks/4`,
   which takes recordings and deliberately removes every occurrence.
 
+  ## What "identified by ISRC" is doing in the header
+
+  The count is the honest measure of what
+  `OnePlaylist.Library.Enrichment` buys. Everything else it fills in is
+  cosmetic — an album name, a cover, a length — but an ISRC is what makes a
+  track exactly matchable at every service, so a playlist where all of them
+  carry one will transfer perfectly and one where none do will not.
+
+  It is also why the number moves on its own: enrichment is a background job on
+  a queue of one, so a freshly imported playlist starts low and climbs. Saying
+  so is better than a spinner nobody can interpret.
+
   ## Reordering is two buttons, not a drag
 
   Up and down move an entry one place, which is a swap of two `position` values
@@ -148,6 +160,12 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
             <p class="text-sm opacity-70">
               {length(@entries)} {if length(@entries) == 1, do: "track", else: "tracks"} · in One Playlist
             </p>
+            <p :if={@entries != []} class="text-xs opacity-60 mt-1">
+              {@identified} of {length(@entries)} identified by ISRC
+              <span :if={@identified < length(@entries)}>
+                — the rest are still being looked up
+              </span>
+            </p>
           </div>
 
           <button
@@ -176,6 +194,15 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           >
             <div class="card-body py-2 flex-row items-center gap-3">
               <span class="tabular-nums opacity-50 w-8 shrink-0">{index + 1}</span>
+
+              <div class="w-10 h-10 shrink-0">
+                <img
+                  :if={entry.track.artwork_url}
+                  src={entry.track.artwork_url}
+                  alt=""
+                  class="w-10 h-10 rounded object-cover"
+                />
+              </div>
 
               <div class="min-w-0 flex-1">
                 <div class="font-medium truncate">{entry.track.title}</div>
@@ -226,10 +253,10 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   end
 
   defp load_entries(socket) do
-    assign(
-      socket,
-      :entries,
-      Library.entries(socket.assigns.current_user_id, socket.assigns.playlist.id)
-    )
+    entries = Library.entries(socket.assigns.current_user_id, socket.assigns.playlist.id)
+
+    socket
+    |> assign(:entries, entries)
+    |> assign(:identified, Enum.count(entries, &is_binary(&1.track.isrc)))
   end
 end

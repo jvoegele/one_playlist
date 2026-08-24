@@ -1227,3 +1227,52 @@ kind of observation it already makes well.
 Failing both, it is worth a line in the invariants guide. The rule "checked on entry and on a
 struct result" is accurate but reads as complete coverage, and the tuple case is common enough
 in Elixir that most stateful structs will hit it.
+
+---
+
+## `bond` — mutation testing is the feature, and the coverage table is what prompts it
+
+A positive, recorded because the negatives above outnumber them and this one changed what got
+built rather than merely being pleasant.
+
+`OnePlaylist.Library.Enrichment.enrich/1` carries two postconditions:
+
+```elixir
+@post whenever({:ok, enriched} <- result,
+        nothing_was_overwritten: only_filled_gaps?(recording, enriched),
+        attempt_recorded: is_struct(enriched.enriched_at, DateTime)
+      )
+```
+
+Neither can be falsified by any input. The function merges rather than assigns and always stamps
+the timestamp, so every test passes and both show as `⚠ never failed` in the coverage table
+printed after `mix test`. That is exactly the situation the checklist in
+`docs/reference/contracts.md` covers, and what it asks for — mutate the implementation and
+confirm the assertion fires — took two minutes and returned the answer both times:
+
+  * dropping `record_attempt/2`'s "already has a value" test →
+    `** (Bond.PostconditionError) … label: :nothing_was_overwritten`
+  * dropping its `Map.put(:enriched_at, …)` → `… label: :attempt_recorded`
+
+What makes this worth writing down is *which* failures these are. Both are silent and both are
+on a schedule. A future edit that let enrichment assign rather than merge would rewrite users'
+own titles and albums with a stranger's spelling, in the background, for every recording in the
+library — no test would fail, no error would be logged, and the damage would be discovered by a
+user noticing their playlist had changed. The second stops `due/1` re-offering a recording
+MusicBrainz cannot identify, every night, forever.
+
+Two observations for the library:
+
+  * The coverage table is doing real work as a **prompt**. `⚠ never failed` is not a complaint
+    about the test suite, it is a question — and it arrived at the moment the assertion was
+    written, unprompted, in the normal test output. Nothing else in the toolchain asks it.
+  * The workflow it prompts has no tooling. Mutating by hand and remembering to restore is
+    error-prone — and it bit twice here, because `cp` back over the original prompted
+    interactively and left the mutated file in place mid-run. A `mix bond.mutate` that took a
+    label, applied a supplied patch, ran the targeted tests and restored unconditionally would
+    turn "the checklist asks for this" into something that happens every time. Even a documented
+    recipe in the guides would help; right now every project invents its own.
+
+The suggestion, concretely: give `⚠ never failed` a third state. An assertion proven by mutation
+is not the same as one nobody has looked at, and there is currently no way to say so except a
+comment in the source — which is what this project does, and which the coverage table cannot see.

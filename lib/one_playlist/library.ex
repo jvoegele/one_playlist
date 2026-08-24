@@ -34,6 +34,7 @@ defmodule OnePlaylist.Library do
 
   import Ecto.Query
 
+  alias OnePlaylist.Library.EnrichmentWorker
   alias OnePlaylist.Library.Playlist
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
@@ -395,8 +396,17 @@ defmodule OnePlaylist.Library do
   def find_or_create(%Track{} = track) do
     case existing(track) do
       %Recording{} = found -> found
-      nil -> track |> Recording.from_track() |> Repo.insert!()
+      nil -> track |> Recording.from_track() |> Repo.insert!() |> enqueue_enrichment()
     end
+  end
+
+  # Only a recording that is genuinely new. One that was found has been asked
+  # about already, or is queued to be — and a playlist imported twice names
+  # mostly the same recordings, so enqueueing on every arrival would spend the
+  # enrichment queue re-asking about music it already knows.
+  defp enqueue_enrichment(%Recording{} = recording) do
+    :ok = EnrichmentWorker.enqueue(recording.id)
+    recording
   end
 
   defp existing(%Track{isrc: isrc}) when is_binary(isrc) do

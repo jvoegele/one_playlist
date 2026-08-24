@@ -16,13 +16,63 @@ defmodule OnePlaylist.LibraryTest do
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Library
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Track
 
   setup do
     %{user_id: AuthFixtures.user_id_fixture()}
   end
 
+  # Recordings belong to nobody, so unlike everything else here they cannot be
+  # scoped to the test's own user — and dev and test share the `postgres`
+  # database, so a real ISRC or a real title in a fixture will sooner or later
+  # collide with music somebody actually imported. (It did: two tests here began
+  # failing the day a Pearl Jam library landed in dev.)
+  #
+  # So every identifying value is salted, once per test process, which keeps the
+  # names readable while making them nobody else's. `isrc/1` is public to the
+  # test so an assertion can name the same salted value the fixture stored.
+  defp salt do
+    case Process.get(:library_salt) do
+      nil ->
+        fresh = System.unique_integer([:positive])
+        Process.put(:library_salt, fresh)
+        fresh
+
+      existing ->
+        existing
+    end
+  end
+
+  # The last five digits of an ISRC are its designation code, which is exactly
+  # the part that distinguishes one recording from another within a registrant.
+  # Held above 10000 so a salted code cannot land on one of the low designation
+  # numbers real catalogues actually use.
+  defp isrc(code) do
+    canonical = Isrc.normalize(code) || code
+    String.slice(canonical, 0, 7) <> to_string(rem(salt(), 90_000) + 10_000)
+  end
+
+  # The same ISRC written the way Roon writes them — lower case and hyphenated.
+  # Derived from the salted value rather than written out, so the two spellings
+  # stay two spellings of one code.
+  defp scrambled(code) do
+    <<cc::binary-2, reg::binary-3, year::binary-2, designation::binary-5>> = isrc(code)
+
+    String.downcase("#{cc}-#{reg}-#{year}-#{designation}")
+  end
+
+  # Only ISRCs are salted, not titles: a title is compared, ordered and asserted
+  # on all over this file, and salting it would make every one of those
+  # assertions about the salt. The one test that searches by title uses a title
+  # no real catalogue holds instead.
   defp track(attrs) do
+    attrs =
+      Map.update(attrs, :isrc, nil, fn
+        nil -> nil
+        code -> isrc(code)
+      end)
+
     struct!(
       %Track{
         provider: :tidal,
@@ -43,14 +93,16 @@ defmodule OnePlaylist.LibraryTest do
       second = Library.find_or_create(track(%{isrc: "USSM11100234", title: "Corduroy "}))
 
       assert first.id == second.id
-      assert Repo.aggregate(from(r in Recording, where: r.isrc == "USSM11100234"), :count) == 1
+
+      assert Repo.aggregate(from(r in Recording, where: r.isrc == ^isrc("USSM11100234")), :count) ==
+               1
     end
 
     test "an ISRC spelled differently is the same recording" do
       # Roon writes them lower case and hyphenated. Canonical form is what the
       # column holds, so the comparison has to be canonical too.
       first = Library.find_or_create(track(%{isrc: "GBAYE0601477"}))
-      second = Library.find_or_create(track(%{isrc: "gb-aye-06-01477"}))
+      second = Library.find_or_create(track(%{isrc: scrambled("GBAYE0601477")}))
 
       assert first.id == second.id
     end
@@ -71,9 +123,9 @@ defmodule OnePlaylist.LibraryTest do
       # lookup normalises its query, so an ISRC stored as the source wrote it is
       # an ISRC nothing will ever find. Deduplication then fails silently in the
       # one place it is the entire point.
-      lower = Library.find_or_create(track(%{isrc: "gb-aye-06-01477"}))
+      lower = Library.find_or_create(track(%{isrc: scrambled("GBAYE0601477")}))
 
-      assert lower.isrc == "GBAYE0601477"
+      assert lower.isrc == isrc("GBAYE0601477")
 
       assert Library.find_or_create(track(%{isrc: "GBAYE0601477"})).id == lower.id
 
@@ -116,14 +168,17 @@ defmodule OnePlaylist.LibraryTest do
       assert [%Track{provider: :library} = found] =
                Library.search(track(%{isrc: "USSM11100234", provider: :navidrome}), 10)
 
-      assert found.isrc == "USSM11100234"
+      assert found.isrc == isrc("USSM11100234")
     end
 
     test "finds one by title when the source carries no ISRC" do
-      Library.find_or_create(track(%{isrc: nil, title: "Setting Forth"}))
+      # A title no real catalogue holds. Recordings belong to nobody, so a
+      # search by title is answered from every row in the shared database — a
+      # real title here would match whatever somebody imported into dev.
+      Library.find_or_create(track(%{isrc: nil, title: "Zzyzx Interlude"}))
 
-      assert [%Track{title: "Setting Forth"}] =
-               Library.search(track(%{isrc: nil, title: "setting forth"}), 10)
+      assert [%Track{title: "Zzyzx Interlude"}] =
+               Library.search(track(%{isrc: nil, title: "zzyzx interlude"}), 10)
     end
 
     test "a recording it does not hold is no candidates, not an error" do

@@ -1344,6 +1344,86 @@ What that implies:
   * **Prioritised by attention.** A playlist the user is looking at is worth enriching before
     one they imported and closed.
 
+### What L4 turned out to be, once built
+
+`OnePlaylist.Library.Enrichment`, run by an Oban worker on a queue of **one** — sized to
+MusicBrainz's one request a second rather than fighting it — enqueued as each new recording
+arrives and swept nightly by `EnrichmentSweeper` for backfill and re-asking.
+
+Three decisions came out of building it, and two were forced by measurement rather than chosen.
+
+**MusicBrainz's search score is not a verdict.** `dev/probes/musicbrainz_enrichment_shapes.exs`
+asked for *Corduroy* by *Pearl Jam* and got a **live Barcelona bootleg at score 100**. Taking the
+top hit would have attached that recording's identity, and then its ISRC, its length and its
+artwork, to the studio track somebody imported — enrichment making the data *worse*, which is the
+failure mode this feature has to be designed against and the one it would be hardest to notice
+afterwards.
+
+The fix cost nothing, because the answer already existed: candidates are scored through
+`OnePlaylist.Matching` at `:high`, exactly as candidates from any service are. The version veto,
+the duration conflict and the credit rules all apply because they are the ladder's. And a
+recording with nothing to corroborate with declines on its own — `Strategy.Text` scores an
+uncorroborated match at `0.89`, `:high` is `0.90` — which is the ladder already knowing that a
+title and an artist are not enough. No threshold of enrichment's own was invented.
+
+**Filling gaps is not correcting.** Nothing is ever overwritten. What the source said is what the
+user's playlist shows, and a background job quietly replacing a title with MusicBrainz's
+canonical spelling is a surprise nobody asked for; telling a disagreement from an improvement
+needs a provenance model, which is a bigger feature. This is stated as a `Bond` postcondition
+rather than a convention, because no input can falsify it — only a future edit can, silently, on
+a schedule, for every recording in the library. Verified by mutation.
+
+**One request answers everything.** `inc=artist-credits+releases+isrcs+work-rels` returns the
+ISRCs, the length, the credit, the releases with their barcodes, and the work relations. So the
+cost is one request per recording, or two when there is no ISRC and it has to be searched for
+first. Artwork is the exception and is *not* in that response: only a release lookup carries
+`cover-art-archive`, so it is one request per **release**, cached — an album's worth of
+recordings would otherwise ask the same question twelve times. The URL itself is constructed
+rather than fetched, which is why asking first matters: storing one unchecked puts a broken image
+in every view that shows the track.
+
+Measured live. A first probe of six recordings identified all six, three by ISRC and three by
+search. The full dev library then backfilled through the nightly sweep's own path — 141 jobs on
+the queue of one, drained in about twelve minutes:
+
+| | |
+| --- | --- |
+| Enriched | 150 of 150 |
+| Identified at MusicBrainz | 140 |
+| Carrying an ISRC | 135 → 137 |
+| Carrying a length | 79 → 135 |
+| Carrying a barcode | → 100 |
+| Carrying cover art | 8 → 104 |
+| Values overwritten | 0 |
+
+The ten misses are worth naming, because they are **MusicBrainz coverage rather than matching**:
+nine carried an ISRC MusicBrainz does not index — two Dead Man Walking soundtrack collaborations,
+three tracks from a 2022 album, an extended version, a live cut — and one, a non-album medley,
+had no ISRC and was correctly declined rather than guessed at. Nothing was matched to the wrong
+recording, which is the number that actually matters here.
+
+### Is MusicBrainz the right catalogue to lean on?
+
+Asked while building L4, and worth recording because the answer is not obvious.
+
+| Source | Coverage | Terms | Verdict |
+| --- | --- | --- | --- |
+| **MusicBrainz** | ~2M releases, ~35M recordings; strong on ISRCs, works, relationships | CC0 data, free API at 1 req/s, **full Postgres dumps with hourly replication** | In use |
+| Discogs | Deepest on pressings, labels and physical releases | Free API, 60 req/min authenticated | Complementary, not a replacement — no ISRCs, no works |
+| Spotify / TIDAL / Apple | Excellent on what they carry | Tied to a user connection, terms forbid building a catalogue | Already used, as *providers* |
+| AcoustID / Chromaprint | Identifies audio by fingerprint | Free | Needs the audio, which this application deliberately never has |
+| Gracenote, Rovi/TiVo, TheAudioDB | Commercial, broad | Licensed, priced per seat | Not proportionate |
+
+MusicBrainz is the right choice for this application, and the reason is the works and the ISRC
+relationships rather than the size: those are what §2's classical work and the reissue family
+rungs are built on, and no free alternative has them at all.
+
+The rate limit is worth reading correctly, though. **One request a second is a policy on the
+public web service, not a property of the data.** MetaBrainz publishes the whole database as
+Postgres dumps with hourly replication, so an enrichment backlog that ever became the binding
+constraint is answered by hosting a mirror rather than by finding another vendor. That is a
+scaling option this project has and has not needed: 141 recordings enrich in under four minutes.
+
 ### My Playlists: one page, several origins
 
 Grouped by where a playlist is stored: one group for the library, one per connected service.

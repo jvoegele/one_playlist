@@ -50,16 +50,23 @@ defmodule OnePlaylist.Library.Recording do
 
     # Where it came from the first time it was seen. Not an identity — the same
     # recording arrives from several services — but it says which catalogue
-    # wrote the metadata, which matters once enrichment starts overwriting it.
+    # wrote the metadata, which is worth knowing when two services disagree
+    # about a title.
     field :origin_provider, :string
     field :origin_provider_id, :string
+
+    # When MusicBrainz was last asked about this recording, whether or not it
+    # had anything to say. `nil` means never asked, which is what
+    # `OnePlaylist.Library.Enrichment.due/1` looks for — an unanswerable
+    # recording must not be re-asked about nightly forever.
+    field :enriched_at, :utc_datetime_usec
 
     timestamps(type: :utc_datetime_usec)
   end
 
   @fields ~w(isrc musicbrainz_recording_id title artists album album_upc track_number
              volume_number version duration_seconds explicit artwork_url
-             origin_provider origin_provider_id)a
+             origin_provider origin_provider_id enriched_at)a
 
   @doc """
   Builds a recording from a track that arrived from anywhere.
