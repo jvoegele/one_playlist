@@ -510,6 +510,12 @@ backlog below is the road to it, not a separate list.
     whose source track is gone should go too, which is the difference between Soundiiz's Add and
     Replace modes — see `docs/reference/domain.md`.
 
+  * **Split multi-artist credits on import.** Two library recordings carry the single
+    string `"Nusrat Fateh Ali Khan, Eddie Vedder"` as one artist, so every search for
+    them asks MusicBrainz for an artist of that name and gets nothing.
+    `Normalize.credits/1` already knows how to split a credit; the fix belongs in
+    `Formats.CSV` where the metadata is read, not where it is used.
+
   * **Tighten the classical corpus filter.** `dev/corpus/harvest_classical.py` matches on words
     like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —
     Justin Timberlake, The Verve, Gang Starr, Rihanna. Every classical number is therefore a floor.

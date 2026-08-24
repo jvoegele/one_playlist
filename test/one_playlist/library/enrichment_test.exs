@@ -25,6 +25,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       String.pad_leading(to_string(rem(System.unique_integer([:positive]), 100_000)), 5, "0")
   end
 
+  @second_release "3f2a1c88-7d55-4e2b-9a10-6c4e0b7d2e91"
   @isrc "USSM11100234"
   @mbid "ea8c7b4c-bd88-4029-96ba-fb483eb29e8b"
   @release "9c5b2d61-4e8c-4f43-9b71-2c8bd0e1a5f0"
@@ -170,6 +171,31 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     end
   end
 
+  describe "an ISRC MusicBrainz does not index" do
+    test "falls through to searching by name" do
+      # Found by looking at a playlist: seven of ten unidentified recordings
+      # carried a perfectly good ISRC MusicBrainz simply does not hold, and the
+      # identifier path gave up rather than trying the name.
+      stub_musicbrainz(%{isrc: %{"isrc" => @isrc, "recordings" => []}})
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Vitalogy"}))
+
+      assert enriched.musicbrainz_recording_id == @mbid
+      assert enriched.album_upc, "and the search result is used like any other"
+    end
+
+    test "does not attach the searched recording's ISRC over the one it has" do
+      # The recording's own ISRC is real; MusicBrainz just has no such code. A
+      # candidate found by name may legitimately carry a different one, and
+      # overwriting would replace a true identifier with another recording's.
+      stub_musicbrainz(%{isrc: %{"isrc" => @isrc, "recordings" => []}})
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Vitalogy"}))
+
+      assert enriched.isrc == @isrc
+    end
+  end
+
   describe "enrich/1 without an ISRC" do
     test "declines a plausible top hit that nothing corroborates" do
       # The case the whole design exists for. Verified live: MusicBrainz scores
@@ -203,6 +229,29 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       assert enriched.musicbrainz_recording_id == @mbid
       assert enriched.isrc == @isrc, "which is the whole point: it is matchable everywhere now"
+    end
+
+    test "declines a match on an exact title and an exact credit alone" do
+      # The case that disproved `:high`. Scored 0.9139 against a real library —
+      # over the 0.90 threshold — on nothing but a title and a credit, with a
+      # different album and no duration to check. Every correct identification in
+      # that same measurement scored 0.98, which is the top of the text band and
+      # means every compared field agreed.
+      other_album = [
+        %{
+          "id" => "99999999-8888-7777-6666-555555555555",
+          "score" => 100,
+          "title" => "Corduroy",
+          "artist-credit" => [%{"name" => "Pearl Jam"}],
+          "releases" => [%{"id" => @second_release, "title" => "Living in Large Rooms"}]
+        }
+      ]
+
+      stub_musicbrainz(%{search: search_body(other_album)})
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: nil, album: "Vitalogy"}))
+
+      refute enriched.musicbrainz_recording_id
     end
 
     test "declines when there is nothing to corroborate with at all" do
@@ -247,8 +296,6 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   end
 
   describe "choosing which release the metadata comes from" do
-    @second_release "3f2a1c88-7d55-4e2b-9a10-6c4e0b7d2e91"
-
     defp releases(recording_ids) do
       Recording
       |> Ecto.Query.where([r], r.id in ^recording_ids)

@@ -1460,6 +1460,70 @@ Two lessons, both general:
     `dev/probes/repair_release_choice.exs`, where the argument for its safety is written down
     because it does not generalise.
 
+### An ISRC MusicBrainz has never seen, and why `:high` was not enough
+
+Found by looking at a playlist. *Throw Your Arms Around Me* from *Crucible* was reported as
+not found, and MusicBrainz demonstrably holds it. Three separate causes, worth separating:
+
+  1. **MusicBrainz does not index every ISRC.** `AULI01387660` is a perfectly good code from
+     a 2013 Australian release and MusicBrainz has no such recording. Seven of the ten
+     recordings it could not identify were of this kind.
+  2. **Enrichment gave up there.** The identifier path answered "nothing" and the search path
+     was only ever reached by a recording with *no* ISRC at all. It now falls through.
+  3. **The library's own credit was wrong**, and this is the interesting one. *Crucible* is a
+     tribute album — each track a different artist covering Hunters & Collectors — and the
+     imported metadata credits every track to Hunters & Collectors, the album's *subject*.
+     TIDAL has track 2 as **Neil Finn & Eddie Vedder, 238s**; MusicBrainz has exactly that
+     recording, on a release called *Crucible*. Neither is findable from the wrong credit.
+
+That third one is a limit on what any enrichment can do: a search is only as good as the
+credit it is given, and no amount of scoring recovers a performer the source never recorded.
+
+#### `:high` does not mean corroborated
+
+The search path first ran at `:high`, justified by `Strategy.Text` scoring an uncorroborated
+match at `0.89` against a `0.90` threshold. **The justification was wrong.** Searching for
+*Throw Your Arms Around Me* by *Hunters & Collectors* returns the original band's own
+recordings, and one scored **`0.9139`** — over the threshold — on an exact title and an exact
+credit alone, with a different album and no duration to compare. An exact credit by itself
+lifts text well clear of `0.90`.
+
+Measured over all ten:
+
+| | Score | Album agreed | Correct |
+| --- | --- | --- | --- |
+| Better Days | `0.98` | yes | yes |
+| Brother the Cloud | `0.98` | yes | yes |
+| Invincible | `0.98` | yes | yes |
+| Long Way | `0.98` | yes | yes |
+| Throw Your Arms Around Me | `0.9139` | **no** | **no** |
+| Five others | — | — | correctly declined |
+
+So the threshold is the **top of the `:text` band**, which `Matching.Confidence` defines as
+"every compared field agreed after normalization", read from the band rather than written as
+`0.98`. A number picked to separate five cases is tuning; a number that means *the ladder had
+nothing left to disagree about* is a specification. Re-measured with it: **4 identified, all
+correct, and the wrong one declined.**
+
+#### Rejected: distrusting a candidate whose ISRC differs
+
+The obvious alternative, and the fourth negative result of this kind here. When a recording
+carries an ISRC MusicBrainz has never seen, a candidate carrying a *different* ISRC looks like
+positive evidence of being a different recording.
+
+It is not. MusicBrainz indexes recordings per release, so the same performance legitimately
+carries a different code on whichever pressing it holds. Rejecting those made three of the four
+correct answers **worse** — swapping *Earthling* for *Earthling Expansion: The Adventurous
+Cuts* — and did nothing at all for the wrong one.
+
+#### Still open: multi-artist credits imported as one string
+
+Two of the ten return **zero** candidates because their credit is the single string
+`"Nusrat Fateh Ali Khan, Eddie Vedder"` rather than two artists, so the query asks MusicBrainz
+for an artist of that name. That is a CSV import defect rather than an enrichment one, and
+`Normalize.credits/1` already knows how to split a credit — but fixing it belongs where the
+metadata is read, not where it is used.
+
 ### Is MusicBrainz the right catalogue to lean on?
 
 Asked while building L4, and worth recording because the answer is not obvious.

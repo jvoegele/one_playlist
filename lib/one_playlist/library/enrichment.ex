@@ -31,19 +31,59 @@ defmodule OnePlaylist.Library.Enrichment do
   which is enrichment making the data worse.
 
   So candidates are scored by `OnePlaylist.Matching` exactly as candidates from
-  any service are, at `:high`. Two things follow, and both are inherited rather
-  than re-argued:
+  any service are. The version veto, the duration conflict and the credit rules
+  all apply, because they are the ladder's and the ladder is what is running.
 
-    * the version veto, the duration conflict and the credit rules all apply,
-      because they are the ladder's and the ladder is what is running;
-    * a recording with **nothing to corroborate with** — no album, no duration —
-      is declined rather than guessed at. `Strategy.Text` scores an
-      uncorroborated match at `0.89`, and `:high` is `0.90`. That is not a
-      coincidence to be tuned; it is the ladder already knowing that text alone
-      is not enough.
+  ### `:high` is not enough, which had to be measured
 
-  An ISRC needs none of this. It is an identifier, so `OnePlaylist.MusicBrainz`
-  answers directly and the search path is never reached.
+  This first ran at `:high`, on the reasoning that a recording with nothing to
+  corroborate with is declined anyway because `Strategy.Text` scores an
+  uncorroborated match at `0.89` against a `0.90` threshold.
+
+  **That was wrong**, and a real library disproved it. *Throw Your Arms Around Me*
+  from the tribute album *Crucible* scored **0.9139** against a Hunters &
+  Collectors compilation — comfortably over `:high` — on nothing but an exact
+  title and an exact credit, with a different album and no duration to check. An
+  exact credit alone lifts text well above `0.90`.
+
+  Measured across the ten recordings MusicBrainz could not identify by ISRC, the
+  separation is not subtle:
+
+  | | Score | Album agreed |
+  | --- | --- | --- |
+  | Four correct identifications | `0.98` each | yes |
+  | One wrong identification | `0.9139` | no |
+
+  So the threshold is `@every_field_agreed` — the **top of the `:text` band**,
+  which `OnePlaylist.Matching.Confidence` defines as "every compared field agreed
+  after normalization". It is read from the band rather than written as `0.98`,
+  because the point is the definition and not the number: a threshold chosen to
+  separate five measured cases would be tuning, and a threshold that means *the
+  ladder had nothing left to disagree about* is a specification.
+
+  ### Rejected: distrusting a candidate whose ISRC differs
+
+  The obvious alternative, measured and thrown away. When a recording carries an
+  ISRC MusicBrainz has never seen, a candidate carrying a *different* ISRC looks
+  like positive evidence of being a different recording.
+
+  It is not. MusicBrainz indexes recordings per release, so the same performance
+  legitimately carries a different code on the pressing it happens to hold — and
+  rejecting those made three of the four correct answers **worse**, swapping
+  *Earthling* for *Earthling Expansion: The Adventurous Cuts*. It did not help
+  the wrong one at all. Fourth negative result of this kind in the project; the
+  others are in `docs/reference/domain.md`.
+
+  ## An ISRC MusicBrainz has never seen is not a dead end
+
+  The identifier path is tried first and answers directly when it can. When it
+  cannot — MusicBrainz indexes no such code — the recording falls through to the
+  search above rather than being reported as unknown.
+
+  That gap was found by looking at a playlist, not by a test: seven of the dev
+  library's ten unidentified recordings carried a perfectly good ISRC that
+  MusicBrainz simply does not hold, and one of them was a recording MusicBrainz
+  demonstrably *does* have under its own name.
 
   ## A recording has many releases, and they disagree
 
@@ -128,6 +168,13 @@ defmodule OnePlaylist.Library.Enrichment do
   # question is asked once per album, and the album's own pressing is almost
   # always among the first few once the title match has sorted it forward.
   @artwork_candidates 3
+
+  # The top of `OnePlaylist.Matching.Confidence`'s `:text` band, which that
+  # module defines as "every compared field agreed after normalization". Used as
+  # the search path's threshold because it is a *statement about corroboration*
+  # rather than a number that happened to separate the measured cases — see the
+  # moduledoc. Read from the band so it cannot drift from the definition.
+  @every_field_agreed elem(OnePlaylist.Matching.Confidence.band(:text), 1)
 
   # What `reset/1` may clear, and the two lists are different for a reason worth
   # reading. Only these three are written by enrichment and nothing else, so only
@@ -274,11 +321,18 @@ defmodule OnePlaylist.Library.Enrichment do
   # An identifier answers directly; a name has to be argued for. The ISRC path
   # costs nothing beyond what matching already caches, which is why it is tried
   # first even though the search path would also work.
-  defp identify(%Recording{isrc: isrc}) when is_binary(isrc) do
-    {:ok, MusicBrainz.recording_mbid(isrc)}
+  defp identify(%Recording{isrc: isrc} = recording) when is_binary(isrc) do
+    case MusicBrainz.recording_mbid(isrc) do
+      mbid when is_binary(mbid) -> {:ok, mbid}
+      # MusicBrainz does not index every ISRC. Carrying one it has never seen is
+      # not a reason to give up on the recording — see the moduledoc.
+      nil -> by_name(recording)
+    end
   end
 
-  defp identify(%Recording{title: title} = recording) when is_binary(title) and title != "" do
+  defp identify(%Recording{} = recording), do: by_name(recording)
+
+  defp by_name(%Recording{title: title} = recording) when is_binary(title) and title != "" do
     case Client.search_recordings(title, List.first(recording.artists || [])) do
       {:ok, candidates} ->
         chosen(recording, candidates)
@@ -289,12 +343,12 @@ defmodule OnePlaylist.Library.Enrichment do
     end
   end
 
-  defp identify(%Recording{}), do: :none
+  defp by_name(%Recording{}), do: :none
 
-  # The ladder, at `:high`. See the moduledoc for why the threshold is doing the
-  # work rather than a rule of this module's own.
+  # The ladder, at text's own ceiling. See the moduledoc for why that number is a
+  # meaning rather than a tuning.
   defp chosen(recording, candidates) do
-    case Matching.match(Recording.to_track(recording), candidates, threshold: :high) do
+    case Matching.match(Recording.to_track(recording), candidates, threshold: @every_field_agreed) do
       {:ok, match} -> {:ok, match.track.provider_id}
       {:error, _not_matched} -> :none
     end
