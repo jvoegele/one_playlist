@@ -1276,3 +1276,62 @@ Two observations for the library:
 The suggestion, concretely: give `⚠ never failed` a third state. An assertion proven by mutation
 is not the same as one nobody has looked at, and there is currently no way to say so except a
 comment in the source — which is what this project does, and which the coverage table cannot see.
+
+---
+
+## `external_service` — the pacing log says "Rate limit exceeded", which is not what happened
+
+Small, and worth reporting precisely because the behaviour is right and only the *description*
+is wrong.
+
+`ExternalService.RateLimiter` logs this whenever it paces a call:
+
+```
+[info] [ExternalService] Rate limit exceeded for service OnePlaylist.MusicBrainz.Service;
+       sleeping for 848 milliseconds.
+```
+
+Nothing has been exceeded. Nobody has been throttled by anyone. This is *our own limiter*,
+configured to MusicBrainz's published one-request-a-second policy, doing exactly what
+`wait: :infinity` asks of it — spacing calls so the remote service is never given the chance
+to rate-limit us. The library is preventing the condition the message names.
+
+It was noticed the honest way: a backfill of 150 recordings produced a few hundred of these,
+the user watching the logs read them as errors and asked what was wrong, and the answer was
+"nothing". Meanwhile a *real* problem — third-party redirect timeouts — was sitting in the same
+log looking like more of the same. That is the actual cost: an alarming word applied to routine
+operation trains the reader to skip the channel where the genuine faults appear.
+
+Suggested wording, keeping every number that is already there:
+
+```
+[ExternalService] Pacing OnePlaylist.MusicBrainz.Service to its rate limit;
+                  waiting 848 milliseconds.
+```
+
+Two things that are already right and should not change:
+
+  * **The deduplication.** `log_sleep/3` logs only the first sleep of a call, so a call that
+    waits through several windows produces one line rather than a stream. That is a thoughtful
+    detail and it is why a few hundred lines is a few hundred rather than thousands.
+  * **The telemetry.** `[:external_service, :rate_limit, :sleep]` carries `sleep_time` and the
+    service, which is the right shape and is what an application should attach to for metrics.
+
+### The configuration gap behind it
+
+`Logger.info/1` here is unconditional — there is no `log_level` option on the rate limiter, and
+no way to quiet pacing while keeping the library's other `:info` output. An application's only
+recourse is a compile-time purge of the whole dependency:
+
+```elixir
+config :logger,
+  compile_time_purge_matching: [[application: :external_service, level_lower_than: :warning]]
+```
+
+…which is blunt, since it takes the retry and breaker messages with it — and those are the ones
+worth keeping.
+
+A `log_level: :debug` option on `rate_limit:` would settle it, defaulting to today's `:info` so
+nothing changes for existing users. Given the telemetry event already exists, `log_level: false`
+would be defensible too: an application that wants this in production has a better channel for
+it than the log.

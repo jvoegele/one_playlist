@@ -58,9 +58,15 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     Req.Test.stub(CoverArt.Client, fn conn ->
       if counter, do: Agent.update(counter, &(&1 + 1))
 
+      # A redirect is the archive's "yes" — see `OnePlaylist.CoverArt.Client`.
       case answer do
-        :found -> Req.Test.json(conn, %{"images" => [%{"front" => true}]})
-        :none -> Plug.Conn.send_resp(conn, 404, ~s({"error":"Not Found"}))
+        :found ->
+          conn
+          |> Plug.Conn.put_resp_header("location", "https://archive.test/cover.jpg")
+          |> Plug.Conn.send_resp(307, "")
+
+        :none ->
+          Plug.Conn.send_resp(conn, 404, "")
       end
     end)
   end
@@ -204,13 +210,45 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       stub_musicbrainz()
 
       Req.Test.stub(CoverArt.Client, fn conn ->
-        Agent.update(asked, &[conn.request_path | &1])
-        Req.Test.json(conn, %{"images" => []})
+        Agent.update(asked, &[{conn.method, conn.request_path} | &1])
+        Plug.Conn.send_resp(conn, 404, "")
       end)
 
       {:ok, _enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
 
-      assert Agent.get(asked, & &1) == ["/release-group/#{@group}"]
+      assert Agent.get(asked, & &1) == [{"HEAD", "/release-group/#{@group}/front-250"}],
+             "one HEAD on the constructed URL, and no redirect followed"
+    end
+
+    test "an unreachable archive is not a completed attempt" do
+      # The failure that made this a rule. A whole library was re-enriched
+      # against a CoverArt.Service that had not been started, every artwork call
+      # errored, no job failed, and 150 recordings were stamped as fully looked
+      # at with no cover between them — permanently, because `due/1` never
+      # offers a stamped recording again.
+      stub_musicbrainz()
+      Req.Test.stub(CoverArt.Client, fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
+
+      stored = recording(%{isrc: @isrc})
+
+      assert {:error, :artwork_unavailable} = Enrichment.enrich(stored)
+
+      refreshed = Repo.get!(Recording, stored.id)
+
+      refute refreshed.enriched_at, "so it will be offered again"
+      assert refreshed.album == "Vitalogy", "and what was learned is still kept"
+      assert refreshed.musicbrainz_recording_id == @mbid
+    end
+
+    test "an album with no cover *is* a completed attempt" do
+      # The distinction that matters: 404 is the archive answering, not failing.
+      stub_musicbrainz()
+      stub_cover_art(:none)
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
+
+      assert enriched.enriched_at
+      refute enriched.artwork_url
     end
 
     test "stores no artwork URL when the archive has no cover" do

@@ -1585,6 +1585,19 @@ Two lessons worth keeping:
     where **none** did looked consistent and was never re-run, leaving 48 rows still holding
     pre-`choose_release` metadata. A detector written from the symptom missed the worse case of
     the same fault.
+  * **A cosmetic failure that is silent is not cosmetic.** The first whole-library run against
+    the new client produced **no covers at all**, and nothing said so: `CoverArt.Service` had
+    been added to the supervision tree but the dev node predated it — code reloading does not
+    start supervision children — so every call answered `ServiceNotStarted`. No job failed, and
+    `enriched_at` was stamped regardless, which made a transient outage permanent because
+    `due/1` never offers a stamped recording again. `enrich/1` now distinguishes *the archive
+    says there is no cover* (`404`, a complete attempt) from *the archive could not be asked*
+    (an incomplete one): it keeps what it learned and leaves the recording due.
+  * **Checking a constructed URL should not fetch it.** Asking Cover Art Archive for a release
+    group's JSON index redirects to `archive.org` and then to a storage node — measured at
+    **4091 ms** against **144 ms** for a `HEAD` on the image URL with redirects not followed,
+    where `307` and `404` are the whole answer. That redirect chain was also the source of the
+    `Req` transport timeouts the logs were full of.
   * **A URL is better provenance than an inference.** `Enrichment.reset/1` clears a barcode
     based on `musicbrainz_release_id` being set, which is a proxy and imperfect. For artwork it
     needs no proxy at all: a cover this application fetched carries the archive's host and one

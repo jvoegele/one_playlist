@@ -21,16 +21,30 @@ defmodule OnePlaylist.CoverArt.Client do
   rather than one per pressing, and the group id arrives free in the recording
   lookup that enrichment already makes.
 
-  ## The URL is constructed, so existence has to be asked
+  ## The URL is constructed, so existence has to be asked — with `HEAD`
 
   `coverartarchive.org/release-group/{mbid}/front-250` needs no lookup to build,
-  which is exactly why it must be checked before it is stored — a constructed
-  URL for a group nobody has uploaded a scan for is a broken image in every view
-  that shows the track.
+  which is exactly why it must be checked before it is stored: a constructed URL
+  for a group nobody has scanned is a broken image in every view that shows the
+  track.
 
-  So `front_url/2` asks for the group's JSON first and answers `{:ok, nil}` when
-  there is nothing. The request redirects to archive.org, which is where
-  MetaBrainz keeps the files; `Req` follows that by default.
+  The check is a **`HEAD` on that exact URL with redirects not followed**, which
+  answers the question and nothing else — `307` means a cover exists, `404` means
+  it does not.
+
+  The first version asked for the group's JSON index instead, and measuring it
+  is what produced this one:
+
+  | | Cover exists | No cover |
+  | --- | --- | --- |
+  | `GET` the JSON index | **4091 ms** | 175 ms |
+  | `HEAD`, not following | **144 ms** | 133 ms |
+
+  Twenty-eight times slower, and the reason is the redirect chain: the archive
+  hands off to `archive.org` and then to a specific storage node, so a check
+  ends up fetching an index of every image in the group from a machine we have
+  no relationship with. That hop is where the transport timeouts came from, and
+  not following it removes them along with the latency.
   """
 
   alias OnePlaylist.CoverArt.Service
@@ -60,37 +74,39 @@ defmodule OnePlaylist.CoverArt.Client do
   def front_url(nil, _opts), do: {:ok, nil}
 
   def front_url(release_group_mbid, opts) when is_binary(release_group_mbid) do
+    url = "#{@base_url}/release-group/#{release_group_mbid}/#{@size}"
+
     Service.call(fn ->
       [
-        base_url: @base_url,
-        url: "/release-group/#{release_group_mbid}",
-        params: [fmt: "json"],
+        url: url,
         headers: [{"user-agent", user_agent()}],
-        receive_timeout: Keyword.get(opts, :receive_timeout, 15_000)
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
+        # The whole point. Following it would fetch the image itself from an
+        # archive.org node — see the moduledoc's measurement.
+        redirect: false
       ]
       |> Keyword.merge(Application.get_env(:one_playlist, :cover_art_req_options, []))
       |> Req.new()
-      |> Req.get()
-      |> handle(release_group_mbid)
+      |> Req.head()
+      |> handle(url, release_group_mbid)
     end)
   end
 
-  defp handle({:ok, %{status: 200}}, release_group_mbid) do
-    {:ok, "#{@base_url}/release-group/#{release_group_mbid}/#{@size}"}
-  end
+  # A redirect *is* the answer: the archive points at the file it holds.
+  defp handle({:ok, %{status: status}}, url, _mbid) when status in 300..399, do: {:ok, url}
 
   # Not an error. The archive says 404 for an album nobody has uploaded a scan
   # for, which is most of the long tail.
-  defp handle({:ok, %{status: 404}}, _release_group_mbid), do: {:ok, nil}
+  defp handle({:ok, %{status: 404}}, _url, _mbid), do: {:ok, nil}
 
-  defp handle({:ok, %{status: 503}}, _release_group_mbid), do: :retry
+  defp handle({:ok, %{status: 503}}, _url, _mbid), do: :retry
 
-  defp handle({:ok, %{status: status}}, release_group_mbid) do
-    Logger.warning("cover art archive returned #{status} for #{release_group_mbid}")
+  defp handle({:ok, %{status: status}}, _url, mbid) do
+    Logger.warning("cover art archive returned #{status} for #{mbid}")
     {:error, %RuntimeError{message: "cover art archive returned #{status}"}}
   end
 
-  defp handle({:error, _reason}, _release_group_mbid), do: :retry
+  defp handle({:error, _reason}, _url, _mbid), do: :retry
 
   # MetaBrainz asks for an application name and a way to get in touch, and
   # blocks clients that do not identify themselves. The same string

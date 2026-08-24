@@ -484,7 +484,7 @@ defmodule OnePlaylist.Library.Enrichment do
         record_attempt(recording, %{})
 
       {:ok, details} ->
-        record_attempt(recording, learned(recording, details, mbid))
+        apply_details(recording, details, mbid)
 
       {:error, reason} ->
         Logger.warning("musicbrainz lookup failed for #{mbid}: #{inspect(reason)}")
@@ -492,18 +492,44 @@ defmodule OnePlaylist.Library.Enrichment do
     end
   end
 
+  # Writes what was learned either way, but only calls it a *completed* attempt
+  # when every source answered. An archive that could not be reached is not the
+  # same as an album with no cover, and stamping `enriched_at` for the first
+  # would make a transient outage permanent: the recording would never be
+  # offered again, and nothing would say why.
+  #
+  # Learned the hard way. A whole library was re-enriched against a
+  # `CoverArt.Service` that had not been started, every artwork call returned
+  # `ServiceNotStarted`, **no job failed**, and 150 recordings were stamped as
+  # fully looked at with no cover between them.
+  defp apply_details(recording, details, mbid) do
+    {learned, artwork} = learned(recording, details, mbid)
+
+    case artwork do
+      :unavailable ->
+        _ = write(recording, learned)
+        {:error, :artwork_unavailable}
+
+      _asked_and_answered ->
+        record_attempt(recording, learned)
+    end
+  end
+
   defp learned(recording, details, mbid) do
     release = choose_release(recording, Map.get(details, "releases", [])) || %{}
+    artwork = artwork(recording, get_in(release, ["release-group", "id"]))
 
-    %{
+    fields = %{
       musicbrainz_recording_id: mbid,
       musicbrainz_release_id: release["id"],
       isrc: details |> Map.get("isrcs", []) |> List.first() |> Isrc.normalize(),
       album: release["title"],
       album_upc: release["barcode"],
       duration_seconds: details["length"] && div(details["length"], 1000),
-      artwork_url: artwork(recording, get_in(release, ["release-group", "id"]))
+      artwork_url: if(is_binary(artwork), do: artwork)
     }
+
+    {fields, artwork}
   end
 
   @doc """
@@ -567,6 +593,9 @@ defmodule OnePlaylist.Library.Enrichment do
   # Only asked when there is nothing already, and only ever once per **album** —
   # see `OnePlaylist.CoverArt.Client` for why the release group rather than the
   # release, and for the measurement that forced the change.
+  # Answers `nil` when there is nothing to ask about or the recording already has
+  # a cover, a URL when the archive holds one, and `:unavailable` when it could
+  # not be asked — which `apply_details/3` treats as an incomplete attempt.
   defp artwork(%Recording{artwork_url: existing}, _group_mbid) when is_binary(existing), do: nil
   defp artwork(_recording, nil), do: nil
 
@@ -577,7 +606,7 @@ defmodule OnePlaylist.Library.Enrichment do
   defp artwork(_recording, group_mbid) do
     case Cache.read_through({:cover_art_group, group_mbid}, fn -> ask_archive(group_mbid) end) do
       {:ok, url} -> url
-      {:error, _unknown} -> nil
+      {:error, _unknown} -> :unavailable
     end
   end
 
@@ -592,13 +621,17 @@ defmodule OnePlaylist.Library.Enrichment do
   # absent cannot turn a gap into an empty string — which would look filled and
   # compare equal to every other empty string.
   defp record_attempt(recording, learned) do
+    write(recording, Map.put(learned, :enriched_at, DateTime.utc_now()))
+  end
+
+  defp write(recording, learned) do
     attrs =
       learned
       |> Enum.reject(fn {field, value} ->
-        value in [nil, "", []] or not is_nil(Map.fetch!(recording, field))
+        value in [nil, "", []] or
+          (field != :enriched_at and not is_nil(Map.fetch!(recording, field)))
       end)
       |> Map.new()
-      |> Map.put(:enriched_at, DateTime.utc_now())
 
     recording
     |> Recording.changeset(attrs)
