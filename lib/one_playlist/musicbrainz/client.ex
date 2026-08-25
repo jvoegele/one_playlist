@@ -309,11 +309,25 @@ defmodule OnePlaylist.MusicBrainz.Client do
       # album, and the search response carries it inline — see `album_titles/1`
       # for why nothing extra has to be fetched.
       live_release?: live_release?(releases),
+      # A search response carries, per release, the *one* track that matches
+      # this recording — `track-offset` points at it — so this is the set of
+      # names the catalogue files this same recording under, and nothing else.
+      title_variants: title_variants(recording, releases),
       album_upc: release["barcode"],
       # MusicBrainz reports length in milliseconds; everything here is seconds.
       duration_seconds: recording["length"] && div(recording["length"], 1000),
       isrc: recording |> Map.get("isrcs", []) |> List.first()
     }
+  end
+
+  defp title_variants(recording, releases) do
+    releases
+    |> Enum.flat_map(fn release ->
+      release |> Map.get("media", []) |> Enum.flat_map(&Map.get(&1, "track", []))
+    end)
+    |> Enum.map(& &1["title"])
+    |> Enum.reject(&(is_nil(&1) or &1 == recording["title"]))
+    |> Enum.uniq()
   end
 
   defp live_release?(releases) do

@@ -187,4 +187,40 @@ defmodule OnePlaylist.Matching.SignalsTest do
       assert Signals.compare(stored, release).album == 1.0
     end
   end
+
+  describe "the other names a catalogue files one recording under" do
+    test "a source holding the track title matches a candidate named for the recording" do
+      # A MusicBrainz *recording* has a title and each *track* on a release has
+      # its own. On the State College bootleg, recording "I Wanna Go" is track
+      # 10, titled "[improvisation]". A source holding either name holds a real
+      # name for that music, and comparing against only one answers a narrower
+      # question than the one being asked.
+      source = track(title: "[improvisation]")
+
+      without = track(title: "I Wanna Go", title_variants: [])
+      with_variant = track(title: "I Wanna Go", title_variants: ["[improvisation]"])
+
+      assert Signals.compare(source, without).title < 0.5
+      assert Signals.compare(source, with_variant).title == 1.0
+      assert Signals.compare(source, with_variant).title_exact
+    end
+
+    test "and a variant naming different music does not widen anything" do
+      # Safe only because a variant is a title of the *same* recording — the
+      # search response gives, per release, the one track that matches. If that
+      # ever stopped being true this is the assertion that would notice.
+      source = track(title: "[improvisation]")
+      unrelated = track(title: "I Wanna Go", title_variants: ["Yellow Ledbetter"])
+
+      assert Signals.compare(source, unrelated).title < 0.5
+      refute Signals.compare(source, unrelated).title_exact
+    end
+
+    test "no variants is the ordinary provider, scoring as it always did" do
+      source = track(title: "Corduroy")
+
+      assert Signals.compare(source, track(title: "Corduroy")).title == 1.0
+      assert Signals.compare(source, track(title: "Corduroy")).title_exact
+    end
+  end
 end

@@ -110,9 +110,11 @@ defmodule OnePlaylist.Matching.Signals do
     left_words = artist_words(left_artists)
     right_words = artist_words(right_artists)
 
+    right_titles = candidate_titles(right, candidate)
+
     %__MODULE__{
-      title: title_similarity(left.title, right.title),
-      title_exact: left.title != "" and left.title == right.title,
+      title: best_title_similarity(left.title, right_titles),
+      title_exact: left.title != "" and left.title in right_titles,
       artists: artist_similarity(left_artists, right_artists, left_words, right_words),
       credit_match: credit_match(left_credits, right_credits, left_words, right_words),
       album: album_similarity(source.album, candidate, artist_names(source, candidate)),
@@ -208,6 +210,35 @@ defmodule OnePlaylist.Matching.Signals do
   # Two untitled tracks are not similar, they are unknown. Without this,
   # `jaro_distance("", "")` returns 1.0 and every track missing a title matches
   # every other one perfectly.
+  # Every name the catalogue files this recording under, normalized the same way
+  # its primary title is. A MusicBrainz *recording* has a title and each *track*
+  # on a release has its own; the State College bootleg lists recording "I Wanna
+  # Go" as track "[improvisation]", and a source holding either name is holding
+  # a real name for that music.
+  #
+  # Safe to widen because a variant is a title of the **same recording** rather
+  # than of a neighbouring one — the search response gives, per release, only
+  # the track that matches. Empty for every provider but MusicBrainz, so this
+  # reduces to the single comparison it always was.
+  defp candidate_titles(parsed, %Track{title_variants: []}), do: [parsed.title]
+
+  defp candidate_titles(parsed, %Track{} = candidate) do
+    variants =
+      Enum.map(candidate.title_variants, &Normalize.title(&1, candidate.version).title)
+
+    [parsed.title | variants] |> Enum.reject(&(&1 == "")) |> Enum.uniq()
+  end
+
+  defp best_title_similarity(left, right_titles) do
+    right_titles
+    |> Enum.map(&title_similarity(left, &1))
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      scores -> Enum.max(scores)
+    end
+  end
+
   defp title_similarity("", _right), do: nil
   defp title_similarity(_left, ""), do: nil
   defp title_similarity(left, right), do: Similarity.jaro_winkler(left, right)

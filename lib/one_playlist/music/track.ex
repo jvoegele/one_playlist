@@ -88,6 +88,14 @@ defmodule OnePlaylist.Music.Track do
     # `false` means "not known to be live", which is what every provider but
     # MusicBrainz can say. Only a `true` relaxes anything.
     live_release?: false,
+    # Other names this same recording goes by, where the provider says. A
+    # MusicBrainz *recording* has a title and each *track* on a release has its
+    # own, and they disagree more often than one would guess: the State College
+    # bootleg lists recording "I Wanna Go" as track "[improvisation]".
+    #
+    # Empty for every provider but MusicBrainz. Compared against, never
+    # displayed — `title` stays what the catalogue calls the recording.
+    title_variants: [],
     # Titles of the works MusicBrainz says this track's title names. Empty
     # unless something looked them up, which happens only after the ladder has
     # already failed — see `OnePlaylist.MusicBrainz.works/3`. Titles rather than
@@ -122,6 +130,7 @@ defmodule OnePlaylist.Music.Track do
           isrc_family: [String.t()],
           album_titles: [String.t()],
           live_release?: boolean(),
+          title_variants: [String.t()],
           work_titles: [String.t()],
           artists: [String.t()]
         }

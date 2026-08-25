@@ -623,6 +623,25 @@ backlog below is the road to it, not a separate list.
     ISRC-matching candidate for only 86% of the corpus. A better query or a second lookup is
     worth more than any further work on scoring. `bin/remote dev/measure/replay.exs` scores an
     engine change against the captured candidates without an API call.
+
+  * **Release-first search, for live albums and bootlegs.** The clearest instance of the point
+    above, and the one with a worked example. Every strategy here searches by **track title**
+    and treats the album as corroboration. For a live bootleg that weighting is backwards:
+    *Live: 05-03-03 - State College, Pennsylvania* is enormously more distinctive than
+    *[improvisation]*, and a title that is not a name carries no signal at all.
+
+    Worked through in `docs/reference/domain.md` §3. MusicBrainz holds that exact recording,
+    on that exact show, and **no text query reaches it** — verified: `recording:"improvisation"
+    AND artist:"Pearl Jam"` returns 25 recordings and it is not among them, because its
+    recording title is *I Wanna Go* and MusicBrainz does not index track titles for search.
+    Scoring improvements cannot help; the candidate is never returned.
+
+    The shape: search **releases** by name, then look for our title among the tracks of the
+    ones that match. Cost is the reason it is not built — a release lookup per candidate
+    release, and a bootleg release runs to 39 tracks; one probe timed out at ten seconds
+    fetching a single one. So it needs a budget, a trigger narrower than "every miss", and its
+    own measurement. A plausible trigger is *the source album looks like a date or a venue and
+    the title matched nothing*, which is close to a definition of this case.
   * A third provider. Apple Music needs $99/yr and a browser flow; Qobuz is partner-only
     (email `api@qobuz.com`); Spotify is self-serve but permanently capped at 5 users.
 

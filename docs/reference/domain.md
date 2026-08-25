@@ -1304,12 +1304,26 @@ That is the same shape as the album problem above — a search response carrying
 list where we kept one value — and the same shape again as taking
 `List.first(releases)`. Three fields, one habit.
 
-**Reading track titles would not find this one, though**, and it is worth being
-exact about why: MusicBrainz's *search* index does not carry them either. Asking
-for `recording:"improvisation" AND artist:"Pearl Jam"` returns 25 recordings and
-`78aeb743` is not among them, because its recording title is "I Wanna Go". Track
-titles would improve *scoring* for candidates the search already returns; they
-cannot make an unreturned candidate appear.
+**Track titles are now carried and scored against** — `Track.title_variants`,
+filled from `media[].track[].title` in the search response, with
+`title_similarity/2` taking the best. On the real pair it moves the title signal
+from `0.399` to `1.0`. It costs no request: the data was already in a response
+being parsed.
+
+**It found nothing new, and that was expected.** MusicBrainz's *search* index
+does not carry track titles either. Asking for `recording:"improvisation" AND
+artist:"Pearl Jam"` returns 25 recordings and `78aeb743` is not among them,
+because its recording title is "I Wanna Go". Variants improve scoring for
+candidates the search already returns; they cannot make an unreturned candidate
+appear. Re-enriching the library's 24 remaining declines identified **none**.
+
+Kept anyway, and the reasoning is worth stating because this project has
+rejected changes on weaker evidence. A recording genuinely has several names in
+the catalogue, and comparing against one of them answers a narrower question
+than the one being asked; the mechanism is demonstrated on a real pair; no
+corpus moves; and it costs nothing at runtime. What it does not have is a
+population number, and it may never get one until the search reaches these
+candidates at all.
 
 What would reach it is a different strategy altogether — find the *release* by
 its name, then look for our title among its tracks. For a live bootleg, whose
