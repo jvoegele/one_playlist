@@ -513,7 +513,7 @@ project and the divergence is worth a line in `docs/library-feedback.md`.
 
 ---
 
-## Where the project is (updated 2026-08-24)
+## Where the project is (updated 2026-08-25)
 
 A fresh session should read this before proposing what to build.
 
@@ -548,17 +548,52 @@ A fresh session should read this before proposing what to build.
 | Artwork | Cover art on the report, in the candidate list and in the library. From TIDAL via an `albums.coverArt` include, free of extra requests; for a library recording from the **Cover Art Archive**, asked of the *release group* — the album across all its pressings — because which pressing wins a barcode has nothing to do with which one somebody scanned. The archive has its own `ExternalService`: no one-per-second rule, a redirect to archive.org, and failures that cost a thumbnail rather than a transfer. Subsonic's cover endpoint wants credentials, so it declares no `:artwork` capability and no placeholder is drawn |
 | Enrichment | A library recording is resolved against **MusicBrainz** in the background — ISRC, MBID, album, barcode, duration, cover — on an Oban queue of one, sized to the one-request-a-second limit rather than fighting it. Enqueued as each new recording arrives and swept nightly for backfill. Two rules, both load-bearing: **gaps are filled, never corrected** (a `Bond` postcondition, proven by mutation), and a candidate found by *search* is scored through the matching ladder at `:high` rather than trusted — MusicBrainz scores a live bootleg 100 for a studio track, and taking the top hit would attach the wrong ISRC. Backfilled the 150-recording dev library: **150 enriched, 140 identified, cover art from 8 to 104**, nothing overwritten. The 10 misses are MusicBrainz coverage rather than matching — soundtracks, extended versions and a bootleg whose ISRCs it does not index |
 | Album titles | `dev/corpus/album_cases.json` — 493 pairs labelled by **MusicBrainz's own release groups**, so no hand-labelling: two release titles in one group name one album, two from different groups by an artist do not. Only *confusable* pairs are kept, in both directions, and only `primary-type: Album`. It has a **noise floor**: the database holds duplicate release groups, so plain text equality still reports three false positives. `Normalize.album/1` scores 79.5% against that baseline's 76.1% |
-| Match quality | Three corpora, all replayable offline. `dev/measure/replay.exs`: **82 certain, 12 duration-corroborated, 5 none, 1 wrong** of 100 random MusicBrainz recordings. `dev/corpus/replay_credit_cases.exs`: **96 correct, 12 equivalent, 7 missed, 0 wrong** of 115 hard credit cases, and **5 of 5** hand-labelled decline cases correctly declined. See `docs/reference/domain.md` |
+| Editing | A playlist item is the user's: rename, correct title/artists/album/version/ISRC in a modal, **unlink** it from its recording, relink from candidates, or store its corrected details as a recording of its own. `Library.update_item/4` casts only `PlaylistItem.owned/0`, so a form cannot reach `position` or `recording_id` |
+| Re-enrichment | "Look up again" on the playlist header and on each unidentified row. Only ever re-asks what has **no answer yet** — enrichment fills gaps and never overwrites — and hides while a first lookup is in flight |
+| Release cache | `musicbrainz_releases`: a release, its group, its secondary types and its **track list**, fetched once and kept. Nothing expires — a release fetched by its own id cannot be a negative, and what it says is near-immutable. `looked_up_at` is for refreshing, never pruning. Measured 928ms cold, 0ms cached |
+| Release-first | The last rung, and the one that inverts the question: find the **release** by album name, then look for our title among its tracks. MusicBrainz's release index bridges `05-03-03` → `2003-05-03`, which no string rule here will. Its top hit is **not** trusted — asked for a 2000 Verona show it ranks a 2006 one first — so the rule is agreement: every matching track across the fetched releases must name the same recording |
+| Wrong ISRCs | A code that resolves to different music no longer **stops** enrichment; it is set aside and the recording is asked about by name. `library_recordings.isrc_disputed` records the dispute durably, because the outcome column moves on to `:identified` and forgets — and `Identities.anchor/1` refuses to anchor a cross-service identity on a disputed code |
+| Match quality | Four corpora, all replayable offline. `dev/measure/replay.exs`: **82 certain, 12 duration-corroborated, 5 none, 1 wrong** of 100 random MusicBrainz recordings. `dev/corpus/replay_credit_cases.exs`: **96 correct, 12 equivalent, 7 missed, 0 wrong** of 115 hard credit cases, and **5 of 5** hand-labelled decline cases correctly declined. `dev/corpus/replay_enrichment.exs` (new, 255 cases from the library **and** `dev/playlists/*.csv`): **150 correct, 32 equivalent, 31 unverified, 20 missed, 1 wrong** of 234 labelled. See `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
 ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer whose
 report matched what actually landed in the destination.
 
-**Evaluate a matching change against the corpora, never by argument.** Three separate ideas this
-project was confident about were measured and *rejected* — a same-release exception to the version
-veto, strict credit equality, and querying the primary artist instead of the whole credit. Each
-looked right and each is recorded in `docs/reference/domain.md` as a negative result. The replays
-cost seconds and need no API call.
+**Evaluate a matching change against the corpora, never by argument.** Six separate ideas this
+project was confident about have now been measured and *rejected*: a same-release exception to
+the version veto; strict credit equality; querying the primary artist instead of the whole
+credit; **lowering enrichment's search threshold**; **demoting duration to a non-conflict** —
+the rule the *Ripple* case appears to argue for, which more than doubles wrong answers; and
+**sending TIDAL the parsed title instead of the raw one**, worth one track in a hundred. Each
+looked right, and each is recorded in `docs/reference/domain.md` as a negative result. The
+replays cost seconds and need no API call:
+
+```sh
+bin/remote dev/measure/replay.exs                  # 100 random MusicBrainz recordings
+bin/remote dev/corpus/replay_credit_cases.exs      # 115 hard credit cases + decline labels
+bin/remote dev/corpus/replay_classical.exs         # 57 classical sources
+mix run --no-start dev/corpus/replay_enrichment.exs  # 255 enrichment cases, two sources
+mix run --no-start dev/corpus/replay_album_cases.exs # 493 album-title pairs
+bin/remote dev/measure/query_bakeoff.exs           # live: does a different query find more?
+```
+
+**The oracle is now the binding constraint, not the engine.** Three separate numbers shrank on
+inspection this session — 28 "wrong" became 8, then 13 became 1; 14 "not offered" became at
+most 4. An ISRC-set test cannot tell *a different release of the same performance* from *the
+wrong track*, and every corpus here is built on one. Before believing any of these numbers has
+got worse, read the cases.
+
+**Library state, 2026-08-25:** 654 recordings, **639 identified**, 4 with a disputed ISRC, and
+643 releases in the cache. The remaining 15 are compilations MusicBrainz does not hold, Roon's
+store-invented *Pearl Jam - Non-Album Tracks* bucket, and genuine catalogue gaps.
+
+> #### `dev/` is **not** gitignored {: .warning}
+>
+> Only `/dev/navidrome/music/`, `/dev/navidrome/data/`, two experiment scratch files and — since
+> today — `/dev/playlists/`. Four entries clustered there make the directory *look* ignored. A
+> `git add -A` swept seven Roon exports of real listening history into a commit on that
+> assumption; they were caught before the push and removed with `git filter-branch`. **This
+> repository is public.** Check `git status` before `git add -A`, every time.
 
 **Owed by hand:** two TIDAL playlists named `hard_playlist` (one is an accidental duplicate).
 The orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* in the Pearl Jam destination no
