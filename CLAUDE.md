@@ -618,11 +618,30 @@ backlog below is the road to it, not a separate list.
     like *symphony*, *prelude* and *mass*, so roughly half of `classical_cases.json` is pop music —
     Justin Timberlake, The Verve, Gang Starr, Rihanna. Every classical number is therefore a floor.
 
-  * **Search recall, not the ladder.** With the duration fix in, the engine picks correctly from
-    what it is offered; the binding constraint is that TIDAL's text search returns an
-    ISRC-matching candidate for only 86% of the corpus. A better query or a second lookup is
-    worth more than any further work on scoring. `bin/remote dev/measure/replay.exs` scores an
-    engine change against the captured candidates without an API call.
+  * ~~**Search recall, not the ladder.**~~ **Retracted 2026-08-25, on measurement.** This said
+    the binding constraint was TIDAL text search returning an ISRC-matching candidate for only
+    86% of the corpus, and that a better query was worth more than any scoring work. Both
+    halves are wrong.
+
+    `dev/measure/query_bakeoff.exs` asked the same hundred recordings five ways against the
+    live catalogue. The best phrasing scores **87/100** against the current 86 — one track —
+    and a fallback that retries on a miss also scores 87. Query phrasing is not the constraint.
+
+    Then the misses were characterised, which is what nobody had done: **none returned nothing
+    at all**, and 13 of 14 returned a candidate with the right title. Classified by strength,
+    the hundred is 86 ISRC matches, **10 with the same title and a length within three
+    seconds**, 3 same title only, and **1 genuinely absent**. TIDAL's recall is 96% at worst
+    and 99% at best.
+
+    The 86% was the **oracle**, not the catalogue. `match_rate.exs` already documents this for
+    its *wrong* column — "the two catalogues reference different releases of the same
+    performance" — and the caveat was never carried across to `offered?`. TIDAL has *Das Model*
+    on the 2017 *3-D Der Katalog* remaster; MusicBrainz's ISRC set is for the 1978 pressing.
+    Nobody is wrong and the numbers do not meet.
+
+    `bin/remote dev/measure/replay.exs` still scores an engine change against captured
+    candidates without an API call; `query_bakeoff.exs` is what to run when somebody proposes a
+    query change, and it will most likely say no.
 
   * A third provider. Apple Music needs $99/yr and a browser flow; Qobuz is partner-only
     (email `api@qobuz.com`); Spotify is self-serve but permanently capped at 5 users.

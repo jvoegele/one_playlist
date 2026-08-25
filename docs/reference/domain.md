@@ -1273,6 +1273,52 @@ record. The other three corpora were re-run and none moved — 82/12/5/1 on the
 hundred, 96/12/7/0 plus 5 of 5 declines on credits, 24 work and 13 text on
 classical.
 
+#### TIDAL's search recall was never 86%
+
+The figure came from `match_rate.exs`: of a hundred MusicBrainz recordings, only
+86 produced a TIDAL candidate carrying an ISRC that MusicBrainz lists for that
+recording. It has been recorded as the product's binding constraint ever since,
+and it is a measurement of the **oracle** rather than of the catalogue.
+
+`dev/measure/query_bakeoff.exs` was built to attack it and found nothing to
+attack. Five phrasings against the live catalogue:
+
+| phrasing | recall |
+| --- | --- |
+| current — raw title + every artist | 86/100 |
+| parsed title + every artist | **87/100** |
+| parsed title + first artist | 87/100 |
+| parsed title alone | 82/100 |
+| raw title + first artist | 86/100 |
+| current, then parsed on a miss | 87/100 |
+
+**One track.** The hypothesis was strong and specific — enrichment sends
+MusicBrainz the *parsed* title for a documented reason ("The Face Of Love (with
+Eddie Vedder)" matches no recording; "the face of love" matches it exactly) and
+the transfer path sends the raw one — and it is worth one track in a hundred.
+
+Characterising the misses is what settled it, and nobody had done it. **None of
+the fourteen returned nothing at all.** Thirteen returned a candidate with the
+right title. Classified by the strength of what came back:
+
+| | |
+| --- | --- |
+| ISRC match | 86 |
+| same title **and** length within 3 seconds | 10 |
+| same title only | 3 |
+| genuinely absent from TIDAL | **1** |
+
+So recall is **96% at worst and 99% at best**. TIDAL has *Das Model* on the 2017
+*3-D Der Katalog* remaster, ISRC `GBAYE1701580`; MusicBrainz's set is for the
+1978 *Die Mensch·Maschine*. Both catalogues are right and their identifiers do
+not meet.
+
+`match_rate.exs` already knew this. Its own documentation says of the *wrong*
+column that "the two catalogues reference different releases of the same
+performance", and reports that number as a band for exactly that reason. The
+caveat was simply never carried across to `offered?` — so one column was read as
+a floor and the other as a fact.
+
 #### A wrong ISRC used to block enrichment entirely
 
 `enrichment_outcome: :identifier_disagreed` means the code resolved to music
