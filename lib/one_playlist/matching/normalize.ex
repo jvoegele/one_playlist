@@ -286,10 +286,29 @@ defmodule OnePlaylist.Matching.Normalize do
       # A segment that turned out to be a tag is removed from the core title,
       # but a segment that was neither tag nor credit is kept: "(Theme from
       # Shaft)" is part of what the song is called, not decoration.
-      title: text(core),
+      title: core_or_whole(core, raw),
       featuring: featuring |> Enum.flat_map(&featured_names/1) |> Enum.uniq(),
       tags: tags
     }
+  end
+
+  # A title that is *entirely* a bracketed segment leaves nothing behind, and an
+  # empty title is worse than a decorated one: `Enrichment.by_name/1` asks
+  # MusicBrainz for the empty string, gets ten arbitrary recordings by that
+  # artist, and declines all ten — while `title_similarity/2` scores "" against
+  # every candidate at zero, so the ladder could not accept one even if the
+  # search were good.
+  #
+  # Found on a real library. Pearl Jam's official bootlegs list an unnamed jam as
+  # **"[improvisation]"**, which is the whole title in brackets.
+  #
+  # `album/1` has had this fallback since it was written — `"" -> text(title)` —
+  # and the asymmetry was the bug rather than a decision.
+  defp core_or_whole(core, raw) do
+    case text(core) do
+      "" -> text(raw)
+      stripped -> stripped
+    end
   end
 
   @doc """

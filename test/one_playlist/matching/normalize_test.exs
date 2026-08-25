@@ -267,4 +267,30 @@ defmodule OnePlaylist.Matching.NormalizeTest do
              )
     end
   end
+
+  describe "a title that is entirely a bracketed segment" do
+    test "falls back to the whole title rather than emptying out" do
+      # Pearl Jam's official bootlegs list an unnamed jam as "[improvisation]".
+      # Stripping the segment leaves nothing, and an empty title is worse than a
+      # decorated one: enrichment asks MusicBrainz for the empty string and gets
+      # ten arbitrary recordings by that artist, while `title_similarity/2`
+      # scores "" against every candidate at zero — so the ladder could not
+      # accept one even if the search were good.
+      assert Normalize.title("[improvisation]").title == "improvisation"
+      assert Normalize.title("(untitled)").title == "untitled"
+    end
+
+    test "and a title that is only a version tag still classifies as one" do
+      # The fallback must not turn a tag into a name. "(Live)" as a whole title
+      # is pathological either way, but the tag is what the veto reads.
+      parsed = Normalize.title("Nothing As It Seems (Live)")
+
+      assert parsed.title == "nothing as it seems"
+      assert :live in parsed.tags
+    end
+
+    test "an ordinary title is untouched" do
+      assert Normalize.title("Hard to Imagine").title == "hard to imagine"
+    end
+  end
 end

@@ -1273,6 +1273,49 @@ record. The other three corpora were re-run and none moved — 82/12/5/1 on the
 hundred, 96/12/7/0 plus 5 of 5 declines on credits, 24 work and 13 text on
 classical.
 
+#### A title that is entirely a bracket
+
+`Normalize.title/1` split a title into a core and its segments and returned
+`text(core)`. For **"[improvisation]"** — how Pearl Jam's official bootlegs
+list an unnamed jam — the whole title is a segment, so the core was empty.
+
+An empty title is worse than a decorated one. `Enrichment.by_name/1` guards on
+the *raw* title being non-blank, so it passed, and then asked MusicBrainz for
+the empty string: ten arbitrary recordings by that artist, all declined. And
+`title_similarity/2` scores `""` against every candidate at zero, so the ladder
+could not have accepted one even if the search had been good.
+
+`album/1` has had the fallback since it was written — `"" -> text(title)` — and
+the asymmetry was an oversight rather than a decision. All four corpora are
+unmoved by fixing it, because a title made entirely of brackets is rare enough
+that none of them contains one.
+
+It does not make that particular track match, and should not: MusicBrainz holds
+`[improvisation]` from Moore Theater 1995, Perth 2003, Charlotte 2000 and Boston
+2000, and none of them is the State College improvisation. Those are different
+pieces of music that happen to share a non-name. Declining is the right answer;
+what changed is that it is now declined for the right reason.
+
+#### The version veto and albums that are live all the way through
+
+A live bootleg's tracks are tagged `Live` by the *source* — Roon writes it per
+track — and **MusicBrainz does not repeat it**, because the whole release is
+live. So the source says `version: "Live"`, the candidate says nothing, and
+`discriminating_conflict` vetoes a match where every other signal is perfect.
+
+Measured on *I Got You* from *2000-06-20: Arena, Verona, Italy*: title `1.0`,
+album `1.0` — MusicBrainz has the release under the same name plus a `(#19)`
+disc marker, which `album/1` strips — credit `:same`, no duration conflict. It
+is rejected anyway, and would be at any threshold, because the veto is not a
+score.
+
+The fix that would work is available and not yet taken: a search result's
+release group carries `secondary-types`, which reads `["Live"]` for exactly
+these releases. A source tagged `:live` matching a candidate on a live release
+is agreement rather than conflict. That needs `Track` to carry the fact and
+`Signals` to read it, and it needs measuring — the version veto is load-bearing
+and was tuned deliberately.
+
 #### Why the search saw a different album title than the catalogue holds
 
 The case that produced all of the above is worth keeping, because it is not
