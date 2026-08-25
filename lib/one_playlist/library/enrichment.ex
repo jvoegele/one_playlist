@@ -226,6 +226,7 @@ defmodule OnePlaylist.Library.Enrichment do
   alias OnePlaylist.Library.EnrichmentUnavailable
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching
+  alias OnePlaylist.Matching.Confidence
   alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Matching.Similarity
   alias OnePlaylist.Music.Isrc
@@ -272,13 +273,14 @@ defmodule OnePlaylist.Library.Enrichment do
     :musicbrainz_recording_id,
     :musicbrainz_release_id,
     :enrichment_outcome,
-    :enrichment_candidates
+    :enrichment_candidates,
+    :enrichment_engine
   ]
 
   # Enrichment's own record of what it did, rather than facts about the music.
   # Every other field it writes only ever fills a gap; these are overwritten on
   # every attempt, because last time's reason is not this time's.
-  @bookkeeping [:enriched_at, :enrichment_outcome, :enrichment_candidates]
+  @bookkeeping [:enriched_at, :enrichment_outcome, :enrichment_candidates, :enrichment_engine]
 
   # A barcode comes from a *release*, so a non-null `musicbrainz_release_id` is
   # evidence enrichment wrote it — the nearest thing to provenance this schema
@@ -434,19 +436,58 @@ defmodule OnePlaylist.Library.Enrichment do
   end
 
   @doc """
+  A fingerprint of the engine that decides an outcome.
+
+  Derived from the modules rather than written down, because a version somebody
+  has to remember to bump is a version that is wrong exactly when it matters —
+  the day the rules changed. `:md5` is the compiled code's own digest, so
+  editing a threshold, a normalization rule or a query changes it and editing a
+  comment does not.
+
+  It is deliberately **over**-sensitive: an unrelated edit to any of these
+  modules re-offers the declines. That costs one MusicBrainz request each for
+  the recordings that failed — thirty-eight of six hundred and fifty-one in a
+  real library — and the alternative is a rule that silently never reaches the
+  cases it was written for.
+  """
+  @spec engine() :: String.t()
+  def engine do
+    [__MODULE__, Matching, Normalize, Confidence, Client]
+    |> Enum.map_join(&Base.encode16(&1.module_info(:md5), case: :lower))
+    |> then(&Base.encode16(:crypto.hash(:md5, &1), case: :lower))
+  end
+
+  @doc """
   Recordings due for enrichment, least recently looked at first.
 
-  Never-enriched rows come first, because a recording nothing is known about is
-  worth more attention than one whose answer is a month old.
+  Three kinds are offered, and the third is why the engine fingerprint exists:
+
+    * **never looked at** — first, because a recording nothing is known about is
+      worth more attention than one whose answer is a month old;
+    * **looked at long ago** — MusicBrainz is edited continuously, so an absence
+      is only true for now;
+    * **failed under rules that are no longer current** — a decline is an answer
+      the engine gave, and the engine changes.
+
+  Only *failures* are re-offered on an engine change. Enrichment fills gaps and
+  never overwrites, so re-running an identified recording spends a request to
+  change nothing. A rule that gets stricter and should re-examine what it once
+  accepted needs `reset/1`, which discards first and is nobody's nightly job.
   """
   @spec due(pos_integer()) :: [Recording.t()]
   def due(limit) do
     import Ecto.Query
 
     cutoff = DateTime.add(DateTime.utc_now(), -@stale_after_days * 24 * 3600, :second)
+    current = engine()
 
     Recording
-    |> where([r], is_nil(r.enriched_at) or r.enriched_at < ^cutoff)
+    |> where(
+      [r],
+      is_nil(r.enriched_at) or r.enriched_at < ^cutoff or
+        (is_nil(r.musicbrainz_recording_id) and
+           (is_nil(r.enrichment_engine) or r.enrichment_engine != ^current))
+    )
     |> order_by([r], asc_nulls_first: r.enriched_at)
     |> limit(^limit)
     |> Repo.all()
@@ -833,8 +874,13 @@ defmodule OnePlaylist.Library.Enrichment do
   # absent cannot turn a gap into an empty string — which would look filled and
   # compare equal to every other empty string.
   defp record_attempt(recording, learned) do
+    stamped =
+      learned
+      |> Map.put(:enriched_at, DateTime.utc_now())
+      |> Map.put(:enrichment_engine, engine())
+
     recording
-    |> write(Map.put(learned, :enriched_at, DateTime.utc_now()))
+    |> write(stamped)
     |> announce()
   end
 

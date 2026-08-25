@@ -3,14 +3,18 @@ defmodule OnePlaylist.Library.EnrichmentSweeper do
   The nightly job that queues recordings for enrichment.
 
   `OnePlaylist.Library.find_or_create/1` enqueues each recording as it arrives,
-  which covers everything from now on. This covers the other two cases:
+  which covers everything from now on. This covers the other three cases:
 
     * **Backfill.** Recordings stored before enrichment existed, and any whose
       job was cancelled or discarded.
     * **Re-asking.** MusicBrainz is edited continuously, so a recording it could
-      not identify last month may be identifiable today —
-      `OnePlaylist.Library.Enrichment.due/1` offers anything looked at more than
-      thirty days ago, never-asked first.
+      not identify last month may be identifiable today.
+    * **Rules that have moved.** A decline is an answer the *engine* gave, and
+      the engine changes — in one working day it changed five times. Each change
+      left every earlier decline stale with nothing to say so, and this job
+      would have reached them in thirty days or not at all.
+      `OnePlaylist.Library.Enrichment.engine/0` is what makes the difference
+      visible.
 
   ## Oban Cron rather than pg_cron
 
@@ -34,6 +38,11 @@ defmodule OnePlaylist.Library.EnrichmentSweeper do
 
   A backlog therefore drains over several nights, oldest first, which is the
   right order and is why nothing here reports "N remaining" as a problem.
+
+  A rules change makes that backlog appear at once — every failure becomes due
+  the same night — which is exactly what should happen and is bounded by how
+  many failed rather than by how many exist. Thirty-eight of six hundred and
+  fifty-one, in a real library.
   """
 
   use Oban.Worker, queue: :enrichment, max_attempts: 1

@@ -773,8 +773,14 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       stale = DateTime.add(DateTime.utc_now(), -60 * 24 * 3600, :second)
 
-      fresh = recording(%{title: "fresh", enriched_at: DateTime.utc_now()})
-      old = recording(%{title: "old", enriched_at: stale})
+      fresh =
+        recording(%{
+          title: "fresh",
+          enriched_at: DateTime.utc_now(),
+          enrichment_engine: Enrichment.engine()
+        })
+
+      old = recording(%{title: "old", enriched_at: stale, enrichment_engine: Enrichment.engine()})
       never = recording(%{title: "never"})
 
       ids = Enrichment.due(50) |> Enum.map(& &1.id)
@@ -786,6 +792,48 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert Enum.find_index(ids, &(&1 == never.id)) <
                Enum.find_index(ids, &(&1 == old.id)),
              "a recording nothing is known about is worth more than a month-old answer"
+    end
+
+    test "offers back a failure decided by rules that are no longer current" do
+      # The gap this closes. In one working day the matching rules changed five
+      # times, and each change left every earlier decline stale with nothing to
+      # say so — the sweep would have reached them in thirty days, or never.
+      Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])
+
+      under_old_rules =
+        recording(%{
+          title: "decided long ago",
+          enriched_at: DateTime.utc_now(),
+          enrichment_outcome: :declined,
+          enrichment_engine: "an engine that no longer exists"
+        })
+
+      assert under_old_rules.id in Enum.map(Enrichment.due(50), & &1.id)
+    end
+
+    test "does not offer back a *success* decided by older rules" do
+      # Enrichment fills gaps and never overwrites, so running it again over an
+      # identified recording spends a request to change nothing. Re-deciding a
+      # settled identity means discarding it first, which is `reset/1`.
+      Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])
+
+      already_identified =
+        recording(%{
+          title: "settled",
+          enriched_at: DateTime.utc_now(),
+          musicbrainz_recording_id: "aaaaaaaa-1111-2222-3333-444444444444",
+          enrichment_outcome: :identified,
+          enrichment_engine: "an engine that no longer exists"
+        })
+
+      refute already_identified.id in Enum.map(Enrichment.due(50), & &1.id)
+    end
+
+    test "the fingerprint is stable across calls" do
+      # It has to be: a fingerprint that varied per call would re-offer every
+      # failure on every sweep, for ever.
+      assert Enrichment.engine() == Enrichment.engine()
+      assert is_binary(Enrichment.engine())
     end
   end
 end

@@ -96,11 +96,23 @@ defmodule OnePlaylist.Library.EnrichmentWorkerTest do
 
   describe "the nightly sweep" do
     test "queues the never-enriched and leaves the freshly asked alone" do
-      Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])
+      Repo.update_all(Recording,
+        set: [
+          enriched_at: DateTime.utc_now(),
+          enrichment_engine: OnePlaylist.Library.Enrichment.engine()
+        ]
+      )
 
       never = Library.find_or_create(track())
       asked = Library.find_or_create(track())
-      {:ok, _asked} = Repo.update(Ecto.Changeset.change(asked, enriched_at: DateTime.utc_now()))
+
+      {:ok, _asked} =
+        Repo.update(
+          Ecto.Changeset.change(asked,
+            enriched_at: DateTime.utc_now(),
+            enrichment_engine: OnePlaylist.Library.Enrichment.engine()
+          )
+        )
 
       Oban.Job
       |> Ecto.Query.where([j], j.worker == "OnePlaylist.Library.EnrichmentWorker")

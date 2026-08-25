@@ -74,13 +74,18 @@ defmodule OnePlaylist.Library.Recording do
 
     field :enrichment_candidates, :integer
 
+    # A fingerprint of the engine that decided this recording's outcome, so a
+    # decline made under older rules can be offered back. See the migration and
+    # `OnePlaylist.Library.Enrichment.engine/0`.
+    field :enrichment_engine, :string
+
     timestamps(type: :utc_datetime_usec)
   end
 
   @fields ~w(isrc musicbrainz_recording_id musicbrainz_release_id title artists album album_upc track_number
              volume_number version duration_seconds explicit artwork_url
              origin_provider origin_provider_id enriched_at enrichment_outcome
-             enrichment_candidates)a
+             enrichment_candidates enrichment_engine)a
 
   @doc """
   Builds a recording from a track that arrived from anywhere.
