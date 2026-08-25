@@ -31,10 +31,28 @@
 #
 # Equivalence is decided in the order the evidence deserves: the chosen
 # candidate carrying the **source's own ISRC** settles it outright — that is the
-# same recording by identifier, whatever the ids say. Failing that, agreement on
-# normalized title *and* album, with durations either unknown or within three
-# seconds. Deliberately strict on title, because that is what separates a
-# duplicate entity from *Call Me Maybe (Dark Intensity)*.
+# same recording by identifier, whatever the ids say. Failing that, an agreeing
+# normalized title and a length within three seconds.
+#
+# **Album agreement was a requirement and is not one**, which was measurably
+# wrong: it counted a recording on a compilation or an anniversary reissue as an
+# error. Of thirteen the first version called wrong, eleven were the same
+# recording — *Kick* against *Kick 30*, *Wish You Were Here* against *Wish You
+# Were Here 50*, *Free Bird* at 550s against a Collector's Edition at 548s.
+# A recording appears on as many albums as it appears on; the album says almost
+# nothing about whether two ids name one performance, and the length says a
+# great deal.
+#
+# The title check is what still does the discriminating, and it is enough: of
+# the two genuine errors, both are caught by it — *Call Me Maybe (Dark
+# Intensity)* and *Angel (Angel Dust)* do not normalize to *Call Me Maybe* and
+# *Angel*.
+#
+# **Where a length is missing on either side there is no third piece of
+# evidence, so the case is reported as `unverified` rather than guessed at.**
+# Counting those as equivalent would flatter the engine and counting them as
+# wrong would libel it; they are three of the thirteen, and saying so is more
+# useful than picking.
 #
 # The unlabelled half — recordings still unidentified — cannot say whether a
 # change is right, only whether it unlocks anything. Reported separately, and
@@ -101,7 +119,12 @@ to_track = fn map, provider ->
     album: map["album"],
     album_titles: map["album_titles"] || [],
     title_variants: map["title_variants"] || [],
-    live_release?: map["live_release?"] || false,
+    # `live_release?` is the field this replaced; a corpus harvested before the
+    # generalisation still carries it, and reading both keeps an older capture
+    # scoreable rather than silently scoring it wrong.
+    release_tags:
+      Enum.map(map["release_tags"] || [], &String.to_existing_atom/1) ++
+        if(map["live_release?"], do: [:live], else: []),
     duration_seconds: map["duration_seconds"],
     isrc: map["isrc"],
     album_upc: map["album_upc"],
@@ -195,20 +218,20 @@ decide_with_release = fn case_, threshold ->
 end
 
 # The same music under another id, as opposed to other music.
-equivalent? = fn case_, chosen ->
+verdict_for = fn case_, chosen ->
   same_isrc? = is_binary(case_["isrc"]) and chosen.isrc == case_["isrc"]
+  same_title? = Normalize.title(case_["title"]).title == Normalize.title(chosen.title).title
 
-  same_words? =
-    Normalize.title(case_["title"]).title == Normalize.title(chosen.title).title and
-      Normalize.same_album?(case_["album"], chosen.album,
-        artists: (case_["artists"] || []) ++ (chosen.artists || [])
-      )
+  ours = case_["duration_seconds"]
+  theirs = chosen.duration_seconds
 
-  close_enough? =
-    is_nil(case_["duration_seconds"]) or is_nil(chosen.duration_seconds) or
-      abs(case_["duration_seconds"] - chosen.duration_seconds) <= 3
-
-  same_isrc? or (same_words? and close_enough?)
+  cond do
+    same_isrc? -> :equivalent
+    not same_title? -> :wrong
+    is_nil(ours) or is_nil(theirs) -> :unverified
+    abs(ours - theirs) <= 3 -> :equivalent
+    true -> :wrong
+  end
 end
 
 {labelled, unlabelled} = Enum.split_with(cases, & &1["expected_mbid"])
@@ -220,8 +243,7 @@ score = fn threshold, decider ->
         {:chose, chosen} ->
           cond do
             chosen.provider_id == case_["expected_mbid"] -> :correct
-            equivalent?.(case_, chosen) -> :equivalent
-            true -> :wrong
+            true -> verdict_for.(case_, chosen)
           end
 
         # A release document supports a weaker equivalence test than a search
@@ -232,8 +254,7 @@ score = fn threshold, decider ->
         {:chose_mbid, mbid, pseudo} ->
           cond do
             mbid == case_["expected_mbid"] -> :correct
-            equivalent?.(case_, pseudo) -> :equivalent
-            true -> :wrong
+            true -> verdict_for.(case_, pseudo)
           end
 
         :declined ->
@@ -256,6 +277,7 @@ score = fn threshold, decider ->
     threshold: threshold,
     correct: Enum.count(verdicts, &(&1 == :correct)),
     equivalent: Enum.count(verdicts, &(&1 == :equivalent)),
+    unverified: Enum.count(verdicts, &(&1 == :unverified)),
     missed: Enum.count(verdicts, &(&1 == :missed)),
     WRONG: Enum.count(verdicts, &(&1 == :wrong)),
     unlabelled_now_matching: unlocked,
@@ -322,6 +344,7 @@ Enum.each(rows, fn {name, row} ->
     "  #{String.pad_trailing(name, 16)}" <>
       "   correct #{String.pad_leading(to_string(row.correct), 3)}" <>
       "   equiv #{String.pad_leading(to_string(row.equivalent), 3)}" <>
+      "   unver #{String.pad_leading(to_string(row.unverified), 3)}" <>
       "   missed #{String.pad_leading(to_string(row.missed), 3)}" <>
       "   WRONG #{String.pad_leading(to_string(row[:WRONG]), 3)}" <>
       "   unlocked #{String.pad_leading(to_string(row.unlabelled_now_matching), 3)}" <>

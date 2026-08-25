@@ -1339,10 +1339,54 @@ person's library learns that library.
 | **0.98 + release-first (current)** | **150** | **50** | **20** | **14** |
 
 **The release rung is worth more than every scoring change put together, and
-this is the measurement that says so.** It resolves 34 cases; against text alone
-it turns 33 misses into answers for **one** additional wrong. Lowering the
-threshold to 0.90 buys four correct answers for twenty wrong. That is the
-recall-over-scoring thesis, in one table.
+this is the measurement that says so.** It resolves 34 cases and turns 33 misses
+into answers.
+
+#### The `WRONG` column was wrong, by a factor of thirteen
+
+The table above is the *corrected* one. The first version required **album
+agreement** for two ids to count as the same recording, and reported 13 errors
+at the current rule. Inspected one by one, eleven were the same recording on a
+compilation or an anniversary reissue: *Kick* against *Kick 30*, *Wish You Were
+Here* against *Wish You Were Here 50*, *Free Bird* at 550s against a Collector's
+Edition at 548s.
+
+A recording appears on as many albums as it appears on. The album says almost
+nothing about whether two ids name one performance; the **length** says a great
+deal, and the **title** is what discriminates. Equivalence is now a matching
+title with a length within three seconds, or a shared ISRC.
+
+Where a length is missing on either side there is no third piece of evidence, so
+the case is reported `unverified` rather than guessed at — 31 of 234. Counting
+those as equivalent would flatter the engine and counting them as wrong would
+libel it.
+
+**The genuine error rate is 1 in 234.** Which also means an earlier conclusion
+recorded here — that lowering the threshold trades a miss for a wrong at roughly
+one for one — was an artefact of the broken test. The real trade is gentler.
+It is moot: the release rung reaches 20 misses at **one** wrong, which no
+threshold does at any setting.
+
+#### A remix is invisible to every title comparison
+
+Of the two genuine errors in the first inspection, both were the same failure:
+*Call Me Maybe* matched *Call Me Maybe (Dark Intensity)*, and *Angel* from
+*Mezzanine* matched *Angel (Angel Dust)* from the Mad Professor remix tapes.
+
+`Normalize.title/1` strips a trailing parenthetical, which is right and is what
+makes *(Remastered)* work — so **both titles normalize to exactly the same
+string**. No title, artist or album comparison can see the difference.
+
+The release group is typed `Remix`, and that is the only surviving trace. So
+`Track.live_release?` became `Track.release_tags`, and MusicBrainz's secondary
+types map onto the discriminating vocabulary: `Live`, `Remix` and `Demo` — and
+deliberately not `Compilation` or `Soundtrack`, which are the two commonest by a
+distance (53 and 11 of this project's cached releases, against 19 live) and say
+nothing about which recording it is.
+
+The current corpus cannot score this: it captured `live_release?` for its search
+candidates rather than the full type list. The harvester captures the tags now,
+so the next harvest can.
 
 **`equivalent` is not a courtesy.** The first version of the replay counted any
 differing MBID as wrong and reported **28 of 120** — of which the first six

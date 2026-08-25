@@ -10,6 +10,7 @@ defmodule OnePlaylist.Matching.SignalsTest do
   use ExUnitProperties
   use Bond.Test
 
+  alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Matching.Signals
   alias OnePlaylist.Music.Track
 
@@ -185,6 +186,43 @@ defmodule OnePlaylist.Matching.SignalsTest do
       release = track(album: "Touring Band 2000", artists: ["Pearl Jam"])
 
       assert Signals.compare(stored, release).album == 1.0
+    end
+  end
+
+  describe "version tags a release implies, which its titles do not repeat" do
+    test "a remix is invisible to every title comparison, and the release type sees it" do
+      # `Normalize.title/1` strips a trailing parenthetical, which is right and
+      # is what makes "(Remastered)" work — so "Call Me Maybe (Dark Intensity)"
+      # normalizes to exactly "call me maybe". Every title, artist and album
+      # signal agrees, and the recording is a different performance.
+      #
+      # Found in the enrichment corpus: it and "Angel (Angel Dust)" on the
+      # Mezzanine remix tapes were the only two genuine errors in 234 cases, and
+      # they are the same error.
+      original = track(title: "Call Me Maybe", album: "Call Me Maybe")
+
+      remix =
+        track(title: "Call Me Maybe (Dark Intensity)", album: "Call Me Maybe Remixes")
+
+      assert Normalize.title(original.title).title ==
+               Normalize.title(remix.title).title,
+             "the premise: the titles are indistinguishable once normalized"
+
+      refute Signals.compare(original, remix) |> Signals.vetoed?()
+
+      assert Signals.compare(original, %Track{remix | release_tags: [:remix]})
+             |> Signals.vetoed?()
+    end
+
+    test "and a compilation or a soundtrack implies nothing" do
+      # The two commonest secondary types by a distance — 53 and 11 of the
+      # releases this project has cached, against 19 live. Neither says anything
+      # about *which recording* it is, and mapping them would veto half the
+      # catalogue.
+      original = track(title: "Respect", album: "I Never Loved a Man the Way I Love You")
+      on_compilation = track(title: "Respect", album: "Soul Classics", release_tags: [])
+
+      refute Signals.compare(original, on_compilation) |> Signals.vetoed?()
     end
   end
 

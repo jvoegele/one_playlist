@@ -421,7 +421,7 @@ defmodule OnePlaylist.Matching.Signals do
   # two that carry none agree; one carrying `:live` alone does not.
   defp conflict?(left, right), do: not MapSet.equal?(left, right)
 
-  # A track's own version tags, plus the one its *release* implies.
+  # A track's own version tags, plus the ones its *release* implies.
   #
   # An album that is live all the way through does not repeat the word on every
   # track: Roon tags each one `Live`, MusicBrainz tags none of them and marks
@@ -430,13 +430,19 @@ defmodule OnePlaylist.Matching.Signals do
   # is perfect — measured on *I Got You* from *2000-06-20: Arena, Verona, Italy*,
   # which agrees on title, album and credit and was rejected anyway.
   #
-  # This tightens as well as relaxes, and both directions are wanted. A *studio*
+  # A **remix** is the same fact in the opposite direction, and worse, because
+  # nothing else can see it. `Normalize.title/1` strips a trailing parenthetical
+  # — which is right, and what makes "(Remastered)" work — so *Call Me Maybe
+  # (Dark Intensity)* normalizes to *call me maybe* and matches the original on
+  # every signal there is. The release group typed `Remix` is the only surviving
+  # trace, which is why this reads a set rather than a boolean.
+  #
+  # This tightens as well as relaxes, and both directions are wanted. A studio
   # source against a live recording used to see no conflict, because the
-  # candidate carried no tag; now it sees one, which is the same rule read the
-  # other way.
-  defp discriminating_tags(parsed, %Track{live_release?: true}) do
-    MapSet.put(Normalize.discriminating(parsed.tags), :live)
+  # candidate carried no tag; now it sees one.
+  defp discriminating_tags(parsed, %Track{} = track) do
+    parsed.tags
+    |> Normalize.discriminating()
+    |> MapSet.union(MapSet.new(Normalize.discriminating(MapSet.new(track.release_tags))))
   end
-
-  defp discriminating_tags(parsed, %Track{}), do: Normalize.discriminating(parsed.tags)
 end

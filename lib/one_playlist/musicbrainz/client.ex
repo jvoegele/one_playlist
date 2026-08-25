@@ -395,10 +395,10 @@ defmodule OnePlaylist.MusicBrainz.Client do
       # tagger writes. Comparing against the head alone declined a correct match
       # over exactly that.
       album_titles: album_titles(releases),
-      # `secondary-types` reads `["Live"]` for an official bootleg or a live
-      # album, and the search response carries it inline — see `album_titles/1`
-      # for why nothing extra has to be fetched.
-      live_release?: live_release?(releases),
+      # `secondary-types` reads `["Live"]` for an official bootleg, `["Remix"]`
+      # for a remix album, and the search response carries them inline — see
+      # `album_titles/1` for why nothing extra has to be fetched.
+      release_tags: release_tags(releases),
       # A search response carries, per release, the *one* track that matches
       # this recording — `track-offset` points at it — so this is the set of
       # names the catalogue files this same recording under, and nothing else.
@@ -420,13 +420,19 @@ defmodule OnePlaylist.MusicBrainz.Client do
     |> Enum.uniq()
   end
 
-  defp live_release?(releases) do
-    Enum.any?(releases, fn release ->
-      release
-      |> get_in(["release-group", "secondary-types"])
-      |> List.wrap()
-      |> Enum.any?(&(&1 == "Live"))
+  # Only the three that mean "a different performance", which is what the veto
+  # is about. `Compilation` and `Soundtrack` are the commonest secondary types
+  # by far — 53 and 11 of the releases this project has cached, against 19 live
+  # — and neither says anything about which recording it is.
+  @release_tags %{"Live" => :live, "Remix" => :remix, "Demo" => :demo}
+
+  defp release_tags(releases) do
+    releases
+    |> Enum.flat_map(fn release ->
+      release |> get_in(["release-group", "secondary-types"]) |> List.wrap()
     end)
+    |> Enum.flat_map(&List.wrap(Map.get(@release_tags, &1)))
+    |> Enum.uniq()
   end
 
   defp album_titles(releases) do

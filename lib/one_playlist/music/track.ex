@@ -76,18 +76,22 @@ defmodule OnePlaylist.Music.Track do
     # recording's full release list — and each release's *group* title, which is
     # often the canonical name where the release carries a pressing's.
     album_titles: [],
-    # Whether the provider says this recording sits on a **live release** — an
-    # album that is live all the way through, as opposed to a live track on a
-    # studio record.
+    # The version tags this recording's **release** implies, which its title
+    # does not repeat. A live album does not say "live" on every track: Roon
+    # tags each one, MusicBrainz tags none of them and marks the release group
+    # instead.
     #
-    # It exists because a live album does not repeat the word on every track.
-    # Roon tags each one `Live`; MusicBrainz tags none of them and marks the
-    # release group instead. Without this the version veto reads that as one
-    # side live and the other not, and rejects a perfect match.
+    # Started as a `live_release?` boolean and generalised, because the same
+    # mechanism answers the failure that outlived it. `Normalize.title/1` strips
+    # a trailing parenthetical — which is right, and what makes "(Remastered)"
+    # work — so *Call Me Maybe (Dark Intensity)* normalizes to *call me maybe*
+    # and a **remix is invisible to every title comparison there is**. Its
+    # release group is typed `Remix`, and that is the only place the fact
+    # survives.
     #
-    # `false` means "not known to be live", which is what every provider but
-    # MusicBrainz can say. Only a `true` relaxes anything.
-    live_release?: false,
+    # Empty for every provider but MusicBrainz. Only ever *adds* a tag, so a
+    # provider that says nothing behaves exactly as it always did.
+    release_tags: [],
     # Other names this same recording goes by, where the provider says. A
     # MusicBrainz *recording* has a title and each *track* on a release has its
     # own, and they disagree more often than one would guess: the State College
@@ -129,7 +133,7 @@ defmodule OnePlaylist.Music.Track do
           artwork_url: String.t() | nil,
           isrc_family: [String.t()],
           album_titles: [String.t()],
-          live_release?: boolean(),
+          release_tags: [atom()],
           title_variants: [String.t()],
           work_titles: [String.t()],
           artists: [String.t()]
