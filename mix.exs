@@ -143,6 +143,16 @@ defmodule OnePlaylist.MixProject do
   # if every group above it declines to claim an error module first.
   #
   # `source/1` is that declining. Everything else follows from it.
+  #
+  # **A module matching nothing here is not dropped — it is rendered above
+  # `Overview`**, ungrouped, at the very top of the sidebar. So the cost of
+  # forgetting a group is a new context appearing before the landing page, which
+  # is how `Library`, `Cover art` and `OnePlaylist.Errors` announced themselves.
+  # Adding a context means adding a line here.
+  #
+  # Mix tasks need no line: ExDoc collects them into its own top-level `tasks`
+  # section and never consults this list. A rule matching `lib/mix/tasks/` looks
+  # right and does nothing, which is worse than its absence.
   defp groups_for_modules do
     [
       # The landing page, and the only module that names no part of the tree.
@@ -161,6 +171,13 @@ defmodule OnePlaylist.MixProject do
       # The pipeline that drives it.
       Transfers: source(~r{/one_playlist/transfers(\.ex$|/)}),
 
+      # The place playlists live, as opposed to the pipe between the places they
+      # live — `docs/reference/domain.md` §5. Beside Transfers rather than among
+      # the Providers because that is the argument the section makes: the
+      # library is a source and a destination *and* the asset that compounds.
+      # Its adapter is a provider and stays with them.
+      Library: source(~r{/one_playlist/library(\.ex$|/)}),
+
       # The behaviour and the shared types, then one group per service. The same
       # lookahead device, and it is also what puts `subsonic_credentials.ex`
       # with Subsonic rather than in the shared group.
@@ -178,6 +195,13 @@ defmodule OnePlaylist.MixProject do
 
       # The outside reference data, and the two tiers that keep us off it.
       MusicBrainz: source(~r{/one_playlist/musicbrainz(\.ex$|/)}),
+
+      # The same organisation, a different service, and its own front door — the
+      # reason `OnePlaylist.CoverArt.Service` exists rather than sharing
+      # MusicBrainz's. Two modules is a thin group and the right one: folding
+      # them under "MusicBrainz" would say they share a rate limit, which is the
+      # thing that is not true.
+      "Cover art": source(~r{/one_playlist/cover_art/}),
       "Catalogue and caching": source(~r{/one_playlist/(catalogue|cache)(\.ex$|/)}),
 
       # Who is asking, and what is kept for them.
@@ -206,7 +230,16 @@ defmodule OnePlaylist.MixProject do
       # called `*Error`, Errata's own README names its examples `OrderNotFound`
       # and `PaymentDeclined`, and a naming rule would strand the first error
       # type somebody spelled differently.
-      Errors: &(&1[:kind] == :exception)
+      #
+      # `OnePlaylist.Errors` joins them by path rather than by kind. It is not
+      # an error type — it is how one gets rendered into a log — but a reader
+      # looking for error handling looks here, and a helper filed under
+      # "Platform" would not be found. This is the one place a source path and a
+      # `:kind` test share a group, and it stays last for the same reason: every
+      # group above declines an exception, so nothing above can claim these.
+      Errors:
+        &(&1[:kind] == :exception or
+            Regex.match?(~r{/one_playlist/errors\.ex$}, to_string(&1[:source_path])))
     ]
   end
 
