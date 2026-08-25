@@ -399,10 +399,29 @@ defmodule OnePlaylist.Matching.Normalize do
   precisely this kind: three of the six it reports for `album/1` are duplicate
   release groups rather than mistakes.
 
-  The cost is real and worth naming: *100th Window - The Remixes* is now called
-  the same album as *100th Window*, which it is not. A remix edition is a
-  distinct record, and this rule cannot see that where the subtitle happens to
-  be the only thing distinguishing it.
+  ## The artist guard, and why it is not optional
+
+  Pass `artists:` and a head that *is* one of them will not license a match.
+  That is the difference between a subtitle marker and the "Artist - Album"
+  separator, and without it this rule reproduces the exact failure the symmetric
+  version was rejected for.
+
+  Not theory. Shipped without the guard, it identified a library recording
+  stored as *Immortality* on the store-invented bucket **"Pearl Jam - Non-Album
+  Tracks"** against a MusicBrainz release titled **"Pearl Jam"** — the band's
+  self-titled album, which has no such track. The asymmetry was supposed to make
+  that impossible by requiring the other side to be exactly the core; the
+  catalogue simply *has* a release with that name.
+
+  The guard costs nothing measurable: `dev/corpus/album_cases.json` scores
+  80.7% and 65.1% either way. It is free because a head that equals the credit
+  is almost never a real album core, and where it is — a self-titled record with
+  an edition suffix — the loss is a cover, not a wrong identity.
+
+  The remaining cost is real and worth naming: *100th Window - The Remixes* is
+  now called the same album as *100th Window*, which it is not. A remix edition
+  is a distinct record, and this rule cannot see that where the subtitle happens
+  to be the only thing distinguishing it.
 
       iex> alias OnePlaylist.Matching.Normalize
       iex> Normalize.same_album?("Crucible", "Crucible - The Songs of Hunters & Collectors")
@@ -413,23 +432,29 @@ defmodule OnePlaylist.Matching.Normalize do
       false
       iex> Normalize.same_album?("Greatest Hits - Volume One", "Greatest Hits - Volume Two")
       false
+      iex> Normalize.same_album?("Pearl Jam - Non-Album Tracks", "Pearl Jam", artists: ["Pearl Jam"])
+      false
   """
-  @spec same_album?(String.t() | nil, String.t() | nil) :: boolean()
-  def same_album?(left, right) do
+  @spec same_album?(String.t() | nil, String.t() | nil, keyword()) :: boolean()
+  def same_album?(left, right, opts \\ []) do
     left_core = album(left)
     right_core = album(right)
 
-    left_core == right_core or subtitled?(right, left_core) or subtitled?(left, right_core)
+    names = opts |> Keyword.get(:artists, []) |> List.wrap() |> Enum.map(&text/1)
+
+    left_core == right_core or subtitled?(right, left_core, names) or
+      subtitled?(left, right_core, names)
   end
 
   # True when `title` is `core` followed by a subtitle. The spaced hyphen is a
   # delimiter *here* and not in `album/1`, and the asymmetry is what makes that
   # safe: nothing is stripped unless the other side is already the bare core.
-  defp subtitled?(title, core) do
+  defp subtitled?(title, core, artist_names) do
     case String.split(to_string(title), ~r/\s+[-–—:]\s+/u, parts: 2) do
       [head, _subtitle] ->
         stripped = album(head)
-        stripped != "" and stripped == core and core != ""
+
+        stripped != "" and stripped == core and core != "" and core not in artist_names
 
       _none ->
         false

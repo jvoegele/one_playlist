@@ -75,12 +75,23 @@ exact = fn left, right -> Normalize.text(left) == Normalize.text(right) end
 core = fn left, right -> Normalize.album(left) == Normalize.album(right) end
 subtitle = fn left, right -> Normalize.same_album?(left, right) end
 
+# The shipped rule: the same, refusing a head that is the artist's own name.
+# `dev/corpus/album_cases.json` carries the artist for exactly this kind of
+# question.
+guarded = fn case_ ->
+  fn left, right -> Normalize.same_album?(left, right, artists: [case_["artist"]]) end
+end
+
 %{
   pairs: length(cases),
   same_album: Enum.count(cases, & &1["same_album"]),
   different_albums: Enum.count(cases, &(not &1["same_album"])),
   baseline_exact_text: report.("Normalize.text/1 equality", exact),
   album_core: report.("Normalize.album/1 equality", core),
-  same_album: report.("Normalize.same_album?/2", subtitle)
+  same_album_unguarded: report.("same_album?/2, no artist", subtitle),
+  same_album: report.("same_album?/3 with the artist guard", fn l, r ->
+    case_ = Enum.find(cases, &(&1["left"] == l and &1["right"] == r))
+    Normalize.same_album?(l, r, artists: [case_ && case_["artist"]])
+  end)
 }
 |> IO.inspect(limit: :infinity, printable_limit: :infinity)

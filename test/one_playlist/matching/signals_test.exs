@@ -165,4 +165,26 @@ defmodule OnePlaylist.Matching.SignalsTest do
       assert Signals.compare(track(album: nil), track(album: "Vitalogy")).album == nil
     end
   end
+
+  describe "a subtitle marker against an \"Artist - Album\" separator" do
+    test "a head that is the artist's own name licenses nothing" do
+      # The failure the symmetric rule was rejected for, reproduced by the
+      # asymmetric one until this guard: a store-invented bucket named
+      # "Pearl Jam - Non-Album Tracks" matched a real release titled
+      # "Pearl Jam", and a pseudo-album took the self-titled record's identity.
+      # Found in a real library, not reasoned about.
+      pseudo = track(album: "Pearl Jam - Non-Album Tracks", artists: ["Pearl Jam"])
+      self_titled = track(album: "Pearl Jam", artists: ["Pearl Jam"])
+
+      assert Signals.compare(pseudo, self_titled).album < 1.0
+    end
+
+    test "a head that is not the artist still reads as a subtitle" do
+      # The same shape, and legitimate: these are one record.
+      stored = track(album: "Touring Band 2000 - Instrumentals", artists: ["Pearl Jam"])
+      release = track(album: "Touring Band 2000", artists: ["Pearl Jam"])
+
+      assert Signals.compare(stored, release).album == 1.0
+    end
+  end
 end

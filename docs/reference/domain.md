@@ -1238,6 +1238,19 @@ release *groups*, counts some of them as different. Three of the six false
 positives it reports for `album/1` are already duplicate release groups rather
 than mistakes.
 
+**The rule needs an artist guard, and that was found in production rather than
+argued.** Shipped without one, it identified a library recording stored as
+*Immortality* on the store-invented bucket **"Pearl Jam - Non-Album Tracks"**
+against a MusicBrainz release titled **"Pearl Jam"**. The asymmetry was supposed
+to make that impossible by requiring the other side to be exactly the core; the
+catalogue simply *has* a release with that name. This is the identical failure
+the symmetric rule was rejected for, reached by a different route.
+
+`same_album?/3` now takes `artists:` and refuses a head that *is* one of them —
+the difference between a subtitle marker and the "Artist - Album" separator. It
+costs nothing measurable: the corpus scores 80.7% and 65.1% either way, because
+a head equal to the credit is almost never a real album core.
+
 The cost is named rather than waved away: *100th Window - The Remixes* is now
 called the same album as *100th Window*, and a remix edition is a distinct
 record. The other three corpora were re-run and none moved — 82/12/5/1 on the

@@ -115,7 +115,7 @@ defmodule OnePlaylist.Matching.Signals do
       title_exact: left.title != "" and left.title == right.title,
       artists: artist_similarity(left_artists, right_artists, left_words, right_words),
       credit_match: credit_match(left_credits, right_credits, left_words, right_words),
-      album: album_similarity(source.album, candidate),
+      album: album_similarity(source.album, candidate, artist_names(source, candidate)),
       duration:
         Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds),
       upc_agrees: upc_agrees?(source.album_upc, candidate.album_upc),
@@ -317,7 +317,7 @@ defmodule OnePlaylist.Matching.Signals do
 
   @typep credits :: %{primary: MapSet.t(String.t()), featured: MapSet.t(String.t())}
 
-  defp album_similarity(nil, _candidate), do: nil
+  defp album_similarity(nil, _candidate, _artists), do: nil
 
   # Jaro-Winkler reads an album subtitle backwards — it rewards a shared prefix
   # and penalises length, so a *short wrong* suffix ("Greatest Hits **Vol. 2**")
@@ -342,16 +342,22 @@ defmodule OnePlaylist.Matching.Signals do
   #
   # Only MusicBrainz populates the set; every other provider gives one album per
   # track, so this reduces to what it always was.
-  defp album_similarity(left, candidate) do
+  defp album_similarity(left, candidate, artists) do
     case album_names(candidate) do
       [] ->
         nil
 
       names ->
         names
-        |> Enum.map(&one_album_similarity(left, &1))
+        |> Enum.map(&one_album_similarity(left, &1, artists))
         |> Enum.max()
     end
+  end
+
+  # Raw credits from both sides, because the question the subtitle guard asks is
+  # "is this head the artist's name" and either side may be the one carrying it.
+  defp artist_names(source, candidate) do
+    (List.wrap(source.artists) ++ List.wrap(candidate.artists)) |> Enum.uniq()
   end
 
   defp album_names(candidate) do
@@ -360,8 +366,8 @@ defmodule OnePlaylist.Matching.Signals do
     |> Enum.uniq()
   end
 
-  defp one_album_similarity(left, right) do
-    if Normalize.same_album?(left, right) do
+  defp one_album_similarity(left, right, artists) do
+    if Normalize.same_album?(left, right, artists: artists) do
       1.0
     else
       Similarity.jaro_winkler(Normalize.text(left), Normalize.text(right))
