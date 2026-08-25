@@ -685,6 +685,85 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
     end
   end
 
+  describe "what the row says the recording is" do
+    setup %{user_id: user_id} do
+      %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}
+    end
+
+    test "names the recording rather than printing its id", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      html =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert html =~ "Linked to"
+      assert html =~ "One", "the recording's own title, not a UUID"
+      # The id is kept as the element's title attribute, for anybody who needs
+      # to quote it, but it no longer occupies the line.
+      assert html =~ ~s(title="#{entry.track.provider_id}")
+    end
+
+    test "flags a recording that disagrees with the item", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      # The Roon case: the item is corrected, the shared recording is not, and
+      # the row had no way to show that this is the whole problem.
+      Library.update_item(user_id, playlist.id, entry.id, %{artists: ["Somebody Else Entirely"]})
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      html =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert html =~ "differs from yours"
+    end
+
+    test "a live enrichment update does not overwrite a corrected album", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      Library.update_item(user_id, playlist.id, entry.id, %{album: "What I Say It Is"})
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+      assert render(view) =~ "What I Say It Is"
+
+      # Exactly the message enrichment broadcasts when it finishes. Rebuilding
+      # the row from the recording threw the correction away until the next page
+      # load, which is what a person saw as an album reverting on its own.
+      recording =
+        Recording
+        |> Repo.get!(entry.track.provider_id)
+        |> Ecto.Changeset.change(
+          album: "What The Catalogue Says It Is",
+          enriched_at: DateTime.utc_now()
+        )
+        |> Repo.update!()
+
+      send(view.pid, {:recording_enriched, recording})
+
+      redrawn = render(view)
+      assert redrawn =~ "What I Say It Is"
+      refute redrawn =~ "What The Catalogue Says It Is · "
+    end
+  end
+
   describe "correcting a track by hand" do
     setup %{user_id: user_id} do
       %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}

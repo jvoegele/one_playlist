@@ -586,7 +586,7 @@ defmodule OnePlaylist.LibraryTest do
         isrc: isrc("ZZZ992600001")
       })
 
-      assert {:ok, %Recording{} = stored} =
+      assert {:ok, :created, %Recording{} = stored} =
                Library.link_to_own_details(user_id, playlist.id, entry.id)
 
       assert stored.artists == ["Neil Finn", "Eddie Vedder"]
@@ -595,6 +595,42 @@ defmodule OnePlaylist.LibraryTest do
       assert [relinked] = Library.entries(user_id, playlist.id)
       assert relinked.linked?
       assert relinked.track.provider_id == stored.id
+    end
+
+    test "says when the details name something the library already has", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The button reads "use this track's own details" and, when the ISRC is
+      # unchanged, links straight back to the recording that was just rejected.
+      # That is correct — a canonical ISRC is what anchors identity here, so
+      # these *are* the same recording — but silence made it look broken.
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      assert {:ok, :existing, _recording} =
+               Library.link_to_own_details(user_id, playlist.id, entry.id)
+    end
+
+    test "and clearing the ISRC is the way out", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # Somebody who genuinely has a different recording says so by dropping the
+      # anchor. The exact title-album-credit key then applies, and their
+      # corrected words make a row of their own.
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      Library.update_item(user_id, playlist.id, entry.id, %{
+        isrc: nil,
+        artists: ["Somebody Else Entirely"]
+      })
+
+      assert {:ok, :created, stored} =
+               Library.link_to_own_details(user_id, playlist.id, entry.id)
+
+      assert stored.id != entry.track.provider_id
     end
 
     test "and links to an existing recording rather than copying it", %{
@@ -606,7 +642,9 @@ defmodule OnePlaylist.LibraryTest do
       # describe something the library holds must not make a second copy of it.
       Library.unlink(user_id, playlist.id, entry.id)
 
-      assert {:ok, recording} = Library.link_to_own_details(user_id, playlist.id, entry.id)
+      assert {:ok, :existing, recording} =
+               Library.link_to_own_details(user_id, playlist.id, entry.id)
+
       assert recording.id == entry.track.provider_id
     end
   end

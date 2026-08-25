@@ -76,7 +76,16 @@ defmodule OnePlaylist.Music.Track do
 
   @type t :: %__MODULE__{
           provider: atom(),
-          provider_id: String.t(),
+          # `nil` in exactly one place, and the `identifiable` invariant below is
+          # still the binding rule everywhere else. An unlinked playlist item
+          # produces a track for *display* — see
+          # `OnePlaylist.Library.PlaylistItem.to_track/2`, and
+          # `playlist_item_link_is_breakable` for why an item may say it does not
+          # know what recording it is. Such a track must not be handed to a
+          # function here or to `Transfers.Runner`, and is not:
+          # `Providers.Library.playlist_track_ids/3` filters unlinked items out
+          # before any of that.
+          provider_id: String.t() | nil,
           isrc: String.t() | nil,
           title: String.t() | nil,
           album: String.t() | nil,

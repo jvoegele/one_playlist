@@ -119,14 +119,40 @@ defmodule OnePlaylist.Library.PlaylistItem do
       artists: item.artists || [],
       album: item.album,
       version: item.version,
-      isrc: item.isrc || from(recording, :isrc),
-      duration_seconds: item.duration_seconds || from(recording, :duration_seconds),
-      album_upc: from(recording, :album_upc),
-      artwork_url: from(recording, :artwork_url),
-      explicit: from(recording, :explicit)
+      isrc: item.isrc,
+      duration_seconds: item.duration_seconds
     }
+    |> with_recording(recording)
   end
 
-  defp from(%Recording{} = recording, field), do: Map.fetch!(recording, field)
-  defp from(nil, _field), do: nil
+  @doc """
+  Lays what a catalogue knows over a track that already says what it is.
+
+  Split out of `to_track/2` because there are two callers and only one of them
+  holds an item. A live enrichment update carries the **recording** and the row
+  it redraws already has its merged track, so it needs the second half of the
+  merge without the first.
+
+  Doing that by rebuilding from the recording alone was a real bug: a person who
+  had corrected *Throw Your Arms Around Me*'s album to *Crucible* watched it
+  revert to *Crucible - The Songs of Hunters & Collectors* the moment enrichment
+  finished, and come back on the next page load. The row was briefly showing the
+  recording's account of the track instead of the item's.
+
+  Idempotent, which is what makes it safe to apply to an already-merged track:
+  every field it fills is one the track had no value for.
+  """
+  @spec with_recording(Track.t(), Recording.t() | nil) :: Track.t()
+  def with_recording(%Track{} = track, nil), do: track
+
+  def with_recording(%Track{} = track, %Recording{} = recording) do
+    %Track{
+      track
+      | isrc: track.isrc || recording.isrc,
+        duration_seconds: track.duration_seconds || recording.duration_seconds,
+        album_upc: recording.album_upc,
+        artwork_url: recording.artwork_url,
+        explicit: recording.explicit
+    }
+  end
 end

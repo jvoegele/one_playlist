@@ -73,6 +73,12 @@ defmodule OnePlaylist.Library do
           track: Track.t(),
           linked?: boolean(),
           enriched?: boolean(),
+          recording: %{
+            id: Ecto.UUID.t() | nil,
+            title: String.t() | nil,
+            artists: [String.t()],
+            album: String.t() | nil
+          },
           musicbrainz: %{
             recording_id: Ecto.UUID.t() | nil,
             release_id: Ecto.UUID.t() | nil,
@@ -176,9 +182,26 @@ defmodule OnePlaylist.Library do
         # reader acts differently on each.
         linked?: not is_nil(item.recording_id),
         enriched?: not is_nil(recording) and not is_nil(recording.enriched_at),
+        # What the *recording* says, beside what the item says. The screen showed
+        # a bare UUID here, which tells a reader nothing — and the one time it
+        # would have told them everything was the case where the two disagree.
+        recording: recording_details(recording),
         musicbrainz: musicbrainz(recording)
       }
     end)
+  end
+
+  @doc false
+  @spec recording_details(Recording.t() | nil) :: map()
+  def recording_details(nil), do: %{id: nil, title: nil, artists: [], album: nil}
+
+  def recording_details(%Recording{} = recording) do
+    %{
+      id: recording.id,
+      title: recording.title,
+      artists: recording.artists || [],
+      album: recording.album
+    }
   end
 
   defp musicbrainz(nil) do
@@ -348,18 +371,31 @@ defmodule OnePlaylist.Library do
   be identified while it said so; fixed and stored, enrichment asks MusicBrainz
   the right question — `find_or_create/1` queues that on the way past.
 
-  Answers with the recording, existing or new: an item whose details already
-  describe something the library holds links to that rather than making a second
-  copy of it.
+  **Says which happened**, and that is not bookkeeping. An item whose details
+  already describe something the library holds links to *that* rather than
+  making a second copy — and when the thing it describes is the recording the
+  person just rejected, the button looks like it did nothing.
+
+  It usually has not done nothing; it has discovered that the two are the same
+  recording. `existing/1` joins on a canonical ISRC, which is the project's
+  anchor for identity, so a corrected credit against an unchanged ISRC is a
+  claim that the *recording's metadata* is wrong rather than that the link is.
+  A second row could not be created for it in any case: the partial unique index
+  on `isrc` would make the insert a no-op and the re-read would find the same
+  row again.
+
+  The caller is expected to say so. Somebody who genuinely has a different
+  recording clears the ISRC first, at which point the exact title-album-credit
+  key applies instead and their corrected words make a row of their own.
   """
   @spec link_to_own_details(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t()) ::
-          {:ok, Recording.t()} | :error
+          {:ok, :created | :existing, Recording.t()} | :error
   def link_to_own_details(user_id, playlist_id, entry_id) do
     with {:ok, item} <- fetch_item(user_id, playlist_id, entry_id) do
-      recording = item |> PlaylistItem.to_track(nil) |> store()
+      {how, recording} = item |> PlaylistItem.to_track(nil) |> store()
 
       case set_link(user_id, playlist_id, entry_id, recording.id) do
-        :ok -> {:ok, recording}
+        :ok -> {:ok, how, recording}
         :error -> :error
       end
     end
@@ -780,7 +816,7 @@ defmodule OnePlaylist.Library do
   def find_or_create(%Track{provider: :library, provider_id: id}) when not is_nil(id),
     do: Repo.get!(Recording, id)
 
-  def find_or_create(%Track{} = track), do: store(track)
+  def find_or_create(%Track{} = track), do: track |> store() |> elem(1)
 
   # The two keys, applied. Separate from `find_or_create/1` because the shortcut
   # clause above it is a shortcut for *arriving* tracks, and `link_to_own_details/3`
@@ -790,8 +826,8 @@ defmodule OnePlaylist.Library do
   # never give.
   defp store(%Track{} = track) do
     case existing(track) do
-      %Recording{} = found -> found
-      nil -> create(track)
+      %Recording{} = found -> {:existing, found}
+      nil -> {:created, create(track)}
     end
   end
 

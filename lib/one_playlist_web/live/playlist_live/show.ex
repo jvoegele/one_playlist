@@ -134,6 +134,21 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   Collectors" where the item now reads "Neil Finn; Eddie Vedder", and which
   declined at ten candidates both times.
 
+  ## What the row says the recording is
+
+  "Linked to" printed a bare UUID, which tells a reader nothing — and the one
+  case where it would have told them everything is the case where the item and
+  the recording *disagree*. So it names the recording instead, and marks the
+  disagreement: *Throw Your Arms Around Me* reads "Neil Finn; Eddie Vedder" on
+  the item and "Hunters & Collectors" on the shared recording, and that gap is
+  the whole diagnosis. The id is kept as the element's `title` for anybody who
+  needs to quote it.
+
+  A live enrichment update goes through `PlaylistItem.with_recording/2` rather
+  than rebuilding the track from the recording. Rebuilding threw away all four
+  fields the item owns, so a corrected album reverted the moment enrichment
+  landed and came back on the next page load — visible, confusing, and gone now.
+
   ## Reordering is a drag, and the server still decides the order
 
   It began as two chevron buttons per row, which was the honest small version.
@@ -170,7 +185,9 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
   alias OnePlaylist.Library
   alias OnePlaylist.Library.Enrichment
+  alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Matching.Normalize
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -208,8 +225,13 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp refresh(%{track: %{provider_id: id}} = entry, %Recording{id: id} = recording) do
     %{
       entry
-      | track: Recording.to_track(recording),
+      | # `with_recording/2`, never `Recording.to_track/1`. The item owns title,
+        # credit, album and version, and rebuilding the track from the recording
+        # threw all four away — a corrected album reverted the moment enrichment
+        # landed, and came back on the next page load.
+        track: PlaylistItem.with_recording(entry.track, recording),
         enriched?: not is_nil(recording.enriched_at),
+        recording: Library.recording_details(recording),
         musicbrainz: %{
           recording_id: recording.musicbrainz_recording_id,
           release_id: recording.musicbrainz_release_id,
@@ -388,8 +410,23 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
            socket.assigns.playlist.id,
            entry_id
          ) do
-      {:ok, _recording} ->
-        {:noreply, socket |> load_entries() |> forget_candidates(entry_id)}
+      {:ok, :created, _recording} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Stored as a new recording, and linked.")
+         |> load_entries()
+         |> forget_candidates(entry_id)}
+
+      # Not a no-op, though it looks like one: these details name a recording the
+      # library already holds — usually the very one just rejected, because the
+      # ISRC is unchanged and that is what anchors identity here. Saying so is
+      # the difference between a confusing button and an informative one.
+      {:ok, :existing, recording} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, already_have(recording))
+         |> load_entries()
+         |> forget_candidates(entry_id)}
 
       :error ->
         {:noreply, put_flash(socket, :error, "That track could not be stored.")}
@@ -848,7 +885,12 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
         <dt class="opacity-60">Linked to</dt>
         <dd>
-          <span :if={@entry.linked?} class="font-mono break-all">{@entry.track.provider_id}</span>
+          <span :if={@entry.linked?} title={@entry.recording.id}>
+            {recording_summary(@entry.recording)}
+            <span :if={disagrees?(@entry)} class="badge badge-warning badge-xs ml-1">
+              differs from yours
+            </span>
+          </span>
           <span :if={!@entry.linked?} class="opacity-40">nothing yet</span>
           <button
             :if={@entry.linked?}
@@ -1047,6 +1089,43 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   # The header counts are derived from the entries, so they are assigned in the
   # same place. Reordering does not change either, but a removal does, and a
   # caller that assigned only `:entries` would leave the header stale.
+  # What the shared recording calls this track, which is not always what the
+  # item calls it — and when they disagree, that disagreement is the whole
+  # diagnosis. A bare UUID sat here before and said none of it.
+  #
+  # The id is kept as the element's `title`, so it is still there for anybody
+  # who needs to quote it, without occupying the line.
+  defp already_have(recording) do
+    summary = recording |> Library.recording_details() |> recording_summary()
+
+    "These details name a recording the library already has — #{summary} — so the track is " <>
+      "linked to it. Its ISRC is what says they are the same music; if it is genuinely a " <>
+      "different recording, clear the ISRC and try again."
+  end
+
+  defp recording_summary(%{title: nil}), do: "a recording"
+
+  defp recording_summary(recording) do
+    [recording.title, Enum.join(recording.artists, ", "), recording.album]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" · ")
+  end
+
+  # Compared on the fields a person can correct. `Normalize` rather than raw
+  # equality, so a difference in punctuation or case is not announced as a
+  # disagreement.
+  defp disagrees?(%{recording: %{title: nil}}), do: false
+
+  defp disagrees?(entry) do
+    {norm(entry.track.title), credit(entry.track.artists),
+     Normalize.album(entry.track.album || "")} !=
+      {norm(entry.recording.title), credit(entry.recording.artists),
+       Normalize.album(entry.recording.album || "")}
+  end
+
+  defp norm(value), do: Normalize.text(value || "")
+  defp credit(artists), do: artists |> List.wrap() |> Enum.map_join(" ", &norm/1)
+
   # Linked to a recording that MusicBrainz has not put a name to. The row the
   # "look up again" controls exist for — an unlinked row has nothing to ask
   # about, and an identified one would only spend a request confirming itself.
