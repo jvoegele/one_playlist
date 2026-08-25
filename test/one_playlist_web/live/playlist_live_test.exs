@@ -617,6 +617,74 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
     end
   end
 
+  describe "asking MusicBrainz again from the screen" do
+    setup %{user_id: user_id} do
+      playlist = playlist_with(user_id, "Road Trip", ~w(One Two Three))
+
+      # Asked and declined, which is the state the control exists for. A
+      # recording that has never been asked is still `pending`, and offering
+      # "look up again" while the first lookup is in flight would be nonsense.
+      for entry <- Library.entries(user_id, playlist.id) do
+        Recording
+        |> Repo.get!(entry.track.provider_id)
+        |> Ecto.Changeset.change(
+          enriched_at: DateTime.utc_now(),
+          enrichment_outcome: :declined
+        )
+        |> Repo.update!()
+      end
+
+      %{playlist: playlist}
+    end
+
+    test "the header offers it only while something is unidentified", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "Look up 3 again"
+
+      for entry <- Library.entries(user_id, playlist.id) do
+        Recording
+        |> Repo.get!(entry.track.provider_id)
+        |> Ecto.Changeset.change(musicbrainz_recording_id: Ecto.UUID.generate())
+        |> Repo.update!()
+      end
+
+      # Enrichment never overwrites, so a fully identified playlist has nothing
+      # to ask about and the control should not be there to click.
+      {:ok, _view, identified} = live(conn, ~p"/playlists/#{playlist.id}")
+      refute identified =~ "Look up"
+    end
+
+    test "clicking it says how many were queued", %{conn: conn, playlist: playlist} do
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert view |> element(~s{button[phx-click="reenrich"]}) |> render_click() =~
+               "Asking MusicBrainz again about 3 tracks"
+    end
+
+    test "a single row can be re-asked from its panel", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      assert view
+             |> element(~s{button[phx-click="reenrich_entry"][phx-value-entry="#{entry.id}"]})
+             |> render_click() =~ "Asking MusicBrainz again"
+    end
+  end
+
   describe "correcting a track by hand" do
     setup %{user_id: user_id} do
       %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}

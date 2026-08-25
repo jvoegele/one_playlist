@@ -611,6 +611,84 @@ defmodule OnePlaylist.LibraryTest do
     end
   end
 
+  describe "asking MusicBrainz again" do
+    setup %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Mine")
+
+      Library.append(user_id, playlist.id, [
+        track(%{isrc: isrc("ZZZ992700001"), title: "Never Identified"}),
+        track(%{isrc: isrc("ZZZ992800001"), title: "Already Identified"})
+      ])
+
+      [first, second] = Library.entries(user_id, playlist.id)
+
+      # The second one has an answer already, which is the case this must skip.
+      Repo.update_all(
+        from(r in Recording, where: r.id == ^second.track.provider_id),
+        set: [musicbrainz_recording_id: Ecto.UUID.generate(), enriched_at: DateTime.utc_now()]
+      )
+
+      %{playlist: playlist, unidentified: first, identified: second}
+    end
+
+    test "queues only what has no answer yet", %{
+      user_id: user_id,
+      playlist: playlist,
+      identified: identified
+    } do
+      # Enrichment fills gaps and never overwrites, so re-asking about a
+      # recording that already carries an id spends a request to learn nothing.
+      assert {:ok, 1} = Library.reenrich(user_id, playlist.id)
+
+      assert Repo.get!(Recording, identified.track.provider_id).musicbrainz_recording_id
+    end
+
+    test "puts the re-asked track back to waiting", %{
+      user_id: user_id,
+      playlist: playlist,
+      unidentified: unidentified
+    } do
+      Repo.update_all(
+        from(r in Recording, where: r.id == ^unidentified.track.provider_id),
+        set: [enriched_at: DateTime.utc_now(), enrichment_outcome: :declined]
+      )
+
+      assert [%{enriched?: true} | _rest] = Library.entries(user_id, playlist.id)
+
+      assert {:ok, 1} = Library.reenrich(user_id, playlist.id)
+
+      # Not cosmetic: the row has to stop showing a decision that is being
+      # re-taken, or the screen says "no confident match" while the queue works.
+      assert [%{enriched?: false} | _rest] = Library.entries(user_id, playlist.id)
+    end
+
+    test "one entry can be re-asked on its own", %{
+      user_id: user_id,
+      playlist: playlist,
+      unidentified: unidentified
+    } do
+      assert {:ok, 1} = Library.reenrich_entry(user_id, playlist.id, unidentified.id)
+    end
+
+    test "an unlinked entry has nothing to look up", %{
+      user_id: user_id,
+      playlist: playlist,
+      unidentified: unidentified
+    } do
+      Library.unlink(user_id, playlist.id, unidentified.id)
+
+      # Zero rather than an error: "there is nothing to ask about" is a true
+      # statement about that row, not a failure of the request.
+      assert {:ok, 0} = Library.reenrich_entry(user_id, playlist.id, unidentified.id)
+    end
+
+    test "somebody else cannot re-ask about your playlist", %{playlist: playlist} do
+      stranger = AuthFixtures.user_id_fixture()
+
+      assert :error = Library.reenrich(stranger, playlist.id)
+    end
+  end
+
   describe "search/2" do
     test "finds a held recording by ISRC" do
       Library.find_or_create(track(%{isrc: "USSM11100234"}))

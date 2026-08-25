@@ -112,6 +112,28 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   Enrichment then asks MusicBrainz the corrected question rather than the
   original wrong one.
 
+  ## Asking MusicBrainz again, on purpose
+
+  Enrichment runs once as a recording arrives and nightly for anything still
+  unresolved. That is the right cadence for a process nobody is watching and the
+  wrong one for somebody who has just corrected a track and wants to know
+  whether it helped, so there is a control for it: one in the header for the
+  whole playlist and one in each unidentified row's panel.
+
+  Both offer only what has **no answer yet**. Enrichment fills gaps and never
+  overwrites, so re-asking about an identified recording spends a request to
+  learn nothing. The header control also hides itself while `@pending > 0` —
+  a first lookup is already in flight, and "look up again" on top of that is
+  not a thing anybody means.
+
+  **It cannot fix a wrong credit, and that limit is worth stating** because the
+  button looks like it should. Enrichment searches with the *recording's*
+  metadata, and a correction made here lives on the **item**. Correcting an
+  item's artist and pressing this re-runs the same failing search: verified on
+  *Throw Your Arms Around Me*, whose recording still reads "Hunters &
+  Collectors" where the item now reads "Neil Finn; Eddie Vedder", and which
+  declined at ten candidates both times.
+
   ## Reordering is a drag, and the server still decides the order
 
   It began as two chevron buttons per row, which was the honest small version.
@@ -273,6 +295,40 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
      socket
      |> assign(:expanded, toggled)
      |> load_candidates(entry_id, MapSet.member?(toggled, entry_id))}
+  end
+
+  def handle_event("reenrich", _params, socket) do
+    case Library.reenrich(socket.assigns.current_user_id, socket.assigns.playlist.id) do
+      {:ok, 0} ->
+        {:noreply, put_flash(socket, :info, "Everything here is already identified.")}
+
+      {:ok, queued} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Asking MusicBrainz again about #{queued} #{track_word(queued)}.")
+         |> load_entries()}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That playlist could not be looked up again.")}
+    end
+  end
+
+  def handle_event("reenrich_entry", %{"entry" => entry_id}, socket) do
+    case Library.reenrich_entry(
+           socket.assigns.current_user_id,
+           socket.assigns.playlist.id,
+           entry_id
+         ) do
+      {:ok, 0} ->
+        {:noreply,
+         put_flash(socket, :info, "That track is not linked to a recording to look up.")}
+
+      {:ok, _queued} ->
+        {:noreply, socket |> put_flash(:info, "Asking MusicBrainz again.") |> load_entries()}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That track could not be looked up again.")}
+    end
   end
 
   def handle_event("edit_track", %{"entry" => entry_id}, socket) do
@@ -474,6 +530,16 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
               </span>
             </p>
           </div>
+
+          <button
+            :if={@unidentified > 0 and @pending == 0}
+            phx-click="reenrich"
+            class="btn btn-ghost btn-sm shrink-0"
+            title="Ask MusicBrainz again about the tracks it could not identify"
+          >
+            <.icon name="hero-arrow-path" class="w-4 h-4" />
+            <span class="hidden sm:inline">Look up {@unidentified} again</span>
+          </button>
 
           <button
             phx-click="delete"
@@ -805,9 +871,18 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         </dd>
       </dl>
 
-      <div class="mt-2">
+      <div class="mt-2 flex flex-wrap gap-1">
         <button phx-click="edit_track" phx-value-entry={@entry.id} class="btn btn-ghost btn-xs">
           <.icon name="hero-pencil-square" class="w-4 h-4" /> Edit these details
+        </button>
+
+        <button
+          :if={@entry.linked? and is_nil(@entry.musicbrainz.recording_id)}
+          phx-click="reenrich_entry"
+          phx-value-entry={@entry.id}
+          class="btn btn-ghost btn-xs"
+        >
+          <.icon name="hero-arrow-path" class="w-4 h-4" /> Look this up again
         </button>
       </div>
 
@@ -972,10 +1047,19 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   # The header counts are derived from the entries, so they are assigned in the
   # same place. Reordering does not change either, but a removal does, and a
   # caller that assigned only `:entries` would leave the header stale.
+  # Linked to a recording that MusicBrainz has not put a name to. The row the
+  # "look up again" controls exist for — an unlinked row has nothing to ask
+  # about, and an identified one would only spend a request confirming itself.
+  defp unidentified?(entry), do: entry.linked? and is_nil(entry.musicbrainz.recording_id)
+
+  defp track_word(1), do: "track"
+  defp track_word(_many), do: "tracks"
+
   defp assign_entries(socket, entries) do
     socket
     |> assign(:entries, entries)
     |> assign(:identified, Enum.count(entries, &is_binary(&1.track.isrc)))
     |> assign(:pending, Enum.count(entries, &(not &1.enriched?)))
+    |> assign(:unidentified, Enum.count(entries, &unidentified?/1))
   end
 end

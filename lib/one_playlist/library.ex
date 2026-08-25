@@ -34,6 +34,7 @@ defmodule OnePlaylist.Library do
 
   import Ecto.Query
 
+  alias OnePlaylist.Library.Enrichment
   alias OnePlaylist.Library.EnrichmentWorker
   alias OnePlaylist.Library.Playlist
   alias OnePlaylist.Library.PlaylistItem
@@ -233,6 +234,71 @@ defmodule OnePlaylist.Library do
     else
       _otherwise -> :error
     end
+  end
+
+  @doc """
+  Asks MusicBrainz again about the recordings in a playlist it could not identify.
+
+  Enrichment is a background job that runs once as a recording arrives and then
+  nightly for anything still unresolved, which is the right cadence for a
+  process nobody is watching. It is the wrong cadence for somebody who has just
+  corrected a track and wants to know whether it helped. This is that button.
+
+  **Only the unidentified are re-asked.** A recording that carries a MusicBrainz
+  id is left alone, and that is the same rule `OnePlaylist.Library.Enrichment.due/1`
+  keeps: enrichment fills gaps and never overwrites, so re-running it over an
+  identified recording changes nothing and spends a request finding that out.
+  Re-deciding a settled identity means discarding it first, which is
+  `Enrichment.reset/1` and belongs in a narrower gesture than this one.
+
+  `reset/1` is still called on the ones that *are* re-asked, because it clears
+  the bookkeeping — the recording goes back to reading "still being looked up"
+  rather than sitting on a stale decline while the queue works through.
+
+  Answers with how many were queued, which is what the caller tells the user.
+  """
+  @spec reenrich(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, non_neg_integer()} | :error
+  def reenrich(user_id, playlist_id) do
+    with {:ok, _playlist} <- fetch_playlist(user_id, playlist_id) do
+      ids = unidentified_recording_ids(playlist_id)
+
+      _cleared = Enrichment.reset(ids)
+      Enum.each(ids, &EnrichmentWorker.enqueue/1)
+
+      {:ok, length(ids)}
+    end
+  end
+
+  @doc """
+  The same, for the one recording behind one entry.
+
+  Narrower on purpose. A playlist of five hundred tracks is five hundred
+  requests at one a second, and somebody who has just fixed a single row wants
+  an answer about that row.
+
+  An unlinked entry answers `{:ok, 0}` rather than an error: there is nothing to
+  look up, and that is a true statement about it rather than a failure.
+  """
+  @spec reenrich_entry(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t()) ::
+          {:ok, non_neg_integer()} | :error
+  def reenrich_entry(user_id, playlist_id, entry_id) do
+    with {:ok, item} <- fetch_item(user_id, playlist_id, entry_id) do
+      ids = if item.recording_id, do: [item.recording_id], else: []
+
+      _cleared = Enrichment.reset(ids)
+      Enum.each(ids, &EnrichmentWorker.enqueue/1)
+
+      {:ok, length(ids)}
+    end
+  end
+
+  defp unidentified_recording_ids(playlist_id) do
+    PlaylistItem
+    |> join(:inner, [i], r in Recording, on: r.id == i.recording_id)
+    |> where([i, r], i.playlist_id == ^playlist_id and is_nil(r.musicbrainz_recording_id))
+    |> select([_i, r], r.id)
+    |> distinct(true)
+    |> Repo.all()
   end
 
   @doc """
