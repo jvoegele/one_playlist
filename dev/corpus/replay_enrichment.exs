@@ -51,6 +51,21 @@
 # Lowering it is not obviously safe, which is why this reports a range rather
 # than an opinion: the WRONG column is what decides.
 #
+# ## The release-first rung
+#
+# `by_release_tracks/2` asks the question the other way round: find the
+# **release** by album name, then look for our title among its tracks. It runs
+# only when everything above has declined, so it shows up in the report as a
+# separate row and as a `via_release` column — how many of that row's answers it
+# supplied.
+#
+# Its hits are scored the same way, with one honest limit: a release document
+# names a recording id and a *track* title, not the recording's own title or its
+# ISRC, so an id that differs from the expected one cannot be classified as
+# `equivalent` the way a search candidate can. Those are counted as **WRONG**,
+# which overstates them. The number to read is therefore an upper bound on its
+# cost and an exact count of its gain.
+#
 # ## Two rejected rules, kept as rows
 #
 # Both were proposed here with confidence and both are refused by this corpus,
@@ -121,6 +136,47 @@ decide = fn case_, threshold ->
   end
 end
 
+# The last rung, replayed from the release documents the harvest captured. This
+# mirrors `Enrichment.by_release_tracks/2` exactly, including the rule that makes
+# it safe: every matching track across the fetched releases must name the **same**
+# recording. Three pressings of one show agree by construction; two different
+# nights that both contain a song do not.
+release_first = fn case_ ->
+  ours = Normalize.title(case_["title"] || "").title
+  our_seconds = case_["duration_seconds"]
+
+  mbids =
+    (case_["releases"] || %{})
+    |> Map.values()
+    |> Enum.reject(&is_nil/1)
+    |> Enum.flat_map(fn document ->
+      (document["tracks"] || [])
+      |> Enum.filter(fn track ->
+        length_ok? =
+          is_nil(our_seconds) or is_nil(track["length_ms"]) or
+            abs(our_seconds - div(track["length_ms"], 1000)) <= 3
+
+        Normalize.title(track["title"] || "").title == ours and length_ok?
+      end)
+      |> Enum.map(& &1["recording_mbid"])
+      |> Enum.reject(&is_nil/1)
+    end)
+    |> Enum.uniq()
+
+  case mbids do
+    [only] -> {:chose_mbid, only}
+    _none_or_disagreed -> :declined
+  end
+end
+
+# The whole ladder as it stands: the text rungs, then the release rung.
+decide_with_release = fn case_, threshold ->
+  case decide.(case_, threshold) do
+    :declined -> release_first.(case_)
+    chose -> chose
+  end
+end
+
 # The same music under another id, as opposed to other music.
 equivalent? = fn case_, chosen ->
   same_isrc? = is_binary(case_["isrc"]) and chosen.isrc == case_["isrc"]
@@ -151,12 +207,27 @@ score = fn threshold, decider ->
             true -> :wrong
           end
 
+        # A release document names a recording id and a track title, not the
+        # recording's own title or its ISRC — so a differing id cannot be shown
+        # equivalent here, and is counted against.
+        {:chose_mbid, mbid} ->
+          if mbid == case_["expected_mbid"], do: :correct, else: :wrong
+
         :declined ->
           :missed
       end
     end)
 
-  unlocked = Enum.count(unlabelled, &match?({:chose, _}, decider.(&1, threshold)))
+  unlocked =
+    Enum.count(unlabelled, fn case_ ->
+      match?({:chose, _}, decider.(case_, threshold)) or
+        match?({:chose_mbid, _}, decider.(case_, threshold))
+    end)
+
+  via_release =
+    Enum.count(labelled ++ unlabelled, fn case_ ->
+      match?({:chose_mbid, _}, decider.(case_, threshold))
+    end)
 
   %{
     threshold: threshold,
@@ -164,7 +235,8 @@ score = fn threshold, decider ->
     equivalent: Enum.count(verdicts, &(&1 == :equivalent)),
     missed: Enum.count(verdicts, &(&1 == :missed)),
     WRONG: Enum.count(verdicts, &(&1 == :wrong)),
-    unlabelled_now_matching: unlocked
+    unlabelled_now_matching: unlocked,
+    via_release: via_release
   }
 end
 
@@ -215,7 +287,10 @@ the current rule is threshold #{ceiling}, the text band's ceiling
 
 rows =
   Enum.map([ceiling, 0.97, 0.96, 0.95, 0.93, 0.90], &{"threshold #{:erlang.float_to_binary(&1, decimals: 2)}", score.(&1, decide)}) ++
-    [{"textually exact", score.(ceiling, decide_textual)}]
+    [
+      {"textually exact", score.(ceiling, decide_textual)},
+      {"+ release-first", score.(ceiling, decide_with_release)}
+    ]
 
 Enum.each(rows, fn {name, row} ->
   mark = if name == "threshold 0.98", do: "  <- current", else: ""
@@ -226,7 +301,8 @@ Enum.each(rows, fn {name, row} ->
       "   equiv #{String.pad_leading(to_string(row.equivalent), 3)}" <>
       "   missed #{String.pad_leading(to_string(row.missed), 3)}" <>
       "   WRONG #{String.pad_leading(to_string(row[:WRONG]), 3)}" <>
-      "   unlocked #{String.pad_leading(to_string(row.unlabelled_now_matching), 3)}" <> mark
+      "   unlocked #{String.pad_leading(to_string(row.unlabelled_now_matching), 3)}" <>
+      "   via-release #{String.pad_leading(to_string(row.via_release), 3)}" <> mark
   )
 end)
 

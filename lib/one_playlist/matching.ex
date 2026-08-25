@@ -94,6 +94,15 @@ defmodule OnePlaylist.Matching do
   # the wrong side of its own comparison all produce a *plausible* match to a
   # track that was never a candidate. Nothing raises, the transfer completes,
   # and a track the user never had appears in their playlist.
+  #
+  # All three verified by mutation on 2026-08-25, since none can be made to fail
+  # from outside — `match/3` chooses from the list it was handed, so only a bug
+  # *inside* fires them, and a `Bond.Test` assertion cannot reach that. The
+  # mutations that do, each applied alone and reverted:
+  #
+  #   * `{:ok, %Match{best | track: source}}` — `chosen_from_candidates`
+  #   * `{:ok, %Match{best | source: best.track}}` — `source_preserved`
+  #   * dropping the `when score >= minimum` guard — `meets_threshold`
   @post whenever({:ok, match} <- result),
     chosen_from_candidates: match.track in candidates,
     source_preserved: match.source == source,
@@ -107,6 +116,12 @@ defmodule OnePlaylist.Matching do
   # Deliberately not applied to the identifier rungs: they trust the identifier
   # over the text, which is correct, and a provider that mislabels a version on
   # a correctly-ISRC'd track must not become a crash here.
+  #
+  # Verified by mutation on 2026-08-25, and this is the one that most needed it:
+  # deleting `not Signals.vetoed?(signals)` from `Strategy.Text.certain?/1` —
+  # the other implementation of the rule, in another module — fires this
+  # postcondition here. That is the whole point of restating it over the
+  # returned pair rather than trusting each rung.
   @post whenever({:ok, match} <- result),
     veto_respected:
       (match.strategy in [:text, :fuzzy])
@@ -137,6 +152,13 @@ defmodule OnePlaylist.Matching do
   # that makes `match/3` return the *worst* candidate it found. Every score is
   # still real, the confidence still reads plausibly, and no test that only
   # checks "a match was returned" would notice.
+  #
+  # Verified by mutation on 2026-08-25 with `|> Enum.reverse()` after the sort,
+  # which is the one-character bug described above. Worth recording that the
+  # *obvious* mutation does not fire it: returning `List.last/1` from `match/3`
+  # leaves `rank/3`'s own result correctly ordered, so a mutation aimed at the
+  # wrong function proves nothing. The contract is on `rank/3` and only a
+  # mutation there reaches it.
   @post ordered_best_first: descending?(result)
   @spec rank(Track.t(), [Track.t()], keyword()) :: [Match.t()]
   def rank(%Track{} = source, candidates, opts \\ []) when is_list(candidates) do
@@ -170,6 +192,10 @@ defmodule OnePlaylist.Matching do
   # both sides compares what was reported against what was asked for without
   # caring about order, and rejects a drop, a duplication and a substitution
   # alike — strictly stronger than the pair it replaced, and sound.
+  # Verified by mutation on 2026-08-25 in both directions, which a conservation
+  # law needs: `unmatched: []` drops the failures and fires it, and a `flat_map`
+  # emitting each match twice fires it too. One mutation would have proven only
+  # half a law.
   @post every_track_accounted_for_exactly_once:
           Enum.sort(source_ids(result)) == Enum.sort(source_ids(pairs))
   @spec match_all([{Track.t(), [Track.t()]}], keyword()) :: Report.t()

@@ -1029,6 +1029,37 @@ reason is not obvious from the surrounding code. Bond provides it. Nothing in th
 uses it, and nothing should be changed to create a use — but the next time a call site relies
 on a non-obvious argument, that is what to reach for instead of a comment.
 
+## Proving a contract that cannot fail from outside
+
+Most of the assertions worth having are postconditions on functions that control
+their own result, so no input can violate them — only a bug can. `Bond.Test`'s
+`assert_postcondition_violation` needs a *call* that fails, and there is none to
+write. That is why `Bond.Coverage` reports them as `⚠ never failed` for ever,
+and why the checklist below says to mutate.
+
+The mutation has to reach the function the contract is *on*. `ordered_best_first`
+is a postcondition on `rank/3`, and the obvious mutation — returning
+`List.last/1` from `match/3` — leaves `rank/3`'s own result correctly ordered
+and proves nothing. It looked like a proof and was not.
+
+A conservation law needs mutating in **both** directions. `unmatched: []` drops
+the failures; a `flat_map` emitting each match twice invents them. One mutation
+proves half a law.
+
+And beware the detector. Grepping the test output for the label always matches,
+because the coverage table prints every label on every run. What distinguishes a
+violation is `label: :the_name` in a raised `Bond.PostconditionError`, or a
+coverage row whose failure count is non-zero. Run the harness once with **no**
+mutation first: if that reports a hit, the detector is broken rather than the
+code.
+
+Six of `OnePlaylist.Matching`'s assertions were verified this way on 2026-08-25,
+each mutation applied alone and reverted, with the mutation recorded in a comment
+beside the contract so it can be re-run rather than re-invented. The one worth
+singling out is `veto_respected`: deleting the veto from `Strategy.Text` — a
+different module — fires the postcondition in `Matching`, which is exactly what
+restating a rule over the returned pair is for.
+
 ## Mechanics learned the hard way
 
 | Thing | What actually happens |
