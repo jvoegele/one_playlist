@@ -566,6 +566,11 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
                 · MusicBrainz has no ISRC for the other {length(@entries) - @identified}
               </span>
             </p>
+
+            <p :if={@disagreeing > 0} class="text-xs text-warning mt-1">
+              <.icon name="hero-exclamation-triangle" class="w-3 h-3" />
+              {@disagreeing} {track_word(@disagreeing)} with an ISRC that names different music
+            </p>
           </div>
 
           <button
@@ -1039,7 +1044,9 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp why_not(%{outcome: :unnameable}), do: "too little to search MusicBrainz with"
 
   defp why_not(%{outcome: :identifier_disagreed}),
-    do: "this track's ISRC names a different recording"
+    do:
+      "this track's ISRC names a different recording — the code in the file is wrong, " <>
+        "so unlink, clear the ISRC, and store the track on its own details"
 
   defp why_not(%{outcome: :declined, candidates: n}) when is_integer(n) and n > 0 do
     "#{n} found at MusicBrainz, none certain enough"
@@ -1131,6 +1138,18 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   # about, and an identified one would only spend a request confirming itself.
   defp unidentified?(entry), do: entry.linked? and is_nil(entry.musicbrainz.recording_id)
 
+  # The one outcome that is a fact about the **source data** rather than about
+  # the catalogue or about our scoring. The ISRC in the file names different
+  # music, so enrichment refuses it — correctly, and permanently, because
+  # re-asking cannot change what the code resolves to.
+  #
+  # Counted in the header because it is the only outcome a person can act on
+  # and the only one they would never think to look for. Roon's export put
+  # *Vitalogy*'s codes on *Vs.* tracks, which is where this came from; nothing
+  # about the row looks wrong until you expand it.
+  defp disagreeing?(entry),
+    do: entry.linked? and entry.musicbrainz.outcome == :identifier_disagreed
+
   defp track_word(1), do: "track"
   defp track_word(_many), do: "tracks"
 
@@ -1140,5 +1159,6 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
     |> assign(:identified, Enum.count(entries, &is_binary(&1.track.isrc)))
     |> assign(:pending, Enum.count(entries, &(not &1.enriched?)))
     |> assign(:unidentified, Enum.count(entries, &unidentified?/1))
+    |> assign(:disagreeing, Enum.count(entries, &disagreeing?/1))
   end
 end

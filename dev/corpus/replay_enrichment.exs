@@ -1,0 +1,233 @@
+# Scores enrichment's **text path** against the current engine, offline.
+#
+#     mix run --no-start dev/corpus/replay_enrichment.exs
+#
+# The counterpart to `dev/measure/replay.exs`, which does the same for the
+# transfer ladder. Until this existed nothing measured enrichment at all: all
+# four other corpora replay TIDAL candidates, so every enrichment change was
+# evaluated by re-running the live pipeline over a real library and counting.
+#
+# ## The oracle
+#
+# A recording identified by **ISRC** was identified by an exact identifier —
+# nobody scored anything — so its MBID is ground truth. The question this asks
+# is whether the *text* path, given the candidates a search actually returned,
+# reaches the same recording.
+#
+# That is the question enrichment cannot ask about itself: the text path only
+# runs when there is no ISRC, which is exactly when there is no label.
+#
+#   * **correct** — the text path chose the recording the identifier proved.
+#   * **equivalent** — it chose a different MBID for what is plainly the same
+#     music. MusicBrainz holds duplicate recording entities in quantity, and one
+#     album's pressings each carry their own: *Purple Haze* on *Are You
+#     Experienced* exists at 171s and at 173s under two ids. Counting those as
+#     failures was the first version of this file and it reported 28 of 120
+#     wrong, of which the first six sampled were five duplicates and one real
+#     error.
+#   * **missed** — it declined. Costs an identification; costs nothing wrong.
+#   * **WRONG** — it chose different music. The failure that matters, because
+#     enrichment writes what it decides onto a shared, ownerless row.
+#
+# Equivalence is decided in the order the evidence deserves: the chosen
+# candidate carrying the **source's own ISRC** settles it outright — that is the
+# same recording by identifier, whatever the ids say. Failing that, agreement on
+# normalized title *and* album, with durations either unknown or within three
+# seconds. Deliberately strict on title, because that is what separates a
+# duplicate entity from *Call Me Maybe (Dark Intensity)*.
+#
+# The unlabelled half — recordings still unidentified — cannot say whether a
+# change is right, only whether it unlocks anything. Reported separately, and
+# never mixed into the accuracy figure.
+#
+# ## Why several thresholds
+#
+# `chosen/2` accepts at the **text band's ceiling**, which is reachable only
+# when every signal is exactly `1.0`. Duration is one of them, and pressings of
+# one album differ by seconds — so a candidate that states its length is held to
+# a stricter standard than one that says nothing. *Ripple* on *American Beauty*
+# scores `0.9717` against a real pressing three seconds out and is refused.
+#
+# Lowering it is not obviously safe, which is why this reports a range rather
+# than an opinion: the WRONG column is what decides.
+#
+# ## Two rejected rules, kept as rows
+#
+# Both were proposed here with confidence and both are refused by this corpus,
+# which is why they stay in the output rather than in somebody's memory.
+#
+#   * **A lower threshold.** Every step down trades a miss for a wrong at
+#     roughly one for one — 0.98 gives 34 missed and 8 wrong, 0.95 gives 26 and
+#     16. `dev/corpus/replay_album_cases.exs` states the policy this project
+#     holds to: a false negative costs a cover or a barcode, and is never worth
+#     trading a false positive for. Enrichment writes onto a shared row, so the
+#     asymmetry is sharper here than anywhere else.
+#
+#   * **Textual exactness with duration demoted to a non-conflict.** The idea
+#     that duration should corroborate rather than gate, which is what *Ripple*
+#     seems to argue for. It gains two right answers and more than doubles the
+#     wrong ones, 8 to 20 — because among many recordings of one song, an exact
+#     title and credit do not separate them and the length was doing the work.
+
+alias OnePlaylist.Matching
+alias OnePlaylist.Matching.Confidence
+alias OnePlaylist.Matching.Signals
+alias OnePlaylist.Matching.Normalize
+alias OnePlaylist.Music.Track
+
+cases = "dev/corpus/enrichment_cases.json" |> File.read!() |> Jason.decode!()
+
+to_track = fn map, provider ->
+  %Track{
+    provider: provider,
+    provider_id: map["provider_id"] || "source",
+    title: map["title"],
+    artists: map["artists"] || [],
+    album: map["album"],
+    album_titles: map["album_titles"] || [],
+    title_variants: map["title_variants"] || [],
+    live_release?: map["live_release?"] || false,
+    duration_seconds: map["duration_seconds"],
+    isrc: map["isrc"],
+    album_upc: map["album_upc"],
+    version: map["version"]
+  }
+end
+
+# `by_name/1`'s own order: the release-qualified search first, because naming the
+# release is worth more than any other term the query can carry, then the broad
+# one. A decline on the narrow question falls through rather than ending it.
+decide = fn case_, threshold ->
+  source = to_track.(case_, :library)
+
+  attempt = fn candidates ->
+    tracks = Enum.map(candidates || [], &to_track.(&1, :musicbrainz))
+
+    case tracks do
+      [] -> :none
+      _ -> Matching.match(source, tracks, threshold: threshold)
+    end
+  end
+
+  case attempt.(case_["qualified_candidates"]) do
+    {:ok, match} ->
+      {:chose, match.track}
+
+    _declined ->
+      case attempt.(case_["broad_candidates"]) do
+        {:ok, match} -> {:chose, match.track}
+        _also_declined -> :declined
+      end
+  end
+end
+
+# The same music under another id, as opposed to other music.
+equivalent? = fn case_, chosen ->
+  same_isrc? = is_binary(case_["isrc"]) and chosen.isrc == case_["isrc"]
+
+  same_words? =
+    Normalize.title(case_["title"]).title == Normalize.title(chosen.title).title and
+      Normalize.same_album?(case_["album"], chosen.album,
+        artists: (case_["artists"] || []) ++ (chosen.artists || [])
+      )
+
+  close_enough? =
+    is_nil(case_["duration_seconds"]) or is_nil(chosen.duration_seconds) or
+      abs(case_["duration_seconds"] - chosen.duration_seconds) <= 3
+
+  same_isrc? or (same_words? and close_enough?)
+end
+
+{labelled, unlabelled} = Enum.split_with(cases, & &1["expected_mbid"])
+
+score = fn threshold, decider ->
+  verdicts =
+    Enum.map(labelled, fn case_ ->
+      case decider.(case_, threshold) do
+        {:chose, chosen} ->
+          cond do
+            chosen.provider_id == case_["expected_mbid"] -> :correct
+            equivalent?.(case_, chosen) -> :equivalent
+            true -> :wrong
+          end
+
+        :declined ->
+          :missed
+      end
+    end)
+
+  unlocked = Enum.count(unlabelled, &match?({:chose, _}, decider.(&1, threshold)))
+
+  %{
+    threshold: threshold,
+    correct: Enum.count(verdicts, &(&1 == :correct)),
+    equivalent: Enum.count(verdicts, &(&1 == :equivalent)),
+    missed: Enum.count(verdicts, &(&1 == :missed)),
+    WRONG: Enum.count(verdicts, &(&1 == :wrong)),
+    unlabelled_now_matching: unlocked
+  }
+end
+
+# The alternative to lowering the threshold, and a different claim.
+#
+# The ceiling is unreachable unless *every* signal is exactly 1.0, and duration
+# is one of them — so a candidate stating its length is held to a stricter
+# standard than one saying nothing, and *Ripple* on *American Beauty* is refused
+# over three seconds between pressings.
+#
+# This asks for exactness where exactness is meaningful — title, album, credit —
+# and asks duration only not to *conflict*, which is already its own signal and
+# already vetoes a genuinely different performance. Lowering the threshold
+# admits candidates with imperfect titles too; this does not.
+textually_exact = fn source, candidates ->
+  candidates
+  |> Enum.map(&{&1, Signals.compare(source, &1)})
+  |> Enum.filter(fn {_c, s} ->
+    not Signals.vetoed?(s) and not s.duration_conflict and
+      s.title == 1.0 and s.credit_match == :same and (is_nil(s.album) or s.album == 1.0)
+  end)
+  |> Enum.max_by(fn {_c, s} -> s.duration || 0.0 end, fn -> nil end)
+  |> case do
+    nil -> :declined
+    {candidate, _s} -> {:chose, candidate}
+  end
+end
+
+decide_textual = fn case_, _threshold ->
+  source = to_track.(case_, :library)
+
+  narrow = Enum.map(case_["qualified_candidates"] || [], &to_track.(&1, :musicbrainz))
+  broad = Enum.map(case_["broad_candidates"] || [], &to_track.(&1, :musicbrainz))
+
+  case textually_exact.(source, narrow) do
+    {:chose, _} = found -> found
+    :declined -> textually_exact.(source, broad)
+  end
+end
+
+ceiling = elem(Confidence.band(:text), 1)
+
+IO.puts("""
+
+enrichment text path — #{length(labelled)} labelled, #{length(unlabelled)} unlabelled
+the current rule is threshold #{ceiling}, the text band's ceiling
+""")
+
+rows =
+  Enum.map([ceiling, 0.97, 0.96, 0.95, 0.93, 0.90], &{"threshold #{:erlang.float_to_binary(&1, decimals: 2)}", score.(&1, decide)}) ++
+    [{"textually exact", score.(ceiling, decide_textual)}]
+
+Enum.each(rows, fn {name, row} ->
+  mark = if name == "threshold 0.98", do: "  <- current", else: ""
+
+  IO.puts(
+    "  #{String.pad_trailing(name, 16)}" <>
+      "   correct #{String.pad_leading(to_string(row.correct), 3)}" <>
+      "   equiv #{String.pad_leading(to_string(row.equivalent), 3)}" <>
+      "   missed #{String.pad_leading(to_string(row.missed), 3)}" <>
+      "   WRONG #{String.pad_leading(to_string(row[:WRONG]), 3)}" <>
+      "   unlocked #{String.pad_leading(to_string(row.unlabelled_now_matching), 3)}" <> mark
+  )
+end)
+
+IO.puts("")

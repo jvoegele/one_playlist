@@ -1273,6 +1273,54 @@ record. The other three corpora were re-run and none moved — 82/12/5/1 on the
 hundred, 96/12/7/0 plus 5 of 5 declines on credits, 24 work and 13 text on
 classical.
 
+#### Enrichment has a corpus now, and it refused the first two things it was asked
+
+Until 2026-08-25 nothing measured enrichment. All four other corpora replay
+**TIDAL** candidates and score the transfer ladder; the enrichment text path was
+evaluated by re-running the live pipeline over a real library and counting,
+which is minutes of rate-limited requests, not repeatable, and drove MusicBrainz
+to 503 twice in one afternoon.
+
+`dev/corpus/enrichment_cases.json` fixes that, labelled by the same trick the
+match-rate corpus uses in reverse: **a recording identified by ISRC was
+identified by an exact identifier**, so its MBID is ground truth, and the text
+path can be asked whether it reaches the same recording from the candidates a
+search actually returned. That is the question enrichment cannot ask itself,
+because the text path runs only when there is no ISRC — exactly when there is no
+label.
+
+| rule | correct | equivalent | missed | WRONG | unlocked |
+| --- | --- | --- | --- | --- | --- |
+| **threshold 0.98 (current)** | **58** | **20** | **34** | **8** | 2 |
+| threshold 0.95 | 58 | 20 | 26 | 16 | 10 |
+| threshold 0.90 | 60 | 29 | 7 | 24 | 17 |
+| textual exactness, duration demoted | 47 | 33 | 20 | 20 | 10 |
+
+**`equivalent` is not a courtesy.** The first version of the replay counted any
+differing MBID as wrong and reported **28 of 120** — of which the first six
+sampled were five MusicBrainz duplicate entities and one real error. *Purple
+Haze* on *Are You Experienced* exists at 171s and 173s under two ids; *Stand By
+Me* was "wrong" against a candidate carrying the source's own ISRC. Equivalence
+is settled by a shared ISRC first, then by agreement on normalized title and
+album with durations within three seconds.
+
+Both changes proposed off the back of the *Ripple* case are **rejected**:
+
+  * **A lower threshold** trades a miss for a wrong at roughly one for one. The
+    policy this project already holds — a false negative costs a cover, and is
+    never worth trading a false positive for — settles it, and the asymmetry is
+    sharper for enrichment than anywhere else because it writes onto a shared,
+    ownerless row.
+  * **Textual exactness with duration demoted to a non-conflict** — the rule
+    *Ripple* appears to argue for — gains two right answers and more than
+    doubles the wrong ones. Among many recordings of one song an exact title and
+    credit do not separate them, and the length was doing the work.
+
+So *Ripple* stays unidentified, and the threshold stays where it is. The
+`unlocked` column says the rest of the story: at the current rule only **2** of
+the library's 24 remaining declines are within reach of any threshold, which is
+the recall argument again rather than a scoring one.
+
 #### A title that is entirely a bracket
 
 `Normalize.title/1` split a title into a core and its segments and returned

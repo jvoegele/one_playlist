@@ -617,6 +617,53 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
     end
   end
 
+  describe "an ISRC that names different music" do
+    setup %{user_id: user_id} do
+      playlist = playlist_with(user_id, "Road Trip", ~w(One Two Three))
+
+      [first | _rest] = Library.entries(user_id, playlist.id)
+
+      Recording
+      |> Repo.get!(first.track.provider_id)
+      |> Ecto.Changeset.change(
+        enriched_at: DateTime.utc_now(),
+        enrichment_outcome: :identifier_disagreed
+      )
+      |> Repo.update!()
+
+      %{playlist: playlist, entry: first}
+    end
+
+    test "the header counts them, because nothing else would find them", %{
+      conn: conn,
+      playlist: playlist
+    } do
+      # The only outcome that is a fact about the *source data* rather than
+      # about the catalogue or our scoring, and the only one a person can fix.
+      # Roon's export put Vitalogy's codes on Vs. tracks; nothing about the row
+      # looks wrong until you expand it.
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      # A noun phrase rather than a sentence, so one and many read the same way
+      # — "1 track carry" was the first attempt.
+      assert html =~ "1 track with an ISRC that names different music"
+    end
+
+    test "and the row says what to do about it", %{conn: conn, playlist: playlist, entry: entry} do
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      html =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert html =~ "names a different recording"
+      # Re-asking cannot help — the code resolves to what it resolves to — so
+      # the label has to name the way out rather than only the problem.
+      assert html =~ "clear the ISRC"
+    end
+  end
+
   describe "asking MusicBrainz again from the screen" do
     setup %{user_id: user_id} do
       playlist = playlist_with(user_id, "Road Trip", ~w(One Two Three))
