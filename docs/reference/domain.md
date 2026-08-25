@@ -1325,12 +1325,24 @@ search actually returned. That is the question enrichment cannot ask itself,
 because the text path runs only when there is no ISRC — exactly when there is no
 label.
 
-| rule | correct | equivalent | missed | WRONG | unlocked |
-| --- | --- | --- | --- | --- | --- |
-| **threshold 0.98 (current)** | **58** | **20** | **34** | **8** | 2 |
-| threshold 0.95 | 58 | 20 | 26 | 16 | 10 |
-| threshold 0.90 | 60 | 29 | 7 | 24 | 17 |
-| textual exactness, duration demoted | 47 | 33 | 20 | 20 | 10 |
+Re-harvested 2026-08-25 with release data and a second source — 255 cases, 234
+labelled, from the library *and* from `dev/playlists/*.csv`, which carry 353
+distinct artists. Diversity was the point: an engine measured only against one
+person's library learns that library.
+
+| rule | correct | equivalent | missed | WRONG |
+| --- | --- | --- | --- | --- |
+| threshold 0.98, text only | 124 | 44 | 53 | 13 |
+| threshold 0.95 | 124 | 44 | 43 | 23 |
+| threshold 0.90 | 128 | 53 | 20 | 33 |
+| textual exactness, duration demoted | 84 | 83 | 39 | 28 |
+| **0.98 + release-first (current)** | **150** | **50** | **20** | **14** |
+
+**The release rung is worth more than every scoring change put together, and
+this is the measurement that says so.** It resolves 34 cases; against text alone
+it turns 33 misses into answers for **one** additional wrong. Lowering the
+threshold to 0.90 buys four correct answers for twenty wrong. That is the
+recall-over-scoring thesis, in one table.
 
 **`equivalent` is not a courtesy.** The first version of the replay counted any
 differing MBID as wrong and reported **28 of 120** — of which the first six

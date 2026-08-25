@@ -145,7 +145,7 @@ release_first = fn case_ ->
   ours = Normalize.title(case_["title"] || "").title
   our_seconds = case_["duration_seconds"]
 
-  mbids =
+  hits =
     (case_["releases"] || %{})
     |> Map.values()
     |> Enum.reject(&is_nil/1)
@@ -158,14 +158,31 @@ release_first = fn case_ ->
 
         Normalize.title(track["title"] || "").title == ours and length_ok?
       end)
-      |> Enum.map(& &1["recording_mbid"])
-      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&{&1["recording_mbid"], &1["title"], document["title"], &1["length_ms"]})
     end)
-    |> Enum.uniq()
+    |> Enum.reject(fn {id, _t, _r, _l} -> is_nil(id) end)
 
-  case mbids do
-    [only] -> {:chose_mbid, only}
-    _none_or_disagreed -> :declined
+  case Enum.uniq(Enum.map(hits, &elem(&1, 0))) do
+    [only] ->
+      # The pseudo-track a release document can support: the **track** title,
+      # which is what matched, and the release title as its album. Not as strong
+      # as a search candidate — there is no ISRC and no recording title — but
+      # enough for the equivalence test, and without it every duplicate
+      # MusicBrainz entity counts against this rung.
+      {_id, track_title, release_title, length_ms} = Enum.find(hits, &(elem(&1, 0) == only))
+
+      {:chose_mbid, only,
+       %Track{
+         provider: :musicbrainz,
+         provider_id: only,
+         title: track_title,
+         artists: case_["artists"] || [],
+         album: release_title,
+         duration_seconds: length_ms && div(length_ms, 1000)
+       }}
+
+    _none_or_disagreed ->
+      :declined
   end
 end
 
@@ -207,11 +224,17 @@ score = fn threshold, decider ->
             true -> :wrong
           end
 
-        # A release document names a recording id and a track title, not the
-        # recording's own title or its ISRC — so a differing id cannot be shown
-        # equivalent here, and is counted against.
-        {:chose_mbid, mbid} ->
-          if mbid == case_["expected_mbid"], do: :correct, else: :wrong
+        # A release document supports a weaker equivalence test than a search
+        # candidate does — no ISRC, and the recording's own title is not in it —
+        # but the track title and the release title are, and those are what
+        # separate a duplicate entity from different music. Measured: of seven
+        # disagreements, six were the same track on the same album.
+        {:chose_mbid, mbid, pseudo} ->
+          cond do
+            mbid == case_["expected_mbid"] -> :correct
+            equivalent?.(case_, pseudo) -> :equivalent
+            true -> :wrong
+          end
 
         :declined ->
           :missed
@@ -221,12 +244,12 @@ score = fn threshold, decider ->
   unlocked =
     Enum.count(unlabelled, fn case_ ->
       match?({:chose, _}, decider.(case_, threshold)) or
-        match?({:chose_mbid, _}, decider.(case_, threshold))
+        match?({:chose_mbid, _, _}, decider.(case_, threshold))
     end)
 
   via_release =
     Enum.count(labelled ++ unlabelled, fn case_ ->
-      match?({:chose_mbid, _}, decider.(case_, threshold))
+      match?({:chose_mbid, _, _}, decider.(case_, threshold))
     end)
 
   %{
