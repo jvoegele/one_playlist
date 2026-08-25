@@ -1550,3 +1550,60 @@ and anything else meant retry — which worked and said nothing about why. Decla
 `:archive_unreachable` and `:search_unavailable` on one `Errata.InfrastructureError` put the
 decision where it belongs, and a queue dashboard showing that reason on a discarded job is worth
 the type on its own.
+
+---
+
+## `bond` — the 1.17.1 usage rules found two real gaps here, and the rebuttal was our own config
+
+Positive, and worth recording as carefully as a defect, because it is the clearest evidence so
+far that shipping usage rules is doing something a guide cannot.
+
+`mix usage_rules.sync` after `bond 1.17.0 → 1.17.1` rewrote most of the "what not to assert" and
+"where contracts go" material. Two of the revisions are direct reversals of positions
+`docs/reference/contracts.md` had held for months, and **both were right and we were wrong**.
+
+### The one that stings, in a good way
+
+The old layer table exempted controllers and LiveViews with the reason *"a contract violation in
+a request path is a 500."* Bond 1.17.1 answers it in one line:
+
+> That is a configuration question, and Bond already answers it: ship that kind as `false` and
+> the assertion is compiled in, inert, and switchable from a remote console mid-incident.
+
+Which is **exactly the posture this project already ships**, documented two sections further down
+the same file, verified against a real `MIX_ENV=prod` build. The argument was refuted by the
+config the document itself described. Nobody spotted it here in months of reading; the sync
+spotted it in one diff.
+
+Contracting the layer immediately found a live coupling nothing enforced —
+`PlaylistLive.Index` builds `@services` and one `assign_async/3` key per service in different
+places, and the template reads `assigns[service.key]` for each. A service listed without its key
+loaded renders an `.async_result` over `nil`: one service's playlists gone from the page with no
+error anywhere. That is this project's defining failure mode, on the one layer the house style
+had declared out of scope.
+
+### The one that generalises further
+
+> **"No current caller violates it" is not a fourth row.** All three ask whether the assertion
+> *could* be false for an input the specification admits — never whether today's call sites
+> produce one.
+
+`contracts.md`'s falsifiability table did not have that row, but its *prose* leaned on the
+argument — the UTC entry led with "no call site can construct a non-UTC `DateTime`". Removing it
+changed a decision the same day: `both_ids_given` on `Tidal.Client.remove_tracks/4` would have
+failed the old test (its only caller reads references from a mapper that cannot emit a bad one)
+and is plainly worth having, because TIDAL answers a half-formed reference with a 400 that names
+neither field.
+
+### Why this is the argument for usage rules, not just for good docs
+
+The two positions had *reasons* attached, written down, that read fine. What they lacked was
+anyone re-deriving them against the rest of the document. A guide is read once when the library
+is adopted; usage rules arrive as a **diff, against text you already wrote**, at a moment when
+you are looking at them. That is a different mechanism and it caught something a guide had not.
+
+One request that would make it better: nothing in the sync output distinguishes *"this paragraph
+was reworded"* from *"this reverses advice you may have built on"*. Both arrive as green and red
+lines. A `## Changed guidance` note in the release, naming reversals specifically, would have
+turned a careful read into an obvious one — and a project that had not read the diff closely
+would still be running on the old rule with no signal that anything had moved.

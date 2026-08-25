@@ -348,6 +348,30 @@ defmodule OnePlaylist.Providers.Tidal.WriteTest do
       assert {:error, error} = Tidal.remove_tracks(connection(), "pl-1", [track("a")])
       assert Errata.reason(error) == :not_found
     end
+
+    test "a reference missing either half is refused before the request is made" do
+      # `both_ids_given` on `Client.remove_tracks/4`, and the reason it is worth
+      # having where the caller can be held to it: TIDAL answers a half-formed
+      # reference with a 400 that names neither field, so the mistake would
+      # arrive as "the provider refused" and the track would still be there.
+      #
+      # No stub is registered, which is the second half of the assertion — a
+      # precondition raises before the body runs, so nothing reaches Req. A
+      # request escaping the contract fails this test by exploding on the
+      # missing stub rather than by passing quietly.
+      for bad <- [{"a", nil}, {"a", ""}, {nil, "item-1"}, {"", "item-1"}] do
+        assert_precondition_violation(
+          Client.remove_tracks("token", "pl-1", [bad]),
+          label: :both_ids_given
+        )
+      end
+    end
+
+    test "and an empty removal list is not a violation" do
+      # `forall` over `[]` holds vacuously, which is what lets the `[]` clause
+      # short-circuit without the contract having anything to say about it.
+      assert :ok = Client.remove_tracks("token", "pl-1", [])
+    end
   end
 
   describe "the write path is guarded separately from reads" do

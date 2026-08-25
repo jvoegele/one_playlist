@@ -56,6 +56,11 @@ possible answers, and only one of them is "delete it":
 The last row is the common case for specifications and is developed under
 [A postcondition on a pure function](#a-postcondition-on-a-pure-function-is-a-production-assertion-not-a-test-assertion).
 
+**"No current caller violates it" is not a fourth row**, and the temptation to add it is why this
+is stated here rather than only where it bit. All three rows ask whether the assertion *could* be
+false for an input the specification admits. None asks whether today's call sites produce one —
+see [Anything the specification does not actually require](#anything-the-specification-does-not-actually-require).
+
 Three habits enforce this, in increasing order of confidence:
 
 1. **`Bond.Coverage` runs on every `mix test`.** Anything marked `⚠ never failed` is a prompt:
@@ -111,15 +116,54 @@ anything** before believing it.
 
 ## What not to assert
 
-### Types — those belong in `@spec`
+Every entry below is here for exactly one of three reasons: the assertion is **unsound** (it can
+accuse correct code), **unreachable** (it cannot run), or **not warranted by the specification**.
+Nothing is on this list because contracting is costly, because a layer feels unimportant, or
+because nothing currently violates it. If you find yourself declining a contract for a reason
+that is not one of the three, the reason is not good enough — that is how the
+[layer table](#where-contracts-go-by-layer) came to exempt two whole layers on arguments that do
+not survive being written down.
 
-`@spec` documents more prominently, Dialyzer checks it, and it costs nothing at runtime. Bond's
-own `writing-sound-assertions` guide makes this argument; follow it.
+### A type, where the type is all you would be saying
 
-The exception, and why `valid_now` survives here: a type check earns its place when violating
-it produces a *confusing crash somewhere else*. `DateTime.compare/2` raises a
-`FunctionClauseError` on a `NaiveDateTime` — a precondition converts that into a named
-violation identifying the caller.
+`@spec` documents more prominently, Dialyzer checks it, and it costs nothing at runtime. So the
+default is `@spec`.
+
+But this is a **division of labour, not a ban**, and reading it as a ban is the mistake worth
+naming: `@spec` is *static* and never runs. Where the value arrives at runtime from outside the
+compiler's view, a `@pre` is the only one of the two that actually fires — and it names the
+caller. In this codebase that describes a great deal: parsed CSV rows, provider payloads, a
+message arriving at a LiveView, a row read back from a database written before an invariant
+existed.
+
+Two things that were never in question:
+
+  * A type check that **carries a further constraint** — `is_integer(n) and n > 0` — is not a
+    type check. Write it.
+  * A type check whose violation produces a *confusing crash somewhere else*. This is why
+    `valid_now` survives: `DateTime.compare/2` raises a `FunctionClauseError` on a
+    `NaiveDateTime`, and the precondition converts that into a named violation identifying the
+    caller.
+
+### A `@pre` a guard already enforces — but check which of three cases it is
+
+Bond reproduces `when` guards on the wrapper clauses, so a failing argument raises
+`FunctionClauseError` *before* any precondition runs. The assertion is unreachable.
+
+*Which* side to drop is Meyer's Non-Redundancy principle, and only one of three cases is
+redundant at all:
+
+| The guard | What it is | What to do |
+| --- | --- | --- |
+| Selects a clause | Dispatch | Keep it, write no `@pre` |
+| Stands in for a type — `when is_binary(email)` | Elixir's declared parameter type | Keep it, state the fact in `@spec` |
+| States a domain rule — `when amount <= account.balance` | A caller obligation in disguise | **Pick one** |
+
+In the third case, if a violation is the caller's bug, that is the `@pre`: write it and delete
+the guard. Only the contract names the caller, renders into the docs, and appears in the coverage
+table — and a `FunctionClauseError` at a domain rule tells the caller nothing about which rule.
+
+A `@pre` **stronger** than its guard is not redundant at all. It can fail, so it stands as it is.
 
 ### The *mechanism*, as opposed to the meaning
 
@@ -193,15 +237,34 @@ It also caught something immediately — not in `lib/`, but in the tests, which 
 readable labels like `"doomed"` as barcodes. A fixture that cannot occur in production tests
 nothing that matters, and the fix was the fixtures.
 
-### Anything unfalsifiable in this codebase
+### Anything the specification does not actually require
 
-Requiring `now` to be UTC looked principled — the schema is `:utc_datetime_usec` throughout.
-But this application has no time zone database, so no call site can construct a non-UTC
-`DateTime` to violate it. And even with one, `DateTime.compare/2` is correct across zones, so
-the assertion would reject a *valid* call.
+Requiring `now` to be UTC looked principled — the schema is `:utc_datetime_usec` throughout. It
+is wrong because `DateTime.compare/2` is correct across zones, so a non-UTC value is a perfectly
+good argument and the assertion would reject a **valid** call.
 
 **Falsifiable is not the same as valuable.** An assertion should reject inputs that are wrong,
 not inputs that are merely unconventional.
+
+> #### The argument this entry used to lead with, and why it is gone {: .warning}
+>
+> It read: *this application has no time zone database, so no call site can construct a non-UTC
+> `DateTime` to violate it.* That is a census of today's callers, and it is not a reason.
+>
+> A precondition is a standing obligation on every **future** caller, and callers arrive. A
+> contract that no existing call site violates is the normal case — it is what a green suite
+> looks like — not a redundant one. The whole value of `@pre positive: amount > 0` is that it
+> holds the line the day somebody adds the call site that gets it wrong.
+>
+> Census the call sites to *understand* the function. Never to decide whether it deserves a
+> contract. The one caller question that does bear on it is **how many**, not what they pass:
+> a function with no callers at all is a
+> [question about the design](#a-contract-on-dead-code-catches-nothing-so-check-for-callers-then-decide).
+>
+> The UTC entry survives the correction because its *second* reason was always the real one.
+> `both_ids_given` on `Tidal.Client.remove_tracks/4` is the case that would have failed the old
+> test and passes the new one: today's only caller reads its references straight from a mapper
+> that cannot emit a bad one, and the contract is worth having anyway.
 
 ---
 
@@ -832,6 +895,12 @@ The order matters. **Check for callers first**; an uncontracted function nothing
 question about the design, and answering it is a prerequisite to contracting it, not a
 consequence.
 
+Read that narrowly. The question is **how many callers, not what they pass** — zero callers is a
+design problem, and that is the whole of what this entry claims. Auditing what today's callers
+happen to supply, and concluding from it that a contract is unnecessary, is the
+[census ruled out above](#anything-the-specification-does-not-actually-require). The two look
+similar and point in opposite directions.
+
 ### Lift a law to an invariant when it is a property of the type
 
 If an assertion about a value would hold for *every* instance of that type, prefer stating it
@@ -947,6 +1016,17 @@ The dividing line is that *assertions are not an input checking mechanism*. Our 
 adapters, clients and mappers are the filter modules: they face servers we do not control, so
 they return `{:error, _}` rather than asserting on what arrived. The domain behind them —
 `Matching`, `Transfers`, `Providers` — is demanding.
+
+**Tolerant is a statement about `@pre`, and about nothing else.** This distinction is the one
+that got misread here into "filter modules do not get contracts", which put a `No` beside
+`Tidal.Client` in the layer table for years. Being tolerant means bad *input* is a result to
+return rather than a caller's bug. It says nothing about what the module **promises**, and a
+filter's postconditions are exactly what the demanding domain behind it is relying on — which is
+why `Mapper`, the most filter-shaped module in the codebase, is also among the most contracted.
+
+A filter can also be *demanding of its own callers*, which is a third thing again.
+`Tidal.Client.remove_tracks/4` is tolerant about what TIDAL answers and demanding about the
+references it is handed, because those come from us.
 
 Meyer states the seam precisely, and it is worth keeping in mind when adding a provider:
 **the postconditions of the filter modules must match or exceed the preconditions of the
@@ -1079,14 +1159,60 @@ restating a rule over the returned pair is for.
 
 ## Where contracts go, by layer
 
-| Layer | Contract? | Why |
+**Every layer has a specification, so every layer can carry a contract.** What changes between
+them is *which kind* the specification warrants — not whether the module deserves one. This
+table used to answer "contract? yes/no" and got two rows wrong for reasons taken apart in
+[Two arguments that are not reasons](#two-arguments-that-are-not-reasons-to-leave-a-layer-uncontracted).
+
+| Layer | What the specification usually warrants | Here |
 | --- | --- | --- |
-| `Music.*` structs | Yes, on parsers | External data lands here; poison values start here. |
-| `Providers.Adapter` callbacks | **Yes — declare once** | Inherited by every adapter with no contract code in them. |
-| `Providers.Tidal.Mapper` | Yes | Conservation laws over external payloads. |
-| `Providers.Tidal.Client` | No | Behaviour is HTTP-shaped; guarded by `ExternalService`, tested with `Req.Test`. |
-| `Providers` context | Sparingly | Mostly persistence; the laws live in `Connection`. |
-| Controllers / LiveViews | No | Assert in tests; a contract violation in a request path is a 500. |
+| `Music.*` structs | All three — external data lands here, poison values start here | `Track`, `Isrc`, `Playlist` |
+| `Providers.Adapter` callbacks | All three, **declared once** — inherited by every adapter | `refresh_tokens/1`, the write callbacks |
+| `Providers.Tidal.Mapper` | `@post` — conservation laws over external payloads | `no_tracks_invented`, `both_ids_usable` |
+| `Providers.Tidal.Client` | `@post` on what it emits; `@pre` where a **caller** must supply something well formed | `both_ids_given` on `remove_tracks/4` |
+| Pure core (`Matching`, `Library.Albums`) | `@post` above all — the interesting laws live here | the whole of `Matching` |
+| `Providers` / `Transfers` contexts | `@pre` for what a caller must supply; the type's own laws belong on the struct | `report_agrees_with_counters` |
+| Controllers / LiveViews | `@post` / `@invariant` over the state you assign — the thinnest layer, so there is *least to say*, not least worth saying | `every_group_can_render` on `PlaylistLive.Index` |
+
+The seam matters, and Meyer states it precisely: **the postconditions of the filter modules must
+match or exceed the preconditions of the modules behind them.**
+
+### Two arguments that are not reasons to leave a layer uncontracted
+
+Both of these were written in this file, for years, and both are wrong.
+
+**"A violation in a request path is a 500."** That is a configuration question, and the
+[production posture](#production-posture) below already answers it: postconditions ship as
+`false`, compiled in and inert, switchable from a remote console mid-incident. The argument was
+self-refuting — the very section that made it is the one describing the config that dissolves it.
+An *unsound* assertion is a reason not to write one. An expensive failure mode is only a reason
+to choose where it runs.
+
+**"This layer is a filter, so it should be tolerant."** Tolerance is a statement about `@pre` —
+whether bad input is the caller's bug or a normal outcome to return. It says nothing whatever
+about `@post`, and a filter's postconditions are *precisely* what the demanding domain behind it
+relies on. `Mapper` was already the counterexample sitting in the same table: as filter-shaped as
+a module gets, and one of the most heavily contracted modules here.
+
+### What that cost, concretely
+
+Both rows were corrected on 2026-08-25 and the contracts written. Two things are worth recording,
+because neither was visible from the argument alone:
+
+**A `@post` on `Client` would have been the redundant kind.** The obvious contract —
+`playlist_item_references/3` emits references with both halves usable — is already
+`Mapper.item_references/1`'s `both_ids_usable`, one call inward. Postconditions fail
+**inner-first**, so the Client's copy could never fire; it is the same shape as the
+`release_earns_its_place` assertion deleted from `Library.Albums.resolve/2` the same day. The
+contract that earns its place at that layer is a **precondition**, on `remove_tracks/4`, because
+it binds a different party: a caller handing over a reference it built itself.
+
+**The LiveView law was a coupling between two assigns.** `PlaylistLive.Index` builds `@services`
+in one place and one `assign_async/3` key per service in another, and the template reads
+`assigns[service.key]` for each. Nothing held them in step. A service listed without its key
+loaded renders an `.async_result` over `nil` — an entire service's playlists gone from the page
+with nothing anywhere saying so, which is this project's defining failure mode arriving on the
+one layer the file had exempted.
 
 ## Production posture
 
@@ -1135,13 +1261,18 @@ postcondition got justified in the gap.
 2. Is it about the **meaning** or the **mechanism**? Mechanism goes in the body, not a
    contract. "It resembles the body" is not the test — a one-line implementation of a real
    specification is still a real specification.
-3. Is it a type check? Then it belongs in `@spec` — unless violating it crashes confusingly
-   elsewhere.
+3. Is it **only** a type check? Then it belongs in `@spec` — unless the value arrives at runtime
+   from outside the compiler's view (parsed input, a provider payload, a message), or violating
+   it crashes confusingly elsewhere. A type check carrying a further constraint is not one.
 4. Is it total? Guard partial predicates with `~>`.
 5. Is it available to the caller? A precondition naming a private function is one the client
-   cannot discharge — Meyer's Reasonable Precondition principle, which Bond enforces.
+   cannot discharge — Meyer's Reasonable Precondition principle, which Bond enforces. The fix is
+   almost always to **publish the predicate**, not to drop the obligation: if it is fit to
+   demand, it is fit for the caller to read.
 6. Can it be justified from the specification alone, or only from how you happened to
    implement it? The second kind is the supplier's convenience wearing a contract's clothes.
+   **"No current caller violates it" is not an answer to this** — decide from what the
+   specification admits, never from a census of today's call sites.
 7. **Can it fail?** Write a `Bond.Test` assertion targeting its `label:`; where no input can
    falsify it, mutate the implementation instead and confirm it fires.
 8. Read the coverage table. `⚠ never failed` is a question with three answers — restate,

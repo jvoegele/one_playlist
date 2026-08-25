@@ -23,6 +23,7 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   alias OnePlaylist.Providers.Tidal.Service
   alias OnePlaylist.Providers.Tidal.WriteService
 
+  use Bond
   use Errata
 
   @receive_timeout :timer.seconds(10)
@@ -383,6 +384,25 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   200 removed precisely the entry whose item id was given, leaving a second
   copy of the same track in place.
   """
+  # A reference missing either half is the one input this function must not be
+  # given, because TIDAL's refusal names neither field — see the table above. It
+  # would arrive at the caller as "the provider rejected the removal", and the
+  # track would still be in the playlist.
+  #
+  # `Mapper.item_references/1` already refuses to emit one, and its own
+  # `both_ids_usable` fires first for any bug in the parse. This is not that
+  # assertion restated: it is the obligation stated where a **caller** can be
+  # held to it, and today's only caller passing it is the normal case rather
+  # than a reason to leave it unwritten. `Providers.Tidal.remove_tracks/4` reads
+  # and matches references itself, and replace-mode sync will be a second such
+  # caller — a client that builds a reference from its own state, where no
+  # mapper stands between the mistake and the request.
+  @pre both_ids_given:
+         forall(
+           reference <- references,
+           is_binary(elem(reference, 0)) and elem(reference, 0) != "" and
+             is_binary(elem(reference, 1)) and elem(reference, 1) != ""
+         )
   @spec remove_tracks(String.t(), String.t(), [{String.t(), String.t()}], keyword()) ::
           :ok | {:error, Errata.error()}
   def remove_tracks(access_token, playlist_id, references, opts \\ [])
