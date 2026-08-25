@@ -91,7 +91,13 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
   The form itself is a modal — five fields with validation is more than an
   inline panel wants to hold, and a panel that grows would reflow the list under
-  the cursor.
+  the cursor. It is built from `OnePlaylistWeb.CoreComponents.input/1` rather
+  than hand-written markup, which is not only tidiness: the first version used
+  DaisyUI 4's `form-control` and `label-text`, and **DaisyUI 5 removed both**.
+  With nothing stacking them, every label sat inline beside its field and the
+  longest one — the semicolon hint — wrapped through the middle of the form.
+  The hint is a line of its own beneath the field now, where an explanation
+  belongs.
 
   **An edit does not break the link.** Most edits are typos, and dropping a
   correct match on every one of them would punish care. What an edit does change
@@ -583,74 +589,46 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
       </div>
 
       <div :if={@editing} class="modal modal-open">
-        <div class="modal-box">
+        <div class="modal-box max-w-xl">
           <h3 class="text-lg font-semibold mb-1">Edit track details</h3>
-          <p class="text-sm opacity-70 mb-4">
+          <p class="text-sm opacity-70 mb-5">
             Yours to correct. This changes your playlist only — never the shared recording, and
             never anybody else's copy of it.
           </p>
 
-          <form phx-submit="save_track" class="space-y-3">
+          <form phx-submit="save_track">
             <input type="hidden" name="entry" value={@editing.id} />
 
-            <label class="form-control">
-              <span class="label-text text-xs">Title</span>
-              <input
-                type="text"
-                name="title"
-                value={@editing.track.title}
-                required
-                autocomplete="off"
-                class="input input-bordered input-sm"
+            <.input name="title" id="edit-title" label="Title" value={@editing.track.title} required />
+
+            <.input
+              name="artists"
+              id="edit-artists"
+              label="Artists"
+              value={Enum.join(@editing.track.artists, "; ")}
+            />
+            <p class="text-xs opacity-60 -mt-1 mb-2">
+              Separate several with a semicolon. A comma is left alone, because it belongs to
+              names like <span class="italic">Earth, Wind &amp; Fire</span>.
+            </p>
+
+            <.input name="album" id="edit-album" label="Album" value={@editing.track.album} />
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-4">
+              <.input
+                name="version"
+                id="edit-version"
+                label="Version"
+                value={@editing.track.version}
+                placeholder="Live, Remaster, Radio Edit…"
               />
-            </label>
-
-            <label class="form-control">
-              <span class="label-text text-xs">
-                Artists <span class="opacity-50">— separate several with a semicolon</span>
-              </span>
-              <input
-                type="text"
-                name="artists"
-                value={Enum.join(@editing.track.artists, "; ")}
-                autocomplete="off"
-                class="input input-bordered input-sm"
+              <.input
+                name="isrc"
+                id="edit-isrc"
+                label="ISRC"
+                value={@editing.track.isrc}
+                class="w-full input font-mono"
               />
-            </label>
-
-            <label class="form-control">
-              <span class="label-text text-xs">Album</span>
-              <input
-                type="text"
-                name="album"
-                value={@editing.track.album}
-                autocomplete="off"
-                class="input input-bordered input-sm"
-              />
-            </label>
-
-            <div class="grid grid-cols-2 gap-3">
-              <label class="form-control">
-                <span class="label-text text-xs">Version</span>
-                <input
-                  type="text"
-                  name="version"
-                  value={@editing.track.version}
-                  autocomplete="off"
-                  class="input input-bordered input-sm"
-                />
-              </label>
-
-              <label class="form-control">
-                <span class="label-text text-xs">ISRC</span>
-                <input
-                  type="text"
-                  name="isrc"
-                  value={@editing.track.isrc}
-                  autocomplete="off"
-                  class="input input-bordered input-sm font-mono"
-                />
-              </label>
             </div>
 
             <div class="modal-action">
