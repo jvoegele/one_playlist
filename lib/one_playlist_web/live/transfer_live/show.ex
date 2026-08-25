@@ -29,6 +29,7 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   """
 
   use OnePlaylistWeb, :live_view
+  use Bond
 
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Connection
@@ -823,6 +824,20 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # unbounded it grows one entry per resolved track, which is the memory this
   # window exists to cap. The oldest positions go first — a watcher looking at a
   # run in flight is looking at the end of it.
+  #
+  # The bound, asserted. It is the one claim in this module's documentation that
+  # nothing else can check: a leak here is invisible in every test — the suite's
+  # transfers are a handful of tracks, so the branch below never runs — and
+  # shows up only as a LiveView process growing through a five-thousand-track
+  # run that somebody is watching. No exception, no failed assertion downstream,
+  # just memory.
+  #
+  # `<=` rather than `==` because the window is a ceiling and a run shorter than
+  # it never reaches one. Proven by mutation: deleting the `map_size/1` branch
+  # fires it against `transfer_live_test.exs`'s windowing test, which is the one
+  # place the suite resolves more than `@live_window` tracks — and the reason
+  # that test earns its keep twice over.
+  @post stays_within_the_window: map_size(result.assigns.provisional) <= @live_window
   defp remember(socket, item) do
     provisional = Map.put(socket.assigns.provisional, item.position, item)
 
