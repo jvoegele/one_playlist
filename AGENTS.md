@@ -939,6 +939,819 @@ which of the three is missing.
     on ordering.
 
 <!-- bond:testing-end -->
+<!-- errata-start -->
+## errata usage
+_Elixir library for structured error handling_
+
+# Errata usage rules
+
+Structured, named error handling. An Errata error is an ordinary `Exception` struct that can be
+**returned as a value or raised**, carrying a `message`, a `reason` atom, a `context` map, a
+`cause` (the error it wrapped), and an `env` (module, function, file, line, stacktrace).
+
+Taken together, an application's error types are a named catalogue of the ways it can fail.
+
+## Setup
+
+```elixir
+# mix.exs
+{:errata, "~> 1.8"}
+```
+
+JSON encoding needs no configuration: on Elixir 1.18+ every error type implements the built-in
+`JSON.Encoder`; if `jason` is present it implements `Jason.Encoder` too. Both emit the same shape.
+
+In any module that creates or classifies errors:
+
+```elixir
+use Errata     # not `require` — this requires AND imports the three guards
+```
+
+## Rule 0: define error types in compiled code
+
+**This is the trap that costs the most time, because it fails far from its cause.**
+
+`use Errata.DomainError` and friends generate `String.Chars` and JSON protocol implementations,
+and protocols are **consolidated when your project compiles**. A type defined after that point
+gets none of them. Defining one in a `.exs` script, an `iex` session, or *inside a test module
+body* produces three "protocol has already been consolidated" warnings at compile time, and then,
+much later and somewhere else:
+
+```
+** (Protocol.UndefinedError) protocol String.Chars not implemented for %Bare{...}
+```
+
+Only the protocol paths break — `Errata.to_map/1` and the accessors work regardless — which is why
+it can go unnoticed until something calls `to_string/1`.
+
+Define error types in `lib/`. In tests, define fixture types at the **top level of the test file,
+above the test module**, or set `consolidate_protocols: Mix.env() != :test` in `mix.exs`.
+
+## Defining a type
+
+Pick a kind. The kind decides how a **boundary** treats the error; the type decides how your
+**domain logic** behaves.
+
+```elixir
+defmodule MyApp.Orders.PaymentDeclined do
+  use Errata.DomainError,          # a business-rule violation, inside the problem domain
+    default_message: "the payment was declined",
+    reasons: [:insufficient_funds, :card_expired]
+end
+
+defmodule MyApp.Orders.GatewayTimeout do
+  use Errata.InfrastructureError   # network, database — outside the problem domain
+end
+
+defmodule MyApp.UnexpectedError do
+  use Errata.Error                 # kind :general — fits neither
+end
+```
+
+Prefer `DomainError` and `InfrastructureError` over the base `Errata.Error`: the classification is
+what lets a boundary route errors without knowing every type.
+
+Every option is optional:
+
+| Option | Purpose |
+| --- | --- |
+| `:default_message` / `:default_reason` | used when none is given |
+| `:reasons` | declare the valid reasons — compile-time validated, and the basis of atom safety in `from_map/3` |
+| `:http_status`, `:code`, `:severity`, `:retryable` | classifications consumed at a boundary |
+| `:redact` | keep sensitive context out of logs and JSON |
+| `:aggregate` | a type that carries several errors at once |
+
+Declaring `:reasons` is worth doing by default. It catches typos at compile time, generates a
+`reason/0` type, and is what makes decoding an error from the wire safe — a declared set turns
+decoding into a lookup, so nothing from outside is ever atomised.
+
+## Creating errors
+
+Three ways, differing in setup and in whether they record where the error came from.
+
+```elixir
+# Default. Captures __ENV__ and the stacktrace into :env. One `use Errata` covers every type.
+{:error, Errata.create(OrderNotFound, reason: :not_found, context: %{order_id: id})}
+
+# Same thing, reads better when a module works mostly with one type. Needs `require OrderNotFound`.
+{:error, OrderNotFound.create(reason: :not_found)}
+
+# A plain function. No :env captured.
+{:error, OrderNotFound.new(reason: :not_found)}
+```
+
+**Reach for `Errata.create/2` unless you have a reason not to.** The origin of an error is often
+the most useful thing you have when debugging, and capturing it costs ~0.7 µs — negligible next to
+anything that can fail.
+
+`new/1` exists for the cases a macro cannot serve, and those are the only reasons to prefer it:
+
+  * dynamic dispatch — `apply(OrderNotFound, :new, [params])`; a macro raises `UndefinedFunctionError`
+  * capture — `&OrderNotFound.new/1`; capturing a macro freezes the capture site's env into every
+    error it builds
+  * tests and fixtures, where `env: nil` keeps structs easy to compare
+
+`create` must be a macro, and cannot be reimplemented as a function that derives the call site
+from the stacktrace: **tail-call optimisation drops the caller's frame**, so `e = Err.new(...); e`
+would silently report the caller's caller.
+
+Raising uses the same type:
+
+```elixir
+raise MyApp.Orders.OrderNotFound, reason: :not_found, context: %{order_id: 42}
+```
+
+## Wrapping: the cause chain
+
+Wrap a lower-level failure rather than discarding it:
+
+```elixir
+rescue
+  e -> {:error, Errata.wrap(MyApp.Orders.GatewayTimeout, e, stacktrace: __STACKTRACE__)}
+```
+
+A cause chain is Errata errors all the way down, optionally ending in **one foreign value** — a
+bare atom, an `{:error, reason}` tuple, a standard exception. That shape decides which accessor
+you want:
+
+```elixir
+Errata.root_error(error)                       # deepest ERRATA error — has code, context, classification
+Errata.root_error(error) |> Errata.cause()     # the foreign original, or nil
+Errata.format_chain(error)                     # the whole chain, stacktraces included, for a log
+```
+
+> **Do not hand-roll a recursive unwrap loop, and do not use `Errata.root_cause/1`** — it is
+> deprecated precisely because it returns an Errata error *or* a foreign value depending on how the
+> chain ends, so the caller has to work out which it got. Use `root_error/1` to render, report or
+> classify; `cause/1` on it to diagnose what actually failed.
+
+This is where a shared error library pays off: a `RetriesExhausted` from `external_service`
+wrapping your own error, neither knowing about the other, still unwraps to "connection refused" —
+which is the message a user can act on, where "could not be completed after 3 attempts" is not.
+
+## Handling errors
+
+The three guards are `defguard`s, so a module calling them **fully qualified still needs
+`require Errata`**. `use Errata` does that for you and imports them unqualified:
+
+```elixir
+use Errata
+
+case do_something() do
+  {:error, e} when Errata.is_domain_error(e) -> render_to_user(e)
+  {:error, e} when Errata.is_infrastructure_error(e) -> retry_later(e)
+  {:error, e} when Errata.is_error(e) -> report(e)
+  {:error, other} -> report_foreign(other)
+end
+```
+
+### Every accessor raises on a non-Errata value
+
+`reason/1`, `context/1`, `kind/1`, `code/1`, `severity/1`, `retryable?/1`, `http_status/1`,
+`cause/1`, `root_error/1`, `display_message/1` — all of them raise `ArgumentError` when handed
+something that is not an Errata error.
+
+That matters because the boundary where you ask these questions is exactly the boundary where
+other error shapes arrive. An Oban worker receiving `{:error, %Ecto.Changeset{}}` alongside your
+own errors will **raise inside error handling** — the worst place for it, since it replaces a real
+error with an unrelated one.
+
+Two correct shapes:
+
+```elixir
+# Guard first
+{:error, reason} when Errata.is_error(reason) ->
+  if Errata.retryable?(reason), do: {:snooze, 60}, else: give_up(reason)
+
+{:error, reason} ->
+  give_up(reason)
+```
+
+```elixir
+# Or normalise first, and treat everything uniformly
+error = Errata.to_error(reason)
+if Errata.retryable?(error), do: {:snooze, 60}, else: give_up(error)
+```
+
+### `display_message/1` returns `nil` when there is no message to show
+
+Specifically, when the type declares no `:default_message` and none was given — verified on 1.8.0.
+So call sites generally need a fallback: `Errata.display_message(e) || Exception.message(e)`.
+
+Note also that `display_message/1` is written for one audience at a time. The same error may want
+different phrasing in a background report and on the form the user is staring at — special-casing
+at the call site is legitimate.
+
+## At a boundary
+
+`Errata.to_error/2` normalises any value into an Errata error, which is what makes a catch-all
+handler possible. The recommended shape is your own `to_error/1` with ordinary clauses, so one
+function shows how a boundary classifies errors:
+
+```elixir
+defmodule MyAppWeb.Errors do
+  def to_error(%Ecto.Changeset{} = changeset),
+    do: MyApp.ValidationFailed.new(reason: :invalid, cause: changeset)
+
+  def to_error(other), do: Errata.to_error(other)
+end
+```
+
+> **`{:error, reason}` tuples are not unwrapped.** `Errata.to_error({:error, :timeout})` normalises
+> the *two-tuple itself*, because a value that legitimately is a two-tuple is indistinguishable
+> from one meaning "error". Match the tuple at the call site:
+> `{:error, reason} -> {:error, Errata.to_error(reason)}`.
+
+Then route on classification rather than on type:
+
+```elixir
+conn |> put_status(Errata.http_status(error)) |> json(Errata.to_map(error))
+```
+
+`to_map/1` and both JSON encoders carry `kind`, `http_status`, `severity`, `retryable` and `code`,
+so a consumer holding only the serialised error can still route on it. `Errata.from_map/3` rebuilds
+one on the far side — the type is an argument, not read from the payload, and `:reasons` is what
+keeps it safe.
+
+## Reporting
+
+```elixir
+Errata.log(error)              # structured Logger metadata; level defaults to severity(error)
+Errata.report(error)           # emits [:errata, :error] telemetry for your own handler
+Errata.report(error, log: true)
+```
+
+Vendor-neutral — wire the telemetry event to Sentry or wherever errors should go. Use `:redact` on
+types whose context can hold secrets; the library tells you to put arbitrary metadata in `context`
+and then ships it to Logger, telemetry and JSON.
+
+## Two things that will surprise you
+
+**Structural guards are invisible to the Elixir type checker.** `is_error/1` matches on struct
+shape, which does not refine a struct type, so `e.reason` after a bare `rescue` or guard warns on
+1.18+. Use the accessors (`Errata.reason(e)`) or `Map.fetch!(e, :reason)`.
+
+**Dialyzer's `:extra_return` flag is unusable in an Errata application.** Generated accessors are
+specced to the behaviour's contract, not to one implementation — `code/1` is `String.t() | nil`
+though a type declaring `code: "..."` only ever returns the string; `retryable?/1` is `boolean()`
+though a domain error only ever returns `false`. The warning count grows with every error type
+defined. Leave the flag off.
+
+## Aggregates
+
+For a type that carries several errors at once (validation, batch work), `use Errata.DomainError,
+aggregate: true`. `Errata.errors/1` returns `[]` for an ordinary error rather than raising, so
+calling code can treat every error uniformly instead of branching on `aggregate?/1` first:
+
+```elixir
+for member <- Errata.errors(error), do: Logger.warning(Exception.message(member))
+```
+
+<!-- errata-end -->
+<!-- external_service-start -->
+## external_service usage
+_Elixir library for safely using any external service or API using automatic retry with rate limiting and circuit breakers. Calls to external services can be synchronous, asynchronous background tasks, or multiple calls can be made in parallel for MapReduce style processing._
+
+# ExternalService usage rules
+
+Safely calling external services with **retries**, a **circuit breaker**, **rate limiting**, and
+a **concurrency limit** (bulkhead). You wrap the risky call in a function; all four protections
+apply on every call.
+
+## Setup
+
+```elixir
+# mix.exs
+{:external_service, "~> 3.1"}
+```
+
+```elixir
+# .formatter.exs — the guides use the paren-free `call fn -> ... end` idiom
+import_deps: [:external_service]
+```
+
+Define a module per service, configure it declaratively, and **start it under a supervisor**:
+
+```elixir
+defmodule MyApp.Stripe do
+  use ExternalService,
+    retry: [max_attempts: 5, backoff: :exponential, base: 100, cap: 2_000, jitter: true],
+    circuit_breaker: [tolerate: 5, within: :timer.seconds(30), reset: :timer.seconds(5)],
+    rate_limit: [limit: 100, per: :timer.seconds(1), wait: :timer.seconds(1)]
+
+  def charge(params) do
+    call fn ->
+      case Stripe.charge(params) do
+        {:ok, result} -> {:ok, result}
+        {:error, %{status: s}} when s in 500..599 -> {:retry, s}
+        other -> other
+      end
+    end
+  end
+end
+```
+
+```elixir
+children = [MyApp.Stripe]   # forgetting this is the #1 cause of "why isn't anything protected?"
+Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+A functional API exists too (`ExternalService.start/2` + `ExternalService.call/3` with a service
+name atom), but the module front door is the recommended shape.
+
+## The one rule about `call`
+
+Everything hinges on what the function you pass to `call/1` returns:
+
+| Return | Effect |
+| --- | --- |
+| `:retry` | retry |
+| `{:retry, reason}` | retry, and record the reason |
+| a value matched by the `:retry_on` predicate | retry, result recorded as the reason |
+| **anything else** | **success — returned as-is** |
+| a raised exception | propagates, unless matched by `:retry_exceptions` |
+
+**"Anything else" includes `{:error, reason}`.** An error tuple is a successful call as far as
+this library is concerned, and is handed straight back to you. If you want a failure retried, you
+must say so — either by returning `:retry`/`{:retry, reason}`, or by declaring a `:retry_on`
+predicate.
+
+```elixir
+call fn -> HTTP.get(url) end            # ❌ {:error, :timeout} is never retried
+call fn ->
+  case HTTP.get(url) do
+    {:error, :timeout} -> :retry        # ✅
+    other -> other
+  end
+end
+```
+
+## The traps
+
+### Your HTTP client's own retries multiply against these
+
+If the client you call inside `call/1` retries on its own, the two compound: `max_attempts: 3`
+around a client doing 3 retries is up to 9 requests, with two independent backoff schedules
+interleaved, and the breaker melting on a count you did not choose.
+
+`Req` is the common case — it retries by default (`retry: :safe_transient`, which covers **GET
+and HEAD only**, so a POST behaves differently from a GET under the same configuration). Turn the
+client's retries off and let this library own the policy:
+
+```elixir
+Req.new(retry: false)
+```
+
+**Check this first whenever attempt counts do not match what you configured.**
+
+### `max_attempts: 5` is a bound, not an allowance
+
+With the default `base: 10` that is **150 ms of total waiting** — far too little for a real
+dependency. For a service that is briefly overloaded, raise `:base`, not the attempt count:
+
+```elixir
+retry: [max_attempts: 5, base: 100, cap: 2_000, backoff: :exponential, jitter: true]
+```
+
+`max_attempts: :infinity` retries forever, and **the circuit breaker does not reliably stop it**.
+
+### Circuit-breaker `:tolerate` counts failed *attempts*, not failed calls
+
+Retries melt the breaker too, so a call with `max_attempts: 5` can contribute five melts on its
+own. `tolerate ≈ failing calls × max_attempts` is the arithmetic to have in mind.
+
+And the window has to be wide enough to *contain* those melts. If one call's retry schedule
+spans 7.5 s and you need 6 calls to open the breaker, the melts spread over ~37.5 s — so a
+`within: 30_000` breaker **never opens**, silently, with nothing raising and no log line.
+
+Do not hand-tune this. Ask the library:
+
+```elixir
+IO.puts ExternalService.explain(MyApp.Stripe)          # what will this configuration do?
+ExternalService.simulate(MyApp.Stripe, :always_failing) # does the breaker actually open?
+#=> %Simulation{opens_after: 4, worst_call: 1500, attempts: 20, ...}
+ExternalService.RetryOptions.window(base: 100, max_attempts: 5)  #=> 1500
+```
+
+Both `explain/1` and `simulate/3` also accept a proposed keyword list, so you can check a
+configuration before shipping it. `ExternalService.ConfigCheck` runs the same reasoning at
+compile time and at start, and warns with the arithmetic shown.
+
+### `:wait` for the rate limiter depends on *where the call is made*, not on the service
+
+This is the rule to internalise, because the wrong answer sheds traffic silently.
+
+A limiter check never quotes more than one emission interval (`per / limit`), and the default
+`:wait` budget is one window capped at 5 s. At `limit: 1, per: 2_000` those are both 2000 ms, so
+a single re-check exhausts the budget and the service sheds on the slightest contention instead
+of pacing.
+
+  * **Background work** — an Oban job, a Flow pipeline, a bulk transfer: `wait: :infinity`.
+    Sleeping *is* the back-pressure, and there is no user waiting.
+  * **A request path** — a page load, a LiveView event: a finite budget, so a slow dependency
+    turns into a fast error rather than a hung request.
+  * `wait: false` fails immediately. It never melts the breaker and is never retried.
+
+The same call configured for the wrong side of that line is the single most common
+misconfiguration.
+
+### Not every failure melts the breaker or gets retried
+
+| Error | Melts breaker? | Retried? |
+| --- | --- | --- |
+| `%ExternalService.RetriesExhausted{}` | the attempts did | — |
+| `%ExternalService.CircuitBreakerOpen{}` | n/a — it is already open | no |
+| `%ExternalService.RateLimited{}` (http_status 429) | **no** | **no** |
+| `%ExternalService.ServiceSaturated{}` (http_status 503) | **no** | **no** |
+
+Shedding is not failing. Treating a `RateLimited` as a service outage — melting, retrying, or
+tripping an alert — is a misreading.
+
+### The concurrency limit sheds; it does not queue
+
+```elixir
+concurrency: [limit: 25, reclaim_after: :timer.seconds(30), wait: 50]
+```
+
+Over the limit, calls return `ServiceSaturated` rather than queueing. A short `:wait` absorbs
+bursts; `:infinity` is **rejected** for the bulkhead (a quota refills on its own, but a slot
+frees only when another call finishes). `:reclaim_after` must exceed your client timeout, or
+slots are reclaimed from calls that are still running.
+
+### Both the breaker and the limiter are node-local by default
+
+N nodes means up to N × `limit` calls, and each node trips its breaker on its own. If the quota
+is imposed per-account rather than per-node, you need a shared backend:
+
+```elixir
+rate_limit: [limit: 100, per: 1_000,
+             backend: {ExternalService.RateLimiter.Hammer, module: MyApp.RateLimit}]
+
+circuit_breaker: [tolerate: 5, backend: ExternalService.CircuitBreaker.Cluster]
+```
+
+### Errors are Errata errors, and the useful message is usually underneath
+
+`RetriesExhausted`'s own message describes *our* reaction — "the request could not be completed
+after 3 attempts" — which is true and rarely actionable. The failure a user can do something
+about is the `:cause`:
+
+```elixir
+# the deepest Errata error — has a code, a context and a classification to render or report
+Errata.root_error(error)
+
+# the foreign original underneath it — :econnrefused, an %Mint.TransportError{}, ... or nil
+Errata.root_error(error) |> Errata.cause()
+```
+
+That turns "could not be completed after 3 attempts" into "connection refused", and works across
+library boundaries — `RetriesExhausted` wraps your error and neither knows about the other.
+
+Do not hand-roll a recursive unwrap loop, and do not reach for `Errata.root_cause/1`: it is
+deprecated because it returns an Errata error *or* a foreign value depending on how the chain
+ends, leaving the caller to work out which it got. See the [Using Errata](guides/errata.md) guide — an application's own Errata
+errors can also drive retries via `:retry_on` and `retryable?/1`, which puts the retry decision
+in the error type rather than in a branch on the shape of what came back.
+
+## Calling
+
+```elixir
+MyApp.Api.call(fn -> work() end)
+MyApp.Api.call([max_attempts: 2], fn -> work() end)   # per-call retry overrides
+MyApp.Api.call!(fn -> work() end)                      # raises instead of returning {:error, _}
+
+task = MyApp.Api.call_async(fn -> work() end)          # Task
+ids |> MyApp.Api.call_async_stream(fn id -> fetch(id) end) |> Enum.to_list()
+```
+
+Handle the outcome by error type, not by string:
+
+```elixir
+case MyApp.Api.fetch(id) do
+  {:ok, v} -> v
+  {:error, %ExternalService.RetriesExhausted{}} -> degrade()
+  {:error, %ExternalService.CircuitBreakerOpen{}} -> degrade()
+  {:error, %ExternalService.RateLimited{}} -> shed()
+  {:error, reason} -> {:error, reason}       # your own error, passed through
+end
+```
+
+## Retry options
+
+```elixir
+retry: [
+  backoff: :exponential,          # or :linear
+  base: 100,                      # initial delay ms (default 10 — usually too small)
+  cap: :timer.seconds(2),         # max single delay
+  max_attempts: 5,                # default; or :infinity
+  expiry: :timer.seconds(10),     # total time budget; or :infinity
+  jitter: true,                   # ±10%, or a float proportion
+  retry_on: &match?({:error, %{status: 500}}, &1),   # predicate over the result
+  retry_exceptions: [MyApp.TransientError]           # modules, or a predicate on the exception
+]
+```
+
+`:retry_on` is how you retry the result of a function you cannot modify. `:retry_exceptions` is
+how you retry something that raises — by default a raised exception propagates untouched.
+
+Turn a protection off explicitly rather than omitting the mechanism:
+`circuit_breaker: [tolerate: :infinity]` (never opens, holds no state) and
+`rate_limit: [limit: :infinity, per: 1_000]`.
+
+## Introspection
+
+```elixir
+MyApp.Api.available?()      # breaker closed?
+MyApp.Api.blown?()          # breaker open?
+MyApp.Api.reset()           # force closed
+ExternalService.rate_limited?(:api)         # boolean, consumes no budget
+ExternalService.saturated?(:svc)
+ExternalService.Concurrency.in_flight(:svc)
+```
+
+## Telemetry
+
+```text
+[:external_service, :call, :start | :stop | :exception | :retry]
+[:external_service, :circuit_breaker, :blown]
+[:external_service, :rate_limit, :sleep]
+[:external_service, :concurrency, :rejected | :waited]
+```
+
+`[:call, :retry]` fires **per attempt**, so it is a count of attempts and not of calls — worth
+remembering when building a dashboard.
+
+## Testing
+
+`ExternalService.Test` provides assertions over those events. They need a handler attached before
+the call, so record explicitly:
+
+```elixir
+defmodule MyApp.ApiTest do
+  use ExUnit.Case
+  use ExternalService.Test
+
+  setup :record_events
+
+  test "a 500 is retried" do
+    # ... exercise the call ...
+    assert_retried(MyApp.Api)
+  end
+end
+```
+
+`ExternalService.Test.Coverage` reports which protections each service actually exercised across
+a suite — useful for finding a breaker or limiter that is configured but never reached.
+
+Note that a `wait: false` rate limit never sleeps, so it emits no `[:rate_limit, :sleep]` event —
+if your tests configure it that way, that signal is absent by construction.
+
+## When configuration and reality disagree
+
+Reach for these in order, before changing numbers:
+
+1. `ExternalService.explain(MyApp.Api)` — states the *consequence* of each setting, not the
+   setting.
+2. `ExternalService.simulate(MyApp.Api, :always_failing)` — a virtual clock; nothing sleeps.
+3. Check whether your HTTP client is retrying underneath you.
+
+Fixing one shedding path can simply move the shedding to another — a limiter and a concurrency
+limit can both shed the same call — which is why `explain/1` lists all of them at once.
+
+<!-- external_service-end -->
+<!-- wait_for_it-start -->
+## wait_for_it usage
+_Elixir library providing various ways of waiting for things to happen_
+
+# WaitForIt usage rules
+
+Waiting on asynchronous or remote work, using syntax built on Elixir's own control-flow
+constructs. Most useful in tests that must wait for concurrent activity, and anywhere processes
+coordinate.
+
+```elixir
+{:ok, user} = WaitForIt.match_wait({:ok, %User{}}, Repo.fetch(User, id), timeout: 2_000)
+```
+
+`require WaitForIt` or `import WaitForIt` before using any of it — the five waiting forms are
+macros.
+
+## The one rule
+
+> On timeout, each form behaves exactly as its built-in Elixir counterpart would on a final
+> evaluation in which nothing matched.
+
+That is the whole design. There is nothing WaitForIt-specific to memorise: a `case_wait` that
+times out raises `CaseClauseError` for the same reason a `case` does; a `with_wait` returns the
+last unmatched value for the same reason a `with` does.
+
+| Form | Waits until | Native counterpart | On timeout (no `else`) |
+| --- | --- | --- | --- |
+| `wait/2` | an expression is truthy | truthiness | returns the last falsy value |
+| `match_wait/3` | an expression matches a pattern (and binds out of it) | `=` | raises `MatchError` |
+| `case_wait/3` | one of several clauses matches | `case` | raises `CaseClauseError` |
+| `cond_wait/2` | one of several expressions is truthy | `cond` | raises `CondClauseError` |
+| `with_wait/3` | several composed waits all succeed | `with` | returns the last value |
+
+Two consistent additions:
+
+  * An **`else` clause** (on `case_wait`, `cond_wait`, `with_wait`) turns a timeout into a value.
+  * A **`!` variant** of every form (`wait!/2`, `match_wait!/3`, …) replaces whatever the
+    non-bang form would do with a uniform `WaitForIt.TimeoutError`.
+
+## Options
+
+Every form takes the same ones:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `:timeout` | `5_000` | total ms to wait before giving up, or `:infinity` |
+| `:interval` | `100` | ms between re-evaluations, or a `WaitForIt.Backoff` function |
+| `:pre_wait` | `0` | ms to wait before the first evaluation |
+| `:signal` | — | disable polling; re-evaluate only when this signal arrives |
+
+Use `:interval`. `:frequency` is a deprecated alias kept for compatibility and slated for
+removal in a future major — do not write it in new code.
+
+## The traps
+
+### Waiting blocks the calling process — never wait inside a GenServer callback
+
+A wait is a polling loop in the caller's own process. While it runs, that process does nothing
+else.
+
+```elixir
+def handle_call(:fetch, _from, state) do
+  # ❌ the entire server is blocked for up to 5 seconds; every other caller queues behind this
+  {:ok, v} = WaitForIt.match_wait({:ok, _}, remote_fetch(), timeout: 5_000)
+  {:reply, v, state}
+end
+```
+
+Worse, the defaults collide: `WaitForIt`'s default `:timeout` is 5000ms and `GenServer.call/3`'s
+default timeout is also 5000ms, so the caller gives up at almost exactly the moment the wait
+does — you get a confusing `:timeout` exit from the *caller* rather than the wait's own timeout
+behaviour.
+
+Wait in the process that can afford to block: the caller, a `Task`, or a test. If a server must
+wait, do it in a spawned task and `handle_info` the result.
+
+### Signals are node-local
+
+`signal/1` dispatches through a local `Registry`, so a signal sent on one node never reaches a
+waiter on another. In a distributed application, a wait blocked on `signal: :thing` will sit
+there until its timeout while the producer on another node happily signals into the void.
+
+Polling has no such limitation — it re-evaluates the expression, and the expression can consult
+anything (a database, a replicated table, a `:global` process). **If the condition can be
+changed from another node, poll.**
+
+### Never write a catch-all clause in `case_wait` or `cond_wait`
+
+This is the single most common mistake, and it silently disables the waiting.
+
+```elixir
+# ❌ `_` matches on the very first evaluation, so this never waits at all
+WaitForIt.case_wait Repo.get(Job, id) do
+  %Job{status: :done} -> :finished
+  _ -> :not_yet
+end
+
+# ✅ `else` runs only on timeout
+WaitForIt.case_wait Repo.get(Job, id), timeout: 10_000 do
+  %Job{status: :done} -> :finished
+else
+  _ -> :gave_up
+end
+```
+
+The same applies to a final `true ->` in `cond_wait`. A clause that always matches halts the
+wait on the first evaluation; `else` is evaluated *only* when the wait gives up.
+
+### The expression is re-evaluated, so its side effects must be repeatable
+
+A waitable expression runs an indeterminate number of times. An idempotent expression is useless
+here — it either halts immediately or never halts — so it is *expected* that the value changes
+between evaluations, and any side effect must be safe to repeat. Do not put a POST, an insert, or
+a counter increment in a waitable expression.
+
+### `timeout: :infinity` removes all timeout behaviour
+
+Not just "waits longer". Because such a wait can never time out: a `!` variant never raises, an
+`else` clause never runs, and `until/2` never returns `{:timeout, last_value}`. The process
+blocks until the condition is met or it dies. Reach for it only where something else bounds the
+wait — a supervised process, a `Task` with its own timeout, or a caller that can shut it down.
+
+### `with_wait` uses two different arrows
+
+```elixir
+WaitForIt.with_wait on(
+  {:ok, account} <~ {load_account(token), timeout: 2_000},   # WAITS for the match
+  {:ok, balance} <- fetch_balance(account)                    # one-shot, exactly like `with`
+) do
+  {:ok, balance}
+else
+  not_ready -> {:error, {:timed_out, not_ready}}
+end
+```
+
+`<~` is wait-for-match; `<-` behaves exactly as in a native `with`. Per-clause options go in a
+tuple: `{expr, opts}`. Note the `on(...)` wrapper — it is the one place the "looks like the
+native construct" resemblance breaks.
+
+### "The following clause will never match" is telling the truth
+
+On Elixir 1.20+ you may see the type checker flag a `match_wait`/`with_wait` pattern as
+unreachable. **Waiting changes values over time; it does not change types.** If the expression's
+inferred type cannot produce the pattern, the wait can only ever time out, and the warning has
+found a real bug.
+
+The usual innocent cause is a test stub narrow enough for the compiler to pin down
+(`defp pending, do: :pending` infers exactly `:pending`). Widen it rather than silencing the
+warning:
+
+```elixir
+defp pending, do: Process.get(:__unset__, :pending)   # same value, type is now dynamic()
+```
+
+## Choosing a form
+
+**`match_wait/3`** is the one to reach for by default when waiting on a tagged result — it waits
+and binds in one expression.
+
+**`until/2`** is the functional counterpart of `wait/2`, for when the condition is computed at
+runtime or built dynamically and a macro cannot serve. It takes a zero-arity function and returns
+a *tagged* result, so success and timeout are never ambiguous:
+
+```elixir
+case WaitForIt.until(fn -> Repo.get(Post, id) end, timeout: :timer.seconds(5)) do
+  {:ok, post} -> post
+  {:timeout, _last} -> raise "post #{id} never appeared"
+end
+```
+
+`until!/2` returns the bare value and raises `WaitForIt.TimeoutError` instead.
+
+## Polling and backoff
+
+Polling is the default: re-evaluate every `:interval` ms. `:interval` also accepts a 1-arity
+function of the attempt number, which is how you back off against a struggling dependency:
+
+```elixir
+WaitForIt.wait(Service.ready?(), interval: WaitForIt.Backoff.exponential(cap: 2_000, jitter: true))
+```
+
+Signal-based waiting removes the polling loop entirely — a waiter blocks until it receives a
+named signal telling it to re-evaluate:
+
+```elixir
+# consumer
+WaitForIt.wait(Buffer.count() >= 4, signal: :buffer_filled)
+
+# producer, after changing the condition
+Buffer.put(item)
+WaitForIt.signal(:buffer_filled)
+```
+
+A signal does **not** mean the condition is now satisfied — only that waiters should re-check.
+Both sides must agree on the signal name, and both must be on the same node.
+
+## In tests
+
+Prefer `WaitForIt.Test`'s assertions over `Process.sleep/1`. They wait, re-evaluate, and on
+timeout fail with an ordinary `ExUnit.AssertionError` carrying the source expression and the last
+value seen:
+
+```elixir
+defmodule MyApp.SomeTest do
+  use ExUnit.Case
+  use WaitForIt.Test
+
+  test "the user is eventually confirmed" do
+    assert_eventually {:ok, %User{confirmed: true}} = Repo.fetch(User, user_id)
+  end
+end
+```
+
+`assert_eventually/2` (truthy or `pattern = expr` binding form), `refute_eventually/2`, and
+`assert_always/2` — the last for asserting something stays true for the duration rather than
+becomes true.
+
+The waiting macros work in tests too when you want their exact return values or timeout
+semantics; `wait/2` returns its value and drops straight into an `assert`.
+
+## Telemetry
+
+Every wait emits `[:wait_for_it, :wait, :start | :stop | :exception]`. The `:stop` event reports
+the `duration`, the number of `evaluations`, and whether the wait `:matched` or hit a `:timeout`
+— which is how you find waits that are quietly timing out, or polling far more than they need to.
+
+## Deprecated
+
+`WaitForIt.V1` emits compile-time deprecation warnings and will be removed in 3.0. Do not write
+new code against it.
+
+<!-- wait_for_it-end -->
 <!-- phoenix:ecto-start -->
 ## phoenix:ecto usage
 ## Ecto Guidelines

@@ -28,7 +28,30 @@ useful part and a fixed bug still explains why the code around it looks the way 
 
 ---
 
+## Where these stand, as of 2026-08-25
+
+Swept against **errata 1.9.0, external_service 3.2.0, bond 1.17.0 and wait_for_it 2.5.0** — the
+current Hex releases, all four of which now ship `usage-rules.md` and are synced into this
+project's `AGENTS.md`.
+
+Three entries below are marked resolved in this pass, and one of them is the interesting kind:
+the Req retry-multiplication trap was found here on 25 August and had **already been documented
+upstream on 23 August**, from a separate report, reaching the same measured figure of twelve
+requests for a service configured with three attempts. Convergent discovery rather than
+cause and effect, and the upstream write-up is the better of the two — it names the GET/HEAD
+asymmetry this project's version missed.
+
+Everything not marked otherwise has been re-checked against these versions and still stands.
+
+---
+
 ## `external_service` — no `:export` block in `.formatter.exs`
+
+**Resolved in external_service 3.0.0** (issue #118). The export block ships, and covers
+`call/1,2`, `call!/1,2` and `call_async/1,2` — the last of which this project's hand-written
+copy did not have. `.formatter.exs` is also in the Hex tarball now, without which the export
+would reach nobody installing from Hex. The local `locals_without_parens` block here is gone;
+`import_deps: [:external_service]` carries it.
 
 **Found:** 2026-08-22, while configuring this project's formatter.
 
@@ -99,6 +122,25 @@ Tesla's `Tesla.Middleware.Retry` and Finch's own behaviour deserve the same one-
 cheap to document and expensive to discover.
 
 ## `req` + `external_service` — two retry layers compose silently, and multiply
+
+**Resolved in external_service 3.0.0 and 3.2.0, independently of this report and before it.**
+3.0.0 (issue #120) added a section to the Circuit Breakers guide on HTTP clients that retry on
+their own, citing **12 requests for a service configured `max_attempts: 3`** — the same number
+measured here, arrived at separately. 3.2.0's `usage-rules.md` leads with it under "Your HTTP
+client's own retries multiply against these", with `Req.new(retry: false)` as the fix.
+
+Two details there that this report did not have, and both matter:
+
+  * **`:safe_transient` covers GET and HEAD only**, so a POST behaves differently under
+    identical configuration. Every call site fixed here is a GET or a HEAD, which is why the
+    multiplication was uniform; a write path would have hidden it.
+  * The hidden attempts are invisible to the **retry telemetry** as well as to the breaker,
+    which means they also corrupt the `explain/1` / `simulate/3` / `ConfigCheck` arithmetic that
+    the whole 3.0 tuning story rests on. That is a worse consequence than the request count and
+    is the one the guide leads with.
+
+The suggestion below — that this belongs in getting-started rather than a footnote — is
+therefore already taken, and better than it was written.
 
 **Found:** 2026-08-25, after a run of probes drove MusicBrainz to answer `503`.
 
@@ -745,10 +787,16 @@ intentional:
 
 | | `line_length` | `inputs` include `mix.exs`? | exports rules? |
 | --- | --- | --- | --- |
-| `external_service` | commented out (`# 100`) | yes | no |
-| `errata` | unset (98) | via `{mix,.formatter}.exs` | no |
+| `external_service` | commented out (`# 100`) | yes | **yes**, since 3.0.0 |
+| `errata` | *(no `.formatter.exs` at all, as of 1.9.0)* | — | no |
 | `bond` | unset (98) | via `{mix,.formatter}.exs` | yes |
 | `wait_for_it` | 100 | yes | yes |
+
+Re-checked against errata 1.9.0, external_service 3.2.0, bond 1.17.0 and wait_for_it 2.5.0.
+The `errata` row changed for a reason worth stating: it does not ship a `.formatter.exs` in the
+Hex package, so the earlier reading of "unset (98)" was of the GitHub working tree rather than
+of what a consumer gets. Listing it in `import_deps` remains harmless — a dep without one is
+ignored rather than an error — so this project still lists all four speculatively.
 
 So `wait_for_it` formats at 100 while `bond` and `errata` format at 98, and only two of the
 four have `.formatter.exs` itself under the formatter. A shared convention across the four
@@ -1324,6 +1372,9 @@ comment in the source — which is what this project does, and which the coverag
 
 ## `external_service` — the pacing log says "Rate limit exceeded", which is not what happened
 
+**Still open as of 3.2.0** — re-checked in `lib/external_service/rate_limiter.ex`, the wording is
+unchanged. Recorded rather than re-discovered.
+
 Small, and worth reporting precisely because the behaviour is right and only the *description*
 is wrong.
 
@@ -1382,6 +1433,15 @@ it than the log.
 ---
 
 ## `errata` — `retryable?/1` raises, and the documented pattern cannot be used where it matters
+
+**Addressed in errata 1.9.0**, as documentation rather than a behaviour change — which is the
+right call, since a `retryable?/1` that silently answered `false` for a changeset would hide the
+same bug more quietly. `usage-rules.md` carries a section titled **"Every accessor raises on a
+non-Errata value"**, naming `cause/1`, `root_error/1` and `display_message/1` alongside
+`retryable?/1`, and stating the reason this report gave: the boundary where you ask is the
+boundary where foreign error shapes arrive, so an unguarded accessor **raises inside error
+handling**, replacing a real failure with an `ArgumentError`. The `Errata.is_error/1` guard is
+shown as the fix, which is what this project already does.
 
 `Errata.retryable?/1` is presented as the function that answers "should this be retried", and
 its own documentation shows the intended shape:

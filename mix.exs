@@ -36,9 +36,16 @@ defmodule OnePlaylist.MixProject do
   # `sync` treats this config as the source of truth and **deletes any managed
   # block not named in it**. So `[:bond]` alone would silently remove the five
   # Phoenix blocks that were already here — naming `:phoenix` beside it is what
-  # keeps them. A parent pulls its own sub-rules in, which is why neither needs
+  # keeps them. A parent pulls its own sub-rules in, which is why none needs
   # `"bond:all"` or `"phoenix:all"` spelling out; naming both a parent and its
   # `:all` duplicates the lot.
+  #
+  # All four first-party libraries ship `usage-rules.md` as of errata 1.9.0,
+  # external_service 3.2.0, bond 1.17.0 and wait_for_it 2.5.0, so all four are
+  # named. That is the whole of goal 1 in `CLAUDE.md` pointed at this file: the
+  # libraries this project dogfoods are the ones whose traps it most needs
+  # stated, and each of those documents leads with the trap that costs the most
+  # time rather than with a tour.
   #
   # The alternative, `:all`, auto-discovers every dependency that ships rules,
   # and measured here that is 3755 lines where 1300 are wanted. It pulls in
@@ -59,7 +66,7 @@ defmodule OnePlaylist.MixProject do
   defp usage_rules do
     [
       file: "AGENTS.md",
-      usage_rules: [:bond, :phoenix],
+      usage_rules: [:bond, :errata, :external_service, :wait_for_it, :phoenix],
       skills: [
         location: ".claude/skills",
         package_skills: [:bond]
@@ -315,10 +322,10 @@ defmodule OnePlaylist.MixProject do
       {:oban, "~> 2.23"},
       {:nebulex, "~> 3.0"},
       {:nebulex_local, "~> 3.0"},
-      {:external_service, "3.0.0-rc.4"},
-      {:errata, "~> 1.7"},
+      {:external_service, "~> 3.2"},
+      {:errata, "~> 1.9"},
       {:bond, "~> 1.17"},
-      {:wait_for_it, "~> 2.4"},
+      {:wait_for_it, "~> 2.5"},
 
       # Property-based testing. Not just for our own properties: it is what
       # unlocks `Bond.PropertyTest`, which uses the contracts we have already

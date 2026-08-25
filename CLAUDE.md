@@ -39,10 +39,10 @@ be depended on **by path** during development so improvements flow both ways.
 
 | Library | Local path | Where it belongs in this app |
 | --- | --- | --- |
-| [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.0.0-rc.4) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
-| [`errata`](https://hexdocs.pm/errata) | `../errata` (1.7.0) | Every error the domain can produce. `TrackNotMatched`, `ProviderUnavailable`, `TokenExpired`, `PlaylistTooLarge`, … |
+| [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.2.0) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
+| [`errata`](https://hexdocs.pm/errata) | `../errata` (1.9.0) | Every error the domain can produce. `TrackNotMatched`, `ProviderUnavailable`, `TokenExpired`, `PlaylistTooLarge`, … |
 | [`bond`](https://hexdocs.pm/bond) | `../bond` (1.17.0) | Contracts on the matching engine and the transfer state machine — the places where a silent wrong answer is worse than a crash. |
-| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.4.0) | `Transfers.await/2` waits on an Oban-run transfer with `case_wait`. Deeper use still ahead: scheduled sync, and polling providers with genuinely async jobs. |
+| [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.5.0) | `Transfers.await/2` waits on an Oban-run transfer with `case_wait`. Deeper use still ahead: scheduled sync, and polling providers with genuinely async jobs. |
 
 ```elixir
 # mix.exs — the working configuration
@@ -55,6 +55,21 @@ be depended on **by path** during development so improvements flow both ways.
 Verified against Elixir 1.20.3 / OTP 29: all four compile and interoperate. `external_service`
 pulls `:fuse` (an Erlang/rebar3 package) from Hex. Note `ExternalService.start/2` returns a
 bare `:ok`, not `{:ok, _}`.
+
+Swept to the current releases on 2026-08-25. Three things changed for this project:
+
+  * **All four now ship `usage-rules.md`**, and all four are synced into `AGENTS.md` — see
+    `usage_rules/0` in `mix.exs`. That file is where a fresh session should look for each
+    library's traps; the guides remain the place to understand *why*.
+  * **`external_service` 3.0.0 is a real release**, so the exact pre-release pin is gone. It also
+    ships the `.formatter.exs` `:export` block this project asked for, which retired the
+    hand-written `locals_without_parens` block in `.formatter.exs` — and gained `call_async/1,2`,
+    which the local copy never had.
+  * **`errata` 1.9.0 deprecates `Errata.root_cause/1`** in favour of `root_error/1`, on the
+    grounds that the old one returns an Errata error *or* a foreign value depending on how the
+    chain ends. `OnePlaylist.Providers.root_cause/1` is our own function with the deprecated
+    semantics and produces no warning, but it is now hand-rolled recursion that
+    `Errata.root_error/1` would do — worth revisiting when that module is next touched.
 
 Dogfooding includes **reporting friction back**. If an API is awkward, note it in
 `docs/library-feedback.md` — that feedback is a deliverable of this project, not a distraction

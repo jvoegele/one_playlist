@@ -17,29 +17,21 @@
     # `assert_email_sent` and friends, for mailer tests.
     :swoosh,
 
-    # First-party (see CLAUDE.md). `bond` and `wait_for_it` export
-    # `locals_without_parens`; `errata` and `external_service` do not yet, so
-    # listing them is a no-op today that starts working the moment they do.
-    # A dep with a `.formatter.exs` but no `:export` key is silently ignored,
-    # so this is harmless rather than an error.
+    # First-party (see CLAUDE.md). `bond`, `wait_for_it` and — as of 3.0.0 —
+    # `external_service` export `locals_without_parens`. `errata` ships no
+    # `.formatter.exs` at all, so listing it is a no-op today that starts
+    # working the moment it does; a dep without one is silently ignored rather
+    # than an error.
     :bond,
     :errata,
     :external_service,
     :wait_for_it
   ],
 
-  # `external_service` documents its API as `call fn -> ... end` throughout its
-  # README and guides, but ships no `:export` block, so the rules have to live
-  # here. These belong upstream — see the dogfooding note in CLAUDE.md.
-  # Safe alongside `def call(conn, opts)` in Plug modules: `locals_without_parens`
-  # only stops the formatter *adding* parens; it never strips them from a
-  # definition head.
-  locals_without_parens: [
-    call: 1,
-    call: 2,
-    call!: 1,
-    call!: 2
-  ],
+  # The hand-written `locals_without_parens` for `call/1,2` and `call!/1,2` is
+  # gone: `external_service` 3.0.0 ships the `:export` block this project asked
+  # for, so `import_deps` now carries them — along with `call_async/1,2`, which
+  # the local copy did not. Dogfooding feedback that came back as a release.
   subdirectories: ["priv/*/migrations"],
   inputs: [
     # `*.exs` does not match dotfiles, so `.formatter.exs` needs naming.
