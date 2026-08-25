@@ -76,6 +76,18 @@ defmodule OnePlaylist.Music.Track do
     # recording's full release list — and each release's *group* title, which is
     # often the canonical name where the release carries a pressing's.
     album_titles: [],
+    # Whether the provider says this recording sits on a **live release** — an
+    # album that is live all the way through, as opposed to a live track on a
+    # studio record.
+    #
+    # It exists because a live album does not repeat the word on every track.
+    # Roon tags each one `Live`; MusicBrainz tags none of them and marks the
+    # release group instead. Without this the version veto reads that as one
+    # side live and the other not, and rejects a perfect match.
+    #
+    # `false` means "not known to be live", which is what every provider but
+    # MusicBrainz can say. Only a `true` relaxes anything.
+    live_release?: false,
     # Titles of the works MusicBrainz says this track's title names. Empty
     # unless something looked them up, which happens only after the ladder has
     # already failed — see `OnePlaylist.MusicBrainz.works/3`. Titles rather than
@@ -109,6 +121,7 @@ defmodule OnePlaylist.Music.Track do
           artwork_url: String.t() | nil,
           isrc_family: [String.t()],
           album_titles: [String.t()],
+          live_release?: boolean(),
           work_titles: [String.t()],
           artists: [String.t()]
         }

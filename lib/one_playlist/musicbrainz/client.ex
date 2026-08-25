@@ -305,11 +305,24 @@ defmodule OnePlaylist.MusicBrainz.Client do
       # tagger writes. Comparing against the head alone declined a correct match
       # over exactly that.
       album_titles: album_titles(releases),
+      # `secondary-types` reads `["Live"]` for an official bootleg or a live
+      # album, and the search response carries it inline — see `album_titles/1`
+      # for why nothing extra has to be fetched.
+      live_release?: live_release?(releases),
       album_upc: release["barcode"],
       # MusicBrainz reports length in milliseconds; everything here is seconds.
       duration_seconds: recording["length"] && div(recording["length"], 1000),
       isrc: recording |> Map.get("isrcs", []) |> List.first()
     }
+  end
+
+  defp live_release?(releases) do
+    Enum.any?(releases, fn release ->
+      release
+      |> get_in(["release-group", "secondary-types"])
+      |> List.wrap()
+      |> Enum.any?(&(&1 == "Live"))
+    end)
   end
 
   defp album_titles(releases) do

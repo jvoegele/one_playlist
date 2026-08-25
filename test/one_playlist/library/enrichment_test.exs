@@ -148,6 +148,54 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     }
   end
 
+  describe "when the release-qualified search cannot be made" do
+    test "it falls through to the broad one rather than crashing" do
+      # `by_release/3` returned a bare `:none` on a transport failure, and bare
+      # `:none` matches neither the `{:none, _}` clause in `by_name/1` nor any
+      # clause of `enrich/1` — so a 503 on the narrow query took the job down
+      # with a `CaseClauseError` instead of asking the broader question.
+      #
+      # Only reachable when the *album-qualified* search fails to be made, which
+      # is why it survived until a run of probes made MusicBrainz answer 503.
+      recording = recording(%{album: "Vitalogy", isrc: nil})
+
+      Req.Test.stub(Client, fn conn ->
+        cond do
+          search?(conn.request_path) and URI.decode_www_form(conn.query_string) =~ "release:" ->
+            Req.Test.transport_error(conn, :econnrefused)
+
+          search?(conn.request_path) ->
+            Req.Test.json(conn, search_body())
+
+          conn.request_path =~ "/recording/" ->
+            Req.Test.json(conn, lookup_body())
+
+          conn.request_path =~ "/release/" ->
+            Req.Test.json(conn, %{"cover-art-archive" => %{"front" => true}})
+        end
+      end)
+
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+
+    test "and an outage on both is reported rather than recorded as an answer" do
+      # The rule this must not break: a search that could not be *made* is not a
+      # search that found nothing. Recording it as one would make an outage
+      # permanent, because `due/1` never offers a stamped recording again.
+      recording = recording(%{album: "Vitalogy", isrc: nil})
+
+      Req.Test.stub(Client, fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
+      stub_cover_art(:none)
+
+      assert {:error, error} = Enrichment.enrich(recording)
+      assert Errata.reason(error) == :search_unavailable
+      assert is_nil(Repo.get(Recording, recording.id).enriched_at)
+    end
+  end
+
   describe "enrich/1 reconsidering with a person's correction" do
     # Roon's CSV export writes the album artist into the artist column, so every
     # track on a tribute record arrives credited to its subject. The recording

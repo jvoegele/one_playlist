@@ -679,8 +679,22 @@ defmodule OnePlaylist.Library.Enrichment do
   defp by_release(%Recording{album: album} = recording, title, credit)
        when is_binary(album) and album != "" do
     case search(title, credit, album: album) do
-      {:ok, candidates} -> chosen(recording, candidates)
-      :error -> :none
+      {:ok, candidates} ->
+        chosen(recording, candidates)
+
+      # Shaped like a decline so it **falls through to the broad search**, which
+      # is what the comment in `by_name/1` above says happens and what a reader
+      # would assume. A bare `:none` was returned here, and bare `:none` matches
+      # neither `{:none, from_release}` in `by_name/1` nor any clause of
+      # `enrich/1` — so a transport failure on the narrow query crashed the job
+      # with a `CaseClauseError` instead of asking the broader question.
+      #
+      # Only reachable when the release-qualified search fails to be *made*, so
+      # it survived until a run of probes made MusicBrainz answer 503.
+      # `by_title/3` still propagates its own `:error`, which is what keeps an
+      # outage from being recorded as "MusicBrainz has no such recording".
+      :error ->
+        {:none, %{outcome: :no_candidates, candidates: 0}}
     end
   end
 

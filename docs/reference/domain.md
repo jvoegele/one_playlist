@@ -1290,11 +1290,22 @@ the asymmetry was an oversight rather than a decision. All four corpora are
 unmoved by fixing it, because a title made entirely of brackets is rare enough
 that none of them contains one.
 
-It does not make that particular track match, and should not: MusicBrainz holds
-`[improvisation]` from Moore Theater 1995, Perth 2003, Charlotte 2000 and Boston
-2000, and none of them is the State College improvisation. Those are different
-pieces of music that happen to share a non-name. Declining is the right answer;
-what changed is that it is now declined for the right reason.
+It does not make that particular track match, and could not have. MusicBrainz
+holds the State College improvisation — `78aeb743` — under the title **"I Wanna
+Go"**, and its releases are *2003-05-03: State College, PA* and two other
+spellings, none of which is our *Live: 05-03-03 - State College, Pennsylvania*.
+So there is no text query that finds it: the title we hold is not a name, and
+the album we hold is not the one the catalogue uses.
+
+It carries an ISRC — `USSM10306840` — and that is the only way in. Which makes
+this the case for `link_to_own_details/3`: correct the item, including the ISRC,
+and store it as a recording of its own, at which point the identifier path
+matches exactly and no scoring is involved. Editing the title alone would not be
+enough, because the albums still disagree.
+
+The other `[improvisation]` recordings the search now returns — Moore Theater
+1995, Perth 2003, Charlotte 2000, Boston 2000 — are different pieces of music
+sharing a non-name, and declining them is right.
 
 #### The version veto and albums that are live all the way through
 
@@ -1309,12 +1320,30 @@ disc marker, which `album/1` strips — credit `:same`, no duration conflict. It
 is rejected anyway, and would be at any threshold, because the veto is not a
 score.
 
-The fix that would work is available and not yet taken: a search result's
-release group carries `secondary-types`, which reads `["Live"]` for exactly
-these releases. A source tagged `:live` matching a candidate on a live release
-is agreement rather than conflict. That needs `Track` to carry the fact and
-`Signals` to read it, and it needs measuring — the version veto is load-bearing
-and was tuned deliberately.
+**Taken.** A search result's release group carries `secondary-types`, which
+reads `["Live"]` for exactly these releases and costs no extra request. `Track`
+carries `live_release?`, and `Signals` treats it as an implicit `:live` tag on
+the candidate.
+
+It **tightens as well as relaxes**, and both directions are wanted. Measured on
+the four cases:
+
+| source | candidate | before | after |
+| --- | --- | --- | --- |
+| live | untagged, live release | vetoed | **matches** |
+| live | untagged, no release info | vetoed | vetoed |
+| studio | untagged, live release | matched | **vetoed** |
+| studio | untagged, no release info | matched | matched |
+
+The third row is the half that is easy to miss: a studio track used to match a
+live recording freely, because the candidate carried no tag to disagree with.
+Same rule read the other way.
+
+None of the four corpora move, and none can — all four replay TIDAL candidates,
+which never carry the flag. Measured against the library instead: **2 newly
+identified of 26** remaining, both live bootleg tracks, which is exactly the
+class it targets. *I Got You* from Verona and *Powderfinger* from Golden Gate
+Park 1995.
 
 #### Why the search saw a different album title than the catalogue holds
 

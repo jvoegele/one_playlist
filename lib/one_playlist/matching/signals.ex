@@ -122,7 +122,10 @@ defmodule OnePlaylist.Matching.Signals do
       duration_conflict:
         Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds) == 0.0,
       discriminating_conflict:
-        conflict?(Normalize.discriminating(left.tags), Normalize.discriminating(right.tags)),
+        conflict?(
+          discriminating_tags(left, source),
+          discriminating_tags(right, candidate)
+        ),
       editorial_conflict:
         conflict?(Normalize.editorial(left.tags), Normalize.editorial(right.tags))
     }
@@ -386,4 +389,23 @@ defmodule OnePlaylist.Matching.Signals do
   # Only a *disagreement* counts. Two tracks that both carry `:live` agree, and
   # two that carry none agree; one carrying `:live` alone does not.
   defp conflict?(left, right), do: not MapSet.equal?(left, right)
+
+  # A track's own version tags, plus the one its *release* implies.
+  #
+  # An album that is live all the way through does not repeat the word on every
+  # track: Roon tags each one `Live`, MusicBrainz tags none of them and marks
+  # the release group instead. Comparing only the per-track tags therefore reads
+  # one side live and the other not, and vetoes a match where every other signal
+  # is perfect — measured on *I Got You* from *2000-06-20: Arena, Verona, Italy*,
+  # which agrees on title, album and credit and was rejected anyway.
+  #
+  # This tightens as well as relaxes, and both directions are wanted. A *studio*
+  # source against a live recording used to see no conflict, because the
+  # candidate carried no tag; now it sees one, which is the same rule read the
+  # other way.
+  defp discriminating_tags(parsed, %Track{live_release?: true}) do
+    MapSet.put(Normalize.discriminating(parsed.tags), :live)
+  end
+
+  defp discriminating_tags(parsed, %Track{}), do: Normalize.discriminating(parsed.tags)
 end
