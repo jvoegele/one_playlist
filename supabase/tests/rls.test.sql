@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(25);
 
 -- Two users, written straight into auth.users. Fine here: this is a test
 -- fixture inside a doomed transaction, not a sign-up path.
@@ -103,7 +103,7 @@ select is(
      from information_schema.role_table_grants
     where grantee in ('anon', 'authenticated') and table_schema = 'public'
       and table_name in ('catalogue_release_lookups', 'musicbrainz_isrc_lookups',
-                         'musicbrainz_work_lookups')),
+                         'musicbrainz_work_lookups', 'musicbrainz_releases')),
   0,
   'the ownerless caches are granted to nobody'
 );
@@ -116,6 +116,11 @@ select ok(
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.musicbrainz_work_lookups'::regclass),
   'musicbrainz_work_lookups has row level security enabled'
+);
+
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.musicbrainz_releases'::regclass),
+  'musicbrainz_releases has row level security enabled'
 );
 
 -- ---------------------------------------------------------------------------
