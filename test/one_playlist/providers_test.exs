@@ -376,16 +376,47 @@ defmodule OnePlaylist.ProvidersTest do
     end
   end
 
-  describe "root_cause/1" do
+  describe "root_error/1" do
     test "unwraps to the failure a user can act on" do
       # ExternalService reports that retrying did not help. That is the right
       # thing to classify on and the wrong thing to show somebody.
       cause = Errata.create(TokenRefreshFailed, reason: :invalid_grant, context: %{})
       wrapped = Errata.create(ConnectionUnusable, reason: :revoked, cause: cause)
 
-      assert Providers.root_cause(wrapped) == cause
-      assert Providers.root_cause(cause) == cause
-      assert Providers.root_cause(:not_an_error) == :not_an_error
+      assert Providers.root_error(wrapped) == cause
+      assert Providers.root_error(cause) == cause
+    end
+
+    test "stops at the deepest Errata error rather than the foreign original" do
+      # The reason this stopped being hand-rolled recursion. A chain ending in a
+      # foreign exception used to return *that*, discarding the error above it
+      # which is the only thing carrying a `:reason` and a `display_message`.
+      #
+      # Both callers need the error: `requires_reauth?/1` asks `retryable?/1`,
+      # and the connections screen matches on `:reason`. Handed a
+      # `Req.TransportError` they say "could not reach that server" and leave a
+      # revoked credential connected.
+      foreign = %RuntimeError{message: "econnrefused"}
+      errata = Errata.create(TokenRefreshFailed, reason: :invalid_grant, cause: foreign)
+      wrapped = Errata.create(ConnectionUnusable, reason: :revoked, cause: errata)
+
+      assert Providers.root_error(wrapped) == errata
+      assert Errata.reason(Providers.root_error(wrapped)) == :invalid_grant
+
+      # And the foreign original is still one hop away for anybody who wants it,
+      # which is the split errata 1.9.0 argues for.
+      assert wrapped |> Providers.root_error() |> Errata.cause() == foreign
+    end
+
+    test "a value that is no kind of error is returned unchanged" do
+      # `Errata.root_error/1` raises on one of these, and this is called at a
+      # boundary where foreign shapes arrive — the `is_error/1` guard is what
+      # errata's own usage rules prescribe for exactly that.
+      assert Providers.root_error(:not_an_error) == :not_an_error
+
+      assert Providers.root_error(%RuntimeError{message: "bare"}) == %RuntimeError{
+               message: "bare"
+             }
     end
   end
 

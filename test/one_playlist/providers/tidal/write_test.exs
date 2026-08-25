@@ -409,4 +409,45 @@ defmodule OnePlaylist.Providers.Tidal.WriteTest do
                "returned four 429s out of five rapid deletes"
     end
   end
+
+  describe "the write path's resilience, not just its happy path" do
+    # `ExternalService.Test.Coverage` reported `Tidal.WriteService` called 66
+    # times and never once retried, failed or rejected — every one of those
+    # calls on the happy path. Writes are the half of TIDAL that matters most
+    # here: a transfer that cannot read is a transfer that does nothing, and a
+    # transfer that cannot write is a half-written playlist.
+    #
+    # These two tests are what turns that row from a warning into a number.
+
+    test "a 5xx on a write is retried, and succeeds when the server recovers" do
+      # `classify/1` calls a 5xx `{:retry, ...}`, which is what puts the attempt
+      # under `WriteService`'s budget rather than failing the transfer outright.
+      {:ok, attempts} = Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(Tidal, fn conn ->
+        case Agent.get_and_update(attempts, &{&1 + 1, &1 + 1}) do
+          1 -> Plug.Conn.send_resp(conn, 503, ~s({"errors":[{"detail":"upstream"}]}))
+          _recovered -> Req.Test.json(conn, created_playlist("Road Trip"))
+        end
+      end)
+
+      assert {:ok, %Playlist{}} = Tidal.create_playlist(connection(), "Road Trip")
+      assert Agent.get(attempts, & &1) == 2, "the first attempt was retried, not surfaced"
+    end
+
+    test "a write that keeps failing exhausts the budget and says so" do
+      # The other end of the same path. `RetriesExhausted` is what a caller sees,
+      # and `Providers.root_error/1` is what unwraps it to the API error that
+      # names the actual problem — see its own tests.
+      Req.Test.stub(Tidal, fn conn ->
+        Plug.Conn.send_resp(conn, 503, ~s({"errors":[{"detail":"still down"}]}))
+      end)
+
+      assert {:error, error} = Tidal.create_playlist(connection(), "Road Trip")
+      assert Errata.is_error(error)
+
+      underlying = OnePlaylist.Providers.root_error(error)
+      assert Errata.reason(underlying) == :server_error
+    end
+  end
 end

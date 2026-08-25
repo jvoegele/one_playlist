@@ -45,6 +45,51 @@ Everything not marked otherwise has been re-checked against these versions and s
 
 ---
 
+## `external_service` — `Test.Coverage` found 141 seconds of a stubbed test suite asleep
+
+**Found:** 2026-08-25, within minutes of installing it. A positive, and the most
+immediately valuable thing any of the four libraries has handed this project.
+
+`ExternalService.Test.Coverage.install_reporter/0` in `test/test_helper.exs`, one line, and the
+first run said:
+
+```
+service                                       calls    retried     failed    breaker  throttled  saturated
+OnePlaylist.MusicBrainz.Service                 105          7          4          0        100          0
+OnePlaylist.Providers.Tidal.WriteService         66          0          0          0          0          0  ⚠
+```
+
+Two findings, and the one the report *warns* about was the smaller.
+
+**The `throttled` column.** `application.ex` reads `:musicbrainz_service_opts` and
+`:cover_art_service_opts` and `config/test.exs` set neither, so the suite ran against
+MusicBrainz's real published policy — one request a second, `wait: :infinity` — and paced
+itself accordingly. 100 of 105 calls waited, against a service stubbed by `Req.Test` and never
+actually contacted. **The suite went from 177 seconds to 36 once those keys were set.**
+
+Nothing was failing, which is why it had gone unnoticed for as long as the services have
+existed. The equivalent keys for TIDAL and Subsonic were set on the day those services were
+written; the two added later simply never got theirs, and no test, warning or log said so. A
+column of counts did.
+
+**The `⚠`.** `Tidal.WriteService` had been called 66 times without once retrying, failing or
+being rejected — every one on the happy path. Writes are the half of TIDAL that matters most
+here: a transfer that cannot read does nothing, and a transfer that cannot write leaves a
+half-written playlist. Two tests now drive a 503 through it, one recovering and one exhausting
+the budget.
+
+**What makes the design right**, and worth saying because it is the part that would have been
+easy to get wrong: it is built on telemetry the library already emits, so there is nothing to
+enable and no build that differs; every count is a number of *calls* rather than of events, so
+each column is comparable with the first; and it is stated repeatedly as a prompt rather than a
+verdict, with no threshold and no way to fail a build. A service stubbed at our own boundary is
+*supposed* to have zeros. That framing is what stops it becoming a metric to game.
+
+One echo worth noting: the "install the reporter from `test_helper.exs`, because an ETS table
+dies with the process that created it" warning is the same trap this document records twice
+against `Bond.Coverage`. Here it is documented in the module that has it, in a warning block,
+before anybody trips over it.
+
 ## `external_service` — no `:export` block in `.formatter.exs`
 
 **Resolved in external_service 3.0.0** (issue #118). The export block ships, and covers

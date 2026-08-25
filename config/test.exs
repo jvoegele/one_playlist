@@ -81,6 +81,29 @@ config :one_playlist, :subsonic_service_opts,
   concurrency: [limit: 1_000],
   retry: [max_attempts: 3, backoff: :linear, base: 0]
 
+# The same, for the two services that were missing it. `application.ex` has read
+# these keys all along; nothing set them, so the suite ran against MusicBrainz's
+# real published policy of one request a second and paced itself accordingly.
+#
+# Found with `ExternalService.Test.Coverage`, which reported **100 of 105**
+# MusicBrainz calls throttled. Throttled here means paced rather than shed —
+# `wait: :infinity` — so those were seconds of the suite spent asleep against a
+# service that is stubbed by `Req.Test` and never contacted.
+#
+# The rate limit is the only mechanism switched off. Retries still run, the
+# breaker still counts, and the coverage table still reports what was exercised.
+config :one_playlist, :musicbrainz_service_opts,
+  circuit_breaker: [tolerate: :infinity],
+  rate_limit: [limit: :infinity],
+  concurrency: [limit: 1_000],
+  retry: [max_attempts: 3, backoff: :linear, base: 0]
+
+config :one_playlist, :cover_art_service_opts,
+  circuit_breaker: [tolerate: :infinity],
+  rate_limit: [limit: :infinity],
+  concurrency: [limit: 1_000],
+  retry: [max_attempts: 2, backoff: :linear, base: 0]
+
 # Route every Subsonic request through Req.Test rather than a real server.
 config :one_playlist, OnePlaylist.Providers.Navidrome,
   req_options: [plug: {Req.Test, OnePlaylist.Providers.Navidrome}]

@@ -425,7 +425,7 @@ defmodule OnePlaylist.Providers do
   # first. Anything that is not an Errata error is treated as transient: an
   # unrecognised failure is a poor reason to disconnect somebody.
   defp requires_reauth?(error) do
-    underlying = root_cause(error)
+    underlying = root_error(error)
     Errata.is_error(underlying) and not Errata.retryable?(underlying)
   end
 
@@ -438,19 +438,35 @@ defmodule OnePlaylist.Providers do
   user whose music server is switched off should be told the connection was
   refused, not that this application gave up retrying.
 
-  Errors that are not Errata errors, and Errata errors with no cause, are
-  returned as they are.
+  ## Why the deepest *Errata error* rather than the deepest value
+
+  This was hand-rolled recursion returning whichever value the chain ended on,
+  which is the semantics `Errata.root_cause/1` had and 1.9.0 deprecated. The
+  argument for dropping it applies here exactly: a chain is Errata errors, the
+  deepest of which may carry a **foreign original** — the exception your code
+  actually caught — and a function returning either one depending on how the
+  chain ends leaves every caller to work out which it got.
+
+  Both callers here want the error, not the original. `requires_reauth?/1` asks
+  `Errata.retryable?/1`, which only an Errata error can answer;
+  `OnePlaylistWeb.ConnectionLive.Index.message_for/1` matches on `:reason` and
+  reads `display_message/1`, which only an Errata error has. Under the old
+  semantics a chain ending in a `Req.TransportError` handed both of them the
+  transport error and threw away the `APIError` above it that knew the request
+  was *unauthorized* — so the screen said "could not reach that server" and the
+  connection was left alone when it needed re-authorising.
+
+  Use `Errata.cause/1` on the result to reach the foreign original where one
+  matters, and `Errata.format_chain/1` for a log, which shows every level.
+
+  A value that is not an Errata error at all is returned unchanged rather than
+  raising, because `Errata.root_error/1` raises and this is called at a boundary
+  where foreign shapes arrive — which is the guard errata's own usage rules
+  prescribe.
   """
-  @spec root_cause(term()) :: term()
-  def root_cause(error) do
-    if Errata.is_error(error) do
-      case Errata.cause(error) do
-        nil -> error
-        cause -> root_cause(cause)
-      end
-    else
-      error
-    end
+  @spec root_error(term()) :: term()
+  def root_error(error) do
+    if Errata.is_error(error), do: Errata.root_error(error), else: error
   end
 
   @doc """

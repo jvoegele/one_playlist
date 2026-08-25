@@ -15,4 +15,18 @@ ExUnit.start(exclude: [:supabase])
 # docs/library-feedback.md.
 Bond.Coverage.install_reporter()
 
+# The same question about the other library: which services did the suite ever
+# take down a failure path? A guarded call that only ever succeeds exercises
+# none of the four mechanisms, and a suite full of them looks identical to one
+# that tests every one.
+#
+# A row of zeros is a prompt rather than a verdict — a provider stubbed at our
+# own boundary is *supposed* to have them. It is the service we believed we were
+# testing that the report is for. Never a threshold, never a build failure.
+#
+# Installed here for the same reason as Bond's, and the library warns about it
+# in the same words: the counts live in an ETS table, and an ETS table dies with
+# the process that created it. This process outlives the suite; a test does not.
+ExternalService.Test.Coverage.install_reporter()
+
 Ecto.Adapters.SQL.Sandbox.mode(OnePlaylist.Repo, :manual)

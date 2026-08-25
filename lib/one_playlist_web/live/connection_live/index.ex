@@ -405,7 +405,7 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   # failure the user can act on — "connection refused" names the problem;
   # "gave up after 3 attempts" names our reaction to it.
   defp message_for(error) do
-    case Providers.root_cause(error) do
+    case Providers.root_error(error) do
       # `APIError`'s own wording for this is "reconnect to continue", which is
       # right where it is usually read — a transfer failing on a credential that
       # used to work. On *this* screen there is nothing to reconnect: the user is
