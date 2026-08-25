@@ -367,6 +367,38 @@ The cookie is a local convenience, not a secret — the node listens only on loo
 >
 > So: probe freely while the queues are idle, and expect this while a backfill is draining.
 
+> #### A probe can run stale code, silently {: .warning}
+>
+> `Phoenix.CodeReloader.reload/1` recompiles what has changed *since the build
+> artefacts were written*. Run `mix compile` yourself in another shell — which is
+> the normal thing to do — and the manifest is already current, so the reloader
+> finds nothing to do and **never loads the new beams into the running VM**. The
+> probe then evaluates against whatever the server started with, and says nothing
+> about it.
+>
+> This cost two wrong measurements in one session. A `Track` struct that had
+> gained a field came back without it, and a re-enrichment "measurement" scored
+> the previous version of the matching engine while reporting confidently.
+>
+> Two symptoms name it, and nothing else does: `%{badkey: ...}` for a field the
+> struct now has, and `:undef` for a function that exists. Both mean stale, not
+> broken.
+>
+> Guard against it by loading the modules the probe depends on, at the top of the
+> probe:
+>
+> ```elixir
+> for mod <- [OnePlaylist.Matching.Normalize, OnePlaylist.Music.Track] do
+>   :code.purge(mod)
+>   :code.load_file(mod)
+> end
+> ```
+>
+> That carries the same job-killing caveat as the warning above, for the same
+> reason. Better still, assert the thing you are about to rely on — call the new
+> function once and check the answer — so a stale probe fails loudly instead of
+> measuring the past.
+
 ### Local credentials
 
 Real provider credentials for driving the live APIs go in **`config/dev_local.exs`**, which is

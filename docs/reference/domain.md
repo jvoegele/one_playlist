@@ -1243,7 +1243,23 @@ argued.** Shipped without one, it identified a library recording stored as
 *Immortality* on the store-invented bucket **"Pearl Jam - Non-Album Tracks"**
 against a MusicBrainz release titled **"Pearl Jam"**. The asymmetry was supposed
 to make that impossible by requiring the other side to be exactly the core; the
-catalogue simply *has* a release with that name. This is the identical failure
+catalogue simply *has* a release with that name.
+
+Chased to the end, that release turned out to be a **1996 live album** rather
+than the 2006 self-titled record, so "a pseudo-album adopted a real album's
+identity" overstates what happened — a live *Immortality* is exactly what Roon
+files under Non-Album Tracks, and the match was defensible. What is not
+defensible is the evidence it rested on: **title and credit alone**. That row
+carries no ISRC, no source duration, and an album string invented by a music
+player. With the guard the album no longer agrees and it declines at ten
+candidates, which is the right answer for a track that has told us almost
+nothing about itself.
+
+Worth keeping in view: `@every_field_agreed` means no compared field
+*disagreed*, and fields absent on both sides cannot disagree. A track with only
+a title and a credit can therefore clear it. Requiring a minimum number of
+*corroborating* fields rather than an absence of conflicts is an open question,
+and one to measure rather than assume. This is the identical failure
 the symmetric rule was rejected for, reached by a different route.
 
 `same_album?/3` now takes `artists:` and refuses a head that *is* one of them —
