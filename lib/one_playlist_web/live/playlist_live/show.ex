@@ -129,6 +129,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:page_title, playlist.name)
          |> assign(:renaming?, false)
          |> assign(:expanded, MapSet.new())
+         |> assign(:candidates, %{})
          |> subscribe_to_enrichment()
          |> load_entries()}
 
@@ -236,7 +237,32 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         MapSet.put(expanded, entry_id)
       end
 
-    {:noreply, assign(socket, :expanded, toggled)}
+    {:noreply,
+     socket
+     |> assign(:expanded, toggled)
+     |> load_candidates(entry_id, MapSet.member?(toggled, entry_id))}
+  end
+
+  def handle_event("unlink", %{"entry" => entry_id}, socket) do
+    case Library.unlink(socket.assigns.current_user_id, socket.assigns.playlist.id, entry_id) do
+      :ok -> {:noreply, socket |> load_entries() |> load_candidates(entry_id, true)}
+      :error -> {:noreply, put_flash(socket, :error, "That track could not be unlinked.")}
+    end
+  end
+
+  def handle_event("link", %{"entry" => entry_id, "recording" => recording_id}, socket) do
+    case Library.link(
+           socket.assigns.current_user_id,
+           socket.assigns.playlist.id,
+           entry_id,
+           recording_id
+         ) do
+      :ok ->
+        {:noreply, socket |> load_entries() |> forget_candidates(entry_id)}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That recording could not be linked.")}
+    end
   end
 
   def handle_event("rename", _params, socket), do: {:noreply, assign(socket, :renaming?, true)}
@@ -256,6 +282,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:page_title, updated.name)
          |> assign(:renaming?, false)
          |> assign(:expanded, MapSet.new())
+         |> assign(:candidates, %{})
          |> subscribe_to_enrichment()}
 
       _otherwise ->
@@ -454,7 +481,11 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
               </div>
             </div>
 
-            <.detail :if={expanded?(@expanded, entry)} entry={entry} />
+            <.detail
+              :if={expanded?(@expanded, entry)}
+              entry={entry}
+              candidates={Map.get(@candidates, entry.id, [])}
+            />
           </li>
         </ul>
       </div>
@@ -552,6 +583,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   end
 
   attr :entry, :map, required: true
+  attr :candidates, :list, default: []
 
   defp detail(assigns) do
     ~H"""
@@ -595,6 +627,20 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           value={@entry.track.duration_seconds && duration(@entry.track.duration_seconds)}
         />
 
+        <dt class="opacity-60">Linked to</dt>
+        <dd>
+          <span :if={@entry.linked?} class="font-mono break-all">{@entry.track.provider_id}</span>
+          <span :if={!@entry.linked?} class="opacity-40">nothing yet</span>
+          <button
+            :if={@entry.linked?}
+            phx-click="unlink"
+            phx-value-entry={@entry.id}
+            class="btn btn-ghost btn-xs ml-2"
+          >
+            Unlink
+          </button>
+        </dd>
+
         <dt class="opacity-60">Looked up</dt>
         <dd>
           <span :if={@entry.musicbrainz.looked_up_at}>
@@ -605,6 +651,41 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           </span>
         </dd>
       </dl>
+
+      <div :if={!@entry.linked?} class="mt-2 bg-base-100 rounded p-3">
+        <p class="text-xs opacity-70 mb-2">
+          Recordings this might be. The score is what the engine thinks; the choice is yours.
+        </p>
+
+        <p :if={@candidates == []} class="text-xs opacity-40">
+          Nothing in the library resembles this track yet.
+        </p>
+
+        <ul class="space-y-1">
+          <li
+            :for={candidate <- @candidates}
+            class="flex items-center gap-2 text-xs"
+          >
+            <button
+              phx-click="link"
+              phx-value-entry={@entry.id}
+              phx-value-recording={candidate.recording.id}
+              class="btn btn-outline btn-xs"
+            >
+              Link
+            </button>
+            <span class="truncate">
+              {candidate.recording.title}
+              <span :if={candidate.recording.album} class="opacity-60">
+                · {candidate.recording.album}
+              </span>
+            </span>
+            <span class="opacity-40 tabular-nums ml-auto shrink-0">
+              {Float.round(candidate.score, 2)} · {candidate.strategy}
+            </span>
+          </li>
+        </ul>
+      </div>
     </div>
     """
   end
@@ -622,6 +703,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
   # Three states, because there are three. Collapsing "not asked" into "nothing
   # found" is the bug this screen already shipped once.
+  defp state(%{linked?: false}), do: :unlinked
   defp state(%{enriched?: false}), do: :waiting
   defp state(%{musicbrainz: %{recording_id: nil}}), do: :unidentified
   defp state(_entry), do: :identified
@@ -631,6 +713,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
       :identified -> "hero-check-circle"
       :unidentified -> "hero-minus-circle"
       :waiting -> "hero-clock"
+      :unlinked -> "hero-link-slash"
     end
   end
 
@@ -639,6 +722,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
       :identified -> "text-success/70"
       :unidentified -> "opacity-30"
       :waiting -> "opacity-40"
+      :unlinked -> "text-warning/80"
     end
   end
 
@@ -647,6 +731,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
       :identified -> "Identified at MusicBrainz"
       :unidentified -> "No confident match at MusicBrainz"
       :waiting -> "Waiting to be looked up"
+      :unlinked -> "Not linked to a recording"
     end
   end
 
@@ -654,6 +739,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   # carrying an ISRC is the ordinary case and gets no third line.
   defp note(entry) do
     case {state(entry), entry.track.isrc} do
+      {:unlinked, _isrc} -> "not linked to a recording — expand to choose one"
       {:waiting, _isrc} -> "waiting to be looked up"
       {:unidentified, _isrc} -> why_not(entry.musicbrainz)
       {:identified, nil} -> "MusicBrainz has no ISRC for this recording"
@@ -680,6 +766,30 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp why_not(_unknown), do: "no confident match at MusicBrainz"
 
   defp expanded?(expanded, entry), do: MapSet.member?(expanded, entry.id)
+
+  # Searched only for a row that is both expanded *and* unlinked, because that
+  # is the only row that shows them — and `link_candidates/4` runs a query per
+  # call. Collapsing a row forgets them, so re-opening it asks again rather than
+  # showing a list the library may have grown past.
+  defp load_candidates(socket, entry_id, expanded?) do
+    entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+    if (expanded? and entry) && not entry.linked? do
+      found =
+        Library.link_candidates(
+          socket.assigns.current_user_id,
+          socket.assigns.playlist.id,
+          entry_id
+        )
+
+      assign(socket, :candidates, Map.put(socket.assigns.candidates, entry_id, found))
+    else
+      forget_candidates(socket, entry_id)
+    end
+  end
+
+  defp forget_candidates(socket, entry_id),
+    do: assign(socket, :candidates, Map.delete(socket.assigns.candidates, entry_id))
 
   defp duration(seconds) when is_integer(seconds) do
     "#{div(seconds, 60)}:#{String.pad_leading(to_string(rem(seconds, 60)), 2, "0")}"

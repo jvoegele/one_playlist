@@ -71,7 +71,10 @@ defmodule OnePlaylist.Library.PlaylistItem do
   def changeset(%__MODULE__{} = item, attrs) do
     item
     |> cast(attrs, [:playlist_id, :user_id, :recording_id, :position | @owned])
-    |> validate_required([:playlist_id, :user_id, :recording_id, :position, :title])
+    # `recording_id` is deliberately absent: an item may say it does not know
+    # what recording it is, which is the whole of
+    # `playlist_item_link_is_breakable`.
+    |> validate_required([:playlist_id, :user_id, :position, :title])
     |> validate_number(:position, greater_than_or_equal_to: 0)
     |> validate_number(:duration_seconds, greater_than_or_equal_to: 0)
   end

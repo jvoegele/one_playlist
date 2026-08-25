@@ -38,6 +38,7 @@ defmodule OnePlaylist.Library do
   alias OnePlaylist.Library.Playlist
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Track
@@ -52,6 +53,11 @@ defmodule OnePlaylist.Library do
   hold the same recording twice and "remove this one" is a question about an
   entry.
 
+  `linked?` says whether anybody has decided which recording this is, which is
+  not the same question as whether MusicBrainz has been asked about it — an item
+  can be unlinked by hand at any time, and an unlinked item has nothing to ask
+  about.
+
   The `musicbrainz` half is what the editor shows when a row is expanded, and it
   is deliberately not on `t:OnePlaylist.Music.Track.t/0`: a track is what gets
   transferred, and where its metadata was resolved from is a fact about the
@@ -64,6 +70,7 @@ defmodule OnePlaylist.Library do
           id: Ecto.UUID.t(),
           position: integer(),
           track: Track.t(),
+          linked?: boolean(),
           enriched?: boolean(),
           musicbrainz: %{
             recording_id: Ecto.UUID.t() | nil,
@@ -163,24 +170,36 @@ defmodule OnePlaylist.Library do
         id: item.id,
         position: item.position,
         track: PlaylistItem.to_track(item, recording),
-        enriched?: not is_nil(recording.enriched_at),
-        musicbrainz: %{
-          recording_id: recording.musicbrainz_recording_id,
-          release_id: recording.musicbrainz_release_id,
-          looked_up_at: recording.enriched_at,
-          outcome: recording.enrichment_outcome,
-          candidates: recording.enrichment_candidates
-        }
+        # Three states rather than two, because "nobody has decided what this is"
+        # and "MusicBrainz has not been asked yet" are different answers and a
+        # reader acts differently on each.
+        linked?: not is_nil(item.recording_id),
+        enriched?: not is_nil(recording) and not is_nil(recording.enriched_at),
+        musicbrainz: musicbrainz(recording)
       }
     end)
   end
 
-  # One query behind both readers. A `join` rather than a `left_join` for now:
-  # `recording_id` is still `NOT NULL`, and making the link breakable is the
-  # next step rather than this one.
+  defp musicbrainz(nil) do
+    %{recording_id: nil, release_id: nil, looked_up_at: nil, outcome: nil, candidates: nil}
+  end
+
+  defp musicbrainz(%Recording{} = recording) do
+    %{
+      recording_id: recording.musicbrainz_recording_id,
+      release_id: recording.musicbrainz_release_id,
+      looked_up_at: recording.enriched_at,
+      outcome: recording.enrichment_outcome,
+      candidates: recording.enrichment_candidates
+    }
+  end
+
+  # One query behind both readers, and a `left_join` because an item may not
+  # know what recording it is. An inner join would silently drop exactly the
+  # rows a person most needs to see.
   defp items_with_recordings(playlist_id) do
     from(i in PlaylistItem,
-      join: r in Recording,
+      left_join: r in Recording,
       on: r.id == i.recording_id,
       where: i.playlist_id == ^playlist_id,
       order_by: [asc: i.position, asc: i.inserted_at],
@@ -213,6 +232,105 @@ defmodule OnePlaylist.Library do
       :ok
     else
       _otherwise -> :error
+    end
+  end
+
+  @doc """
+  Breaks the link between one of a user's items and its recording.
+
+  What a person does when a track is matched to the wrong music. The item keeps
+  everything its source said — that is phase 1's whole point — and simply stops
+  claiming to know which recording it is.
+
+  Deliberately not a delete. The alternative before this existed was removing
+  the track and adding it again, which loses its place in the playlist and any
+  correction made to it.
+
+  Answers `:error` for an item that is not this user's, exactly as
+  `fetch_playlist/2` does: an id is not a way to learn what exists.
+  """
+  @spec unlink(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t()) :: :ok | :error
+  def unlink(user_id, playlist_id, entry_id), do: set_link(user_id, playlist_id, entry_id, nil)
+
+  @doc """
+  Links one of a user's items to a recording it names by hand.
+
+  The choice is the person's and is not scored: `link_candidates/3` uses the
+  matching engine to *offer* sensible recordings, and this accepts whichever the
+  user picked. That asymmetry is the same one `OnePlaylist.Matching.Match`
+  states for `chosen_by_hand/2` — a threshold decides what somebody should look
+  at, and there is nothing to review about a track they chose themselves.
+
+  Answers `:error` for an item or a recording that does not exist.
+  """
+  @spec link(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t()) :: :ok | :error
+  def link(user_id, playlist_id, entry_id, recording_id) do
+    case Repo.get(Recording, recording_id) do
+      nil -> :error
+      %Recording{} -> set_link(user_id, playlist_id, entry_id, recording_id)
+    end
+  end
+
+  @doc """
+  Recordings this item might be, best first, with the engine's opinion of each.
+
+  Searched on demand rather than remembered. Enrichment keeps only a *count* of
+  what it considered, and storing candidate lists for every item would be a
+  large amount of data that goes stale the moment the library grows — which is
+  precisely when somebody would want to look at it.
+
+  The score is the ladder's and is shown rather than enforced: it is there to
+  help a person choose, not to stop them.
+  """
+  @spec link_candidates(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), pos_integer()) ::
+          [%{recording: Recording.t(), score: float(), strategy: atom()}]
+  def link_candidates(user_id, playlist_id, entry_id, limit \\ 10) do
+    case fetch_item(user_id, playlist_id, entry_id) do
+      :error -> []
+      {:ok, item} -> ranked(item, limit)
+    end
+  end
+
+  defp ranked(item, limit) do
+    # Built without its recording on purpose: the question is what this item
+    # might be, and the answer must not be steered by whatever it is currently
+    # linked to.
+    track = PlaylistItem.to_track(item, nil)
+
+    track
+    |> Matching.rank(search(track, limit), threshold: :none)
+    |> Enum.map(
+      &%{
+        recording: Repo.get(Recording, &1.track.provider_id),
+        score: &1.score,
+        strategy: &1.strategy
+      }
+    )
+    |> Enum.reject(&is_nil(&1.recording))
+  end
+
+  # `:ok` rather than the changed entry: every caller re-reads the playlist
+  # anyway — a link changes which recording a row shows, and the row is drawn
+  # from both halves — so returning one row would be a value nobody could use
+  # without asking for the rest.
+  defp set_link(user_id, playlist_id, entry_id, recording_id) do
+    with {:ok, item} <- fetch_item(user_id, playlist_id, entry_id),
+         {:ok, _updated} <-
+           item
+           |> Ecto.Changeset.change(recording_id: recording_id, updated_at: DateTime.utc_now())
+           |> Repo.update() do
+      :ok
+    else
+      _otherwise -> :error
+    end
+  end
+
+  defp fetch_item(user_id, playlist_id, entry_id) do
+    with {:ok, _playlist} <- fetch_playlist(user_id, playlist_id) do
+      case Repo.get_by(PlaylistItem, id: entry_id, playlist_id: playlist_id, user_id: user_id) do
+        nil -> :error
+        item -> {:ok, item}
+      end
     end
   end
 

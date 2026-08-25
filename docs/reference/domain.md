@@ -1268,9 +1268,30 @@ object with a longer life.
 Two items of one recording produce two tracks with one id, which is what the counting in
 `write_missing/5` already expects.
 
-Done in three steps so the risky part is alone: this one moves where the truth is kept and is
-invisible — 976 tests passed unchanged. Making the link **breakable** is next, and the edit form
-after that is a plain form over columns nobody shares.
+#### The link is the user's to break
+
+`recording_id` is nullable, which is what makes a wrong match *correctable* rather than only
+replaceable. Before it, a person looking at a track matched to the wrong music had one move —
+delete it and add it again — which loses its place in the playlist and any correction made to
+it.
+
+`NULL` rather than a tombstone row or a boolean beside a populated id: a recording meaning
+"unknown" is a row every query must remember to exclude, and a flag next to a live link is two
+facts that can disagree. `NULL` is the database's own word for it, and it makes a reader that
+forgets fail loudly rather than show a stale link. Reads became `LEFT JOIN` — an inner join
+would silently drop exactly the rows a person most needs to see.
+
+An entry therefore reports **three** states rather than two, because "nobody has decided what
+this is" and "MusicBrainz has not been asked yet" are different answers and a reader acts
+differently on each.
+
+Candidates are **searched on demand**, not remembered. Enrichment keeps only a count of what it
+considered, and storing candidate lists for every item would be a lot of data that goes stale
+exactly when the library grows — which is when somebody would want to look at it. The score is
+shown and not enforced: the engine offers, the person decides, which is the same asymmetry
+`Match.chosen_by_hand/2` already states.
+
+The remaining step is the edit form, which by now is a plain form over columns nobody shares.
 
 ### The library is the identity spine, and that is the point
 

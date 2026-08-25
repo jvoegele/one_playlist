@@ -373,6 +373,104 @@ defmodule OnePlaylist.LibraryTest do
     end
   end
 
+  describe "breaking and remaking the link" do
+    setup %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Mine")
+
+      Library.append(user_id, playlist.id, [
+        track(%{isrc: nil, title: "Hard to Imagine", album: "Chicago Cab"})
+      ])
+
+      [entry] = Library.entries(user_id, playlist.id)
+
+      %{playlist: playlist, entry: entry}
+    end
+
+    test "an unlinked item keeps everything its source said", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The reason unlinking is not deleting. Before this the only move against
+      # a wrong match was removing the track and adding it again, which loses
+      # its place and any correction made to it.
+      assert :ok = Library.unlink(user_id, playlist.id, entry.id)
+
+      assert [still_there] = Library.entries(user_id, playlist.id)
+
+      assert still_there.track.title == "Hard to Imagine"
+      assert still_there.track.album == "Chicago Cab"
+      refute still_there.track.provider_id, "and it no longer claims to know what recording it is"
+    end
+
+    test "an unlinked item is still in the playlist a transfer reads", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # A `join` here would silently drop exactly the rows a person most needs
+      # to see, and would quietly shrink their playlist.
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      assert [track] = Library.tracks(user_id, playlist.id)
+      assert track.title == "Hard to Imagine"
+    end
+
+    test "offers recordings it might be, best first", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      # Another recording of the same song, which is what a person would be
+      # choosing between.
+      other =
+        Library.find_or_create(track(%{isrc: nil, title: "Hard to Imagine", album: "Lost Dogs"}))
+
+      offered = Library.link_candidates(user_id, playlist.id, entry.id)
+
+      assert other.id in Enum.map(offered, & &1.recording.id)
+      assert Enum.all?(offered, &is_float(&1.score))
+    end
+
+    test "links to whichever the person picked, scored or not", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The choice is theirs and is not re-judged. A threshold decides what
+      # somebody should look at; there is nothing to review about a recording
+      # they chose themselves.
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      unrelated =
+        Library.find_or_create(track(%{isrc: nil, title: "Nothing Like It", album: "Elsewhere"}))
+
+      assert :ok = Library.link(user_id, playlist.id, entry.id, unrelated.id)
+
+      assert [relinked] = Library.entries(user_id, playlist.id)
+      assert relinked.track.provider_id == unrelated.id
+      assert relinked.track.title == "Hard to Imagine", "the item still says what it said"
+    end
+
+    test "refuses a recording that does not exist", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      assert :error = Library.link(user_id, playlist.id, entry.id, Ecto.UUID.generate())
+    end
+
+    test "somebody else's item cannot be unlinked", %{playlist: playlist, entry: entry} do
+      # Scoped like `fetch_playlist/2`, and for the same reason: an id is not a
+      # way to learn what exists.
+      stranger = AuthFixtures.user_id_fixture()
+
+      assert :error = Library.unlink(stranger, playlist.id, entry.id)
+    end
+  end
+
   describe "search/2" do
     test "finds a held recording by ISRC" do
       Library.find_or_create(track(%{isrc: "USSM11100234"}))

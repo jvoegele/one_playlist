@@ -617,6 +617,87 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
     end
   end
 
+  describe "unlinking and re-linking a track" do
+    setup %{user_id: user_id} do
+      %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}
+    end
+
+    test "unlinking keeps the track and offers what it might be", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      html =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert html =~ "Unlink"
+
+      unlinked =
+        view
+        |> element(~s{button[phx-click="unlink"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert unlinked =~ "not linked to a recording"
+      assert unlinked =~ "One", "the track itself is still there"
+      assert unlinked =~ "Recordings this might be"
+    end
+
+    test "linking a candidate puts the track back", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+      recording_id = entry.track.provider_id
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      view
+      |> element(~s{button[phx-click="unlink"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      relinked =
+        view
+        |> element(
+          ~s{button[phx-click="link"][phx-value-entry="#{entry.id}"][phx-value-recording="#{recording_id}"]}
+        )
+        |> render_click()
+
+      refute relinked =~ "not linked to a recording"
+
+      assert [%{linked?: true, track: %{provider_id: ^recording_id}} | _rest] =
+               Library.entries(user_id, playlist.id)
+    end
+
+    test "an unlinked track is not reported as waiting to be looked up", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # Three states, not two. "Nobody has decided what this is" and
+      # "MusicBrainz has not been asked yet" are different answers, and a reader
+      # acts differently on each.
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "not linked to a recording"
+      assert html =~ "Not linked to a recording"
+    end
+  end
+
   describe "somebody else's playlist" do
     test "redirects rather than rendering it", %{conn: conn} do
       theirs = playlist_with(AuthFixtures.user_id_fixture(), "Not Yours", ~w(One))

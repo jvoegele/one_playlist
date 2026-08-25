@@ -151,7 +151,16 @@ defmodule OnePlaylist.Providers.Library do
 
   def playlist_track_ids(%Connection{} = connection, playlist, _opts) when is_binary(playlist) do
     with {:ok, _found} <- fetch_playlist(connection, playlist) do
-      {:ok, connection.user_id |> Library.tracks(playlist) |> Enum.map(& &1.provider_id)}
+      # An unlinked item has no recording and therefore no id at this service. It
+      # is a real track in the playlist and simply not one this can report,
+      # which is what a `nil` here would otherwise pretend to be.
+      ids =
+        connection.user_id
+        |> Library.tracks(playlist)
+        |> Enum.map(& &1.provider_id)
+        |> Enum.filter(&is_binary/1)
+
+      {:ok, ids}
     end
   end
 
