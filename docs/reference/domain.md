@@ -1290,12 +1290,36 @@ the asymmetry was an oversight rather than a decision. All four corpora are
 unmoved by fixing it, because a title made entirely of brackets is rare enough
 that none of them contains one.
 
-It does not make that particular track match, and could not have. MusicBrainz
-holds the State College improvisation — `78aeb743` — under the title **"I Wanna
-Go"**, and its releases are *2003-05-03: State College, PA* and two other
-spellings, none of which is our *Live: 05-03-03 - State College, Pennsylvania*.
-So there is no text query that finds it: the title we hold is not a name, and
-the album we hold is not the one the catalogue uses.
+It does not make that particular track match, and the reason is a third instance
+of one root cause.
+
+**A recording's title and its title *on a release* are different fields, and we
+read only the first.** MusicBrainz holds the State College improvisation —
+`78aeb743` — as the recording **"I Wanna Go"**, and on the pressing *State
+College, PA - May 3rd 2003* that same recording is track 10, titled
+**"[improvisation]"**. Both names are in the catalogue; `Client.to_track/1`
+takes `recording["title"]` and never looks at `media[].tracks[].title`.
+
+That is the same shape as the album problem above — a search response carrying a
+list where we kept one value — and the same shape again as taking
+`List.first(releases)`. Three fields, one habit.
+
+**Reading track titles would not find this one, though**, and it is worth being
+exact about why: MusicBrainz's *search* index does not carry them either. Asking
+for `recording:"improvisation" AND artist:"Pearl Jam"` returns 25 recordings and
+`78aeb743` is not among them, because its recording title is "I Wanna Go". Track
+titles would improve *scoring* for candidates the search already returns; they
+cannot make an unreturned candidate appear.
+
+What would reach it is a different strategy altogether — find the *release* by
+its name, then look for our title among its tracks. For a live bootleg, whose
+album name is far more distinctive than its track names, that is the strong
+signal and the recording title is the weak one. Not built, and worth its own
+measurement before it is.
+
+The albums disagree too: ours reads *Live: 05-03-03 - State College,
+Pennsylvania* against the catalogue's *2003-05-03: State College, PA* and two
+other spellings.
 
 It carries an ISRC — `USSM10306840` — and that is the only way in. Which makes
 this the case for `link_to_own_details/3`: correct the item, including the ISRC,
