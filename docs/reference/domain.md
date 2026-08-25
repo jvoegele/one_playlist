@@ -1223,6 +1223,55 @@ transfer finishes. A library is where that correspondence gets to live.
 L1–L3 are the product. L4 and L5 are what make it worth more than a folder of CSVs. L6 and L7
 are largely re-pointing machinery that already exists.
 
+### A playlist item owns its own account of the track
+
+An item began as `(playlist, user, recording, position)` — a pointer with an order. Every word
+shown for it came from the shared, ownerless recording, and `recording_id` was `NOT NULL`, so
+breaking a wrong link was not merely unbuilt but impossible.
+
+That is the wrong shape, and the reasons have nothing to do with editing:
+
+  * **A wrong match destroyed data.** `find_or_create/1` decides at import whether two arrivals
+    are one recording, and that decision *was* the playlist. Two *Hard to Imagine* rows — one
+    from *Lost Dogs*, one from the *Chicago Cab* soundtrack, two different studio sessions —
+    collapsed into one and one vanished. With the item holding its own metadata, both exist
+    whatever the matcher concludes.
+  * **A conflict had nowhere to live.** An item said "Blood, on *Vs.*"; its ISRC resolved,
+    correctly, to *Pry, To* on *Vitalogy*. Two claims, one row, one of them had to lose.
+  * **Editing would have needed per-field provenance.** Telling "the user set this" from "TIDAL
+    set this" was going to be a column per field. It is two tables instead.
+
+The deepest consequence is that **matching becomes an annotation rather than a destructive
+decision**, which in turn means the deliberately conservative dedup rules can be re-examined:
+they are strict because a wrong merge was unrecoverable, and it no longer is.
+
+#### A full copy, not an overlay
+
+Storing only overridden fields and falling back to the recording is the obvious economy and
+fails on the case the change exists for: an item unlinked from its recording would have nothing
+left to show. An item has to stand alone.
+
+`TransferItem` has always worked this way — `source_title` beside `destination_title` — because
+a report must show what was asked for even when the answer is wrong. A playlist item is that
+object with a longer life.
+
+#### Which side wins each field
+
+| | |
+| --- | --- |
+| Title, credit, album, version | **the item.** A catalogue disagreeing about a title is not a reason to overrule the person whose playlist it is |
+| Cover art, barcode, MusicBrainz identity | **the recording.** What a catalogue knows and a source does not |
+| ISRC, length | **the item, then the recording.** Its own claim wins; the catalogue fills a gap the source never had |
+
+`provider_id` stays the **recording's** id, because that is what
+`Providers.Library.playlist_track_ids/3` reports and therefore what a transfer diffs against.
+Two items of one recording produce two tracks with one id, which is what the counting in
+`write_missing/5` already expects.
+
+Done in three steps so the risky part is alone: this one moves where the truth is kept and is
+invisible — 976 tests passed unchanged. Making the link **breakable** is next, and the edit form
+after that is a plain form over columns nobody shares.
+
 ### The library is the identity spine, and that is the point
 
 §2 ends with a note to *cache resolutions* — `(source_service, source_id) → (dest_service,

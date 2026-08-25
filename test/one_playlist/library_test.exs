@@ -15,6 +15,7 @@ defmodule OnePlaylist.LibraryTest do
 
   alias OnePlaylist.AuthFixtures
   alias OnePlaylist.Library
+  alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Track
@@ -235,6 +236,140 @@ defmodule OnePlaylist.LibraryTest do
       assert stored.artwork_url == "https://example.test/cover.jpg"
       assert stored.album_upc == "602547670052"
       assert stored.origin_provider == "tidal"
+    end
+  end
+
+  describe "an item owns its own account of the track" do
+    setup %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Mine")
+
+      Library.append(user_id, playlist.id, [
+        track(%{
+          isrc: nil,
+          title: "Hard to Imagine",
+          album: "Chicago Cab",
+          artists: ["Pearl Jam"]
+        })
+      ])
+
+      [entry] = Library.entries(user_id, playlist.id)
+
+      %{playlist: playlist, entry: entry}
+    end
+
+    test "the catalogue improving does not rewrite the playlist", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The whole point of the split. A recording is shared and enrichment
+      # improves it for everyone; a playlist is one person's and says what their
+      # source said.
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      |> Ecto.Changeset.change(
+        title: "Hard to Imagine (2003 remaster)",
+        album: "Music From Chicago Cab",
+        artists: ["Pearl Jam", "Somebody Else"]
+      )
+      |> Repo.update!()
+
+      assert [refreshed] = Library.entries(user_id, playlist.id)
+
+      assert refreshed.track.title == "Hard to Imagine"
+      assert refreshed.track.album == "Chicago Cab"
+      assert refreshed.track.artists == ["Pearl Jam"]
+    end
+
+    test "but the catalogue still supplies what a source does not know", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      |> Ecto.Changeset.change(
+        artwork_url: "https://example.test/cover.jpg",
+        album_upc: "602547670052"
+      )
+      |> Repo.update!()
+
+      assert [refreshed] = Library.entries(user_id, playlist.id)
+
+      assert refreshed.track.artwork_url == "https://example.test/cover.jpg"
+      assert refreshed.track.album_upc == "602547670052"
+    end
+
+    test "an ISRC the source never had is filled in from the catalogue", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The item's own claim wins where it has one; this item has none, and
+      # enrichment has since learned the answer.
+      learned = isrc("USSM11100234")
+
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      |> Ecto.Changeset.change(isrc: learned)
+      |> Repo.update!()
+
+      assert [refreshed] = Library.entries(user_id, playlist.id)
+      assert refreshed.track.isrc == learned
+    end
+
+    test "the item is what a transfer out of the library reads", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # `tracks/2` is what `Providers.Library` streams as a source, so it has to
+      # agree with the screen about what the playlist holds.
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      |> Ecto.Changeset.change(title: "Something Else Entirely")
+      |> Repo.update!()
+
+      assert [track] = Library.tracks(user_id, playlist.id)
+      assert track.title == "Hard to Imagine"
+      assert track.provider_id == entry.track.provider_id, "still addressed by its recording"
+    end
+
+    test "two items of one recording keep their own metadata", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # One recording, two items. The second arrival is the same track by every
+      # key `find_or_create/1` has, so it links to the recording already there —
+      # and the items still say whatever their owner says they say.
+      Library.append(user_id, playlist.id, [
+        track(%{
+          isrc: nil,
+          title: "Hard to Imagine",
+          album: "Chicago Cab",
+          artists: ["Pearl Jam"]
+        })
+      ])
+
+      assert [first, second] = Library.entries(user_id, playlist.id)
+
+      assert first.track.provider_id == second.track.provider_id,
+             "one recording, or this test is not about what it says it is"
+
+      # What editing will do in the next step, done here by hand.
+      PlaylistItem
+      |> Repo.get!(second.id)
+      |> Ecto.Changeset.change(album: "Lost Dogs: Rarities and B Sides")
+      |> Repo.update!()
+
+      assert [
+               %{track: %{album: "Chicago Cab"}},
+               %{track: %{album: "Lost Dogs: Rarities and B Sides"}}
+             ] =
+               Library.entries(user_id, playlist.id)
+
+      refute entry.id == second.id
     end
   end
 

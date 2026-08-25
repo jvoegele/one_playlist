@@ -141,18 +141,9 @@ defmodule OnePlaylist.Library do
   """
   @spec tracks(Ecto.UUID.t(), Ecto.UUID.t()) :: [Track.t()]
   def tracks(user_id, playlist_id) do
-    query =
-      from(i in PlaylistItem,
-        join: r in Recording,
-        on: r.id == i.recording_id,
-        where: i.playlist_id == ^playlist_id,
-        order_by: [asc: i.position, asc: i.inserted_at],
-        select: r
-      )
+    {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(items_with_recordings(playlist_id)) end)
 
-    {:ok, recordings} = Repo.as_user(user_id, fn -> Repo.all(query) end)
-
-    Enum.map(recordings, &Recording.to_track/1)
+    Enum.map(rows, fn {item, recording} -> PlaylistItem.to_track(item, recording) end)
   end
 
   @doc """
@@ -165,22 +156,13 @@ defmodule OnePlaylist.Library do
   """
   @spec entries(Ecto.UUID.t(), Ecto.UUID.t()) :: [entry()]
   def entries(user_id, playlist_id) do
-    query =
-      from(i in PlaylistItem,
-        join: r in Recording,
-        on: r.id == i.recording_id,
-        where: i.playlist_id == ^playlist_id,
-        order_by: [asc: i.position, asc: i.inserted_at],
-        select: {i, r}
-      )
-
-    {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(query) end)
+    {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(items_with_recordings(playlist_id)) end)
 
     Enum.map(rows, fn {item, recording} ->
       %{
         id: item.id,
         position: item.position,
-        track: Recording.to_track(recording),
+        track: PlaylistItem.to_track(item, recording),
         enriched?: not is_nil(recording.enriched_at),
         musicbrainz: %{
           recording_id: recording.musicbrainz_recording_id,
@@ -191,6 +173,19 @@ defmodule OnePlaylist.Library do
         }
       }
     end)
+  end
+
+  # One query behind both readers. A `join` rather than a `left_join` for now:
+  # `recording_id` is still `NOT NULL`, and making the link breakable is the
+  # next step rather than this one.
+  defp items_with_recordings(playlist_id) do
+    from(i in PlaylistItem,
+      join: r in Recording,
+      on: r.id == i.recording_id,
+      where: i.playlist_id == ^playlist_id,
+      order_by: [asc: i.position, asc: i.inserted_at],
+      select: {i, r}
+    )
   end
 
   @doc "Renames a playlist, or changes its description."
@@ -422,14 +417,26 @@ defmodule OnePlaylist.Library do
       |> Enum.with_index(start)
       |> Enum.map(fn {track, position} ->
         recording = find_or_create(track)
+        now = DateTime.utc_now()
 
+        # The item keeps the *source's* account of the track, not the
+        # recording's. They are usually the same on the way in and stop being so
+        # the moment enrichment improves one or a person corrects the other —
+        # see `OnePlaylist.Library.PlaylistItem`.
         %{
           id: Ecto.UUID.generate(),
           playlist_id: playlist_id,
           user_id: user_id,
           recording_id: recording.id,
           position: position,
-          inserted_at: DateTime.utc_now()
+          title: track.title,
+          artists: track.artists,
+          album: track.album,
+          version: track.version,
+          duration_seconds: track.duration_seconds,
+          isrc: track.isrc,
+          inserted_at: now,
+          updated_at: now
         }
       end)
 
