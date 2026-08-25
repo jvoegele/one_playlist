@@ -506,6 +506,44 @@ defmodule OnePlaylist.TransfersTest do
       assert Agent.get(state, & &1.added) == ~w(ds1 ds1)
     end
 
+    test "a second copy added later is written, though the first is already there",
+         %{user: user} do
+      # The partial overlap, and the only shape that tells counting apart from
+      # set comparison. Both of the tests around this one are satisfied by
+      # either implementation: with an empty destination both write everything,
+      # and with a fully-stocked one both write nothing.
+      #
+      # Here the destination holds *one* and the source asks for *two*. Counting
+      # writes the difference; set comparison sees the id present and writes
+      # nothing, and the second copy is silently lost with the report calling it
+      # matched. Found by mutation — `write_missing/5`'s postcondition could not
+      # be made to fire low until this existed.
+      {:ok, source} = Library.create_playlist(user, "Grew by one")
+
+      twin = %Track{
+        provider: :tidal,
+        provider_id: "src-twin",
+        title: "Song s1",
+        isrc: isrc("s1")
+      }
+
+      1 = Library.append(user, source.id, [twin])
+
+      state = provider_state()
+
+      {:ok, first} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+
+      assert first.added_count == 1
+      assert Agent.get(state, & &1.added) == ~w(ds1)
+
+      1 = Library.append(user, source.id, [twin])
+
+      {:ok, second} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+
+      assert second.added_count == 1, "the copy the destination is short of"
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds1)
+    end
+
     test "two different recordings sharing a title both land", %{user: user} do
       # The case that prompted this. "Hard to Imagine" appears twice in a real
       # playlist — once from Lost Dogs, once from the Chicago Cab soundtrack —

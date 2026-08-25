@@ -678,6 +678,40 @@ defmodule OnePlaylist.Transfers.Runner do
   # Found by a user whose playlist holds two different studio recordings of
   # "Hard to Imagine" — one from *Lost Dogs*, one from the *Chicago Cab*
   # soundtrack — and, before this, one of them silently.
+  #
+  # That paragraph, as a law: for every destination id, write the number the
+  # source asks for **less** the number already there, and never below zero.
+  # Both halves of "idempotent and faithful" are that one sentence, so it is one
+  # assertion rather than two.
+  #
+  # It is stated against `missing_count/2`, which is a second implementation of
+  # the same rule and exists only so the comparison can be written — the same
+  # device as `Transfers.record_run/3`'s `report_agrees_with_counters`, and shape
+  # 0 in `docs/reference/contracts.md`. The body streams a reduce and decrements
+  # a counter as it goes; the assertion builds two frequency maps and sums the
+  # differences. Sharing an implementation between the two would make the
+  # cross-check vacuous, which is the whole reason it is written the other way
+  # round.
+  #
+  # Two weaker forms were tried first and both were wrong, which is worth
+  # recording because both looked obviously right. `size <= matched_count` is
+  # satisfied exactly by writing *everything*, so it does not catch the
+  # duplication it was aimed at. And `size >= matched_count - length(present)`
+  # is nearly vacuous, because `present` counts every track at the destination
+  # including the ones this transfer never mentioned.
+  #
+  # A postcondition on a `defp` is fine: Meyer's Precondition Availability rule
+  # constrains what a *client* must discharge, and a postcondition is the
+  # supplier's own promise.
+  #
+  # Proven by mutation in both directions, as a conservation law must be:
+  # restoring the old skip-if-present-at-all fires it low, and dropping the
+  # `held` bookkeeping so everything is written fires it high.
+  @post whenever(
+          {:ok, positions} <- result,
+          wrote_exactly_what_was_missing:
+            MapSet.size(positions) == missing_count(resolutions, present)
+        )
   defp write_missing(resolutions, present, adapter, connection, destination) do
     held = Enum.frequencies(present)
 
@@ -712,6 +746,26 @@ defmodule OnePlaylist.Transfers.Runner do
       :ok -> {:ok, MapSet.new(to_write, fn {position, _track} -> position end)}
       {:error, _reason} = error -> error
     end
+  end
+
+  # How many tracks `write_missing/5` owes the destination, computed the other
+  # way round from how it computes them — see that function's postcondition for
+  # why the duplication is the point rather than an oversight.
+  #
+  # Kept in step with the body by exactly one thing: they must agree, on every
+  # transfer, in dev and in test.
+  defp missing_count(resolutions, present) do
+    held = Enum.frequencies(present)
+
+    resolutions
+    |> Enum.flat_map(fn
+      {_position, _source, {:ok, match}} -> [match.track.provider_id]
+      _unmatched -> []
+    end)
+    |> Enum.frequencies()
+    |> Enum.reduce(0, fn {provider_id, wanted}, total ->
+      total + max(0, wanted - Map.get(held, provider_id, 0))
+    end)
   end
 
   # Re-reads the destination and checks the writes landed.
