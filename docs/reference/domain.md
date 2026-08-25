@@ -2062,12 +2062,36 @@ with itself (read from Postgres, so the agreement survives a restart); a release
 track's own album beats a compilation it also appears on; and among those, prefer one Cover
 Art Archive actually holds a cover for, then the earliest, then the lowest id.
 
-After the repair, cover coverage went 104 → 119 of 150 and *Dark Matter* is uniform. Seven
-albums still span more than one release, and the reason is worth keeping: a widely reissued
-album has dozens of pressings, and MusicBrainz lists for each recording only the ones it
-appears on, so the release the first track settles on may simply not be among the fifth
-track's options. Their covers agree; their barcodes do not. Resolving the **album** once and
-mapping its tracks onto it would fix that, and is a larger piece of work than it sounds.
+After the repair, cover coverage went 104 → 119 of 150 and *Dark Matter* is uniform. Eight
+albums still spanned more than one release, and the reason recorded here was a widely
+reissued album having dozens of pressings, with MusicBrainz listing for each recording only
+the ones it appears on — so the release the first track settles on may not be among the
+fifth track's options.
+
+That was true and it was not the whole cause, which only measurement showed. The larger half
+is that **the first track enriched commits the album and nothing revisits it**. *Riot Act* is
+the clean case: one of its two releases is listed against all ten of its tracks and the other
+against eight, and the album took the *narrower* one — because `1/2 Full` was enriched first,
+had no sibling to inherit from, and rule 3 handed it that one. A release every track could
+have agreed on was passed over on arrival order alone.
+
+No per-recording rule reaches the right answer, because the right release is the one *most*
+of the album is on and no single track knows that. `OnePlaylist.Library.Albums` is the fix
+and it lives a level up: it scores each candidate release by how much of the album its track
+list accounts for and settles the whole album on the widest. Coverage is `recording_mbid`
+**or** exact title, because a remaster is a different recording entity and neither test alone
+suffices — *Ten Redux*'s winner names two of six tracks by MBID and five by title.
+
+Run over the library it took **8 of 8** disagreeing albums to a single release, every one of
+them covering the album completely, for 13 requests. `bin/remote dev/measure/album_agreement.exs`
+is the replay.
+
+Two things it deliberately does not do. There is **no duration check** on the title test:
+coverage asks which *pressing carries a track*, which a duration cannot answer, and the five
+`Vs.` tracks such a check rejected were all cases where the library's own imported duration
+was wrong and MusicBrainz right. And a UPC a **provider** supplied is never overwritten, so
+five albums still hold two barcodes on purpose — that is a provenance problem, and the answer
+to it is a provenance model rather than a wider licence to rewrite.
 
 Two lessons, both general:
 

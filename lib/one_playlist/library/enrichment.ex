@@ -196,19 +196,34 @@ defmodule OnePlaylist.Library.Enrichment do
   which is not an album, so its tracks genuinely appear on unrelated releases and
   rule 1's membership test correctly declines to force them together.
 
-  ### The limit of this, stated plainly
+  ### The limit of this, stated plainly — and where it is now fixed
 
   Rule 1 makes an album agree **where it can**. A widely reissued album has
   dozens of pressings and MusicBrainz lists, for each recording, only the ones it
   actually appears on — so the release the first track settles on may not be in
-  the fifth track's list, and it falls through to its own best. Seven albums here
-  still span more than one release for that reason. Their covers agree, because
-  a reissue's cover is the same picture, but their barcodes do not.
+  the fifth track's list, and it falls through to its own best.
 
-  Fixing that properly means resolving the **album** once and mapping its tracks
-  onto it, rather than resolving each track and hoping they converge. That is a
-  different and larger piece of work, and it is not needed for the thing this
-  screen shows.
+  What was written here before is true and was not the whole story, which
+  measurement showed. The failure is not only that a sibling's release is
+  sometimes unavailable; it is that **the first track to be enriched commits the
+  album, and nothing ever revisits that**. *Riot Act* is the clean case:
+  MusicBrainz lists one of its two releases against all ten of its tracks and
+  the other against eight, and the album took the narrower one — because
+  `1/2 Full` was enriched first, had no sibling to inherit from, and rule 3
+  handed it that one. A release every track could have agreed on was passed over
+  on arrival order alone.
+
+  No per-recording rule can reach the right answer, because the right release is
+  the one *most* of the album is on and no single track knows that. So the fix
+  belongs a level up, in `OnePlaylist.Library.Albums`, which scores each
+  candidate by how much of the album it accounts for and settles the whole album
+  on the widest. Run over the dev library it took all eight disagreeing albums to
+  one release each, every one of them covering the album completely.
+
+  Nothing here changed. This still resolves a recording at a time, still fills
+  gaps and never corrects, and is still what runs on the enrichment queue;
+  `Albums.resolve/2` is a separate, explicitly-invoked operation with a contract
+  of its own saying what it may rewrite.
 
   ## What it costs
 

@@ -552,6 +552,7 @@ A fresh session should read this before proposing what to build.
 | Re-enrichment | "Look up again" on the playlist header and on each unidentified row. Only ever re-asks what has **no answer yet** — enrichment fills gaps and never overwrites — and hides while a first lookup is in flight |
 | Release cache | `musicbrainz_releases`: a release, its group, its secondary types and its **track list**, fetched once and kept. Nothing expires — a release fetched by its own id cannot be a negative, and what it says is near-immutable. `looked_up_at` is for refreshing, never pruning. Measured 928ms cold, 0ms cached |
 | Release-first | The last rung, and the one that inverts the question: find the **release** by album name, then look for our title among its tracks. MusicBrainz's release index bridges `05-03-03` → `2003-05-03`, which no string rule here will. Its top hit is **not** trusted — asked for a 2000 Verona show it ranks a 2006 one first — so the rule is agreement: every matching track across the fetched releases must name the same recording |
+| Albums | Enrichment resolves a **recording** at a time, and an album is not one recording: the first track enriched commits the album and nothing revisits it, so *Riot Act* took a release listed against eight of its ten tracks while one listed against all ten was passed over on arrival order. `Library.Albums` scores each candidate by how much of the album its **track list** accounts for and settles the whole album on the widest — coverage by `recording_mbid` **or** exact title, because a remaster is a different recording entity and neither test alone suffices. Deliberately no duration check: coverage asks which *pressing carries a track*, which a duration cannot answer, and the five `Vs.` tracks it rejected were the library's own imported values being wrong. Correcting is not enriching, so this is a separate operation with its own contract — `adopt/2` may write the release and its barcode and nothing else. **8 of 8 disagreeing albums resolved, every one fully covered**; a UPC a *provider* supplied is still never overwritten, so five albums keep two barcodes on purpose |
 | Wrong ISRCs | A code that resolves to different music no longer **stops** enrichment; it is set aside and the recording is asked about by name. `library_recordings.isrc_disputed` records the dispute durably, because the outcome column moves on to `:identified` and forgets — and `Identities.anchor/1` refuses to anchor a cross-service identity on a disputed code |
 | Match quality | Four corpora, all replayable offline. `dev/measure/replay.exs`: **82 certain, 12 duration-corroborated, 5 none, 1 wrong** of 100 random MusicBrainz recordings. `dev/corpus/replay_credit_cases.exs`: **96 correct, 12 equivalent, 7 missed, 0 wrong** of 115 hard credit cases, and **5 of 5** hand-labelled decline cases correctly declined. `dev/corpus/replay_enrichment.exs` (new, 255 cases from the library **and** `dev/playlists/*.csv`): **150 correct, 32 equivalent, 31 unverified, 20 missed, 1 wrong** of 234 labelled. See `docs/reference/domain.md` |
 
@@ -584,8 +585,9 @@ wrong track*, and every corpus here is built on one. Before believing any of the
 got worse, read the cases.
 
 **Library state, 2026-08-25:** 654 recordings, **639 identified**, 4 with a disputed ISRC, and
-643 releases in the cache. The remaining 15 are compilations MusicBrainz does not hold, Roon's
+656 releases in the cache. The remaining 15 are compilations MusicBrainz does not hold, Roon's
 store-invented *Pearl Jam - Non-Album Tracks* bucket, and genuine catalogue gaps.
+**No album spans more than one release** — see the Albums row above.
 
 > #### `dev/` is **not** gitignored {: .warning}
 >
@@ -615,13 +617,6 @@ backlog below is the road to it, not a separate list.
 
   * **Scheduled sync** — the retention feature both incumbents charge for, and the reason
     `wait_for_it` and pg_cron are already in the stack.
-  * **Resolve the album, not each track.** Enrichment picks a MusicBrainz release per
-    *recording*, with a rule that makes an album agree with itself where it can. Seven
-    of the dev library's albums still span more than one release, because a widely
-    reissued album's pressings are not all listed against every one of its recordings.
-    Covers agree; barcodes do not. The fix is to resolve the album once and map its
-    tracks onto it.
-
   * **Editing a recording's own metadata.** Roon's CSV export writes the **album
     artist** into the track artist column, so every track on a compilation or tribute
     album is credited to its subject: *Crucible*'s twelve different performers all
