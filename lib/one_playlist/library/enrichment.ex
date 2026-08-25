@@ -946,7 +946,7 @@ defmodule OnePlaylist.Library.Enrichment do
   defp same_album?(%Recording{album: nil}, _release), do: false
 
   defp same_album?(%Recording{album: album}, release) do
-    Normalize.album(album) == Normalize.album(release["title"])
+    Normalize.same_album?(album, release["title"])
   end
 
   # Only asked when there is nothing already, and only ever once per **album** —

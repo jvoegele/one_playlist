@@ -20,6 +20,10 @@
 # comparison was before `album/1` existed. It cannot produce a false positive at
 # all, so the only question about any rule that loosens it is what it costs in
 # that direction.
+#
+# Three rules are scored, in the order they were adopted: the baseline,
+# `album/1` equality, and `same_album?/2` — which adds the asymmetric case where
+# one title *is* the other's core. The last is what the engine uses.
 alias OnePlaylist.Matching.Normalize
 
 cases = "dev/corpus/album_cases.json" |> File.read!() |> Jason.decode!()
@@ -69,12 +73,14 @@ end
 
 exact = fn left, right -> Normalize.text(left) == Normalize.text(right) end
 core = fn left, right -> Normalize.album(left) == Normalize.album(right) end
+subtitle = fn left, right -> Normalize.same_album?(left, right) end
 
 %{
   pairs: length(cases),
   same_album: Enum.count(cases, & &1["same_album"]),
   different_albums: Enum.count(cases, &(not &1["same_album"])),
   baseline_exact_text: report.("Normalize.text/1 equality", exact),
-  album_core: report.("Normalize.album/1 equality", core)
+  album_core: report.("Normalize.album/1 equality", core),
+  same_album: report.("Normalize.same_album?/2", subtitle)
 }
 |> IO.inspect(limit: :infinity, printable_limit: :infinity)

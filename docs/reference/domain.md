@@ -1217,24 +1217,54 @@ of Hunters & Collectors*. It matches at `0.75`.
 
 So the remaining gap is the **album subtitle**, not the credit.
 
-#### The album-subtitle measurement, offered and not taken
+#### The album subtitle: `same_album?/2`
 
-Stripping after a spaced dash on *both* sides was measured and rejected earlier.
-An **asymmetric** rule — agree only when one side *is* the other's core, so
-"A - X" and "A - Y" still disagree — was measured against the same 493 pairs:
+Stripping after a spaced dash on *both* sides was measured and rejected. An
+**asymmetric** rule — agree only when one side *is* the other's core, so
+"A - X" and "A - Y" still disagree — measures against the same 493 pairs as:
 
 | Rule | Accuracy | Recall | False positives |
 | --- | --- | --- | --- |
 | `Normalize.text/1` equality (baseline) | 76.1% | 54.4% | 3 |
-| `Normalize.album/1` equality (current) | 79.5% | 62.3% | 6 |
-| One side is the other's core | **80.7%** | **65.1%** | **7** |
+| `Normalize.album/1` equality | 79.5% | 62.3% | 6 |
+| `Normalize.same_album?/2` (**adopted**) | **80.7%** | **65.1%** | **7** |
 
-It recovers seven true pairs for one new false positive, and that one is
-*100th Window - The Remixes* against *100th Window* — the dash spelling of a
-failure the colon rule already makes. Not taken, because
-`dev/corpus/replay_album_cases.exs` states the policy plainly: a false negative
-costs a cover or a barcode and is *never worth trading a false positive for*.
-Recorded here so the trade is decided rather than rediscovered.
+It was rejected once on that arithmetic, because the replay script states that a
+false negative is never worth trading a false positive for. What overturned it
+was a case rather than an argument: MusicBrainz files *Crucible* and *Crucible:
+The Songs of Hunters & Collectors* as releases of the **same recording**, so
+titles of exactly this shape do name one album — and the corpus, labelled by
+release *groups*, counts some of them as different. Three of the six false
+positives it reports for `album/1` are already duplicate release groups rather
+than mistakes.
+
+The cost is named rather than waved away: *100th Window - The Remixes* is now
+called the same album as *100th Window*, and a remix edition is a distinct
+record. The other three corpora were re-run and none moved — 82/12/5/1 on the
+hundred, 96/12/7/0 plus 5 of 5 declines on credits, 24 work and 13 text on
+classical.
+
+#### Why the search saw a different album title than the catalogue holds
+
+The case that produced all of the above is worth keeping, because it is not
+about normalization at all.
+
+MusicBrainz has four releases for that recording: one titled *Crucible* and
+three titled *Crucible: The Songs of Hunters & Collectors*. **The search
+response carries one release per candidate**, and it returned the short one. The
+subtitled titles appear only in the follow-up lookup by MBID — which happens
+*after* a match has been accepted.
+
+So the matcher was comparing a stored album of *Crucible - The Songs of Hunters
+& Collectors* against a candidate that said *Crucible*, and declining. Editing
+the stored album to *Crucible* made it agree. The full title then arrived one
+step later, from the lookup, which is why it looked as though the catalogue had
+held it all along — it did, just not where the decision could see it.
+
+The general shape: **a candidate's album is whichever release the search chose
+to name, not the album.** `same_album?/2` covers the subtitle case; it does not
+cover a candidate named after an unrelated compilation. Resolving a candidate
+against its release *group* rather than one release is the open question.
 
 ---
 

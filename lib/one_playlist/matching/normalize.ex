@@ -368,6 +368,74 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> Normalize.album("Live: 05-03-03 - State College, Pennsylvania")
       "live 05 03 03 state college pennsylvania"
   """
+  @doc """
+  Whether two album titles name one album.
+
+  `album/1` equality, plus one asymmetric case it cannot reach: **one title is
+  exactly the other's core**, the other carrying a subtitle after a delimiter.
+  *Crucible* and *Crucible - The Songs of Hunters & Collectors* are one album.
+  *Greatest Hits - Volume One* and *Greatest Hits - Volume Two* are not, because
+  neither one *is* the other's core — which is exactly what the symmetric
+  version of this rule would get wrong.
+
+  That asymmetry is the whole of it, and it is why this is not the spaced-hyphen
+  normalization that was measured and rejected. Stripping at a spaced hyphen on
+  *both* sides made *Pearl Jam - Non-Album Tracks* into *Pearl Jam*, so a
+  store-invented bucket adopted a real record's identity. Here the hyphen only
+  ever licenses a comparison against a title that is *already* just "Pearl Jam",
+  which is a much narrower claim.
+
+  Measured against `dev/corpus/album_cases.json`: **80.7% accuracy and 65.1%
+  recall against `album/1`'s 79.5% and 62.3%**, recovering seven true pairs for
+  one additional false positive.
+
+  It was rejected once on that arithmetic, because
+  `dev/corpus/replay_album_cases.exs` states that a false negative is never
+  worth trading a false positive for. What changed is a real case rather than an
+  argument. MusicBrainz files *Crucible* and *Crucible: The Songs of Hunters &
+  Collectors* as releases of the **same recording**, so titles of exactly this
+  shape do name one album — and the corpus, labelled by release *groups*, counts
+  some of them as different. Its false-positive column already carries noise of
+  precisely this kind: three of the six it reports for `album/1` are duplicate
+  release groups rather than mistakes.
+
+  The cost is real and worth naming: *100th Window - The Remixes* is now called
+  the same album as *100th Window*, which it is not. A remix edition is a
+  distinct record, and this rule cannot see that where the subtitle happens to
+  be the only thing distinguishing it.
+
+      iex> alias OnePlaylist.Matching.Normalize
+      iex> Normalize.same_album?("Crucible", "Crucible - The Songs of Hunters & Collectors")
+      true
+      iex> Normalize.same_album?("Lost Dogs", "Lost Dogs: Rarities and B Sides")
+      true
+      iex> Normalize.same_album?("Greatest Hits", "Greatest Hits Vol. 2")
+      false
+      iex> Normalize.same_album?("Greatest Hits - Volume One", "Greatest Hits - Volume Two")
+      false
+  """
+  @spec same_album?(String.t() | nil, String.t() | nil) :: boolean()
+  def same_album?(left, right) do
+    left_core = album(left)
+    right_core = album(right)
+
+    left_core == right_core or subtitled?(right, left_core) or subtitled?(left, right_core)
+  end
+
+  # True when `title` is `core` followed by a subtitle. The spaced hyphen is a
+  # delimiter *here* and not in `album/1`, and the asymmetry is what makes that
+  # safe: nothing is stripped unless the other side is already the bare core.
+  defp subtitled?(title, core) do
+    case String.split(to_string(title), ~r/\s+[-–—:]\s+/u, parts: 2) do
+      [head, _subtitle] ->
+        stripped = album(head)
+        stripped != "" and stripped == core and core != ""
+
+      _none ->
+        false
+    end
+  end
+
   @spec album(String.t() | nil) :: String.t()
   def album(nil), do: ""
 

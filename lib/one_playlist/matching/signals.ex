@@ -338,7 +338,7 @@ defmodule OnePlaylist.Matching.Signals do
   # split at the *first* delimiter, so "Live: 05-03-03 - State College" reduced
   # to "live", which matches every live record ever made.
   defp album_similarity(left, right) do
-    if Normalize.album(left) == Normalize.album(right) do
+    if Normalize.same_album?(left, right) do
       1.0
     else
       Similarity.jaro_winkler(Normalize.text(left), Normalize.text(right))
