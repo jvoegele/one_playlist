@@ -617,6 +617,127 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
     end
   end
 
+  describe "correcting a track by hand" do
+    setup %{user_id: user_id} do
+      %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}
+    end
+
+    test "the form opens from the expanded row and saves what it is given", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      # Inside the panel rather than beside the chevron: the row already
+      # carries a marker, a chevron, a drag handle and a remove button.
+      refute render(view) =~ "Edit these details"
+
+      opened =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert opened =~ "Edit these details"
+
+      view
+      |> element(~s{button[phx-click="edit_track"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      assert render(view) =~ "Edit track details"
+
+      saved =
+        view
+        |> form(~s{form[phx-submit="save_track"]}, %{
+          "entry" => entry.id,
+          "title" => "One, corrected",
+          "artists" => "Earth, Wind & Fire; Somebody Else",
+          "album" => "A Better Album",
+          "version" => "",
+          "isrc" => ""
+        })
+        |> render_submit()
+
+      refute saved =~ "Edit track details", "the modal closes on save"
+      assert saved =~ "One, corrected"
+
+      assert [%{track: track} | _rest] = Library.entries(user_id, playlist.id)
+
+      # Split on `;` and nothing else — the comma inside "Earth, Wind & Fire"
+      # is part of the name, which is the rule the CSV format already keeps.
+      assert track.artists == ["Earth, Wind & Fire", "Somebody Else"]
+      assert track.album == "A Better Album"
+    end
+
+    test "cancelling changes nothing", %{conn: conn, user_id: user_id, playlist: playlist} do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      view
+      |> element(~s{button[phx-click="edit_track"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      cancelled =
+        view |> element(~s{button[phx-click="cancel_edit"]}) |> render_click()
+
+      refute cancelled =~ "Edit track details"
+      assert [%{track: %{title: "One"}} | _rest] = Library.entries(user_id, playlist.id)
+    end
+
+    test "an unlinked track can be stored on its own corrected details", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+      was = entry.track.provider_id
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      view
+      |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      view
+      |> element(~s{button[phx-click="unlink"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      view
+      |> element(~s{button[phx-click="edit_track"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      view
+      |> form(~s{form[phx-submit="save_track"]}, %{
+        "entry" => entry.id,
+        "title" => "Nothing In The Library Is Called This",
+        "artists" => "Nobody At All",
+        "album" => "",
+        "version" => "",
+        "isrc" => ""
+      })
+      |> render_submit()
+
+      stored =
+        view
+        |> element(~s{button[phx-click="link_own_details"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      refute stored =~ "not linked to a recording"
+
+      assert [%{linked?: true, track: %{provider_id: now}} | _rest] =
+               Library.entries(user_id, playlist.id)
+
+      assert now != was, "the corrected details became a recording of their own"
+    end
+  end
+
   describe "unlinking and re-linking a track" do
     setup %{user_id: user_id} do
       %{playlist: playlist_with(user_id, "Road Trip", ~w(One Two Three))}

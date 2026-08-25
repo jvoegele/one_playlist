@@ -236,6 +236,70 @@ defmodule OnePlaylist.Library do
   end
 
   @doc """
+  Corrects what one of a user's items says about its track.
+
+  Only the fields in `OnePlaylist.Library.PlaylistItem.owned/0` — the source's
+  account of the track, which is the user's to fix. Nothing here touches the
+  recording, and that is the whole reason phase 1 moved this metadata: a
+  correction to your playlist is not a correction to everybody's.
+
+  The **link is deliberately left alone**. A person fixing a typo should not
+  lose the recording their track is matched to, and a person fixing something
+  substantial can unlink in the same visit — see `unlink/3`. Guessing which of
+  those an edit was would be wrong about half the time.
+
+  What an edit *does* change is what `link_candidates/4` will offer, because
+  that searches on the item's own words. Correcting a credit is often exactly
+  how somebody finds the recording that had been unreachable.
+  """
+  @spec update_item(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), map()) ::
+          :ok | {:error, Ecto.Changeset.t()} | :error
+  def update_item(user_id, playlist_id, entry_id, attrs) do
+    with {:ok, item} <- fetch_item(user_id, playlist_id, entry_id) do
+      item
+      |> PlaylistItem.changeset(Map.take(attrs, PlaylistItem.owned() ++ owned_strings()))
+      |> Ecto.Changeset.put_change(:updated_at, DateTime.utc_now())
+      |> Repo.update()
+      |> case do
+        {:ok, _updated} -> :ok
+        {:error, changeset} -> {:error, changeset}
+      end
+    end
+  end
+
+  defp owned_strings, do: Enum.map(PlaylistItem.owned(), &Atom.to_string/1)
+
+  @doc """
+  Stores this item's own account of the track as a recording, and links to it.
+
+  The answer to "none of these is right", and the reason `link_candidates/4` is
+  not the whole story: it can only offer recordings the library already holds,
+  so a track whose real recording nobody has imported has nothing to choose
+  from.
+
+  Uses the item's metadata *as corrected*, which is what makes this worth having
+  after `update_item/4`. A track whose credit named the wrong artist could never
+  be identified while it said so; fixed and stored, enrichment asks MusicBrainz
+  the right question — `find_or_create/1` queues that on the way past.
+
+  Answers with the recording, existing or new: an item whose details already
+  describe something the library holds links to that rather than making a second
+  copy of it.
+  """
+  @spec link_to_own_details(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t()) ::
+          {:ok, Recording.t()} | :error
+  def link_to_own_details(user_id, playlist_id, entry_id) do
+    with {:ok, item} <- fetch_item(user_id, playlist_id, entry_id) do
+      recording = item |> PlaylistItem.to_track(nil) |> store()
+
+      case set_link(user_id, playlist_id, entry_id, recording.id) do
+        :ok -> {:ok, recording}
+        :error -> :error
+      end
+    end
+  end
+
+  @doc """
   Breaks the link between one of a user's items and its recording.
 
   What a person does when a track is matched to the wrong music. The item keeps
@@ -647,9 +711,18 @@ defmodule OnePlaylist.Library do
   of every one of them — a slower kind of wrong rather than a safer one.
   """
   @spec find_or_create(Track.t()) :: Recording.t()
-  def find_or_create(%Track{provider: :library, provider_id: id}), do: Repo.get!(Recording, id)
+  def find_or_create(%Track{provider: :library, provider_id: id}) when not is_nil(id),
+    do: Repo.get!(Recording, id)
 
-  def find_or_create(%Track{} = track) do
+  def find_or_create(%Track{} = track), do: store(track)
+
+  # The two keys, applied. Separate from `find_or_create/1` because the shortcut
+  # clause above it is a shortcut for *arriving* tracks, and `link_to_own_details/3`
+  # asks the other question: not "which recording is this track" but "store what
+  # this item says". Routing that through `find_or_create/1` would hand back the
+  # recording the item is already linked to, which is the one answer it must
+  # never give.
+  defp store(%Track{} = track) do
     case existing(track) do
       %Recording{} = found -> found
       nil -> create(track)

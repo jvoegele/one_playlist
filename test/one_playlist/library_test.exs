@@ -471,6 +471,146 @@ defmodule OnePlaylist.LibraryTest do
     end
   end
 
+  describe "correcting what an item says" do
+    setup %{user_id: user_id} do
+      {:ok, playlist} = Library.create_playlist(user_id, "Mine")
+
+      Library.append(user_id, playlist.id, [
+        track(%{isrc: isrc("ZZZ992500001"), title: "Crucible", artists: ["Hunters & Collectors"]})
+      ])
+
+      [entry] = Library.entries(user_id, playlist.id)
+
+      %{playlist: playlist, entry: entry}
+    end
+
+    test "an owner may fix what the source said", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      assert :ok =
+               Library.update_item(user_id, playlist.id, entry.id, %{
+                 artists: ["Neil Finn", "Eddie Vedder"],
+                 album: "7 Worlds Collide"
+               })
+
+      assert [corrected] = Library.entries(user_id, playlist.id)
+      assert corrected.track.artists == ["Neil Finn", "Eddie Vedder"]
+      assert corrected.track.album == "7 Worlds Collide"
+      assert corrected.track.title == "Crucible"
+    end
+
+    test "and does not thereby correct it for everybody", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The whole reason phase 1 moved this metadata off the recording. A
+      # recording belongs to nobody, so one person's fix must not reach it.
+      recording = Repo.get!(Recording, entry.track.provider_id)
+
+      assert :ok =
+               Library.update_item(user_id, playlist.id, entry.id, %{title: "Something Else"})
+
+      assert Repo.get!(Recording, recording.id).title == recording.title
+    end
+
+    test "the link survives a correction", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # Deliberate: an edit is usually a typo, and dropping the match on every
+      # one of them would punish the careful. Unlinking stays a separate act.
+      assert :ok = Library.update_item(user_id, playlist.id, entry.id, %{title: "Crucible "})
+
+      assert [still_linked] = Library.entries(user_id, playlist.id)
+      assert still_linked.linked?
+    end
+
+    test "nothing outside the owned fields can be reached through it", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # `position` and `recording_id` are both castable by the changeset,
+      # because `append/3` and `set_link/4` need them. `update_item/4` is what
+      # says a *person* may not set them, and a form posting either is the
+      # reason the filter is by name rather than by trust.
+      elsewhere = Ecto.UUID.generate()
+
+      assert :ok =
+               Library.update_item(user_id, playlist.id, entry.id, %{
+                 "title" => "Crucible",
+                 "position" => 99,
+                 "recording_id" => elsewhere
+               })
+
+      assert [unmoved] = Library.entries(user_id, playlist.id)
+      assert unmoved.position == 0
+      assert unmoved.track.provider_id == entry.track.provider_id
+    end
+
+    test "an item still needs a title", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      assert {:error, %Ecto.Changeset{} = changeset} =
+               Library.update_item(user_id, playlist.id, entry.id, %{title: nil})
+
+      assert "can't be blank" in errors_on(changeset).title
+    end
+
+    test "somebody else's item cannot be edited", %{playlist: playlist, entry: entry} do
+      stranger = AuthFixtures.user_id_fixture()
+
+      assert :error = Library.update_item(stranger, playlist.id, entry.id, %{title: "Mine now"})
+    end
+
+    test "a corrected item can become the recording it describes", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # The half `link_candidates/4` cannot cover: it offers only what the
+      # library already holds, so a track whose real recording nobody has
+      # imported has nothing to choose from.
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      Library.update_item(user_id, playlist.id, entry.id, %{
+        title: "Crucible",
+        artists: ["Neil Finn", "Eddie Vedder"],
+        album: "7 Worlds Collide",
+        isrc: isrc("ZZZ992600001")
+      })
+
+      assert {:ok, %Recording{} = stored} =
+               Library.link_to_own_details(user_id, playlist.id, entry.id)
+
+      assert stored.artists == ["Neil Finn", "Eddie Vedder"]
+      assert stored.id != entry.track.provider_id
+
+      assert [relinked] = Library.entries(user_id, playlist.id)
+      assert relinked.linked?
+      assert relinked.track.provider_id == stored.id
+    end
+
+    test "and links to an existing recording rather than copying it", %{
+      user_id: user_id,
+      playlist: playlist,
+      entry: entry
+    } do
+      # `find_or_create/1`, not `create/1`: an item whose details already
+      # describe something the library holds must not make a second copy of it.
+      Library.unlink(user_id, playlist.id, entry.id)
+
+      assert {:ok, recording} = Library.link_to_own_details(user_id, playlist.id, entry.id)
+      assert recording.id == entry.track.provider_id
+    end
+  end
+
   describe "search/2" do
     test "finds a held recording by ISRC" do
       Library.find_or_create(track(%{isrc: "USSM11100234"}))

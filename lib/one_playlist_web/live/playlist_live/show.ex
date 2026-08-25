@@ -81,6 +81,31 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   So the sentence is driven by `enriched?`, which says whether MusicBrainz has
   been *asked*, and the terminal state says so plainly rather than trailing off.
 
+  ## Correcting a track, and where the edit control lives
+
+  A row's details are the user's, so a row can be edited. The control is
+  **inside the expanded panel** rather than beside the chevron, because the row
+  already carries a status marker, a chevron, a drag handle and a remove button
+  and a fifth thing in that strip is one too many. Somebody correcting a track
+  has already opened it to see what is wrong with it.
+
+  The form itself is a modal — five fields with validation is more than an
+  inline panel wants to hold, and a panel that grows would reflow the list under
+  the cursor.
+
+  **An edit does not break the link.** Most edits are typos, and dropping a
+  correct match on every one of them would punish care. What an edit does change
+  is the *candidates*: `link_candidates/4` searches on the item's own words, so
+  correcting a credit is often exactly how somebody reaches the recording that
+  had been unreachable — the list is refetched on save for that reason.
+
+  And when nothing in the library is right, **"use this track's own details"**
+  stores what the item says as a recording of its own and links to it. That is
+  the half a candidate list cannot cover: it can only offer what the library
+  already holds, so a track nobody has imported has nothing to choose from.
+  Enrichment then asks MusicBrainz the corrected question rather than the
+  original wrong one.
+
   ## Reordering is a drag, and the server still decides the order
 
   It began as two chevron buttons per row, which was the honest small version.
@@ -130,6 +155,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:renaming?, false)
          |> assign(:expanded, MapSet.new())
          |> assign(:candidates, %{})
+         |> assign(:editing, nil)
          |> subscribe_to_enrichment()
          |> load_entries()}
 
@@ -243,6 +269,71 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
      |> load_candidates(entry_id, MapSet.member?(toggled, entry_id))}
   end
 
+  def handle_event("edit_track", %{"entry" => entry_id}, socket) do
+    case Enum.find(socket.assigns.entries, &(&1.id == entry_id)) do
+      nil -> {:noreply, socket}
+      entry -> {:noreply, assign(socket, :editing, entry)}
+    end
+  end
+
+  def handle_event("cancel_edit", _params, socket), do: {:noreply, assign(socket, :editing, nil)}
+
+  def handle_event("save_track", %{"entry" => entry_id} = params, socket) do
+    attrs = %{
+      title: params["title"],
+      album: params["album"],
+      version: params["version"],
+      isrc: params["isrc"],
+      # Split on `;` and nothing else, which is the rule
+      # `OnePlaylist.Formats.Csv` already states and states well: a comma is a
+      # real character in "Earth, Wind & Fire".
+      artists:
+        params["artists"]
+        |> to_string()
+        |> String.split(";")
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+    }
+
+    case Library.update_item(
+           socket.assigns.current_user_id,
+           socket.assigns.playlist.id,
+           entry_id,
+           attrs
+         ) do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(:editing, nil)
+         |> load_entries()
+         # The words changed, so what the library would offer for them changed
+         # too — anything already fetched answered the old ones. Correcting a
+         # credit is often exactly how somebody finds the recording that had
+         # been unreachable, so this is the useful half of an edit.
+         |> load_candidates(entry_id, MapSet.member?(socket.assigns.expanded, entry_id))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "A track needs a title.")}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That track could not be edited.")}
+    end
+  end
+
+  def handle_event("link_own_details", %{"entry" => entry_id}, socket) do
+    case Library.link_to_own_details(
+           socket.assigns.current_user_id,
+           socket.assigns.playlist.id,
+           entry_id
+         ) do
+      {:ok, _recording} ->
+        {:noreply, socket |> load_entries() |> forget_candidates(entry_id)}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That track could not be stored.")}
+    end
+  end
+
   def handle_event("unlink", %{"entry" => entry_id}, socket) do
     case Library.unlink(socket.assigns.current_user_id, socket.assigns.playlist.id, entry_id) do
       :ok -> {:noreply, socket |> load_entries() |> load_candidates(entry_id, true)}
@@ -283,6 +374,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:renaming?, false)
          |> assign(:expanded, MapSet.new())
          |> assign(:candidates, %{})
+         |> assign(:editing, nil)
          |> subscribe_to_enrichment()}
 
       _otherwise ->
@@ -490,6 +582,89 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         </ul>
       </div>
 
+      <div :if={@editing} class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="text-lg font-semibold mb-1">Edit track details</h3>
+          <p class="text-sm opacity-70 mb-4">
+            Yours to correct. This changes your playlist only — never the shared recording, and
+            never anybody else's copy of it.
+          </p>
+
+          <form phx-submit="save_track" class="space-y-3">
+            <input type="hidden" name="entry" value={@editing.id} />
+
+            <label class="form-control">
+              <span class="label-text text-xs">Title</span>
+              <input
+                type="text"
+                name="title"
+                value={@editing.track.title}
+                required
+                autocomplete="off"
+                class="input input-bordered input-sm"
+              />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text text-xs">
+                Artists <span class="opacity-50">— separate several with a semicolon</span>
+              </span>
+              <input
+                type="text"
+                name="artists"
+                value={Enum.join(@editing.track.artists, "; ")}
+                autocomplete="off"
+                class="input input-bordered input-sm"
+              />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text text-xs">Album</span>
+              <input
+                type="text"
+                name="album"
+                value={@editing.track.album}
+                autocomplete="off"
+                class="input input-bordered input-sm"
+              />
+            </label>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="form-control">
+                <span class="label-text text-xs">Version</span>
+                <input
+                  type="text"
+                  name="version"
+                  value={@editing.track.version}
+                  autocomplete="off"
+                  class="input input-bordered input-sm"
+                />
+              </label>
+
+              <label class="form-control">
+                <span class="label-text text-xs">ISRC</span>
+                <input
+                  type="text"
+                  name="isrc"
+                  value={@editing.track.isrc}
+                  autocomplete="off"
+                  class="input input-bordered input-sm font-mono"
+                />
+              </label>
+            </div>
+
+            <div class="modal-action">
+              <button type="button" phx-click="cancel_edit" class="btn btn-ghost btn-sm">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="modal-backdrop" phx-click="cancel_edit"></div>
+      </div>
+
       <script :type={Phoenix.LiveView.ColocatedHook} name=".DragToReorder">
         // Deliberately does *not* reorder the list itself. `AGENTS.md` requires
         // `phx-update="ignore"` on a hook that manages its own DOM, and that
@@ -652,6 +827,12 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         </dd>
       </dl>
 
+      <div class="mt-2">
+        <button phx-click="edit_track" phx-value-entry={@entry.id} class="btn btn-ghost btn-xs">
+          <.icon name="hero-pencil-square" class="w-4 h-4" /> Edit these details
+        </button>
+      </div>
+
       <div :if={!@entry.linked?} class="mt-2 bg-base-100 rounded p-3">
         <p class="text-xs opacity-70 mb-2">
           Recordings this might be. The score is what the engine thinks; the choice is yours.
@@ -660,6 +841,14 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         <p :if={@candidates == []} class="text-xs opacity-40">
           Nothing in the library resembles this track yet.
         </p>
+
+        <button
+          phx-click="link_own_details"
+          phx-value-entry={@entry.id}
+          class="btn btn-outline btn-xs mt-2"
+        >
+          None of these — use this track's own details
+        </button>
 
         <ul class="space-y-1">
           <li
