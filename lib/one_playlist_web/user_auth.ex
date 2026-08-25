@@ -37,6 +37,7 @@ defmodule OnePlaylistWeb.UserAuth do
   """
 
   use OnePlaylistWeb, :verified_routes
+  use Bond
 
   import Phoenix.Controller
   import Plug.Conn
@@ -135,6 +136,26 @@ defmodule OnePlaylistWeb.UserAuth do
   magic links and Google sign-in land — the callback route, which has its own
   destination logic.
   """
+  # The session-fixation defence, stated where it can be checked rather than
+  # only described. `renew_session/1` is one line and deleting it, or moving the
+  # `put_session/3` above it, leaves sign-in working perfectly: the user is
+  # signed in, every test passes, and the session id an attacker planted in the
+  # visitor's browser before sign-in now names an authenticated session. That is
+  # the second shape in `docs/reference/contracts.md` — a security relationship
+  # that still works when broken — and it is the reason this whole function is
+  # worth a contract despite doing almost nothing.
+  #
+  # `:renew` is what `configure_session(renew: true)` records for the session
+  # store to act on, so it is the observable form of "this response will issue a
+  # new session id". Asserting it alongside the session actually being stored is
+  # what pins the *order*: renew-then-put signs the user in with a fresh id,
+  # put-then-renew signs nobody in at all.
+  #
+  # Proven by mutation: deleting `renew_session/1` from the pipeline fires
+  # `session_was_renewed`, and swapping the two pipeline steps fires
+  # `the_user_is_signed_in`.
+  @post session_was_renewed: result.private[:plug_session_info] == :renew
+  @post the_user_is_signed_in: Plug.Conn.get_session(result, @session_key) == session
   def put_user_session(conn, %Session{} = session) do
     # Every user has a library, and this is where one first becomes reachable in
     # this application — sign-up does not always produce a session, so it is not
@@ -165,6 +186,16 @@ defmodule OnePlaylistWeb.UserAuth do
   session. A "sign out" that leaves the user signed in because a remote call
   failed is the wrong answer in exactly the case where it matters.
   """
+  # The other half of the same law, and the one whose failure a user would feel.
+  # This function's docstring is about the *remote* call not being allowed to
+  # stop the local sign-out; nothing said the local sign-out actually happens.
+  # Drop `renew_session/1` here and "Sign out" redirects to the home page with
+  # the session cookie fully intact — the user watches themselves be signed out,
+  # and they are not. On a shared computer that is the whole of the harm.
+  #
+  # Proven by mutation: removing `renew_session/1` from the pipeline fires
+  # `no_session_survives`.
+  @post no_session_survives: Plug.Conn.get_session(result, @session_key) == nil
   def log_out_user(conn) do
     if session = session_from(conn), do: Accounts.sign_out(session)
 

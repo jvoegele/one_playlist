@@ -1174,6 +1174,7 @@ table used to answer "contract? yes/no" and got two rows wrong for reasons taken
 | Pure core (`Matching`, `Library.Albums`) | `@post` above all — the interesting laws live here | the whole of `Matching` |
 | `Providers` / `Transfers` contexts | `@pre` for what a caller must supply; the type's own laws belong on the struct | `report_agrees_with_counters` |
 | Controllers / LiveViews | `@post` / `@invariant` over the state you assign — the thinnest layer, so there is *least to say*, not least worth saying | `every_group_can_render` on `PlaylistLive.Index` |
+| Plugs on the session path | `@post` over the `conn` — this is where a security relationship that still "works" when broken actually lives | `session_was_renewed`, `no_session_survives` |
 
 The seam matters, and Meyer states it precisely: **the postconditions of the filter modules must
 match or exceed the preconditions of the modules behind them.**
