@@ -1177,6 +1177,67 @@ per server — rather than to try to enumerate bad addresses.
 
 ---
 
+### A person's correction is evidence about the recording
+
+Enrichment searches with the **recording's** metadata, and a recording is
+ownerless: it takes whatever its source said, and nobody may edit it. When the
+source was wrong, no amount of re-asking helps.
+
+Roon's CSV export writes the **album artist** into the artist column, so every
+track on a tribute record arrives credited to its subject. *Throw Your Arms
+Around Me* — Neil Finn and Eddie Vedder, on *Crucible: The Songs of Hunters &
+Collectors* — arrived as "Hunters & Collectors" and declined at ten candidates.
+Reset and re-run, it declined at ten candidates again, because that is not who
+recorded it.
+
+The correction has nowhere else to live. A playlist item owns its own account of
+the track precisely so a person can fix it, and that fix is the only evidence
+about the recording a human has actually reviewed. So a search that found
+nothing is tried again with the item's words — capped at two differing accounts,
+newest first, because this runs on a queue sized to one request a second.
+
+Three properties keep it honest:
+
+  * **It writes nothing back.** The item supplies a better *question*. The
+    answer is scored by the same ladder at the same threshold as any other
+    search, and the recording keeps its own credit — enrichment still only fills
+    gaps, which is a postcondition.
+  * **It keeps the recording's ISRC.** The anchor is what says the item and the
+    recording are the same piece of music; a subject carrying the item's ISRC
+    would be asking about something else. `subject_keeps_the_anchor`, proven to
+    fire by mutating `subject/2` to take `isrc: item.isrc`.
+  * **It costs no request in the ordinary case.** An item imported alongside its
+    recording carries identical words, so there is nothing differing to try.
+
+**Measured, and not yet enough for the case that motivated it.** The corrected
+search does return the right recording — *Crucible*, Eddie Vedder and Neil Finn,
+238s, ranked fourth of five. It is then declined at `@every_field_agreed`
+because the albums disagree textually: *Crucible* against *Crucible - The Songs
+of Hunters & Collectors*. It matches at `0.75`.
+
+So the remaining gap is the **album subtitle**, not the credit.
+
+#### The album-subtitle measurement, offered and not taken
+
+Stripping after a spaced dash on *both* sides was measured and rejected earlier.
+An **asymmetric** rule — agree only when one side *is* the other's core, so
+"A - X" and "A - Y" still disagree — was measured against the same 493 pairs:
+
+| Rule | Accuracy | Recall | False positives |
+| --- | --- | --- | --- |
+| `Normalize.text/1` equality (baseline) | 76.1% | 54.4% | 3 |
+| `Normalize.album/1` equality (current) | 79.5% | 62.3% | 6 |
+| One side is the other's core | **80.7%** | **65.1%** | **7** |
+
+It recovers seven true pairs for one new false positive, and that one is
+*100th Window - The Remixes* against *100th Window* — the dash spelling of a
+failure the colon rule already makes. Not taken, because
+`dev/corpus/replay_album_cases.exs` states the policy plainly: a false negative
+costs a cover or a barcode and is *never worth trading a false positive for*.
+Recorded here so the trade is decided rather than rediscovered.
+
+---
+
 ## 4. Product shape implied by all of the above
 
 A defensible `one_playlist` v1:

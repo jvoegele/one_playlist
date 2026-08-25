@@ -15,6 +15,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   alias OnePlaylist.Cache
   alias OnePlaylist.CoverArt
   alias OnePlaylist.Library.Enrichment
+  alias OnePlaylist.AuthFixtures
+  alias OnePlaylist.Library
+  alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
@@ -143,6 +146,196 @@ defmodule OnePlaylist.Library.EnrichmentTest do
             }
           ]
     }
+  end
+
+  describe "enrich/1 reconsidering with a person's correction" do
+    # Roon's CSV export writes the album artist into the artist column, so every
+    # track on a tribute record arrives credited to its subject. The recording
+    # takes that credit, no search can find the real recording from it, and the
+    # correction has nowhere to live but the playlist item.
+    setup do
+      recording =
+        recording(%{
+          title: "Kryptic Anthem",
+          artists: ["Wrong Credit Co"],
+          album: "A Tribute Record",
+          isrc: nil
+        })
+
+      user_id = AuthFixtures.user_id_fixture()
+      {:ok, playlist} = Library.create_playlist(user_id, "Somebody's")
+
+      %{recording: recording, playlist: playlist, user_id: user_id}
+    end
+
+    # Answers only the corrected credit, so a test that passes proves the second
+    # search was actually made with the item's words rather than the recording's.
+    defp stub_only_for(credit) do
+      Req.Test.stub(Client, fn conn ->
+        cond do
+          search?(conn.request_path) and URI.decode_www_form(conn.query_string) =~ credit ->
+            Req.Test.json(conn, search_body([corrected_hit()]))
+
+          search?(conn.request_path) ->
+            Req.Test.json(conn, %{"recordings" => []})
+
+          conn.request_path =~ "/recording/" ->
+            Req.Test.json(conn, corrected_lookup())
+
+          conn.request_path =~ "/release/" ->
+            Req.Test.json(conn, %{"cover-art-archive" => %{"front" => true}})
+        end
+      end)
+    end
+
+    defp corrected_hit do
+      %{
+        "id" => @mbid,
+        "score" => 100,
+        "title" => "Kryptic Anthem",
+        "artist-credit" => [%{"name" => "Real Performer"}],
+        "releases" => [
+          %{"id" => @release, "title" => "A Tribute Record", "release-group" => %{"id" => @group}}
+        ]
+      }
+    end
+
+    defp corrected_lookup do
+      %{
+        "id" => @mbid,
+        "title" => "Kryptic Anthem",
+        "artist-credit" => [%{"name" => "Real Performer"}],
+        "releases" => [
+          %{
+            "id" => @release,
+            "title" => "A Tribute Record",
+            "release-group" => %{"id" => @group}
+          }
+        ]
+      }
+    end
+
+    defp item_for(context, recording, attrs) do
+      Repo.insert!(
+        struct(
+          %PlaylistItem{
+            playlist_id: context.playlist.id,
+            user_id: context.user_id,
+            recording_id: recording.id,
+            position: 0,
+            title: recording.title,
+            artists: recording.artists,
+            album: recording.album,
+            updated_at: DateTime.utc_now(),
+            inserted_at: DateTime.utc_now()
+          },
+          attrs
+        )
+      )
+    end
+
+    test "a corrected item is tried when the recording's own words fail", context do
+      %{recording: recording} = context
+      item_for(context, recording, %{artists: ["Real Performer"]})
+      stub_only_for("Real Performer")
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+
+    test "and the recording keeps its own credit", context do
+      %{recording: recording} = context
+      # The item supplies a better question, never an answer written back. A
+      # recording belongs to nobody, so one person's edit must not become
+      # everybody's.
+      item_for(context, recording, %{artists: ["Real Performer"]})
+      stub_only_for("Real Performer")
+      stub_cover_art(:none)
+
+      {:ok, enriched} = Enrichment.enrich(recording)
+
+      assert enriched.artists == ["Wrong Credit Co"]
+      assert enriched.title == "Kryptic Anthem"
+    end
+
+    test "an item saying the same thing costs no extra request", context do
+      %{recording: recording} = context
+      # The ordinary case: an item imported alongside its recording carries
+      # identical words, so there is no second question to ask. If this ever
+      # regresses, every enrichment doubles its request count against a service
+      # that allows one a second.
+      item_for(context, recording, %{})
+
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_musicbrainz(%{search: %{"recordings" => []}}, calls)
+      stub_cover_art(:none)
+
+      Enrichment.enrich(recording)
+
+      searches = calls |> Agent.get(& &1) |> Enum.count(&search?/1)
+      assert searches <= 2, "one subject asks at most a release-qualified and a broad search"
+    end
+
+    test "the question keeps the recording's own ISRC", context do
+      # The anchor is what says the item and the recording are the same piece of
+      # music. A subject carrying the *item's* ISRC would be asking about
+      # something else, and the corroboration would be about a different
+      # recording than the one being described. Somebody who has corrected an
+      # ISRC has said the link is wrong, and unlinking is the gesture for that.
+      #
+      # This is the test that proves `subject_keeps_the_anchor` can fail: add
+      # `isrc: item.isrc` to `subject/2` and the postcondition fires here.
+      anchored = context.recording |> Ecto.Changeset.change(isrc: @isrc) |> Repo.update!()
+
+      item_for(context, anchored, %{artists: ["Real Performer"], isrc: "ZZZ992500091"})
+
+      Req.Test.stub(Client, fn conn ->
+        cond do
+          conn.request_path =~ "/isrc/" ->
+            Req.Test.json(conn, %{"isrc" => @isrc, "recordings" => []})
+
+          search?(conn.request_path) and URI.decode_www_form(conn.query_string) =~ "Real" ->
+            Req.Test.json(conn, search_body([corrected_hit()]))
+
+          search?(conn.request_path) ->
+            Req.Test.json(conn, %{"recordings" => []})
+
+          conn.request_path =~ "/recording/" ->
+            Req.Test.json(conn, corrected_lookup())
+
+          conn.request_path =~ "/release/" ->
+            Req.Test.json(conn, %{"cover-art-archive" => %{"front" => true}})
+        end
+      end)
+
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(anchored)
+      assert enriched.musicbrainz_recording_id == @mbid
+      assert enriched.isrc == @isrc
+    end
+
+    test "an identified recording is not reconsidered", context do
+      %{recording: recording} = context
+      # Nothing to improve on, and `only_filled_gaps?/2` would refuse the write
+      # anyway. Spending a request to learn that is the waste `due/1` avoids.
+      identified =
+        recording
+        |> Ecto.Changeset.change(musicbrainz_recording_id: @mbid)
+        |> Repo.update!()
+
+      item_for(context, identified, %{artists: ["Real Performer"]})
+
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_musicbrainz(%{search: %{"recordings" => []}}, calls)
+      stub_cover_art(:none)
+
+      Enrichment.enrich(identified)
+
+      searches = calls |> Agent.get(& &1) |> Enum.count(&search?/1)
+      assert searches <= 2
+    end
   end
 
   describe "enrich/1 with an ISRC" do

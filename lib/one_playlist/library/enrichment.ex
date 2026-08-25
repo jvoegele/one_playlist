@@ -224,6 +224,7 @@ defmodule OnePlaylist.Library.Enrichment do
   alias OnePlaylist.Cache
   alias OnePlaylist.CoverArt.Client, as: CoverArt
   alias OnePlaylist.Library.EnrichmentUnavailable
+  alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Confidence
@@ -247,6 +248,12 @@ defmodule OnePlaylist.Library.Enrichment do
   @topic "library:enrichment"
 
   @stale_after_days 30
+
+  # How many differing accounts of one recording are worth re-asking with. Two,
+  # because this runs on a queue sized to one request a second and a recording
+  # sitting on twenty playlists must not become twenty searches. Newest first,
+  # so the one somebody just corrected is always among them.
+  @corrections 2
 
   # How many releases are asked about artwork before settling for the first
   # candidate. Bounded because each is a request; small because rule 1 means the
@@ -337,7 +344,7 @@ defmodule OnePlaylist.Library.Enrichment do
         )
   @spec enrich(Recording.t()) :: {:ok, Recording.t()} | {:error, term()}
   def enrich(%Recording{} = recording) do
-    case identify(recording) do
+    case recording |> identify() |> reconsider(recording) do
       {:ok, mbid, how} when is_binary(mbid) ->
         describe(recording, mbid, how)
 
@@ -352,6 +359,12 @@ defmodule OnePlaylist.Library.Enrichment do
         {:error, EnrichmentUnavailable.new(reason: :search_unavailable)}
     end
   end
+
+  # Only a search that found nothing is worth re-asking with different words. An
+  # identifier answered, or an outage stopped us asking at all, and neither is
+  # improved by a better question.
+  defp reconsider({:none, why}, %Recording{} = recording), do: by_corrections(recording, why)
+  defp reconsider(other, %Recording{} = _recording), do: other
 
   @doc """
   Whether one recording is a strict improvement on another.
@@ -517,6 +530,99 @@ defmodule OnePlaylist.Library.Enrichment do
   end
 
   defp identify(%Recording{} = recording), do: by_name(recording)
+
+  # A last attempt, using the words the people who own this track have put on it.
+  #
+  # See `docs/reference/domain.md` §3 for the measurement, including what this
+  # still does not reach.
+  #
+  # Enrichment searches with the *recording's* metadata, and a recording is
+  # ownerless and takes whatever its source said. When the source was wrong, no
+  # amount of re-asking helps: Roon's CSV export writes the **album artist**
+  # into the artist column, so every track on a tribute album arrives credited
+  # to its subject. *Throw Your Arms Around Me* — actually Neil Finn and Eddie
+  # Vedder — arrived as "Hunters & Collectors" and declined at ten candidates,
+  # twice, because that is not who recorded it.
+  #
+  # The correction has nowhere else to live. A playlist item owns its own
+  # account of the track precisely so a person can fix it, and that fix is
+  # evidence about the recording — the only evidence a human has actually
+  # reviewed. So a failed search is tried again with it.
+  #
+  # **This adds no request in the ordinary case.** An item imported alongside
+  # its recording carries identical words, so `corrections_for/1` finds nothing
+  # to try. Only an item somebody has edited differs.
+  #
+  # Recordings stay ownerless: nothing here writes an item's words onto one. The
+  # item supplies a better *question*, and the answer is scored by the same
+  # ladder at the same threshold as any other search.
+  defp by_corrections(%Recording{musicbrainz_recording_id: nil} = recording, why) do
+    recording
+    |> corrections_for()
+    |> Enum.reduce_while({:none, why}, fn subject, declined ->
+      case by_name(subject) do
+        {:ok, _mbid, _how} = found -> {:halt, found}
+        # A decline here is not more informative than the one that got us to
+        # this point — that search was about what the *catalogue* believes the
+        # recording is — so the original outcome is what gets recorded.
+        {:none, _also_declined} -> {:cont, declined}
+        :error -> {:halt, :error}
+      end
+    end)
+  end
+
+  defp by_corrections(%Recording{} = _identified, why), do: {:none, why}
+
+  # At most `@corrections` of them, newest first, because the newest is the one
+  # somebody just typed. The cap is a request budget: this runs on a queue sized
+  # to one request a second, and a recording on twenty playlists must not become
+  # twenty searches.
+  defp corrections_for(%Recording{} = recording) do
+    PlaylistItem
+    |> where([i], i.recording_id == ^recording.id)
+    |> order_by([i], desc: i.updated_at)
+    |> limit(^(@corrections * 4))
+    |> Repo.all()
+    |> Enum.map(&subject(recording, &1))
+    |> Enum.filter(&differs?(recording, &1))
+    |> Enum.uniq_by(&{&1.title, &1.artists, &1.album})
+    |> Enum.take(@corrections)
+  end
+
+  # The item's words on the recording's anchor. Only what a person can correct
+  # is taken; the ISRC stays the recording's own, and that is the postcondition.
+  #
+  # It has to be. The ISRC is what says these two are the same piece of music,
+  # so a subject carrying the *item's* ISRC would be asking about something
+  # else — and the ladder's identifier and duration corroboration would then be
+  # about a different recording than the one being described. Somebody who has
+  # corrected an ISRC has said the link is wrong, and unlinking is the gesture
+  # for that.
+  @post subject_keeps_the_anchor: result.isrc == recording.isrc
+  defp subject(%Recording{} = recording, %PlaylistItem{} = item) do
+    %Recording{
+      recording
+      | title: item.title,
+        artists: item.artists || [],
+        album: item.album,
+        version: item.version,
+        duration_seconds: item.duration_seconds || recording.duration_seconds
+    }
+  end
+
+  # Compared after normalization, so a difference in punctuation or case is not
+  # a reason to spend a request re-asking the same question.
+  defp differs?(%Recording{} = recording, %Recording{} = subject) do
+    key(recording) != key(subject)
+  end
+
+  defp key(%Recording{} = recording) do
+    {
+      Normalize.text(recording.title || ""),
+      recording.artists |> List.wrap() |> Enum.map_join(" ", &Normalize.text/1),
+      Normalize.album(recording.album || "")
+    }
+  end
 
   defp by_name(%Recording{title: raw} = recording) when is_binary(raw) and raw != "" do
     credit = List.first(recording.artists || [])
