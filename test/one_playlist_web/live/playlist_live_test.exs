@@ -444,6 +444,56 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       assert html =~ "Identified at MusicBrainz"
     end
 
+    test "shows how many are still being looked up, and hides it when none are", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      now = DateTime.utc_now()
+
+      set_enrichment(user_id, playlist, [{nil, now, nil}, {nil, nil, nil}, {nil, nil, nil}])
+
+      {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "looking up 2 of 3 at MusicBrainz"
+
+      set_enrichment(user_id, playlist, [{nil, now, nil}, {nil, now, nil}, {nil, now, nil}])
+
+      {:ok, _view, done} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      refute done =~ "looking up", "the indicator removes itself rather than reading 0 of 3"
+    end
+
+    test "a row redraws itself when its recording is enriched", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The whole point of the broadcast: a background job finishing changes the
+      # screen without a reload and without a query per track.
+      set_enrichment(user_id, playlist, [{nil, nil, nil}, {nil, nil, nil}, {nil, nil, nil}])
+
+      {:ok, view, html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      assert html =~ "looking up 3 of 3 at MusicBrainz"
+
+      [first | _rest] = Library.entries(user_id, playlist.id)
+
+      enriched =
+        Recording
+        |> Repo.get!(first.track.provider_id)
+        |> Ecto.Changeset.change(
+          enriched_at: DateTime.utc_now(),
+          musicbrainz_recording_id: "aaaaaaaa-1111-2222-3333-444444444444",
+          enrichment_outcome: :identified
+        )
+        |> Repo.update!()
+
+      send(view.pid, {:recording_enriched, enriched})
+
+      assert render(view) =~ "looking up 2 of 3 at MusicBrainz"
+    end
+
     test "says which kind of not-found it was", %{
       conn: conn,
       user_id: user_id,

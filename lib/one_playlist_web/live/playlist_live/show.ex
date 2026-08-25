@@ -14,6 +14,34 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   `OnePlaylist.Library.remove_entry/3` and not the adapter's `remove_tracks/4`,
   which takes recordings and deliberately removes every occurrence.
 
+  ## Enrichment is visible while it happens, and invisible once it has
+
+  A recording is enriched by a background job on a queue of one, so a freshly
+  imported playlist arrives knowing almost nothing and fills in over minutes.
+  Before this the screen showed a static snapshot of whenever it was loaded.
+
+  Two things changed and the second is the one that matters. A count and a bar
+  appear in the header **only while something is outstanding**, so a finished
+  playlist carries no furniture about a process that is over. And every row
+  redraws itself as its recording resolves, driven by
+  `OnePlaylist.Library.Enrichment.subscribe/0` rather than by polling — the same
+  shape `OnePlaylist.Transfers` already uses for transfer progress.
+
+  The broadcast carries the **recording**, so a row redraws without a query. A
+  five-hundred-track playlist enriching at one a second would otherwise issue
+  five hundred round trips to learn what it was already being told.
+
+  ### Why rows are not coloured by outcome
+
+  The obvious version — green for identified, amber for declined, grey for
+  waiting — paints the whole list. A real library resolves about 94% of its
+  recordings, so that is a screen of green with the occasional amber, which is a
+  lot of colour to say "normal". Worse, it makes a background detail the loudest
+  thing on a page whose job is showing a playlist.
+
+  Only the rows still *waiting* are marked, on one edge, and the mark disappears
+  when they resolve. The state that is temporary is the state worth showing.
+
   ## "No confident match" is not "not found"
 
   The marker for an unidentified recording said **not found at MusicBrainz**,
@@ -85,7 +113,11 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
   use OnePlaylistWeb, :live_view
 
+  require Logger
+
   alias OnePlaylist.Library
+  alias OnePlaylist.Library.Enrichment
+  alias OnePlaylist.Library.Recording
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -97,6 +129,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:page_title, playlist.name)
          |> assign(:renaming?, false)
          |> assign(:expanded, MapSet.new())
+         |> subscribe_to_enrichment()
          |> load_entries()}
 
       # Indistinguishable from a playlist that never existed, exactly as
@@ -106,6 +139,54 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          socket
          |> put_flash(:error, "That playlist is not in your library.")
          |> push_navigate(to: ~p"/playlists")}
+    end
+  end
+
+  # A recording finished being looked at. Only the rows showing it are touched —
+  # a playlist may hold the same recording twice — and the message carries the
+  # recording itself, so nothing is queried to redraw a row.
+  @impl true
+  def handle_info({:recording_enriched, recording}, socket) do
+    {:noreply, assign_entries(socket, Enum.map(socket.assigns.entries, &refresh(&1, recording)))}
+  end
+
+  defp refresh(%{track: %{provider_id: id}} = entry, %Recording{id: id} = recording) do
+    %{
+      entry
+      | track: Recording.to_track(recording),
+        enriched?: not is_nil(recording.enriched_at),
+        musicbrainz: %{
+          recording_id: recording.musicbrainz_recording_id,
+          release_id: recording.musicbrainz_release_id,
+          looked_up_at: recording.enriched_at,
+          outcome: recording.enrichment_outcome,
+          candidates: recording.enrichment_candidates
+        }
+    }
+  end
+
+  defp refresh(entry, _recording), do: entry
+
+  # Only when connected: the dead render has no process to deliver to, and
+  # subscribing there would leak a subscription per page load.
+  #
+  # The result is matched rather than discarded, for the reason
+  # `TransferLive.Show` gives about its own subscribe: a page that silently
+  # failed to subscribe looks identical to one where nothing has happened yet,
+  # and that is the hardest kind of stale to notice.
+  defp subscribe_to_enrichment(socket) do
+    if connected?(socket) do
+      case Enrichment.subscribe() do
+        :ok ->
+          socket
+
+        {:error, reason} ->
+          Logger.warning("playlist screen not subscribed to enrichment: #{inspect(reason)}")
+
+          put_flash(socket, :error, "Enrichment progress will not update until you reload.")
+      end
+    else
+      socket
     end
   end
 
@@ -174,7 +255,8 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
          |> assign(:playlist, updated)
          |> assign(:page_title, updated.name)
          |> assign(:renaming?, false)
-         |> assign(:expanded, MapSet.new())}
+         |> assign(:expanded, MapSet.new())
+         |> subscribe_to_enrichment()}
 
       _otherwise ->
         {:noreply, put_flash(socket, :error, "A playlist needs a name.")}
@@ -245,6 +327,20 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
             <p class="text-sm opacity-70">
               {length(@entries)} {if length(@entries) == 1, do: "track", else: "tracks"} · in One Playlist
             </p>
+            <div :if={@pending > 0} class="mt-2 max-w-sm">
+              <div class="flex items-center gap-2 text-xs opacity-70">
+                <span class="loading loading-spinner loading-xs"></span>
+                <span>
+                  looking up {@pending} of {length(@entries)} at MusicBrainz
+                </span>
+              </div>
+              <progress
+                class="progress progress-primary w-full h-1 mt-1"
+                value={length(@entries) - @pending}
+                max={length(@entries)}
+              ></progress>
+            </div>
+
             <p :if={@entries != []} class="text-xs opacity-60 mt-1">
               {@identified} of {length(@entries)} identified by ISRC
               <span :if={@pending > 0}>· {@pending} still being looked up</span>
@@ -275,7 +371,16 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         <ul :if={@entries != []} id="entries" phx-hook=".DragToReorder" class="space-y-1">
           <li
             :for={{entry, index} <- Enum.with_index(@entries)}
-            class="card bg-base-200 border-2 border-transparent"
+            class={
+              [
+                "card bg-base-200 border-2 border-transparent transition-colors",
+                # Only the rows still waiting are marked, and only on one edge. A
+                # colour per outcome would paint the whole list — 94% of a real
+                # library resolves — and make a background detail the loudest
+                # thing on a screen whose job is showing a playlist.
+                not entry.enriched? && "border-l-primary/40 bg-base-200/60"
+              ]
+            }
             id={"entry-#{entry.id}"}
             data-entry={entry.id}
           >

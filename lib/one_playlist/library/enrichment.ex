@@ -243,6 +243,8 @@ defmodule OnePlaylist.Library.Enrichment do
   # yesterday, short enough that a recording MusicBrainz knew nothing about last
   # month is asked about again. The same reasoning as the negative caches in
   # `OnePlaylist.Catalogue`: an absence is an answer, and only true for now.
+  @topic "library:enrichment"
+
   @stale_after_days 30
 
   # How many releases are asked about artwork before settling for the first
@@ -291,6 +293,22 @@ defmodule OnePlaylist.Library.Enrichment do
   # this application fetched from the archive is cleared; one from TIDAL is the
   # source's and stays.
   @our_artwork "https://coverartarchive.org/%"
+
+  @doc """
+  Subscribes the caller to every completed enrichment attempt.
+
+  One topic for the whole library rather than one per user, because a recording
+  belongs to nobody — see `OnePlaylist.Library`. A subscriber filters for the
+  recordings it is showing, which costs a set lookup per message and saves a
+  topic per open page.
+
+  The message carries the **recording**, not its id: a screen that has to query
+  for what just changed would issue one round trip per enriched track, and a
+  playlist of five hundred enriching at one a second would spend the whole run
+  doing it.
+  """
+  @spec subscribe() :: :ok | {:error, term()}
+  def subscribe, do: Phoenix.PubSub.subscribe(OnePlaylist.PubSub, @topic)
 
   @doc """
   Enriches one recording, returning it as it now stands.
@@ -815,8 +833,29 @@ defmodule OnePlaylist.Library.Enrichment do
   # absent cannot turn a gap into an empty string — which would look filled and
   # compare equal to every other empty string.
   defp record_attempt(recording, learned) do
-    write(recording, Map.put(learned, :enriched_at, DateTime.utc_now()))
+    recording
+    |> write(Map.put(learned, :enriched_at, DateTime.utc_now()))
+    |> announce()
   end
+
+  # Every *completed* attempt, whether or not anything was learned. A screen
+  # counting what is left has to hear about the ones that found nothing too, or
+  # its progress bar stops short of the end and stays there.
+  #
+  # A failed broadcast is not a failed enrichment, for the reason
+  # `OnePlaylist.Transfers` gives about progress: the work is already done and
+  # written, and losing the notification costs a screen its liveness until the
+  # next page load.
+  defp announce({:ok, %Recording{} = recording} = result) do
+    case Phoenix.PubSub.broadcast(OnePlaylist.PubSub, @topic, {:recording_enriched, recording}) do
+      :ok -> :ok
+      {:error, reason} -> Logger.warning("enrichment not broadcast: #{inspect(reason)}")
+    end
+
+    result
+  end
+
+  defp announce(result), do: result
 
   defp write(recording, learned) do
     attrs =

@@ -545,7 +545,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
         end
       end)
 
-      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: "GBAYE0601477"}))
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: unique_isrc()}))
 
       assert enriched.enriched_at
       refute enriched.musicbrainz_recording_id
@@ -564,7 +564,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
         end
       end)
 
-      stored = recording(%{isrc: "GBAYE0601477"})
+      stored = recording(%{isrc: unique_isrc()})
 
       assert {:error, error} = Enrichment.enrich(stored)
       assert Errata.reason(error) == :search_unavailable
