@@ -625,10 +625,10 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
 
       Recording
       |> Repo.get!(first.track.provider_id)
-      |> Ecto.Changeset.change(
-        enriched_at: DateTime.utc_now(),
-        enrichment_outcome: :identifier_disagreed
-      )
+      # The **flag**, not the outcome. Enrichment sets the code aside and asks
+      # by name instead, so a disputed recording is frequently `:identified` or
+      # `:declined` by the time anybody looks — `isrc_disputed` is what lasts.
+      |> Ecto.Changeset.change(enriched_at: DateTime.utc_now(), isrc_disputed: true)
       |> Repo.update!()
 
       %{playlist: playlist, entry: first}

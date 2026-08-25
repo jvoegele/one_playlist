@@ -237,7 +237,8 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           release_id: recording.musicbrainz_release_id,
           looked_up_at: recording.enriched_at,
           outcome: recording.enrichment_outcome,
-          candidates: recording.enrichment_candidates
+          candidates: recording.enrichment_candidates,
+          isrc_disputed: recording.isrc_disputed
         }
     }
   end
@@ -1026,6 +1027,11 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
   # Only says something when there is something to say. An identified recording
   # carrying an ISRC is the ordinary case and gets no third line.
+  defp note(%{musicbrainz: %{isrc_disputed: true}}) do
+    "this track's ISRC names a different recording — the code in the file is wrong, " <>
+      "so unlink, clear the ISRC, and store the track on its own details"
+  end
+
   defp note(entry) do
     case {state(entry), entry.track.isrc} do
       {:unlinked, _isrc} -> "not linked to a recording — expand to choose one"
@@ -1147,8 +1153,11 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   # and the only one they would never think to look for. Roon's export put
   # *Vitalogy*'s codes on *Vs.* tracks, which is where this came from; nothing
   # about the row looks wrong until you expand it.
-  defp disagreeing?(entry),
-    do: entry.linked? and entry.musicbrainz.outcome == :identifier_disagreed
+  # Reads the **flag**, not the outcome. Enrichment used to stop at a disputed
+  # code and leave `:identifier_disagreed` behind; it now sets the code aside and
+  # asks by name, so the outcome moves on — two of one library's four were
+  # identified that way — and only `isrc_disputed` survives to be counted.
+  defp disagreeing?(entry), do: entry.linked? and entry.musicbrainz.isrc_disputed
 
   defp track_word(1), do: "track"
   defp track_word(_many), do: "tracks"

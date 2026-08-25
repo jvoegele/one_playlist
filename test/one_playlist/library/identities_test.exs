@@ -11,8 +11,10 @@ defmodule OnePlaylist.Library.IdentitiesTest do
   use OnePlaylist.DataCase, async: true
   use Bond.Test
 
+  alias OnePlaylist.Library
   alias OnePlaylist.Library.Identities
   alias OnePlaylist.Library.Identity
+  alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Music.Track
 
@@ -310,6 +312,47 @@ defmodule OnePlaylist.Library.IdentitiesTest do
     test "forgetting what was never known is not an error" do
       assert Identities.forget(Identities.anchor(track()), :navidrome) == 0
       assert Identities.forget(nil, :navidrome) == 0
+    end
+  end
+
+  describe "a disputed ISRC is not an anchor" do
+    test "anchor/1 refuses a recording whose code names other music" do
+      # `enrich/1` sets this when an ISRC resolves to a recording that is plainly
+      # not ours. Anchoring on it would assert, about every future transfer and
+      # unreviewed, that some other recording is this one — and the reason this
+      # spine anchors on a canonical ISRC at all is that the code is supposed to
+      # be the one thing beyond argument.
+      track = track(%{title: "Disputed Anchor Case", artists: ["Nobody At All"]})
+
+      recording = Library.find_or_create(track)
+
+      assert %Recording{} = Identities.anchor(track), "undisputed, it anchors"
+
+      recording
+      |> Ecto.Changeset.change(isrc_disputed: true)
+      |> Repo.update!()
+
+      refute Identities.anchor(track),
+             "a code already caught naming other music cannot anchor an identity"
+    end
+
+    test "and the recording itself is untouched by the refusal" do
+      # Only the identity *claim* is withheld. The recording is still stored,
+      # still enriched, and still holds the code the source gave it — this
+      # application does not overwrite a source.
+      track = track(%{title: "Still Here Case", artists: ["Nobody At All"]})
+
+      recording =
+        track
+        |> Library.find_or_create()
+        |> Ecto.Changeset.change(isrc_disputed: true)
+        |> Repo.update!()
+
+      refute Identities.anchor(track)
+
+      assert %Recording{} = still = Repo.get(Recording, recording.id)
+      assert still.title == "Still Here Case"
+      assert still.isrc == recording.isrc
     end
   end
 end

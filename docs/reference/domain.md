@@ -1273,6 +1273,42 @@ record. The other three corpora were re-run and none moved — 82/12/5/1 on the
 hundred, 96/12/7/0 plus 5 of 5 declines on credits, 24 work and 13 text on
 classical.
 
+#### A wrong ISRC used to block enrichment entirely
+
+`enrichment_outcome: :identifier_disagreed` means the code resolved to music
+that is plainly not ours — Roon's export writes *Vitalogy*'s codes onto *Vs.*
+tracks, and four recordings in one real library carry one. Until now that
+outcome also **stopped** enrichment: the text and release paths were never
+tried, so a wrong code in the source cost the recording every chance of being
+identified.
+
+It should not. The code being wrong says nothing about the title, the credit or
+the album, which are the source's own and usually fine. Enrichment now sets the
+code aside and asks the way it would have if there had been none. Predicted from
+`enrichment_cases.json` and then confirmed live: **two of the four**, *Eight
+Miles High* on *Fifth Dimension* and *Try a Little Tenderness*.
+
+That creates a state nothing could previously hold — **identified, while the
+ISRC is known to be wrong** — because `enrichment_outcome` moves on to
+`:identified` and forgets. So `library_recordings.isrc_disputed` records it
+durably, and two things read it.
+
+`OnePlaylist.Library.Identities.anchor/1` **refuses it**. The spine anchors a
+cross-service identity on a canonical ISRC, which is the rule that makes
+duplicate recordings structurally impossible there; anchoring on a code already
+caught naming other music would assert, about every future transfer and
+unreviewed, that some other recording is this one. A disputed code gets the same
+answer as no code at all.
+
+The playlist screen counts them, because it is the one enrichment outcome that
+is a fact about the **source data** rather than about the catalogue or our
+scoring — the only one a person can fix, and the only one they would never think
+to look for.
+
+The code itself is kept. It is what the source said, and `enrich/1` does not
+overwrite a source — see `nothing_was_overwritten`. It simply stops being
+trusted.
+
 #### Enrichment has a corpus now, and it refused the first two things it was asked
 
 Until 2026-08-25 nothing measured enrichment. All four other corpora replay

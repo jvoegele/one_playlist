@@ -352,7 +352,28 @@ defmodule OnePlaylist.Library.Enrichment do
         )
   @spec enrich(Recording.t()) :: {:ok, Recording.t()} | {:error, term()}
   def enrich(%Recording{} = recording) do
-    case recording |> identify() |> reconsider(recording) do
+    case resolve(recording, identify(recording)) do
+      # The ISRC named different music. That says nothing about the title, the
+      # credit or the album — those are the source's own and usually fine — so
+      # the code is set aside and the recording is asked about the way it would
+      # have been if it had carried none.
+      #
+      # It used to stop here, which cost a mis-tagged recording every chance of
+      # being identified at all. Measured on `dev/corpus/enrichment_cases.json`
+      # and confirmed live: two of one library's four disputed codes are
+      # identified by the text path once the code stops blocking it.
+      #
+      # This cannot recurse. The second pass never takes the identifier path, and
+      # `describe/3` only disputes an identifier.
+      {:disputed, disputed} -> resolve(disputed, by_name(disputed))
+      answered -> answered
+    end
+  end
+
+  # What to do with whatever `identify/1` or `by_name/1` concluded, including
+  # the fallthroughs `reconsider/2` adds.
+  defp resolve(%Recording{} = recording, attempt) do
+    case reconsider(attempt, recording) do
       {:ok, mbid, how} when is_binary(mbid) ->
         describe(recording, mbid, how)
 
@@ -962,10 +983,15 @@ defmodule OnePlaylist.Library.Enrichment do
         if how != :identifier or agrees_by_name?(recording, details) do
           apply_details(recording, details, mbid)
         else
-          # The identifier named a different piece of music. Nothing is written
-          # but the attempt, because everything this lookup returned belongs to
-          # that other recording.
-          record_attempt(recording, outcome(%{outcome: :identifier_disagreed, candidates: 0}))
+          # The identifier named a different piece of music. Nothing this lookup
+          # returned is written, because all of it belongs to that other
+          # recording — but the *dispute* is, and permanently.
+          #
+          # `isrc_disputed` outlives `enrichment_outcome`, which is the reason it
+          # is a column of its own: the recording may go on to be identified by
+          # name, at which point the outcome reads `:identified` and would have
+          # forgotten that its code is wrong.
+          {:disputed, dispute_isrc(recording)}
         end
 
       {:error, reason} ->
@@ -1124,6 +1150,20 @@ defmodule OnePlaylist.Library.Enrichment do
   # Blank values are dropped rather than written, so a MusicBrainz field that is
   # absent cannot turn a gap into an empty string — which would look filled and
   # compare equal to every other empty string.
+  # Recorded rather than corrected. The code stays because it is what the source
+  # said and `enrich/1` does not overwrite that — see `nothing_was_overwritten` —
+  # this only stops it being trusted. `OnePlaylist.Library.Identities` reads it
+  # and refuses to anchor a cross-service identity on a code already caught
+  # naming other music, which would assert that some other recording is this
+  # one, about every future transfer, unreviewed.
+  defp dispute_isrc(%Recording{isrc_disputed: true} = recording), do: recording
+
+  defp dispute_isrc(%Recording{} = recording) do
+    {:ok, disputed} = recording |> Ecto.Changeset.change(isrc_disputed: true) |> Repo.update()
+
+    disputed
+  end
+
   defp record_attempt(recording, learned) do
     stamped =
       learned

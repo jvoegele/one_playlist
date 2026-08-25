@@ -43,6 +43,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
   # Release ids for the last-resort path. Real UUIDs because
   # `OnePlaylist.MusicBrainz.Release`'s primary key is one, and Ecto casts.
+  # The recording a wrong ISRC resolves to — not ours.
+  @other_mbid "9f9f9f9f-1111-4000-8000-999999999999"
+
   @rel_1 "1a2b3c4d-0001-4000-8000-000000000001"
   @rel_2 "1a2b3c4d-0002-4000-8000-000000000002"
   @rel_3 "1a2b3c4d-0003-4000-8000-000000000003"
@@ -158,6 +161,59 @@ defmodule OnePlaylist.Library.EnrichmentTest do
             }
           ]
     }
+  end
+
+  describe "an ISRC that names different music" do
+    test "is set aside, and the recording is asked about by name instead" do
+      # It used to stop here, which cost a mis-tagged recording every chance of
+      # being identified. Roon's export writes Vitalogy's codes onto Vs. tracks;
+      # the code being wrong says nothing about the title, credit or album.
+      recording = recording(%{title: "Corduroy", album: "Vitalogy", isrc: @isrc})
+
+      Req.Test.stub(Client, fn conn ->
+        cond do
+          # The ISRC resolves — to something else entirely.
+          conn.request_path =~ "/isrc/" ->
+            Req.Test.json(conn, %{"isrc" => @isrc, "recordings" => [%{"id" => @other_mbid}]})
+
+          conn.request_path =~ "/recording/#{@other_mbid}" ->
+            Req.Test.json(conn, %{
+              "id" => @other_mbid,
+              "title" => "Something Else Entirely",
+              "artist-credit" => [%{"name" => "Pearl Jam"}],
+              "releases" => []
+            })
+
+          conn.request_path =~ "/recording/" ->
+            Req.Test.json(conn, lookup_body())
+
+          String.ends_with?(conn.request_path, "/release") ->
+            Req.Test.json(conn, %{"releases" => []})
+
+          search?(conn.request_path) ->
+            Req.Test.json(conn, search_body())
+
+          conn.request_path =~ "/release/" ->
+            Req.Test.json(conn, %{"cover-art-archive" => %{"front" => true}})
+        end
+      end)
+
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+
+      # Identified by name, having ignored the code.
+      assert enriched.musicbrainz_recording_id == @mbid
+
+      # And the dispute survives the identification, which is why it is a column
+      # of its own — `enrichment_outcome` now reads `:identified`.
+      assert enriched.isrc_disputed
+      assert enriched.enrichment_outcome == :identified
+
+      # The code itself is kept. It is what the source said, and `enrich/1` does
+      # not overwrite the source.
+      assert enriched.isrc == @isrc
+    end
   end
 
   describe "finding the release first, when the title is not a name" do
@@ -691,7 +747,13 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       refute enriched.musicbrainz_recording_id
       refute enriched.album_upc, "nothing from that lookup belongs to this recording"
-      assert enriched.enrichment_outcome == :identifier_disagreed
+
+      # The dispute is the durable fact, not the outcome. Enrichment now falls
+      # through to the name path rather than stopping — a wrong code says
+      # nothing about the title — so `enrichment_outcome` records whatever *that*
+      # concluded, and `isrc_disputed` is what survives it.
+      assert enriched.isrc_disputed
+      assert enriched.enrichment_outcome in [:declined, :no_candidates]
     end
 
     test "a title spelled differently is still believed" do

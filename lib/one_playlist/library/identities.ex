@@ -92,9 +92,25 @@ defmodule OnePlaylist.Library.Identities do
   def anchor(%Track{} = track) do
     case Isrc.normalize(track.isrc) do
       nil -> nil
-      _canonical -> Library.find_or_create(track)
+      _canonical -> track |> Library.find_or_create() |> undisputed()
     end
   end
+
+  # A code already caught naming other music is not an anchor.
+  #
+  # `enrich/1` sets `isrc_disputed` when an ISRC resolves to a recording that is
+  # plainly not ours — Roon's export writes *Vitalogy*'s codes onto *Vs.*
+  # tracks. Anchoring on one would assert, about every future transfer and
+  # unreviewed, that some other recording is this one; and the whole reason this
+  # spine anchors on a canonical ISRC is that the code is supposed to be the one
+  # thing beyond argument.
+  #
+  # `nil` is the same answer a track with no ISRC gets, and means the same
+  # thing: nothing here can be said with the certainty this table requires. The
+  # recording is still created and still enriched — only the *identity claim* is
+  # withheld.
+  defp undisputed(%Recording{isrc_disputed: true}), do: nil
+  defp undisputed(%Recording{} = recording), do: recording
 
   @doc """
   Anchors a source track and records where it lives at its own service.

@@ -72,6 +72,16 @@ defmodule OnePlaylist.Library.Recording do
     field :enrichment_outcome, Ecto.Enum,
       values: [:identified, :no_candidates, :declined, :unnameable, :identifier_disagreed]
 
+    # This recording's ISRC names different music, caught by `enrich/1`'s
+    # agreement check. Kept apart from `enrichment_outcome` because a disputed
+    # code survives a later identification — the recording can be identified by
+    # *name* while its ISRC stays wrong, and the outcome column would have
+    # forgotten that.
+    #
+    # Read by `OnePlaylist.Library.Identities`, which refuses to anchor a
+    # cross-service identity on a code already caught naming something else.
+    field :isrc_disputed, :boolean, default: false
+
     field :enrichment_candidates, :integer
 
     # A fingerprint of the engine that decided this recording's outcome, so a

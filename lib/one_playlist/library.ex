@@ -80,6 +80,7 @@ defmodule OnePlaylist.Library do
             album: String.t() | nil
           },
           musicbrainz: %{
+            isrc_disputed: boolean(),
             recording_id: Ecto.UUID.t() | nil,
             release_id: Ecto.UUID.t() | nil,
             looked_up_at: DateTime.t() | nil,
@@ -205,7 +206,14 @@ defmodule OnePlaylist.Library do
   end
 
   defp musicbrainz(nil) do
-    %{recording_id: nil, release_id: nil, looked_up_at: nil, outcome: nil, candidates: nil}
+    %{
+      recording_id: nil,
+      release_id: nil,
+      looked_up_at: nil,
+      outcome: nil,
+      candidates: nil,
+      isrc_disputed: false
+    }
   end
 
   defp musicbrainz(%Recording{} = recording) do
@@ -214,7 +222,11 @@ defmodule OnePlaylist.Library do
       release_id: recording.musicbrainz_release_id,
       looked_up_at: recording.enriched_at,
       outcome: recording.enrichment_outcome,
-      candidates: recording.enrichment_candidates
+      candidates: recording.enrichment_candidates,
+      # Durable in a way the outcome is not: enrichment now sets the code aside
+      # and asks by name instead, so a recording with a wrong ISRC can end up
+      # `:identified` while its code is still wrong.
+      isrc_disputed: recording.isrc_disputed
     }
   end
 
