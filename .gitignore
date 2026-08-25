@@ -49,6 +49,20 @@ npm-debug.log
 /dev/navidrome/music/
 /dev/navidrome/data/
 
+# Roon exports of real listening history. Personal, and this repository is
+# public — a "Loved Tracks" export is a couple of thousand rows of what somebody
+# actually listens to.
+#
+# Not ignored before, which was easy to get wrong because the four entries
+# around it made `dev/` *look* ignored. It is not: only these specific paths are.
+# They were committed by a `git add -A` and removed from the unpushed history
+# again with `git filter-branch`.
+#
+# The corpora under `dev/corpus/` are a deliberate exception and stay tracked —
+# they are sampled and derived rather than a verbatim export, and the engine
+# cannot be measured without them.
+/dev/playlists/
+
 # Experiment scratch: which playlist and which transfer a dev script is pointed at.
 dev/experiments/PLAYLIST
 dev/experiments/TRANSFER
