@@ -159,6 +159,40 @@ defmodule OnePlaylist.Formats.Csv do
   on them. A file of *nothing but* such rows is an error, because silently
   importing zero tracks from a file with content in it is worse than saying why.
   """
+  # `@post_strengthen`, not `@post`: `Codec`'s `every_track_is_identifiable` and
+  # `every_track_is_usable` already apply here through `use Bond, behaviours:`,
+  # and the effective postcondition is theirs **and** these. Two laws this
+  # format owes that the behaviour cannot state, because they are about what a
+  # CSV specifically carries.
+  #
+  # `isrcs_are_canonical` is the seam to TIDAL. Storing the file's own spelling
+  # looks safe — comparison normalises anyway — and is not, because
+  # `Tidal.candidates/3` sends the code *to the provider*, and TIDAL rejects a
+  # lower-case one. Roon writes them lower case, so this is the common path
+  # rather than an edge: without it, an imported Roon playlist silently loses
+  # rung 1 for every track and falls back to matching by name.
+  #
+  # `positions_are_unique` is the stronger half of `every_track_is_identifiable`.
+  # The behaviour asks only that an id exist; a file's ids are row numbers, and
+  # two tracks sharing one is what `Track`'s `identifiable` invariant is really
+  # protecting against — `Runner`'s snapshot-and-diff would treat the two rows as
+  # one track and the second would never be transferred. Duplicates are legal for
+  # a *recording* here and illegal for a row index, which is why this is safe to
+  # assert where `docs/reference/contracts.md` warns uniqueness usually is not.
+  #
+  # Both proven by mutation: dropping `Isrc.normalize/1` in `track/4` fires the
+  # first on any lower-case fixture, and numbering with a constant fires the
+  # second.
+  # `match?/2` with `~>` rather than a `whenever`: `@post_strengthen` does not
+  # take a binding form, and `~>` short-circuits, so `elem(result, 1)` is never
+  # reached on an `{:error, _}`.
+  @post_strengthen isrcs_are_canonical:
+                     match?({:ok, _}, result)
+                     ~> forall(track <- elem(result, 1), Isrc.normalize(track.isrc) == track.isrc)
+  @post_strengthen positions_are_unique:
+                     match?({:ok, _}, result)
+                     ~> (length(Enum.uniq_by(elem(result, 1), & &1.provider_id)) ==
+                           length(elem(result, 1)))
   @impl true
   def parse(content, opts \\ [])
 

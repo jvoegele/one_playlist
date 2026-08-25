@@ -347,6 +347,35 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   to decide which of these to delete, so it wants the whole playlist rather than
   a prefix of it.
   """
+  # What this function promises, stated where its caller reads it. Today the
+  # body cannot break it — `Mapper.item_references/1` refuses to emit a
+  # half-formed reference and this only paginates and concatenates — and that is
+  # a fact about the current implementation rather than about the
+  # specification. The guarantee belongs to *this* function: `remove_tracks/4`
+  # relies on it, and a caller reading these docs is entitled to see it without
+  # first going to read the mapper.
+  #
+  # Meyer's argument for exactly this case (§11.7): the instruction prescribes
+  # and the assertion describes, and their agreement is evidence of consistency
+  # between implementation and specification. Written up in
+  # `docs/reference/contracts.md` under "Where this file used to depart from
+  # Meyer".
+  #
+  # And it is not decorative, which was checked rather than assumed. Corrupting
+  # the mapping this function applies — `&(Mapper.item_references(&1) ++
+  # [{"x", nil}])` — leaves the mapper's own postcondition satisfied on every
+  # page and fires this one. A bug in how *this* function assembles pages is
+  # invisible one call inward, which is the whole reason the guarantee belongs
+  # to the function that makes it.
+  @post whenever(
+          {:ok, references} <- result,
+          both_ids_usable:
+            forall(
+              reference <- references,
+              is_binary(elem(reference, 0)) and elem(reference, 0) != "" and
+                is_binary(elem(reference, 1)) and elem(reference, 1) != ""
+            )
+        )
   @spec playlist_item_references(String.t(), String.t(), keyword()) ::
           {:ok, [{String.t(), String.t()}]} | {:error, Errata.error()}
   def playlist_item_references(access_token, playlist_id, opts \\ []) do

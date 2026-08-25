@@ -1169,7 +1169,8 @@ table used to answer "contract? yes/no" and got two rows wrong for reasons taken
 | `Music.*` structs | All three — external data lands here, poison values start here | `Track`, `Isrc`, `Playlist` |
 | `Providers.Adapter` callbacks | All three, **declared once** — inherited by every adapter | `refresh_tokens/1`, the write callbacks |
 | `Providers.Tidal.Mapper` | `@post` — conservation laws over external payloads | `no_tracks_invented`, `both_ids_usable` |
-| `Providers.Tidal.Client` | `@post` on what it emits; `@pre` where a **caller** must supply something well formed | `both_ids_given` on `remove_tracks/4` |
+| `Providers.Tidal.Client` | `@post` on what it emits; `@pre` where a **caller** must supply something well formed | `both_ids_usable`, `both_ids_given` |
+| `Providers.Subsonic.Client` | `@post` — including the security relationships, which still "work" when broken | `never_sends_the_password` |
 | Pure core (`Matching`, `Library.Albums`) | `@post` above all — the interesting laws live here | the whole of `Matching` |
 | `Providers` / `Transfers` contexts | `@pre` for what a caller must supply; the type's own laws belong on the struct | `report_agrees_with_counters` |
 | Controllers / LiveViews | `@post` / `@invariant` over the state you assign — the thinnest layer, so there is *least to say*, not least worth saying | `every_group_can_render` on `PlaylistLive.Index` |
@@ -1199,13 +1200,30 @@ a module gets, and one of the most heavily contracted modules here.
 Both rows were corrected on 2026-08-25 and the contracts written. Two things are worth recording,
 because neither was visible from the argument alone:
 
-**A `@post` on `Client` would have been the redundant kind.** The obvious contract —
-`playlist_item_references/3` emits references with both halves usable — is already
-`Mapper.item_references/1`'s `both_ids_usable`, one call inward. Postconditions fail
-**inner-first**, so the Client's copy could never fire; it is the same shape as the
-`release_earns_its_place` assertion deleted from `Library.Albums.resolve/2` the same day. The
-contract that earns its place at that layer is a **precondition**, on `remove_tracks/4`, because
-it binds a different party: a caller handing over a reference it built itself.
+**A `@post` on `Client` belongs there, and the argument against it was wrong.** It was written
+here first as: `playlist_item_references/3` emitting usable references is already
+`Mapper.item_references/1`'s `both_ids_usable` one call inward, postconditions fail inner-first,
+so the Client's copy could never fire.
+
+Every step of that is about the *implementation*, and a contract is a statement about the
+**specification**. `playlist_item_references/3` promises its caller that both halves are usable;
+`remove_tracks/4` relies on it; a reader of the Client's docs is entitled to see the guarantee
+without going to read a mapper they were never told about. That the current body happens to
+delegate to something which already guarantees it is exactly Meyer's case for writing it —
+the instruction prescribes, the assertion describes, and their agreement is evidence of
+consistency (§11.7).
+
+The empirical half was wrong too, which is worth recording because it is a **general trap in
+mutation testing**. "It could never fire" was concluded from one mutation, aimed at the
+*mapper*. A mutation aimed at the function the contract is actually on —
+`&(Mapper.item_references(&1) ++ [{"x", nil}])`, a bug in how this function assembles its pages —
+leaves the mapper's postcondition satisfied on every page and fires the Client's immediately.
+
+That is the same mistake this file already records one section down about `ordered_best_first`:
+**the mutation has to reach the function the contract is on.** It was made again within a day of
+writing the warning, in the other direction — there, mutating too far out; here, too far in.
+A surviving mutation is evidence about the mutation until you have checked it is evidence about
+the contract.
 
 **The LiveView law was a coupling between two assigns.** `PlaylistLive.Index` builds `@services`
 in one place and one `assign_async/3` key per service in another, and the template reads

@@ -23,6 +23,7 @@ defmodule OnePlaylist.Library.Recording do
   """
 
   use Ecto.Schema
+  use Bond
 
   import Ecto.Changeset
 
@@ -113,6 +114,24 @@ defmodule OnePlaylist.Library.Recording do
   because this runs inside a transfer and a MusicBrainz lookup at one request a
   second does not belong on that path.
   """
+  # The one exception in the docstring above, stated as a law, because getting
+  # it wrong is invisible. `Library.find_or_create/1` joins on the ISRC and
+  # *only* on the ISRC — never on a title, because a wrong join is not undoable
+  # by adding. So a code stored as the source wrote it, `ussm11100234`, never
+  # equals the `USSM11100234` a later arrival normalises before asking, and the
+  # library quietly stores a second copy of a recording it already has.
+  #
+  # Nothing raises. Deduplication simply stops working, in the one table whose
+  # entire value is that it deduplicates — the compounding asset of
+  # `docs/reference/domain.md` §5, silently not compounding.
+  #
+  # `Isrc.normalize/1` is idempotent, so this says "whatever came out is already
+  # canonical", which is the property the join needs and is true of `nil` too.
+  # Proven by mutation: passing `track.isrc` through unnormalised fires it on
+  # any lower-case fixture.
+  @post isrc_is_canonical:
+          Isrc.normalize(Ecto.Changeset.get_field(result, :isrc)) ==
+            Ecto.Changeset.get_field(result, :isrc)
   @spec from_track(Track.t()) :: Ecto.Changeset.t()
   def from_track(%Track{} = track) do
     change(%__MODULE__{}, %{
@@ -147,6 +166,17 @@ defmodule OnePlaylist.Library.Recording do
   `provider_id` is this row's own id, which is what makes a library track
   addressable the way a TIDAL id is — see the moduledoc.
   """
+  # The sentence above, checked. `Providers.Library.playlist_track_ids/3`
+  # reports these ids and `Runner`'s snapshot-and-diff compares against them, so
+  # a track carrying anything else here is a transfer that cannot tell what the
+  # destination already holds — every run adding every track again, reported as
+  # a success. The same law `PlaylistItem.to_track/2` carries, at the other end
+  # of the same identity.
+  #
+  # Proven by mutation: `provider_id: recording.musicbrainz_recording_id` fires
+  # it, and is exactly the plausible edit — that field is also an identity, and
+  # is the more "correct-looking" of the two.
+  @post addressable_as_this_row: result.provider_id == recording.id
   @spec to_track(t()) :: Track.t()
   def to_track(%__MODULE__{} = recording) do
     %Track{

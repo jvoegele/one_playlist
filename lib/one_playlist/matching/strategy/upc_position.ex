@@ -63,6 +63,37 @@ defmodule OnePlaylist.Matching.Strategy.UpcPosition do
   @impl true
   def strategy, do: :upc_position
 
+  # The two claims the moduledoc spends most of its length justifying, stated
+  # where they can be checked rather than only argued for.
+  #
+  # `duration_never_contradicts` is the "Duration has to corroborate" section. It
+  # is the one guard standing between this rung and a **confidently wrong answer
+  # at score 1.0** — worse than a fuzzy near miss, because a near miss is
+  # thresholded and shown to a person while `1.0` is `:exact_upc` and goes
+  # straight through. `nil` is unknown rather than contrary, which is why the
+  # law admits it: absent evidence is not contrary evidence.
+  #
+  # `only_on_the_same_release` is the barcode half. Normalized on both sides for
+  # the reason `Barcode` exists — TIDAL reports a 13-digit EAN where a source
+  # may carry the 12-digit UPC of the same release, and comparing them raw
+  # answers "different" for one album.
+  #
+  # Both proven by mutation: deleting `not contradicted?(duration)` fires the
+  # first and deleting `same_release?` fires the second. Neither would fire
+  # until the tests for them were written — the rung had a test for the disc
+  # number and none for either of the two laws its moduledoc spends the most
+  # length justifying, which is what the contracts surfaced.
+  @post_strengthen duration_never_contradicts:
+                     not is_nil(result)
+                     ~> (Similarity.duration_proximity(
+                           source.duration_seconds,
+                           candidate.duration_seconds
+                         ) in [nil, 1.0])
+  @post_strengthen only_on_the_same_release:
+                     not is_nil(result)
+                     ~> (not is_nil(Barcode.normalize(source.album_upc)) and
+                           Barcode.normalize(source.album_upc) ==
+                             Barcode.normalize(candidate.album_upc))
   @impl true
   def score(source, candidate)
 

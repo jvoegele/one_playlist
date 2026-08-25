@@ -40,6 +40,7 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
   alias OnePlaylist.Providers.Subsonic.Mapper
   alias OnePlaylist.Providers.Subsonic.Service
 
+  use Bond
   use Errata
 
   # 1.16.1 is where `search3` and the playlist calls settled. Asking for it by
@@ -208,6 +209,33 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
   Public because it is the part worth testing directly: that `p` is never sent,
   and that the token is `md5(password <> salt)` with a salt that changes.
   """
+  # The moduledoc's "Authentication is per request, and deliberately not a
+  # password", stated where it is produced. This is the second shape in
+  # `docs/reference/contracts.md` — a security relationship that still *works*
+  # perfectly when broken.
+  #
+  # Every one of these three failures leaves a working client. Adding `p:` sends
+  # the password in the clear and every call still succeeds; Subsonic accepts it
+  # by design. Dropping the hash makes `t` the password itself, and the server
+  # rejects it — but only if the deployment requires token auth, and several do
+  # not. Reusing the salt makes the token a stable replayable secret, and
+  # nothing anywhere notices.
+  #
+  # In each case the password ends up in whatever sees the URL: a reverse-proxy
+  # access log, a `Referer`, a screenshot in a bug report. Preconditions are the
+  # only kind enabled in production here, but this is the kind of law worth
+  # switching postconditions on for — which is exactly what shipping them as
+  # `false` rather than `:purge` is for.
+  #
+  # `salt_is_fresh` is stated as "two calls differ" rather than as a claim about
+  # randomness, because that is the falsifiable half and it is what a hard-coded
+  # salt breaks. It is sound only because contracts are suppressed while an
+  # assertion is being evaluated — the inner `auth_params/1` call runs
+  # uncontracted, so this does not recurse.
+  @post never_sends_the_password:
+          not Keyword.has_key?(result, :p) and not Keyword.has_key?(result, :password)
+  @post token_is_not_the_credential: Keyword.get(result, :t) != connection.access_token
+  @post salt_is_fresh: Keyword.get(result, :s) != Keyword.get(auth_params(connection), :s)
   @spec auth_params(Connection.t()) :: keyword()
   def auth_params(%Connection{} = connection) do
     salt = 8 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)

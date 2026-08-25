@@ -239,6 +239,69 @@ defmodule OnePlaylist.LibraryTest do
     end
   end
 
+  describe "PlaylistItem.with_recording/2 — laying the catalogue over the item" do
+    # No test reached this function directly until its postconditions went in and
+    # no mutation could make `fills_only_gaps_*` fire. It was exercised only
+    # through `to_track/2`, always with fixtures where the item and the recording
+    # agreed — so taking the *recording's* value instead of the item's looked
+    # identical. `docs/reference/contracts.md`: when a mutation survives, look
+    # first at whether the fixtures contain the case the contract describes.
+
+    test "the item's own ISRC and length win over the recording's" do
+      # The precedence rule. A person who corrected a track and then watched
+      # enrichment quietly revert it is the bug this prevents.
+      item = %Track{
+        provider: :library,
+        provider_id: "r1",
+        isrc: "GBAYE0601477",
+        duration_seconds: 211
+      }
+
+      recording = %Recording{
+        id: "r1",
+        isrc: "USSM11100234",
+        duration_seconds: 400,
+        album_upc: "00602547670052"
+      }
+
+      merged = PlaylistItem.with_recording(item, recording)
+
+      assert merged.isrc == "GBAYE0601477"
+      assert merged.duration_seconds == 211
+      # ...and what the item had no claim to still arrives.
+      assert merged.album_upc == "00602547670052"
+    end
+
+    test "and the recording fills them where the item is silent" do
+      # The other half, without which the test above is satisfied by a function
+      # that ignores the recording entirely.
+      item = %Track{provider: :library, provider_id: "r1", isrc: nil, duration_seconds: nil}
+      recording = %Recording{id: "r1", isrc: "USSM11100234", duration_seconds: 400}
+
+      merged = PlaylistItem.with_recording(item, recording)
+
+      assert merged.isrc == "USSM11100234"
+      assert merged.duration_seconds == 400
+    end
+
+    test "applying it twice changes nothing" do
+      # The docstring's idempotence claim, which is what makes it safe to apply
+      # to an already-merged track when a live enrichment update redraws a row.
+      item = %Track{provider: :library, provider_id: "r1", title: "Black", isrc: nil}
+      recording = %Recording{id: "r1", isrc: "USSM11100234", duration_seconds: 400}
+
+      once = PlaylistItem.with_recording(item, recording)
+
+      assert PlaylistItem.with_recording(once, recording) == once
+    end
+
+    test "no recording at all leaves the track exactly as it was" do
+      item = %Track{provider: :library, provider_id: "r1", title: "Black"}
+
+      assert PlaylistItem.with_recording(item, nil) == item
+    end
+  end
+
   describe "an item owns its own account of the track" do
     setup %{user_id: user_id} do
       {:ok, playlist} = Library.create_playlist(user_id, "Mine")

@@ -124,6 +124,81 @@ defmodule OnePlaylist.MatchingTest do
 
       assert {:error, _error} = Matching.match(source, [candidate])
     end
+
+    test "a duration that disagrees withdraws the UPC claim" do
+      # The case `Strategy.UpcPosition`'s "Duration has to corroborate" section
+      # exists for, and which nothing tested until the rung's postconditions
+      # went in and no mutation could make them fire.
+      #
+      # Two services can list different items for one barcode — a bonus track on
+      # one edition and not the other — and then position 7 is a different
+      # recording on each. Unguarded that is a *confidently wrong answer at score
+      # 1.0*, which goes straight through as `:exact_upc` with no threshold left
+      # to catch it.
+      source =
+        track(
+          album_upc: "00602547670052",
+          track_number: 3,
+          volume_number: 1,
+          duration_seconds: 180
+        )
+
+      candidate =
+        track(
+          album_upc: "602547670052",
+          track_number: 3,
+          duration_seconds: 320,
+          title: "Completely Different",
+          artists: ["Someone Else"],
+          provider_id: "c1"
+        )
+
+      assert {:error, _error} = Matching.match(source, [candidate])
+    end
+
+    test "an unknown duration on either side withdraws nothing" do
+      # Absent evidence is not contrary evidence — the same rule as
+      # `Matching.Similarity`. Without this the test above would be satisfied by
+      # a rung that simply demanded a duration.
+      source =
+        track(
+          album_upc: "00602547670052",
+          track_number: 3,
+          volume_number: 1,
+          duration_seconds: 180
+        )
+
+      candidate =
+        track(
+          album_upc: "602547670052",
+          track_number: 3,
+          duration_seconds: nil,
+          title: "Completely Different",
+          artists: ["Someone Else"],
+          provider_id: "c1"
+        )
+
+      assert {:ok, %{strategy: :upc_position}} = Matching.match(source, [candidate])
+    end
+
+    test "the same position on a different release is not the same track" do
+      # The barcode half of the rung, and the counterpart to the disc test
+      # above. An album shares one barcode across all its tracks, so position
+      # alone means nothing at all.
+      source = track(album_upc: "00602547670052", track_number: 3, volume_number: 1)
+
+      candidate =
+        track(
+          album_upc: "5099747454929",
+          track_number: 3,
+          volume_number: 1,
+          title: "Completely Different",
+          artists: ["Someone Else"],
+          provider_id: "c1"
+        )
+
+      assert {:error, _error} = Matching.match(source, [candidate])
+    end
   end
 
   describe "failure modes from docs/reference/domain.md" do
