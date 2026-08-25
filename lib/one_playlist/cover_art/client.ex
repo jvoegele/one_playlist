@@ -83,7 +83,13 @@ defmodule OnePlaylist.CoverArt.Client do
         receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
         # The whole point. Following it would fetch the image itself from an
         # archive.org node — see the moduledoc's measurement.
-        redirect: false
+        redirect: false,
+        # `ExternalService` owns retrying; Req must not. Its default would add
+        # three attempts of its own inside each guarded call, invisible to the
+        # breaker and outside the rate limiter. See
+        # `OnePlaylist.MusicBrainz.Client.isrc_family/2` for the full reasoning
+        # and the incident that found it.
+        retry: false
       ]
       |> Keyword.merge(Application.get_env(:one_playlist, :cover_art_req_options, []))
       |> Req.new()

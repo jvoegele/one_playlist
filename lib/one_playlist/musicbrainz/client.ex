@@ -85,7 +85,19 @@ defmodule OnePlaylist.MusicBrainz.Client do
       url: "/isrc/#{isrc}",
       params: [fmt: "json", inc: "isrcs"],
       headers: [{"user-agent", user_agent()}],
-      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
+      # `ExternalService` owns retrying; Req must not. Req's default is
+      # `:safe_transient`, three attempts of its own inside each guarded call —
+      # so `OnePlaylist.MusicBrainz.Service`'s three become **twelve requests**,
+      # and the extra nine never pass the rate limiter, because the limiter is
+      # applied around the whole function and Req retries inside it.
+      #
+      # Against a service that allows one request a second and answers 503 with
+      # `retry-after: 0`, that is a client that hammers a busy server precisely
+      # when it has asked to be left alone. Observed, not predicted: a run of
+      # probes drove MusicBrainz to 503 and the log read
+      # `retry: got response with status 503, will retry in 0ms`.
+      retry: false
     ]
     |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
     |> Req.new()
@@ -123,7 +135,9 @@ defmodule OnePlaylist.MusicBrainz.Client do
       url: "/work",
       params: [query: query, fmt: "json", limit: 5],
       headers: [{"user-agent", user_agent()}],
-      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
+      # `ExternalService` owns retrying — see `isrc_family/2` above.
+      retry: false
     ]
     |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
     |> Req.new()
@@ -198,7 +212,9 @@ defmodule OnePlaylist.MusicBrainz.Client do
       url: "/recording",
       params: [query: query, fmt: "json", limit: Keyword.get(opts, :limit, 10)],
       headers: [{"user-agent", user_agent()}],
-      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
+      # `ExternalService` owns retrying — see `isrc_family/2` above.
+      retry: false
     ]
     |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
     |> Req.new()
@@ -244,7 +260,9 @@ defmodule OnePlaylist.MusicBrainz.Client do
         url: "/recording/#{mbid}",
         params: [fmt: "json", inc: "artist-credits+releases+release-groups+isrcs+work-rels"],
         headers: [{"user-agent", user_agent()}],
-        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
+        # `ExternalService` owns retrying — see `isrc_family/2` above.
+        retry: false
       ]
       |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
       |> Req.new()

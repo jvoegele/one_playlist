@@ -98,6 +98,49 @@ Req.get(url, retry: false, receive_timeout: :timer.seconds(5))
 Tesla's `Tesla.Middleware.Retry` and Finch's own behaviour deserve the same one-liner. This is
 cheap to document and expensive to discover.
 
+## `req` + `external_service` — two retry layers compose silently, and multiply
+
+**Found:** 2026-08-25, after a run of probes drove MusicBrainz to answer `503`.
+
+Not a defect in either library. It is what happens when both are correct and
+nobody says which one is in charge.
+
+`Req`'s default is `retry: :safe_transient` — three attempts of its own on
+408/429/5xx and transient transport errors. `ExternalService.call/2` wraps the
+function it is given in a rate limiter, a circuit breaker and its own retry
+budget. Put one inside the other and the attempts **multiply**: a service
+configured `max_attempts: 3` issues **twelve** HTTP requests, measured.
+
+Three consequences, in increasing order of nastiness:
+
+  * The extra nine requests never pass the **rate limiter**, because the limiter
+    wraps the whole function and Req retries inside it. A one-request-a-second
+    budget is quietly violated by a factor of four.
+  * They are invisible to the **breaker**, which counts one failure where four
+    happened, so it opens far later than its configuration says.
+  * Req honours `retry-after` literally, and MusicBrainz answers 503 with
+    `retry-after: 0`. The log read
+    `retry: got response with status 503, will retry in 0ms` — a client
+    hammering a busy server at the exact moment it asked to be left alone.
+
+**What made it survivable to miss:** nothing fails. Every request eventually
+succeeds or the outer layer reports `RetriesExhausted`, which is the same error
+either way. The only visible symptom is a remote service becoming unhappy with
+you, and that reads as their problem.
+
+**In this project:** four of five clients set `retry: false` and two did not —
+MusicBrainz and the Cover Art Archive, the two added most recently. The Subsonic
+client's comment said "same reason as everywhere else" while that was untrue.
+Fixed, with a test that stubs a permanent 503 and asserts the request count,
+proven to fail by restoring the default at one call site.
+
+**Suggested for `external_service`:** the guides could say, in the getting-started
+page rather than a footnote, that an HTTP client inside `call/2` must have its
+own retrying disabled, and name the popular clients' defaults. `Req`, `Finch`
+via `Tesla`, and `HTTPoison` with `:retry` middleware all default to retrying or
+make it a one-line addition. A sentence there would have cost nothing and saved
+this.
+
 ## `bond` — `Bond.Coverage`'s ETS table dies with the first test that writes to it
 
 **Resolved in bond 1.15.0.** `install_reporter/0` now creates the table, so it is owned by the

@@ -221,4 +221,32 @@ defmodule OnePlaylist.MusicBrainzTest do
       assert remaining == ["AAAA00000002", "AAAA00000003"]
     end
   end
+
+  describe "who owns retrying" do
+    @tag timeout: 60_000
+    test "a 503 is attempted as many times as ExternalService says, and no more" do
+      # Req's default is `:safe_transient` — three attempts of its own inside
+      # each guarded call. Left on, `MusicBrainz.Service`'s three attempts
+      # become twelve requests, and the extra nine never pass the rate limiter,
+      # because the limiter wraps the whole function and Req retries inside it.
+      #
+      # Against a service allowing one request a second, that is a client which
+      # hammers a busy server exactly when it has asked to be left alone. It
+      # happened: a run of probes drove MusicBrainz to 503 and the log read
+      # `retry: got response with status 503, will retry in 0ms`.
+      {:ok, calls} = Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(Client, fn conn ->
+        Agent.update(calls, &(&1 + 1))
+        Plug.Conn.send_resp(conn, 503, "busy")
+      end)
+
+      MusicBrainz.family(@roon)
+
+      # Three, from `OnePlaylist.MusicBrainz.Service`'s `max_attempts`. Restore
+      # Req's default at that call site and this reads **12** — measured, which
+      # is why the number is named here rather than described.
+      assert Agent.get(calls, & &1) <= 3
+    end
+  end
 end

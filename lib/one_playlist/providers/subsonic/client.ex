@@ -246,8 +246,10 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
         method: :get,
         receive_timeout: @receive_timeout,
         finch: [pool_timeout: @pool_timeout],
-        # Same reason as everywhere else: ExternalService owns retrying, and Req
-        # retrying underneath it is invisible to the breaker.
+        # ExternalService owns retrying, and Req retrying underneath it is
+        # invisible to the breaker and outside the rate limiter. This said "same
+        # reason as everywhere else" while two clients did not do it — see
+        # `OnePlaylist.MusicBrainz.Client.isrc_family/2`.
         retry: false
       ]
       |> Keyword.merge(req_options())
