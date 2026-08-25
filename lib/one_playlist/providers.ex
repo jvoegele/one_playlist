@@ -449,8 +449,8 @@ defmodule OnePlaylist.Providers do
 
   Both callers here want the error, not the original. `requires_reauth?/1` asks
   `Errata.retryable?/1`, which only an Errata error can answer;
-  `OnePlaylistWeb.ConnectionLive.Index.message_for/1` matches on `:reason` and
-  reads `display_message/1`, which only an Errata error has. Under the old
+  the connections screen matches on `:reason` and reads
+  `Errata.display_message/1`, which only an Errata error has. Under the old
   semantics a chain ending in a `Req.TransportError` handed both of them the
   transport error and threw away the `APIError` above it that knew the request
   was *unauthorized* — so the screen said "could not reach that server" and the

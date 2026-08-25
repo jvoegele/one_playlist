@@ -67,9 +67,10 @@ Swept to the current releases on 2026-08-25. Three things changed for this proje
     which the local copy never had.
   * **`errata` 1.9.0 deprecates `Errata.root_cause/1`** in favour of `root_error/1`, on the
     grounds that the old one returns an Errata error *or* a foreign value depending on how the
-    chain ends. `OnePlaylist.Providers.root_cause/1` is our own function with the deprecated
-    semantics and produces no warning, but it is now hand-rolled recursion that
-    `Errata.root_error/1` would do — worth revisiting when that module is next touched.
+    chain ends. `OnePlaylist.Providers.root_error/1` was our own function with the deprecated
+    semantics; it now delegates to `Errata.root_error/1` behind an
+    `Errata.is_error/1` guard, which fixed a live bug — a chain ending in a foreign exception
+    used to discard the Errata error above it that carried the `:reason` both callers read.
 
 Dogfooding includes **reporting friction back**. If an API is awkward, note it in
 `docs/library-feedback.md` — that feedback is a deliverable of this project, not a distraction
@@ -181,7 +182,8 @@ better code.
   and scheduled pruning rather than opaque cache rows. This is the first table here whose rows
   **belong to nobody**, so the usual `auth.uid()` policy shape does not apply — see the
   migration for the reasoning.
-- **Errors**: an application-level `OnePlaylist.Errors.to_error/1` normalizing at boundaries,
+- **Errors**: an application-level `OnePlaylist.Errors` — `describe/1` renders a chain for a
+  log today, and normalizing at boundaries is the next thing it should grow —
   a Phoenix fallback controller driven by `Errata.http_status/1`, and
   `config :errata, redact: [...]` covering every token-shaped key.
 - **Bond in production**: preconditions on, everything else `false` — compiled in but gated,

@@ -223,6 +223,7 @@ defmodule OnePlaylist.Library.Enrichment do
 
   alias OnePlaylist.Cache
   alias OnePlaylist.CoverArt.Client, as: CoverArt
+  alias OnePlaylist.Errors
   alias OnePlaylist.Library.EnrichmentUnavailable
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
@@ -750,7 +751,10 @@ defmodule OnePlaylist.Library.Enrichment do
         {:ok, candidates}
 
       {:error, reason} ->
-        Logger.warning("musicbrainz recording search failed for #{title}: #{inspect(reason)}")
+        Logger.warning(
+          "musicbrainz recording search failed for #{title}: #{Errors.describe(reason)}"
+        )
+
         :error
     end
   end
@@ -824,7 +828,7 @@ defmodule OnePlaylist.Library.Enrichment do
         end
 
       {:error, reason} ->
-        Logger.warning("musicbrainz lookup failed for #{mbid}: #{inspect(reason)}")
+        Logger.warning("musicbrainz lookup failed for #{mbid}: #{Errors.describe(reason)}")
         {:error, reason}
     end
   end

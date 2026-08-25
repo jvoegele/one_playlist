@@ -37,6 +37,7 @@ defmodule OnePlaylist.MusicBrainz do
   use Bond
 
   alias OnePlaylist.Cache
+  alias OnePlaylist.Errors
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
@@ -215,7 +216,7 @@ defmodule OnePlaylist.MusicBrainz do
         {:ok, titles}
 
       {:error, reason} ->
-        Logger.warning("musicbrainz work lookup failed for #{query}: #{inspect(reason)}")
+        Logger.warning("musicbrainz work lookup failed for #{query}: #{Errors.describe(reason)}")
         {:ok, []}
     end
   end
@@ -268,7 +269,7 @@ defmodule OnePlaylist.MusicBrainz do
         # Not remembered. A failure is about MusicBrainz being unreachable
         # rather than about the ISRC, and caching it would turn a minute's
         # outage into a month of wrong answers.
-        Logger.warning("musicbrainz lookup failed for #{isrc}: #{inspect(reason)}")
+        Logger.warning("musicbrainz lookup failed for #{isrc}: #{Errors.describe(reason)}")
         {:ok, %{recording_mbid: nil, isrcs: []}}
     end
   end

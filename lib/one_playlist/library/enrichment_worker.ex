@@ -51,6 +51,7 @@ defmodule OnePlaylist.Library.EnrichmentWorker do
       states: Oban.Job.states() -- [:completed, :discarded, :cancelled]
     ]
 
+  alias OnePlaylist.Errors
   alias OnePlaylist.Library.Enrichment
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Repo
@@ -123,7 +124,7 @@ defmodule OnePlaylist.Library.EnrichmentWorker do
   end
 
   defp give_up(recording, reason) do
-    Logger.warning("enrichment of #{recording.id} gave up: #{inspect(reason)}")
+    Logger.warning("enrichment of #{recording.id} gave up: #{Errors.describe(reason)}")
 
     {:cancel, :not_retryable}
   end
