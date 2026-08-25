@@ -2,8 +2,14 @@
 
 Guidance for Claude Code in this repository. Read this at the start of every session.
 
-`AGENTS.md` (Phoenix-generated) holds the Elixir/Phoenix/LiveView coding conventions and is
-authoritative for *how to write code here*. This file holds *what we are building and why*.
+`AGENTS.md` holds the coding conventions and is authoritative for *how to write code here*.
+This file holds *what we are building and why*.
+
+Everything in `AGENTS.md` below `<!-- usage-rules-start -->` is **generated** — it is the
+usage rules our dependencies ship for coding agents, collected by `mix usage_rules.sync`.
+Do not hand-edit inside a `<!-- name-start -->` … `<!-- name-end -->` block; the next sync
+overwrites it. Edit the preamble above that marker, or `mix.exs`\'s `usage_rules/0`, which
+explains why the configuration is `:all` and must not be narrowed to a list.
 
 ---
 
@@ -35,14 +41,14 @@ be depended on **by path** during development so improvements flow both ways.
 | --- | --- | --- |
 | [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.0.0-rc.4) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
 | [`errata`](https://hexdocs.pm/errata) | `../errata` (1.7.0) | Every error the domain can produce. `TrackNotMatched`, `ProviderUnavailable`, `TokenExpired`, `PlaylistTooLarge`, … |
-| [`bond`](https://hexdocs.pm/bond) | `../bond` (1.14.1) | Contracts on the matching engine and the transfer state machine — the places where a silent wrong answer is worse than a crash. |
+| [`bond`](https://hexdocs.pm/bond) | `../bond` (1.17.0) | Contracts on the matching engine and the transfer state machine — the places where a silent wrong answer is worse than a crash. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.4.0) | `Transfers.await/2` waits on an Oban-run transfer with `case_wait`. Deeper use still ahead: scheduled sync, and polling providers with genuinely async jobs. |
 
 ```elixir
 # mix.exs — the working configuration
 {:external_service, "3.0.0-rc.4"},   # exact: `~>` does not match a pre-release
 {:errata, "~> 1.7"},
-{:bond, "~> 1.15"},                  # 1.15.0 or later: earlier cannot compile
+{:bond, "~> 1.17"},                  # 1.15.0 or later: earlier cannot compile
 {:wait_for_it, "~> 2.4"}             # an @invariant on an Ecto.Schema
 ```
 
@@ -406,13 +412,33 @@ Two configuration decisions worth not re-litigating, both recorded in place:
   `retryable?/1`, and the count would grow with each error type we define.
 
 Depends on **bond 1.15.0 or later**: earlier versions cannot compile an `@invariant` on an
-`Ecto.Schema`, which is where three of this project's domain types keep their laws.
+`Ecto.Schema`, which is where three of this project's domain types keep their laws. Pinned to
+`~> 1.17` because 1.17.0 is what ships the usage rules and the `writing-bond-contracts` skill.
 
 **Bond contract coverage** prints after every `mix test` run (`config :bond, coverage: true`).
 An assertion marked `⚠ never failed` is a prompt: either write a test proving it can fail, or
 delete it. Before adding or changing any contract, read **`docs/reference/contracts.md`** — it
 is the house style, and every rule in it was learned by getting something wrong first. (The `:ets.new/2` workaround `test/test_helper.exs` used to carry for this is gone as of
 bond 1.15.0.)
+
+Two layers sit beneath it, both installed by `mix usage_rules.sync` and both Bond\'s own:
+
+  * the `bond`, `bond:testing` and `bond:inheritance` blocks in `AGENTS.md` — **mechanics**,
+    and the traps where the obvious guess is wrong. Quantifier generators bind and assert
+    shape rather than filtering; `|||` is exclusive-or; `~>` binds tighter than every
+    comparison; assertions must be total and pure; rescuing a `Bond.*Error` changes what a
+    purged build returns.
+  * the **`writing-bond-contracts` skill** (`.claude/skills/`) — load it when deciding what a
+    contract should *say* rather than how to write it: mechanism versus meaning, the
+    falsifiability check, and where a law belongs given who can be at fault.
+
+Two Bond gaps are recorded there as traps with workarounds: an `@invariant` exit check does
+not see a struct returned inside a tuple other than `{:ok, _}` (jvoegele/bond#131), and a
+`@pre`/`@post` written *after* its `@callback` attaches to the next one (jvoegele/bond#132).
+
+Where the three overlap they should agree — much of Bond\'s rules was distilled from
+`contracts.md` in the first place. If they ever disagree, `contracts.md` wins for this
+project and the divergence is worth a line in `docs/library-feedback.md`.
 
 ## Working agreements
 

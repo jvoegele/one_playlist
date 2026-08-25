@@ -21,7 +21,36 @@ defmodule OnePlaylist.MixProject do
         credo: :test,
         sobelow: :test
       ],
-      docs: docs()
+      docs: docs(),
+      usage_rules: usage_rules()
+    ]
+  end
+
+  # Where `mix usage_rules.sync` puts what our dependencies say about
+  # themselves. `AGENTS.md` is already the authoritative file for how code is
+  # written here, so the rules land beside the Phoenix conventions rather than
+  # in a file of their own.
+  #
+  # `usage_rules: :all` is deliberate and must not be narrowed to a list.
+  # `sync` treats this config as the source of truth and **deletes any managed
+  # block not named in it**, so writing `[:bond]` would silently remove the five
+  # Phoenix blocks — some 400 lines — that are already there. `:all`
+  # auto-discovers every dependency that ships rules, which preserves them and
+  # adds Bond's. Nor should `"bond:all"` be listed alongside `:bond`: the parent
+  # already pulls its sub-rules in, and naming both duplicates the lot (1790
+  # lines against 896).
+  #
+  # `docs/reference/contracts.md` stays authoritative for this project's house
+  # style; these are the library-level layer beneath it, and much of Bond's was
+  # distilled from that file in the first place.
+  defp usage_rules do
+    [
+      file: "AGENTS.md",
+      usage_rules: :all,
+      skills: [
+        location: ".claude/skills",
+        package_skills: [:bond]
+      ]
     ]
   end
 
@@ -275,7 +304,7 @@ defmodule OnePlaylist.MixProject do
       {:nebulex_local, "~> 3.0"},
       {:external_service, "3.0.0-rc.4"},
       {:errata, "~> 1.7"},
-      {:bond, "~> 1.15"},
+      {:bond, "~> 1.17"},
       {:wait_for_it, "~> 2.4"},
 
       # Property-based testing. Not just for our own properties: it is what
@@ -293,7 +322,10 @@ defmodule OnePlaylist.MixProject do
       # Checks dependencies against the Elixir security advisory database.
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      # Collects the usage rules a dependency ships for AI coding agents into
+      # `AGENTS.md`, and installs any skills it carries. See `usage_rules/0`.
+      {:usage_rules, "~> 1.2", only: [:dev]}
     ]
   end
 
