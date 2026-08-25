@@ -31,14 +31,27 @@ defmodule OnePlaylist.MixProject do
   # written here, so the rules land beside the Phoenix conventions rather than
   # in a file of their own.
   #
-  # `usage_rules: :all` is deliberate and must not be narrowed to a list.
+  # **The list is named explicitly, and both halves of that are deliberate.**
+  #
   # `sync` treats this config as the source of truth and **deletes any managed
-  # block not named in it**, so writing `[:bond]` would silently remove the five
-  # Phoenix blocks — some 400 lines — that are already there. `:all`
-  # auto-discovers every dependency that ships rules, which preserves them and
-  # adds Bond's. Nor should `"bond:all"` be listed alongside `:bond`: the parent
-  # already pulls its sub-rules in, and naming both duplicates the lot (1790
-  # lines against 896).
+  # block not named in it**. So `[:bond]` alone would silently remove the five
+  # Phoenix blocks that were already here — naming `:phoenix` beside it is what
+  # keeps them. A parent pulls its own sub-rules in, which is why neither needs
+  # `"bond:all"` or `"phoenix:all"` spelling out; naming both a parent and its
+  # `:all` duplicates the lot.
+  #
+  # The alternative, `:all`, auto-discovers every dependency that ships rules,
+  # and measured here that is 3755 lines where 1300 are wanted. It pulls in
+  # 2080 lines of Nebulex — a cache adapter used for one module's L1 tier —
+  # along with `sobelow` and `usage_rules`' own rules about itself. Two of those
+  # are a *third* and *fourth* general Elixir style guide sitting beside
+  # `phoenix:elixir`, from libraries with no reason to agree with each other or
+  # with us. `AGENTS.md` is read at the start of every session, so its size is a
+  # standing cost and disagreement in it is worse than absence.
+  #
+  # Add a dependency here when this project writes code *against* it and its
+  # rules would change what that code looks like. That is the test `nebulex`
+  # fails and `bond` passes.
   #
   # `docs/reference/contracts.md` stays authoritative for this project's house
   # style; these are the library-level layer beneath it, and much of Bond's was
@@ -46,7 +59,7 @@ defmodule OnePlaylist.MixProject do
   defp usage_rules do
     [
       file: "AGENTS.md",
-      usage_rules: :all,
+      usage_rules: [:bond, :phoenix],
       skills: [
         location: ".claude/skills",
         package_skills: [:bond]
