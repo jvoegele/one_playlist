@@ -115,7 +115,7 @@ defmodule OnePlaylist.Matching.Signals do
       title_exact: left.title != "" and left.title == right.title,
       artists: artist_similarity(left_artists, right_artists, left_words, right_words),
       credit_match: credit_match(left_credits, right_credits, left_words, right_words),
-      album: album_similarity(source.album, candidate.album),
+      album: album_similarity(source.album, candidate),
       duration:
         Similarity.duration_proximity(source.duration_seconds, candidate.duration_seconds),
       upc_agrees: upc_agrees?(source.album_upc, candidate.album_upc),
@@ -317,8 +317,7 @@ defmodule OnePlaylist.Matching.Signals do
 
   @typep credits :: %{primary: MapSet.t(String.t()), featured: MapSet.t(String.t())}
 
-  defp album_similarity(nil, _right), do: nil
-  defp album_similarity(_left, nil), do: nil
+  defp album_similarity(nil, _candidate), do: nil
 
   # Jaro-Winkler reads an album subtitle backwards — it rewards a shared prefix
   # and penalises length, so a *short wrong* suffix ("Greatest Hits **Vol. 2**")
@@ -337,7 +336,31 @@ defmodule OnePlaylist.Matching.Signals do
   # none from brackets. `Normalize.album/1` had also been fixed in between: it
   # split at the *first* delimiter, so "Live: 05-03-03 - State College" reduced
   # to "live", which matches every live record ever made.
-  defp album_similarity(left, right) do
+  # The **best** of the albums the candidate is released on, not the one that
+  # happened to be listed first. A recording is on as many albums as it is on,
+  # and "is your album one of them" is the question this signal is asked.
+  #
+  # Only MusicBrainz populates the set; every other provider gives one album per
+  # track, so this reduces to what it always was.
+  defp album_similarity(left, candidate) do
+    case album_names(candidate) do
+      [] ->
+        nil
+
+      names ->
+        names
+        |> Enum.map(&one_album_similarity(left, &1))
+        |> Enum.max()
+    end
+  end
+
+  defp album_names(candidate) do
+    [candidate.album | candidate.album_titles]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.uniq()
+  end
+
+  defp one_album_similarity(left, right) do
     if Normalize.same_album?(left, right) do
       1.0
     else

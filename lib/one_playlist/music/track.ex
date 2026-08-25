@@ -66,6 +66,16 @@ defmodule OnePlaylist.Music.Track do
     # unless something has looked them up, which happens only after an
     # identifier lookup has already missed — see `OnePlaylist.MusicBrainz`.
     isrc_family: [],
+    # Every album this same recording is released on, where the provider says.
+    # `album` is one of them and is what gets displayed; this is the set the
+    # album signal compares against, because "is your album one of the albums
+    # this recording appears on" is the question, and `album` alone answers a
+    # narrower one that depends on which release a search happened to name.
+    #
+    # Empty for every provider but MusicBrainz, whose search returns each
+    # recording's full release list — and each release's *group* title, which is
+    # often the canonical name where the release carries a pressing's.
+    album_titles: [],
     # Titles of the works MusicBrainz says this track's title names. Empty
     # unless something looked them up, which happens only after the ladder has
     # already failed — see `OnePlaylist.MusicBrainz.works/3`. Titles rather than
@@ -98,6 +108,7 @@ defmodule OnePlaylist.Music.Track do
           popularity: number() | nil,
           artwork_url: String.t() | nil,
           isrc_family: [String.t()],
+          album_titles: [String.t()],
           work_titles: [String.t()],
           artists: [String.t()]
         }

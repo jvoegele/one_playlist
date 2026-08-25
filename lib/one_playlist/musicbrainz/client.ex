@@ -268,7 +268,8 @@ defmodule OnePlaylist.MusicBrainz.Client do
   # album comes from the first release it names, which is what the ladder
   # compares against a stored recording's own album.
   defp to_track(recording) do
-    release = recording |> Map.get("releases", []) |> List.first() || %{}
+    releases = Map.get(recording, "releases", [])
+    release = List.first(releases) || %{}
 
     %Track{
       provider: :musicbrainz,
@@ -276,11 +277,28 @@ defmodule OnePlaylist.MusicBrainz.Client do
       title: recording["title"],
       artists: recording |> Map.get("artist-credit", []) |> Enum.map(& &1["name"]),
       album: release["title"],
+      # Every album the recording is on, not just whichever release the search
+      # listed first. MusicBrainz returns the whole list — verified, four for
+      # *Throw Your Arms Around Me* — and taking the head threw the rest away.
+      #
+      # The release **group** title goes in too, and is often the one that
+      # matters: that recording's releases are titled *Crucible* while their
+      # group is *Crucible: The Songs of Hunters & Collectors*, which is what a
+      # tagger writes. Comparing against the head alone declined a correct match
+      # over exactly that.
+      album_titles: album_titles(releases),
       album_upc: release["barcode"],
       # MusicBrainz reports length in milliseconds; everything here is seconds.
       duration_seconds: recording["length"] && div(recording["length"], 1000),
       isrc: recording |> Map.get("isrcs", []) |> List.first()
     }
+  end
+
+  defp album_titles(releases) do
+    releases
+    |> Enum.flat_map(&[&1["title"], get_in(&1, ["release-group", "title"])])
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
   end
 
   # Lucene syntax, so a quote or a backslash in a title would otherwise change

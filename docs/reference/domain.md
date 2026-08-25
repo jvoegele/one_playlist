@@ -1261,10 +1261,46 @@ the stored album to *Crucible* made it agree. The full title then arrived one
 step later, from the lookup, which is why it looked as though the catalogue had
 held it all along — it did, just not where the decision could see it.
 
-The general shape: **a candidate's album is whichever release the search chose
-to name, not the album.** `same_album?/2` covers the subtitle case; it does not
-cover a candidate named after an unrelated compilation. Resolving a candidate
-against its release *group* rather than one release is the open question.
+The general shape: **a candidate's album was whichever release the search chose
+to name first, not the album.**
+
+Probing the raw response settled two questions and overturned the assumption
+behind them:
+
+  * **The search already returns every release per candidate.** Four for that
+    recording, the same four the follow-up lookup gives. Nothing was capped and
+    no extra request was needed.
+  * **Each release already carries its release *group*, with a title.** For that
+    recording the releases are titled *Crucible* while their group is *Crucible:
+    The Songs of Hunters & Collectors* — the name a tagger writes.
+
+So the defect was never in what we asked for. `MusicBrainz.Client.to_track/1`
+took `List.first(releases)` and discarded the rest. `Music.Track` now carries
+`album_titles` — every release title plus every release-group title — and
+`Signals.album_similarity/2` takes the **best** of them, which is the question
+the signal is actually asked: *is your album one of the albums this recording is
+on?*
+
+Searching release *groups* as a second query is therefore unnecessary for this
+purpose. It remains interesting for resolving an album once rather than per
+track, which is a different item on this list.
+
+**What it is worth is not yet measured, and the honest position is that the
+subtitle rule already covered the case that prompted it.** With
+`same_album?/2` in place, *Crucible - The Songs of Hunters & Collectors* scores
+`1.0` against a candidate whose only listed release is *Crucible*, so the
+unedited album would have matched without this change.
+
+The case this *does* change is a source album naming a release other than the
+first-listed one, where no string rule bridges the two names — a tagger's
+*Sounds Eclectic* against a candidate listed under *Acoustic*, both real
+releases of one recording. Measured: the album signal goes from **0.46 to 1.0**.
+
+None of the four corpora move, and they cannot: all of them replay **TIDAL**
+candidates, which carry one album each. This path is exercised only by
+enrichment. A library re-enrichment was attempted as a substitute measure and
+produced nothing usable — the running server held a stale `Track` struct, so it
+scored the old code. It is worth redoing after a restart.
 
 ---
 

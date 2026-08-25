@@ -126,4 +126,43 @@ defmodule OnePlaylist.Matching.SignalsTest do
       refute Signals.vetoed?(far)
     end
   end
+
+  describe "the album a recording is on, when it is on several" do
+    test "the best of them decides, not whichever was listed first" do
+      # MusicBrainz returns every release a recording appears on, and the
+      # matcher used to score against the head of that list. A tagger whose
+      # album names any of the others was then declined over a difference that
+      # is not one — the recording is on both records.
+      source = track(album: "Sounds Eclectic")
+
+      first_only = track(album: "Acoustic", album_titles: [])
+      every_release = track(album: "Acoustic", album_titles: ["Acoustic", "Sounds Eclectic"])
+
+      assert Signals.compare(source, first_only).album < 0.5
+      assert Signals.compare(source, every_release).album == 1.0
+    end
+
+    test "and a set that resembles nothing still scores low" do
+      # Widening the comparison is only safe while it stays a comparison. A
+      # recording released on thirty compilations must not thereby match every
+      # album string it is shown.
+      source = track(album: "Vitalogy")
+
+      wide =
+        track(
+          album: "Now That's What I Call Music 42",
+          album_titles: ["Now That's What I Call Music 42", "Party Anthems", "Driving Rock"]
+        )
+
+      assert Signals.compare(source, wide).album < 0.6
+    end
+
+    test "an empty set is the ordinary provider, and behaves as it always did" do
+      # Only MusicBrainz populates it. TIDAL and Subsonic give one album per
+      # track, so this must reduce to exactly the previous comparison.
+      assert Signals.compare(track(album: "Vitalogy"), track(album: "Vitalogy")).album == 1.0
+      assert Signals.compare(track(album: "Vitalogy"), track(album: nil)).album == nil
+      assert Signals.compare(track(album: nil), track(album: "Vitalogy")).album == nil
+    end
+  end
 end
