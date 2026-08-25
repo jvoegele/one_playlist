@@ -41,6 +41,7 @@ defmodule OnePlaylist.MusicBrainz do
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
+  alias OnePlaylist.MusicBrainz.Release
   alias OnePlaylist.MusicBrainz.WorkLookup
   alias OnePlaylist.Repo
 
@@ -141,6 +142,102 @@ defmodule OnePlaylist.MusicBrainz do
   The same work `pg_cron` does nightly, callable from Elixir for a test or a
   console. See the migration for why the schedule is best-effort.
   """
+  @doc """
+  A release and its track list, from the cache or from MusicBrainz.
+
+  Read-through, like `recording_mbid/2`, and with one difference that matters:
+  **nothing here expires**. A release fetched by its own id cannot be a negative,
+  and what it says is close to immutable — see the migration for the full
+  reasoning. `looked_up_at` exists so a stale release being consulted can be
+  refreshed, not so one can be deleted.
+
+  `nil` when MusicBrainz does not hold the id, or could not be reached. A caller
+  cannot tell those apart and should not need to: both mean "no track list to
+  compare against", and neither is remembered.
+  """
+  @spec release(String.t() | nil, keyword()) :: Release.t() | nil
+  def release(mbid, opts \\ [])
+
+  def release(mbid, opts) when is_binary(mbid) do
+    case Cache.read_through({:musicbrainz_release, mbid}, fn -> resolve_release(mbid, opts) end,
+           ttl: @l1_ttl
+         ) do
+      {:ok, release} -> release
+      _unavailable -> nil
+    end
+  end
+
+  def release(_mbid, _opts), do: nil
+
+  defp resolve_release(mbid, opts) do
+    case Repo.get(Release, mbid) do
+      %Release{} = cached -> {:ok, cached}
+      nil -> ask_release(mbid, opts)
+    end
+  end
+
+  defp ask_release(mbid, opts) do
+    case Client.release(mbid, opts) do
+      {:ok, nil} ->
+        # Not remembered. "MusicBrainz does not hold this id" is the one answer
+        # this table has no shape for, and it is also the one a caller can do
+        # nothing with.
+        {:ok, nil}
+
+      {:ok, document} ->
+        {:ok, remember_release(mbid, document)}
+
+      {:error, reason} ->
+        Logger.warning(
+          "musicbrainz release lookup failed for #{mbid}: #{Errors.describe(reason)}"
+        )
+
+        {:ok, nil}
+    end
+  end
+
+  defp remember_release(mbid, document) do
+    row = %Release{
+      mbid: mbid,
+      title: document["title"],
+      artist_credit:
+        document |> Map.get("artist-credit", []) |> Enum.map_join(", ", & &1["name"]),
+      barcode: document["barcode"],
+      date: document["date"],
+      release_group_mbid: get_in(document, ["release-group", "id"]),
+      release_group_title: get_in(document, ["release-group", "title"]),
+      primary_type: get_in(document, ["release-group", "primary-type"]),
+      secondary_types: get_in(document, ["release-group", "secondary-types"]) || [],
+      tracks: tracks_in(document),
+      looked_up_at: DateTime.utc_now()
+    }
+
+    # `on_conflict: :nothing`, so two callers resolving one release concurrently
+    # produce one row and neither fails — the same race `Library.create/1`
+    # documents.
+    Repo.insert(row, on_conflict: :nothing, conflict_target: :mbid)
+
+    row
+  end
+
+  # **`media[].tracks`, plural.** A recording *search* nests the matching track
+  # under `media[].track` instead, and reading the wrong key yields an empty
+  # list rather than an error — which is a silent way to cache a release with no
+  # tracks in it.
+  defp tracks_in(document) do
+    document
+    |> Map.get("media", [])
+    |> Enum.flat_map(&Map.get(&1, "tracks", []))
+    |> Enum.map(fn track ->
+      %{
+        "position" => track["position"],
+        "title" => track["title"],
+        "recording_mbid" => get_in(track, ["recording", "id"]),
+        "length_ms" => track["length"] || get_in(track, ["recording", "length"])
+      }
+    end)
+  end
+
   @spec prune_negatives(String.t()) :: non_neg_integer()
   def prune_negatives(older_than \\ "30 days") do
     # `$1::text::interval` rather than `$1::interval`: Postgrex otherwise infers

@@ -13,6 +13,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   import Req.Test, only: [set_req_test_from_context: 1]
 
   alias OnePlaylist.Cache
+  alias OnePlaylist.Cache
   alias OnePlaylist.CoverArt
   alias OnePlaylist.Library.Enrichment
   alias OnePlaylist.AuthFixtures
@@ -39,6 +40,12 @@ defmodule OnePlaylist.Library.EnrichmentTest do
   # The release *group* — the album across all its pressings, which is what a
   # cover belongs to. See `OnePlaylist.CoverArt.Client`.
   @group "7a1f0f0e-2c44-4a1e-9d3f-6b8e5c2a1d90"
+
+  # Release ids for the last-resort path. Real UUIDs because
+  # `OnePlaylist.MusicBrainz.Release`'s primary key is one, and Ecto casts.
+  @rel_1 "1a2b3c4d-0001-4000-8000-000000000001"
+  @rel_2 "1a2b3c4d-0002-4000-8000-000000000002"
+  @rel_3 "1a2b3c4d-0003-4000-8000-000000000003"
 
   setup :set_req_test_from_context
 
@@ -96,6 +103,11 @@ defmodule OnePlaylist.Library.EnrichmentTest do
         conn.request_path =~ "/recording/" ->
           Req.Test.json(conn, overrides[:lookup] || lookup_body())
 
+        # Before `search?/1`, because a release *search* path also ends in a
+        # resource name and the two would otherwise collide.
+        String.ends_with?(conn.request_path, "/release") ->
+          Req.Test.json(conn, overrides[:release_search] || %{"releases" => []})
+
         search?(conn.request_path) ->
           Req.Test.json(conn, overrides[:search] || search_body())
 
@@ -146,6 +158,160 @@ defmodule OnePlaylist.Library.EnrichmentTest do
             }
           ]
     }
+  end
+
+  describe "finding the release first, when the title is not a name" do
+    # The inversion: every rung above searches by track title and treats the
+    # album as corroboration. For a live bootleg that is backwards — the show's
+    # name is distinctive and "[improvisation]" is not a name at all — and
+    # MusicBrainz does not index track titles for search, so no recording query
+    # reaches it however it is phrased.
+    setup do
+      # `OnePlaylist.Cache` is Nebulex, and Nebulex is **not** in the Ecto
+      # sandbox — a release cached by one test is still there for the next one,
+      # under the same id, holding the previous test's track list. The DB half
+      # rolls back; this half does not.
+      {:ok, _cleared} = Cache.delete_all()
+
+      %{
+        recording:
+          recording(%{
+            title: "[improvisation]",
+            album: "Live: 05-03-03 - State College, Pennsylvania",
+            isrc: nil,
+            duration_seconds: nil
+          })
+      }
+    end
+
+    defp release_search?(path), do: String.ends_with?(path, "/release")
+
+    defp stub_releases(releases, documents) do
+      Req.Test.stub(Client, fn conn ->
+        cond do
+          release_search?(conn.request_path) ->
+            Req.Test.json(conn, %{"releases" => releases})
+
+          conn.request_path =~ "/release/" ->
+            id = conn.request_path |> String.split("/release/") |> List.last()
+            Req.Test.json(conn, Map.fetch!(documents, id))
+
+          search?(conn.request_path) ->
+            Req.Test.json(conn, %{"recordings" => []})
+
+          conn.request_path =~ "/recording/" ->
+            Req.Test.json(conn, %{"id" => @mbid, "title" => "I Wanna Go", "releases" => []})
+        end
+      end)
+    end
+
+    defp pressing(id, title, tracks) do
+      %{
+        "id" => id,
+        "title" => title,
+        "release-group" => %{"id" => @group, "title" => title, "secondary-types" => ["Live"]},
+        "media" => [%{"tracks" => tracks}]
+      }
+    end
+
+    test "a track title on the release identifies the recording behind it", %{
+      recording: recording
+    } do
+      # The whole case: the *recording* is called "I Wanna Go" and the *track* on
+      # this pressing is called "[improvisation]". Two different fields, and only
+      # the second one is what the source holds.
+      documents = %{
+        @rel_1 =>
+          pressing(@rel_1, "2003-05-03: State College, PA", [
+            %{"position" => 10, "title" => "[improvisation]", "recording" => %{"id" => @mbid}}
+          ])
+      }
+
+      stub_releases([%{"id" => @rel_1}], documents)
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+
+    test "several pressings of one show agree, and that is what makes it safe", %{
+      recording: recording
+    } do
+      # Three pressings, one show, one recording. Agreement by construction —
+      # which is exactly what distinguishes this from two different nights that
+      # both contain a song.
+      documents =
+        Map.new([@rel_1, @rel_2, @rel_3], fn id ->
+          {id,
+           pressing(id, "State College #{id}", [
+             %{"position" => 10, "title" => "[improvisation]", "recording" => %{"id" => @mbid}}
+           ])}
+        end)
+
+      stub_releases(Enum.map([@rel_1, @rel_2, @rel_3], &%{"id" => &1}), documents)
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+      assert enriched.musicbrainz_recording_id == @mbid
+    end
+
+    test "two shows that disagree about the recording decline rather than guess", %{
+      recording: recording
+    } do
+      # Measured on the real thing: asked for "2000.06.20 - Verona, Italy
+      # (Live)", MusicBrainz ranks a **2006** Verona show first and the 2000 one
+      # second. The search finds the neighbourhood and not the house, so a
+      # disagreement has to be a decline.
+      other = "11111111-2222-3333-4444-555555555555"
+
+      documents = %{
+        @rel_1 =>
+          pressing(@rel_1, "2006 show", [
+            %{"position" => 3, "title" => "[improvisation]", "recording" => %{"id" => other}}
+          ]),
+        @rel_2 =>
+          pressing(@rel_2, "2003 show", [
+            %{"position" => 10, "title" => "[improvisation]", "recording" => %{"id" => @mbid}}
+          ])
+      }
+
+      stub_releases([%{"id" => @rel_1}, %{"id" => @rel_2}], documents)
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+      assert is_nil(enriched.musicbrainz_recording_id)
+    end
+
+    test "a length that disagrees is not the same performance" do
+      # The album is settled by then, so the title is doing all the work among
+      # forty tracks — and a night's set list repeats titles. Where both sides
+      # state a length they have to agree.
+      recording =
+        recording(%{
+          title: "[improvisation]",
+          album: "Live: 05-03-03 - State College, Pennsylvania",
+          isrc: nil,
+          duration_seconds: 188
+        })
+
+      documents = %{
+        @rel_1 =>
+          pressing(@rel_1, "State College", [
+            %{
+              "position" => 10,
+              "title" => "[improvisation]",
+              "length" => 400_000,
+              "recording" => %{"id" => @mbid}
+            }
+          ])
+      }
+
+      stub_releases([%{"id" => @rel_1}], documents)
+      stub_cover_art(:none)
+
+      assert {:ok, enriched} = Enrichment.enrich(recording)
+      assert is_nil(enriched.musicbrainz_recording_id)
+    end
   end
 
   describe "when the release-qualified search cannot be made" do

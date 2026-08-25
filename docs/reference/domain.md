@@ -1373,11 +1373,45 @@ corpus moves; and it costs nothing at runtime. What it does not have is a
 population number, and it may never get one until the search reaches these
 candidates at all.
 
-What would reach it is a different strategy altogether — find the *release* by
-its name, then look for our title among its tracks. For a live bootleg, whose
-album name is far more distinctive than its track names, that is the strong
-signal and the recording title is the weak one. Not built, and worth its own
-measurement before it is.
+**Built.** `Enrichment.by_release_tracks/2`, the last rung: search *releases* by
+album name, fetch the top three into `musicbrainz_releases`, and look for our
+title among their tracks.
+
+Two measurements decided its shape.
+
+**MusicBrainz's release index bridges what `Normalize.album/1` cannot.** Asked
+for *Live: 05-03-03 - State College, Pennsylvania* it returns *2003-05-03: State
+College, PA* first, *State College, PA - May 3rd 2003* second and the Bryce
+Jordan pressing fourth — all three pressings of that show, in the top four. No
+string rule here would call `05-03-03` and `2003-05-03` one album; the
+catalogue's own Lucene index does it for nothing.
+
+**And the top hit is not to be trusted.** Asked for *2000.06.20 - Verona, Italy
+(Live)* it ranks a **2006** Verona show first and the 2000 one second. The
+search finds the neighbourhood, not the house.
+
+So the rule is agreement rather than ranking: a track whose normalized title
+equals ours, in each fetched release, and **every match naming the same
+recording**. Three pressings of one show agree by construction; two different
+nights that both contain a song do not, and a disagreement is a decline. Where
+both sides state a length they must agree within three seconds.
+
+**7 of the library's 24 remaining declines identified, and 7 of 7 verified
+correct by hand.** It generalises well past bootlegs, because album naming
+varies the same way everywhere: *Space Oddity (2015 Remaster)*, *Even Flow
+(Extended Version)* against MusicBrainz's *(new version)*, *"Heroes" (2017
+Remaster)*, *Sweet Jane (Full Length Version) [2015 Remaster]*, *Suite: Judy
+Blue Eyes (2012 Remaster)*, *(Sittin' On) the Dock of the Bay* — and *I Got You*
+from Verona.
+
+It is affordable because of the cache: one search plus three lookups per *album*
+rather than per track, and a bootleg playlist pays it once. Measured, a release
+fetch is 928ms and the next read of it is 0ms.
+
+`dev/corpus/enrichment_cases.json` cannot measure this — it captured recording
+searches, not release ones — so the figure above is a live count rather than a
+replayable score. Extending the harvest is the obvious next thing if this path
+is tuned further.
 
 The albums disagree too: ours reads *Live: 05-03-03 - State College,
 Pennsylvania* against the catalogue's *2003-05-03: State College, PA* and two

@@ -236,6 +236,96 @@ defmodule OnePlaylist.MusicBrainz.Client do
   defp handle_search({:error, _reason}), do: :retry
 
   @doc """
+  One release, with the track list — titles, positions and recording ids.
+
+  `inc=recordings+release-groups`, which is what release-first search needs and
+  is the whole reason `OnePlaylist.MusicBrainz.Release` exists as a cache: the
+  answer is large — a live bootleg runs to forty tracks — and it does not
+  change, so it is worth fetching once and never again.
+
+  Note the shape difference that is easy to get wrong: a **release lookup** puts
+  the track list under `media[].tracks`, while a **recording search** puts the
+  matching track under `media[].track`. Singular in one, plural in the other,
+  and reading the wrong one yields an empty list rather than an error.
+
+  `{:ok, nil}` is MusicBrainz answering 404, which is an answer rather than a
+  failure.
+  """
+  @spec release(String.t(), keyword()) :: {:ok, map() | nil} | {:error, Exception.t()}
+  def release(mbid, opts \\ []) when is_binary(mbid) do
+    Service.call(fn ->
+      [
+        base_url: @base_url,
+        url: "/release/#{mbid}",
+        params: [fmt: "json", inc: "recordings+release-groups+artist-credits"],
+        headers: [{"user-agent", user_agent()}],
+        # A forty-track release is a large document and the default ten seconds
+        # is not always enough — measured, having timed out on one.
+        receive_timeout: Keyword.get(opts, :receive_timeout, 30_000),
+        # `ExternalService` owns retrying — see `isrc_family/2` above.
+        retry: false
+      ]
+      |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+      |> Req.new()
+      |> Req.get()
+      |> handle_lookup(mbid)
+    end)
+  end
+
+  @doc """
+  Releases whose name resembles this one, by this artist.
+
+  The first half of release-first search: find the record, then look for our
+  title among its tracks. Deliberately a *release* query rather than a release
+  **group** one — a live bootleg's group and its release share a name, and the
+  release is what carries the tracks.
+
+  The album term is unquoted for the same reason `search_recordings/3` leaves it
+  unquoted: a stored album is routinely spelled differently from the catalogue's
+  — "Live: 05-03-03 - State College, Pennsylvania" against "2003-05-03: State
+  College, PA" — and a phrase query matches in neither direction.
+  """
+  @spec search_releases(String.t(), String.t() | nil, keyword()) ::
+          {:ok, [map()]} | {:error, Exception.t()}
+  def search_releases(album, artist, opts \\ []) when is_binary(album) do
+    query =
+      [
+        "release:(#{escape(album)})",
+        artist && ~s(artist:"#{escape(artist)}")
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" AND ")
+
+    Service.call(fn ->
+      [
+        base_url: @base_url,
+        url: "/release",
+        params: [query: query, fmt: "json", limit: Keyword.get(opts, :limit, 5)],
+        headers: [{"user-agent", user_agent()}],
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000),
+        # `ExternalService` owns retrying — see `isrc_family/2` above.
+        retry: false
+      ]
+      |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+      |> Req.new()
+      |> Req.get()
+      |> handle_release_search()
+    end)
+  end
+
+  defp handle_release_search({:ok, %{status: 503}}), do: :retry
+
+  defp handle_release_search({:ok, %{status: 200, body: body}}),
+    do: {:ok, Map.get(body, "releases", [])}
+
+  defp handle_release_search({:ok, %{status: status}}) do
+    Logger.warning("musicbrainz release search returned #{status}")
+    {:error, %RuntimeError{message: "musicbrainz returned #{status}"}}
+  end
+
+  defp handle_release_search({:error, _reason}), do: :retry
+
+  @doc """
   Everything one recording is known by, in a single request.
 
   `inc=artist-credits+releases+release-groups+isrcs+work-rels`, which is what

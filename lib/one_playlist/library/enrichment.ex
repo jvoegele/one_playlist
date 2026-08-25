@@ -256,6 +256,13 @@ defmodule OnePlaylist.Library.Enrichment do
   # so the one somebody just corrected is always among them.
   @corrections 2
 
+  # How many releases the last-resort search fetches before deciding. Three,
+  # because the measured case wants the top four and the fourth was a duplicate
+  # pressing of the same show — and because each one is a request against a
+  # service allowing one a second. Cached afterwards, so a playlist of one
+  # bootleg pays this once rather than per track.
+  @release_candidates 3
+
   # How many releases are asked about artwork before settling for the first
   # candidate. Bounded because each is a request; small because rule 1 means the
   # question is asked once per album, and the album's own pressing is almost
@@ -364,7 +371,13 @@ defmodule OnePlaylist.Library.Enrichment do
   # Only a search that found nothing is worth re-asking with different words. An
   # identifier answered, or an outage stopped us asking at all, and neither is
   # improved by a better question.
-  defp reconsider({:none, why}, %Recording{} = recording), do: by_corrections(recording, why)
+  defp reconsider({:none, why}, %Recording{} = recording) do
+    case by_corrections(recording, why) do
+      {:none, still_why} -> by_release_tracks(recording, still_why)
+      answered -> answered
+    end
+  end
+
   defp reconsider(other, %Recording{} = _recording), do: other
 
   @doc """
@@ -573,6 +586,109 @@ defmodule OnePlaylist.Library.Enrichment do
   end
 
   defp by_corrections(%Recording{} = _identified, why), do: {:none, why}
+
+  # The last resort, and the one that asks the question the other way round.
+  #
+  # Every rung above searches by **track title** and treats the album as
+  # corroboration. For a live bootleg that weighting is backwards: *Live:
+  # 05-03-03 - State College, Pennsylvania* is enormously more distinctive than
+  # *[improvisation]*, and a title that is not a name carries no signal at all.
+  # Worse, a recording's title and its title *on a release* are different fields
+  # — that show lists recording "I Wanna Go" as track "[improvisation]" — and
+  # MusicBrainz does not index the second one for search, so no recording query
+  # reaches it however it is phrased.
+  #
+  # So: find the **release**, then look for our title among its tracks.
+  #
+  # ## Why the release search can do what `Normalize.album/1` cannot
+  #
+  # It bridges date formats. Asked for *Live: 05-03-03 - State College,
+  # Pennsylvania* MusicBrainz returns *2003-05-03: State College, PA* first,
+  # *State College, PA - May 3rd 2003* second and the Bryce Jordan pressing
+  # fourth — all three pressings of that show, in the top four. No string rule
+  # here would ever call `05-03-03` and `2003-05-03` the same album, and the
+  # catalogue's own index does it for nothing.
+  #
+  # ## Why the top hit is not taken
+  #
+  # Measured, and it would be wrong: asked for *2000.06.20 - Verona, Italy
+  # (Live)*, MusicBrainz ranks a **2006** Verona show first and the 2000 one
+  # second. The search is good at finding the neighbourhood and not at picking
+  # the house.
+  #
+  # So several releases are fetched and the decision is made on agreement: a
+  # track whose normalized title equals ours, in each of them, and **every match
+  # naming the same recording**. Three pressings of one show agree by
+  # construction; two different shows that both contain a song do not, and a
+  # disagreement means the album name was not distinctive enough to say which —
+  # which is a decline rather than a guess.
+  defp by_release_tracks(%Recording{musicbrainz_recording_id: nil, album: album} = recording, why)
+       when is_binary(album) and album != "" do
+    case Client.search_releases(album, List.first(recording.artists || []),
+           limit: @release_candidates
+         ) do
+      {:ok, releases} ->
+        releases
+        |> Enum.take(@release_candidates)
+        |> Enum.map(& &1["id"])
+        |> Enum.reject(&is_nil/1)
+        |> Enum.flat_map(&tracks_named_like(recording, &1))
+        |> agreed_recording()
+        |> case do
+          nil -> {:none, why}
+          mbid -> {:ok, mbid, :release_tracks}
+        end
+
+      _unavailable ->
+        {:none, why}
+    end
+  end
+
+  defp by_release_tracks(%Recording{}, why), do: {:none, why}
+
+  # Every track on this release whose title is ours, once both are normalized.
+  # Exactness rather than similarity: a release holds forty tracks and the album
+  # has already been decided, so the title is the only thing left doing work and
+  # a near miss is a different song on the same night.
+  defp tracks_named_like(%Recording{} = recording, release_mbid) do
+    ours = Normalize.title(recording.title).title
+
+    case MusicBrainz.release(release_mbid) do
+      nil ->
+        []
+
+      release ->
+        release.tracks
+        |> List.wrap()
+        |> Enum.filter(fn track ->
+          Normalize.title(track["title"] || "").title == ours and
+            plausible_length?(recording, track)
+        end)
+        |> Enum.map(& &1["recording_mbid"])
+        |> Enum.reject(&is_nil/1)
+    end
+  end
+
+  # Where both sides state a length they have to agree, on the same three
+  # seconds the rest of the engine uses. Where either does not, this says
+  # nothing — a bootleg's track lengths are often absent, and demanding one
+  # would refuse the case this exists for.
+  defp plausible_length?(%Recording{duration_seconds: nil}, _track), do: true
+
+  defp plausible_length?(%Recording{duration_seconds: ours}, %{"length_ms" => ms})
+       when is_integer(ms),
+       do: abs(ours - div(ms, 1000)) <= 3
+
+  defp plausible_length?(%Recording{}, _track), do: true
+
+  defp agreed_recording([]), do: nil
+
+  defp agreed_recording(mbids) do
+    case Enum.uniq(mbids) do
+      [only] -> only
+      _disagreed -> nil
+    end
+  end
 
   # At most `@corrections` of them, newest first, because the newest is the one
   # somebody just typed. The cap is a request budget: this runs on a queue sized
@@ -832,7 +948,18 @@ defmodule OnePlaylist.Library.Enrichment do
         record_attempt(recording, outcome(%{outcome: :no_candidates, candidates: 0}))
 
       {:ok, details} ->
-        if how == :searched or agrees_by_name?(recording, details) do
+        # Inverted deliberately: the sanity check belongs to the **identifier**
+        # path and to nothing else. An ISRC's answer is taken on trust, so it is
+        # worth asking whether the recording it names is plausibly ours; every
+        # other path has already earned its answer by comparison.
+        #
+        # Written as `how == :searched` at first, which quietly broke
+        # `:release_tracks` — that path matches a *track* title on a release,
+        # and the recording behind it is frequently called something else. That
+        # is the case it exists for: "I Wanna Go" listed as "[improvisation]".
+        # Naming the one path that needs the check, rather than listing the ones
+        # that do not, is what keeps the next path from inheriting the bug.
+        if how != :identifier or agrees_by_name?(recording, details) do
           apply_details(recording, details, mbid)
         else
           # The identifier named a different piece of music. Nothing is written
