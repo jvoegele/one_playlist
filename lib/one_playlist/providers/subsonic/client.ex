@@ -98,6 +98,14 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
   laziness `OnePlaylist.Providers.Tidal.Client` needs has nothing to be lazy
   about here.
   """
+  # `Providers.Navidrome.playlist_track_ids/3` maps these to ids and states its
+  # own law over *those*. Both belong: this one catches a mapper that emits a
+  # blank id, that one catches the mapping.
+  @post whenever(
+          {:ok, tracks} <- result,
+          every_track_is_addressable:
+            forall(track <- tracks, is_binary(track.provider_id) and track.provider_id != "")
+        )
   @spec playlist_tracks(Connection.t(), String.t()) ::
           {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
   def playlist_tracks(%Connection{} = connection, playlist_id) do
@@ -118,6 +126,11 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
   has to be served by searching and then comparing. That is the adapter's job,
   not this module's.
   """
+  @post whenever(
+          {:ok, tracks} <- result,
+          every_track_is_addressable:
+            forall(track <- tracks, is_binary(track.provider_id) and track.provider_id != "")
+        )
   @spec search(Connection.t(), String.t(), keyword()) ::
           {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
   def search(%Connection{} = connection, query, opts \\ []) do

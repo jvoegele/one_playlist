@@ -213,6 +213,11 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   verified — so they have no artist names and no album barcode, and a candidate
   that cannot be scored on text is no use to the one caller this exists for.
   """
+  @post whenever(
+          {:ok, tracks} <- result,
+          every_track_is_addressable:
+            forall(track <- tracks, is_binary(track.provider_id) and track.provider_id != "")
+        )
   @spec search_tracks(String.t(), String.t(), keyword()) ::
           {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
   def search_tracks(access_token, query, opts \\ []) do
@@ -335,6 +340,13 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   question — mapping the resources would cost an `include` and produce data
   nobody reads.
   """
+  # The adapter states this too, over the ids it derives from these — a
+  # different value, so a different law. This one is broken by the mapper or by
+  # pagination here; that one by the mapping there.
+  @post whenever(
+          {:ok, ids} <- result,
+          ids_are_usable_keys: forall(id <- ids, is_binary(id) and id != "")
+        )
   @spec playlist_track_ids(String.t(), String.t(), keyword()) ::
           {:ok, [String.t()]} | {:error, Errata.error()}
   def playlist_track_ids(access_token, playlist_id, opts \\ []) do

@@ -1306,22 +1306,38 @@ function is used**. Bond's rules say the same thing from the other side: a predi
 assertions "has to carry its own weight: keep it simple enough to be obviously correct and test
 it directly."
 
-### 2. A thin wrapper over a contracted callee
+### 2. A caller's assertion over the callee's return value, **verbatim**
 
-`Library.tracks/2` over `entries/2`, `Providers.ensure_fresh/2` over `refresh/1`,
-`Transfers.count_items/1`, `Accounts.ensure_fresh/2`.
+`Providers.ensure_fresh/2` over `refresh/1`, `Transfers.count_items/1`, `Accounts.ensure_fresh/2`
+— functions that hand back exactly what they were given, untouched.
 
-A contract here restates the callee's, and postconditions fail **inner-first** — so it does not
-add a guard, it makes the callee's unreachable for that path. Which is not a hypothetical:
+This is Meyer's Non-Redundancy principle, and it is a **narrow** category. Written wider it
+becomes the implementation-detail argument the specification view exists to refuse, and this file
+got it wrong once by writing it wider.
 
-> Four contracts were written on `Tidal.Client` and `Subsonic.Client`, each restating
-> `ids_are_usable_keys` from `c:Providers.Adapter.playlist_track_ids/3`. `navidrome_test.exs`
-> asserts that contract fires when a server omits a song id, and **the test failed** — the
-> violation now raised one call inward, under a different label.
+> Contracts were written on `Tidal.Client` and `Subsonic.Client` asserting that the tracks and
+> ids they emit are usable, then deleted because `c:Providers.Adapter.playlist_track_ids/3`
+> already says something similar and `navidrome_test.exs` began failing under a different label.
+>
+> Both halves of that reasoning were wrong. The adapter **transforms** — the client returns
+> tracks, the adapter maps them to ids — so the two assertions are over *different values* and
+> are different laws: one catches a mapper emitting a blank id, the other catches the mapping.
+> And a caller's postcondition firing less often because the callee is also correct is not a
+> defect; it is what a layered system looks like when both layers keep their promises. The
+> contracts are back, and the test asserts the label that fires first — one layer closer to the
+> server that sent the bad entry, which is the better place to catch it.
 
-Restating an inherited law at the implementation level kills the inherited one, for every
-implementation rather than the one you were looking at. The behaviour is the better locus
-*because* it is declared once.
+**The test is what the assertion is over, never which of the two fires first.** Over the callee's
+return value untouched, it is redundant and one of them should go. Over anything the *caller*
+made — a transformation, a pair of values, an assign compared against another assign — it is the
+caller's own law and belongs, however rarely it fires.
+
+`OnePlaylistWeb.TransferLive.Index.mount/3` makes the distinction concrete. Its
+`rows_account_for_every_transfer` compares `assigns.groups` against `assigns.transfers`, while
+`OnePlaylist.Transfers.group_batches/1` guarantees only that its output accounts for *its
+argument*. Nothing but the caller relates the two, so grouping a list other than the one it
+stored passes the callee's contract and fails this one — leaving a transfer the user can reach
+only by URL.
 
 ### 3. A raw provider payload
 

@@ -359,8 +359,14 @@ defmodule OnePlaylist.Providers.NavidromeTest do
         )
       end)
 
+      # Caught by `Subsonic.Client.playlist_tracks/2` rather than by the adapter
+      # above it, and that is the better answer: one layer closer to the server
+      # that sent the bad entry, before the id has been derived from it.
+      # `c:Providers.Adapter.playlist_track_ids/3`'s `ids_are_usable_keys` still
+      # guards the mapping the adapter itself does — a different value and so a
+      # different law — and this test asserts the one that fires first.
       assert_postcondition_violation(Navidrome.playlist_track_ids(connection(), "pl-1"),
-        label: :ids_are_usable_keys
+        label: :every_track_is_addressable
       )
     end
 

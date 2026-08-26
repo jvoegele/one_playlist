@@ -18,6 +18,7 @@ defmodule OnePlaylistWeb.TransferLive.Index do
   """
 
   use OnePlaylistWeb, :live_view
+  use Bond
 
   alias OnePlaylist.Providers.Connection
 
@@ -28,10 +29,21 @@ defmodule OnePlaylistWeb.TransferLive.Index do
   # `list/1` already loads every transfer, so this changes what is rendered and
   # not what is read.
   #
-  # No contract here. "Every transfer appears in exactly one row" is
-  # `Transfers.group_batches/1`'s `every_transfer_in_exactly_one_group`, and
-  # restating it over the assigns would fire first and make that one unreachable
-  # — see `docs/reference/contracts.md` on thin wrappers over a contracted callee.
+  # `rows_account_for_every_transfer` is **not** a restatement of
+  # `Transfers.group_batches/1`'s law, though it was deleted once for looking
+  # like one. That function guarantees its output accounts for *its argument*;
+  # this guarantees the rows on screen account for *the list that was assigned*.
+  # Nothing but this relates the two, and they are two different assigns:
+  # grouping a list other than the one stored passes the callee's contract and
+  # fails this one, leaving a transfer the user can reach only by URL.
+  #
+  # Proven by mutation: grouping `Enum.drop(transfers, 1)` fires it.
+  @post whenever(
+          {:ok, mounted} <- result,
+          rows_account_for_every_transfer:
+            mounted.assigns.groups |> Enum.map(&group_size/1) |> Enum.sum() ==
+              length(mounted.assigns.transfers)
+        )
   @impl true
   def mount(_params, _session, socket) do
     transfers = Transfers.list(socket.assigns.current_user_id)
@@ -131,6 +143,9 @@ defmodule OnePlaylistWeb.TransferLive.Index do
     </Layouts.app>
     """
   end
+
+  defp group_size({:single, _transfer}), do: 1
+  defp group_size({:batch, batch}), do: length(batch.transfers)
 
   # A batch member and a lone transfer read identically, so the row is one
   # component rather than two that drift.
