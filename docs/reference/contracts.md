@@ -1285,6 +1285,71 @@ Two consequences that follow directly:
 documented here for several commits before it was configured at all, and an I/O-performing
 postcondition got justified in the gap.
 
+## Functions deliberately left uncontracted, and why
+
+`bond` 1.17.3's **"the default is yes"** prompted a sweep of every public function in a
+`use Bond` module. It found 181, and the honest answer is that most of them should stay
+uncontracted — for four reasons that recur, and that a later sweep would otherwise re-derive.
+
+Record this the next time somebody asks why coverage stops where it does. The four are
+*principled*, not budgetary; none of them is "we ran out of time".
+
+### 1. A predicate that assertions call
+
+`balanced?/1`, `score_in_band?/1`, `valid_threshold_request?/1`, `distinct_positions?/1`,
+`only_filled_gaps?/2`, `only_adopted_the_release?/3`, `trustworthy?/1`, `well_formed?/1`,
+`now_after_creation?/2`, `covers?/2`, `descending?/1`, `searchable?/1`.
+
+Contracts are suppressed while an assertion is being evaluated — Meyer's Assertion Evaluation
+rule, and Bond implements it — so a contract on one of these is **inert exactly where the
+function is used**. Bond's rules say the same thing from the other side: a predicate used in
+assertions "has to carry its own weight: keep it simple enough to be obviously correct and test
+it directly."
+
+### 2. A thin wrapper over a contracted callee
+
+`Library.tracks/2` over `entries/2`, `Providers.ensure_fresh/2` over `refresh/1`,
+`Transfers.count_items/1`, `Accounts.ensure_fresh/2`.
+
+A contract here restates the callee's, and postconditions fail **inner-first** — so it does not
+add a guard, it makes the callee's unreachable for that path. Which is not a hypothetical:
+
+> Four contracts were written on `Tidal.Client` and `Subsonic.Client`, each restating
+> `ids_are_usable_keys` from `c:Providers.Adapter.playlist_track_ids/3`. `navidrome_test.exs`
+> asserts that contract fires when a server omits a song id, and **the test failed** — the
+> violation now raised one call inward, under a different label.
+
+Restating an inherited law at the implementation level kills the inherited one, for every
+implementation rather than the one you were looking at. The behaviour is the better locus
+*because* it is declared once.
+
+### 3. A raw provider payload
+
+`Tidal.Client.current_user/1`, `list_playlists/3`, `list_playlist_items/3`,
+`album_by_barcode/3`, `Subsonic.Client.me/1`.
+
+These return the provider's own JSON. There is no law about it that is ours to state — the laws
+belong on the mapper that turns it into a `Track`, and are there. Asserting on what arrived is
+also the thing [What not to assert](#what-not-to-assert) forbids: their bad data becoming our
+crash.
+
+### 4. Nothing to promise beyond the `@spec`
+
+`subscribe/1`, `engine/0`, `root_error/1`, `adapter/1`, `to_gotrue/1`, `display_name/1`,
+`label/1`, `kind/0`, `codec/1`, `recording_details/1`.
+
+Delegations, lookups and formatting. "The default is yes" says *non-trivial*; these are the
+trivial ones, and a contract on them would be the decoration the rest of this file argues
+against.
+
+### What the sweep did add
+
+Roughly twenty contracts across `Identities`, `Library`, `Transfers`, `Providers`, the two HTTP
+clients, `Accounts`, `Session`, `Track` and `Enrichment` — scoping laws, ordering laws, bounds on
+reads of shared tables, and one round-trip. Every one proven to fire, and **six of them needed a
+test written first**, which by now is the most reliable finding of the whole exercise: a contract
+that will not fire is usually telling you about the suite.
+
 ## Checklist for a new contract
 
 1. **State what the function or type promises**, in terms a caller can rely on. If you cannot
