@@ -355,6 +355,48 @@ defmodule OnePlaylist.TransfersTest do
       |> OnePlaylist.Repo.update!()
     end
 
+    test "a batch page shows every member, and somebody else's batch is not one",
+         %{user: user} do
+      {:ok, [first | _rest]} = Transfers.create_batch(batch_common(user), batch_members(3))
+
+      assert {:ok, members} = Transfers.fetch_batch(user, first.batch_id)
+      assert length(members) == 3
+
+      assert Enum.map(members, & &1.source_playlist_id) == ~w(src-1 src-2 src-3),
+             "oldest first, which is the order they were picked"
+
+      assert Transfers.fetch_batch(AuthFixtures.user_id_fixture(), first.batch_id) == :error
+      assert Transfers.fetch_batch(user, Ecto.UUID.generate()) == :error
+    end
+
+    test "only the failed members are run again", %{user: user} do
+      # A batch of forty where two hit a rate limit wants those two. Re-running
+      # the thirty-eight that worked is safe but spends a full transfer's worth
+      # of a rate-limited provider's quota each to discover it has nothing to do.
+      {:ok, [ok_one, ok_two, broken]} =
+        Transfers.create_batch(batch_common(user), batch_members(3))
+
+      for transfer <- [ok_one, ok_two], do: mark(transfer, :completed)
+
+      {:ok, _failed} =
+        broken
+        |> Ecto.Changeset.change(status: :failed, last_error: "rate limited")
+        |> OnePlaylist.Repo.update()
+
+      {:ok, members} = Transfers.fetch_batch(user, broken.batch_id)
+
+      assert Transfers.retry_failed(members) == 1
+
+      {:ok, after_retry} = Transfers.fetch_batch(user, broken.batch_id)
+      retried = Enum.find(after_retry, &(&1.id == broken.id))
+
+      assert retried.status == :pending
+      assert is_nil(retried.last_error), "a failure being retried should stop being shown"
+
+      assert Enum.all?(after_retry -- [retried], &(&1.status == :completed)),
+             "the ones that worked are left alone"
+    end
+
     test "an empty selection is not an error, and queues nothing", %{user: user} do
       # `{:ok, []}` rather than a refusal: "transfer nothing" is a coherent thing
       # to have asked for, and the caller has a flash for it.

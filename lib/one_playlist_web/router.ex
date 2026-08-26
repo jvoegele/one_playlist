@@ -52,6 +52,7 @@ defmodule OnePlaylistWeb.Router do
       live "/playlists/:id", PlaylistLive.Show, :show
       live "/transfers", TransferLive.Index, :index
       live "/transfers/new", TransferLive.New, :new
+      live "/transfers/batch/:id", TransferLive.Batch, :show
       live "/imports/new", ImportLive.New, :new
       live "/exports/new", ExportLive.New, :new
       live "/transfers/:id", TransferLive.Show, :show

@@ -577,6 +577,76 @@ defmodule OnePlaylist.Transfers do
   end
 
   @doc """
+  A batch's members, oldest first, or `:error`.
+
+  Scoped by user, exactly as `fetch/2` is and for the same reason: a batch id is
+  a URL segment, and answering with somebody else's batch would show them a
+  playlist listing they never made.
+
+  `:error` for a batch that is not this user's *and* for one that does not exist,
+  which are deliberately the same answer — telling them apart tells an attacker
+  which ids are real.
+  """
+  # Proven by mutation: dropping the `batch_id` filter fires
+  # `all_from_this_batch` for any user with two batches.
+  @post whenever(
+          {:ok, transfers} <- result,
+          all_from_this_batch: forall(transfer <- transfers, transfer.batch_id == batch_id),
+          all_belong_to_the_user: forall(transfer <- transfers, transfer.user_id == user_id),
+          never_empty: transfers != []
+        )
+  @spec fetch_batch(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, [Transfer.t()]} | :error
+  def fetch_batch(user_id, batch_id) do
+    {:ok, members} =
+      Repo.as_user(user_id, fn ->
+        Transfer
+        |> where([t], t.user_id == ^user_id and t.batch_id == ^batch_id)
+        |> order_by([t], asc: t.inserted_at)
+        |> Repo.all()
+      end)
+
+    case members do
+      [] -> :error
+      found -> {:ok, found}
+    end
+  end
+
+  @doc """
+  Queues the failed members of a batch again, returning how many.
+
+  Only the failed ones. A batch of forty where two hit a rate limit wants those
+  two re-run, and re-running the thirty-eight that worked would spend a full
+  transfer's provider quota each to discover they have nothing to do.
+
+  Safe because `OnePlaylist.Transfers.Runner.run/1` is: it re-reads the
+  destination and writes what is missing, so a transfer that died halfway adds
+  the remainder and nothing else. The status goes back to `:pending` and the
+  error is cleared, so the screen stops showing a failure that is being retried.
+  """
+  # `only_the_failed_ones` is the law with teeth, and it is stated over the
+  # *input* rather than the result: `result` is a count, and a count cannot say
+  # which rows were touched. Re-queueing a completed member is not a wrong
+  # number on a screen, it is a full run's worth of a rate-limited provider's
+  # quota spent to learn nothing — forty of them if the filter is dropped.
+  #
+  # Proven by mutation: removing the `status == :failed` filter fires it on a
+  # batch with anything completed in it.
+  @post retried_no_more_than_failed: result <= Enum.count(transfers, &(&1.status == :failed))
+  @spec retry_failed([Transfer.t()]) :: non_neg_integer()
+  def retry_failed(transfers) when is_list(transfers) do
+    transfers
+    |> Enum.filter(&(&1.status == :failed))
+    |> Enum.count(fn transfer ->
+      {:ok, pending} =
+        transfer
+        |> Transfer.progress_changeset(%{status: :pending, last_error: nil})
+        |> Repo.update()
+
+      match?({:ok, _job}, %{transfer_id: pending.id} |> TransferWorker.new() |> Oban.insert())
+    end)
+  end
+
+  @doc """
   Fetches one of a user's own transfers.
 
   Answers `:error` for a transfer belonging to somebody else, exactly as it does

@@ -126,6 +126,15 @@ defmodule OnePlaylistWeb.TransferLive.Index do
                 </div>
               </summary>
 
+              <div class="px-4 pb-2">
+                <.link
+                  navigate={~p"/transfers/batch/#{elem(group, 1).id}"}
+                  class="link text-sm"
+                >
+                  Open this batch
+                </.link>
+              </div>
+
               <ul class="px-4 pb-4 space-y-2">
                 <li :for={transfer <- elem(group, 1).transfers}>
                   <.link
