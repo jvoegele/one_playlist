@@ -115,7 +115,8 @@ defmodule OnePlaylistWeb.UserAuth do
 
   The session is dropped and rebuilt first — `configure_session(renew: true)`
   discards anything an attacker may have planted in the visitor's session before
-  sign-in, which is the cheap defence against session fixation.
+  sign-in, which is the cheap defence against session fixation. `put_user_session/2`
+  is where that happens, and where it is checked.
   """
   def log_in_user(conn, %Session{} = session) do
     # Read before `put_user_session/2`, which renews the session and discards
@@ -135,25 +136,20 @@ defmodule OnePlaylistWeb.UserAuth do
   one: the test suite, which continues the same `conn` into a request, and — when
   magic links and Google sign-in land — the callback route, which has its own
   destination logic.
+
+  **The session is renewed before it is stored**, and the postconditions below
+  are what keep it that way. `renew_session/1` is one line, and deleting it — or
+  moving the `put_session/3` above it — leaves sign-in working perfectly: the
+  user is signed in, every test passes, and the session id an attacker planted
+  in the visitor's browser before sign-in now names an authenticated session.
   """
-  # The session-fixation defence, stated where it can be checked rather than
-  # only described. `renew_session/1` is one line and deleting it, or moving the
-  # `put_session/3` above it, leaves sign-in working perfectly: the user is
-  # signed in, every test passes, and the session id an attacker planted in the
-  # visitor's browser before sign-in now names an authenticated session. That is
-  # the second shape in `docs/reference/contracts.md` — a security relationship
-  # that still works when broken — and it is the reason this whole function is
-  # worth a contract despite doing almost nothing.
-  #
   # `:renew` is what `configure_session(renew: true)` records for the session
-  # store to act on, so it is the observable form of "this response will issue a
-  # new session id". Asserting it alongside the session actually being stored is
-  # what pins the *order*: renew-then-put signs the user in with a fresh id,
+  # store to act on, and asserting it *alongside* the session being stored is what
+  # pins the order — renew-then-put signs the user in with a fresh id,
   # put-then-renew signs nobody in at all.
   #
-  # Proven by mutation: deleting `renew_session/1` from the pipeline fires
-  # `session_was_renewed`, and swapping the two pipeline steps fires
-  # `the_user_is_signed_in`.
+  # Proven by mutation: deleting `renew_session/1` fires `session_was_renewed`;
+  # swapping the two pipeline steps fires `the_user_is_signed_in`.
   @post session_was_renewed: result.private[:plug_session_info] == :renew
   @post the_user_is_signed_in: Plug.Conn.get_session(result, @session_key) == session
   def put_user_session(conn, %Session{} = session) do

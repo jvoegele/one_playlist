@@ -208,30 +208,21 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
 
   Public because it is the part worth testing directly: that `p` is never sent,
   and that the token is `md5(password <> salt)` with a salt that changes.
+
+  All three postconditions below guard failures that leave a **working
+  client**, which is why they are worth stating at all. Adding `p:` sends the
+  password in the clear and every call still succeeds — Subsonic accepts it by
+  design. Dropping the hash makes `t` the password itself, and only a
+  deployment that requires token auth would refuse it. Reusing the salt makes
+  the token a stable, replayable secret and nothing anywhere notices.
+
+  In each case the password ends up in whatever sees the URL: a reverse-proxy
+  access log, a `Referer`, a screenshot in a bug report.
   """
-  # The moduledoc's "Authentication is per request, and deliberately not a
-  # password", stated where it is produced. This is the second shape in
-  # `docs/reference/contracts.md` — a security relationship that still *works*
-  # perfectly when broken.
-  #
-  # Every one of these three failures leaves a working client. Adding `p:` sends
-  # the password in the clear and every call still succeeds; Subsonic accepts it
-  # by design. Dropping the hash makes `t` the password itself, and the server
-  # rejects it — but only if the deployment requires token auth, and several do
-  # not. Reusing the salt makes the token a stable replayable secret, and
-  # nothing anywhere notices.
-  #
-  # In each case the password ends up in whatever sees the URL: a reverse-proxy
-  # access log, a `Referer`, a screenshot in a bug report. Preconditions are the
-  # only kind enabled in production here, but this is the kind of law worth
-  # switching postconditions on for — which is exactly what shipping them as
-  # `false` rather than `:purge` is for.
-  #
-  # `salt_is_fresh` is stated as "two calls differ" rather than as a claim about
+  # `salt_is_fresh` says "two calls differ" rather than anything about
   # randomness, because that is the falsifiable half and it is what a hard-coded
-  # salt breaks. It is sound only because contracts are suppressed while an
-  # assertion is being evaluated — the inner `auth_params/1` call runs
-  # uncontracted, so this does not recurse.
+  # salt breaks. Sound only because the inner `auth_params/1` call runs
+  # uncontracted under Meyer's Assertion Evaluation rule, so it cannot recurse.
   @post never_sends_the_password:
           not Keyword.has_key?(result, :p) and not Keyword.has_key?(result, :password)
   @post token_is_not_the_credential: Keyword.get(result, :t) != connection.access_token

@@ -68,30 +68,19 @@ defmodule OnePlaylist.CoverArt.Client do
   failure. A genuine fault — a timeout, a `5xx` — comes back as `{:error, _}` so
   the caller can tell "there is no cover" from "we could not find out", which
   matters because only the first should be remembered.
+
+  The URL handed back is always one **this module constructed**, for the album
+  that was asked about — the two postconditions below. Both matter because the
+  value is stored in `library_recordings.artwork_url` and rendered straight into
+  an `<img src>` in every user's browser, and both hold only by construction:
+  `redirect: false` is one edit from being otherwise, and the comment beside it
+  exists because following the redirect looks like the obvious thing to do.
   """
-  # What this function is allowed to hand back, which is narrower than "a
-  # string". The value goes into `library_recordings.artwork_url` and is rendered
-  # straight into an `<img src>` in every user's browser, so it must be a URL
-  # *this module constructed* and not one a response supplied.
-  #
-  # Today that holds by construction: `url` is built above and `redirect: false`
-  # means the archive's `Location` is never read. Both are one edit from being
-  # otherwise, and the edit is a tempting one — the comment beside `redirect:
-  # false` exists because following it looks like the obvious thing to do. A
-  # `handle/3` clause returning the redirect target instead would put an
-  # archive.org host in the column today and whatever the archive redirects to
-  # tomorrow, with nothing in between to notice.
-  #
-  # The mbid clause is the other half: it is what makes the URL the *requested*
-  # album's rather than merely a well-formed one, which a cache keyed by mbid is
-  # entitled to assume.
-  #
-  # Proven by mutation, and the two need *different* ones — postconditions
-  # fail-fast in order, so anything that breaks the host raises before the second
-  # is evaluated and would look like proof it cannot fire. Returning `location`
-  # from the 3xx clause fires `from_the_archive`; building the URL with a
-  # hard-coded mbid keeps the host intact and fires
-  # `names_the_album_asked_about`.
+  # Proven by mutation, and the two need *different* ones: postconditions
+  # fail-fast in order, so anything breaking the host raises before the second is
+  # evaluated and would look like proof it cannot fire. Returning `location` from
+  # the 3xx clause fires `from_the_archive`; a hard-coded mbid keeps the host
+  # intact and fires `names_the_album_asked_about`.
   @post whenever(
           {:ok, url} <- result,
           from_the_archive: is_nil(url) or String.starts_with?(url, @base_url),

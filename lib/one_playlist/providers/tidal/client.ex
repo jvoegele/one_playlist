@@ -346,27 +346,17 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   Eager rather than a stream, unlike `playlist_track_ids/3`: the caller is about
   to decide which of these to delete, so it wants the whole playlist rather than
   a prefix of it.
+
+  **Both halves of every reference are usable** — the postcondition below.
+  `remove_tracks/4` depends on it, and TIDAL's refusal of a half-formed reference
+  names neither field, so a caller is entitled to see the guarantee here rather
+  than being sent to read a mapper.
   """
-  # What this function promises, stated where its caller reads it. Today the
-  # body cannot break it — `Mapper.item_references/1` refuses to emit a
-  # half-formed reference and this only paginates and concatenates — and that is
-  # a fact about the current implementation rather than about the
-  # specification. The guarantee belongs to *this* function: `remove_tracks/4`
-  # relies on it, and a caller reading these docs is entitled to see it without
-  # first going to read the mapper.
-  #
-  # Meyer's argument for exactly this case (§11.7): the instruction prescribes
-  # and the assertion describes, and their agreement is evidence of consistency
-  # between implementation and specification. Written up in
-  # `docs/reference/contracts.md` under "Where this file used to depart from
-  # Meyer".
-  #
-  # And it is not decorative, which was checked rather than assumed. Corrupting
-  # the mapping this function applies — `&(Mapper.item_references(&1) ++
-  # [{"x", nil}])` — leaves the mapper's own postcondition satisfied on every
-  # page and fires this one. A bug in how *this* function assembles pages is
-  # invisible one call inward, which is the whole reason the guarantee belongs
-  # to the function that makes it.
+  # Not decorative, which was checked rather than assumed: corrupting the mapping
+  # this function applies — `&(Mapper.item_references(&1) ++ [{"x", nil}])` —
+  # leaves the mapper's own postcondition satisfied on every page and fires this
+  # one. A bug in how *this* function assembles pages is invisible one call
+  # inward. See `docs/reference/contracts.md`.
   @post whenever(
           {:ok, references} <- result,
           both_ids_usable:
@@ -412,20 +402,17 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   character as the `INVALID_RESOURCE_ID` that `search_tracks/3` documents. The
   200 removed precisely the entry whose item id was given, leaving a second
   copy of the same track in place.
+
+  So a reference missing either half is the one input this function must not be
+  given, and `both_ids_given` below demands it. The failure it prevents is
+  quiet: the refusal names neither field, so it reaches the caller as "the
+  provider rejected the removal" while the track stays in the playlist.
   """
-  # A reference missing either half is the one input this function must not be
-  # given, because TIDAL's refusal names neither field — see the table above. It
-  # would arrive at the caller as "the provider rejected the removal", and the
-  # track would still be in the playlist.
-  #
-  # `Mapper.item_references/1` already refuses to emit one, and its own
-  # `both_ids_usable` fires first for any bug in the parse. This is not that
-  # assertion restated: it is the obligation stated where a **caller** can be
-  # held to it, and today's only caller passing it is the normal case rather
-  # than a reason to leave it unwritten. `Providers.Tidal.remove_tracks/4` reads
-  # and matches references itself, and replace-mode sync will be a second such
-  # caller — a client that builds a reference from its own state, where no
-  # mapper stands between the mistake and the request.
+  # Today's only caller reads its references straight from
+  # `Mapper.item_references/1`, which cannot emit a bad one — the normal case for
+  # a precondition rather than a reason to leave it unwritten. Replace-mode sync
+  # will be the second caller, building references from its own state with no
+  # mapper between the mistake and the request.
   @pre both_ids_given:
          forall(
            reference <- references,
