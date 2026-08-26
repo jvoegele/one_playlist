@@ -56,7 +56,7 @@ defmodule OnePlaylist.Providers.SpotifyTest do
     }
   end
 
-  defp item(track), do: %{"track" => track}
+  defp item(track), do: %{"added_at" => "2026-01-01T00:00:00Z", "item" => track}
 
   describe "stream_playlists/2" do
     test "follows the next link across pages", %{connection: connection} do
@@ -160,7 +160,7 @@ defmodule OnePlaylist.Providers.SpotifyTest do
             send(test_pid, {:removed, Jason.decode!(body)})
             Req.Test.json(conn, %{"snapshot_id" => "snap-2"})
 
-          String.ends_with?(conn.request_path, "/tracks") ->
+          String.ends_with?(conn.request_path, "/items") ->
             Req.Test.json(conn, %{
               "items" => [
                 item(track_object("t1")),
@@ -295,6 +295,48 @@ defmodule OnePlaylist.Providers.SpotifyTest do
 
       assert {:error, error} = Spotify.playlist_track_ids(connection, "p1", [])
       assert Errata.reason(error) == :forbidden
+    end
+  end
+
+  describe "a playlist this app may not read" do
+    # Verified live 2026-08-26: a Development Mode app reads playlists the
+    # connected user owns or collaborates on, and answers 403 for every other
+    # one — a followed playlist, and every editorial playlist. The body says
+    # only "Forbidden", so the endpoint is what identifies it.
+    #
+    # The wrong answer here is "your Spotify connection is no longer valid —
+    # reconnect to continue", which is what a plain `:forbidden` would render
+    # and which no amount of reconnecting would fix.
+    test "is named as such rather than as a broken connection", %{connection: connection} do
+      Req.Test.stub(Spotify, fn conn ->
+        conn
+        |> Plug.Conn.put_status(403)
+        |> Req.Test.json(%{"error" => %{"status" => 403, "message" => "Forbidden"}})
+      end)
+
+      assert {:error, error} = Spotify.playlist_track_ids(connection, "followed", [])
+
+      assert Errata.reason(error) == :playlist_not_readable
+      assert Errata.display_message(error) =~ "own or collaborate on"
+      refute Errata.display_message(error) =~ "reconnect"
+    end
+
+    # The stream raises rather than returning a tuple, and the runner rescues —
+    # so the translation has to have happened by then or the report says
+    # ":forbidden". It is applied in the client, on the one function that calls
+    # the endpoint, which is what covers both paths at once.
+    test "is named the same way when a stream raises it", %{connection: connection} do
+      Req.Test.stub(Spotify, fn conn ->
+        conn
+        |> Plug.Conn.put_status(403)
+        |> Req.Test.json(%{"error" => %{"status" => 403, "message" => "Forbidden"}})
+      end)
+
+      assert {:ok, stream} = Spotify.stream_tracks(connection, "followed", [])
+
+      error = assert_raise OnePlaylist.Providers.Spotify.APIError, fn -> Enum.to_list(stream) end
+
+      assert Errata.reason(error) == :playlist_not_readable
     end
   end
 

@@ -122,6 +122,16 @@ better code.
   **Premium is not required**, and the older note here saying the owner needs it was wrong:
   Premium gates the Web Playback SDK and the player endpoints, while playlist read and write
   on the Web API work with a free account.
+  **Two live findings, 2026-08-26, that no documentation here predicted.**
+  `GET /playlists/{id}/tracks` answers **403 Forbidden** for every playlist,
+  including one the user owns; the endpoint is now **`/playlists/{id}/items`**,
+  and the entry key is `item` rather than `track`. Spotify's own `href` inside a
+  playlist's embedded paging object points at `/items`, which is how it was
+  found. Separately, a Development Mode app may only read playlists the
+  connected user **owns or collaborates on** — a followed playlist, and every
+  editorial playlist, answers 403 with a body saying only `"Forbidden"`. That
+  makes Spotify a source for *your own* playlists and not for the curated ones
+  most people follow, which is a real product limit rather than a bug.
   The redirect URI must use **`127.0.0.1`, not `localhost`**: Spotify tightened its loopback
   rules in 2025 and rejects the hostname. That is the one place TIDAL's and Spotify's local
   URLs differ, and it is not a typo.

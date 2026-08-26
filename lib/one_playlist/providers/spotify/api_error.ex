@@ -19,6 +19,14 @@ defmodule OnePlaylist.Providers.Spotify.APIError do
     * `:quota_exceeded` — the daily/rolling application quota, as opposed to the
       per-request `:rate_limited`. Retrying does not help within the window.
 
+    * `:playlist_not_readable` — a 403 on reading a playlist's items. Verified
+      live 2026-08-26: a Development Mode app may read playlists the connected
+      user **owns or collaborates on**, and answers 403 for every other one,
+      including a playlist they merely follow and every editorial playlist.
+      The body says only `"Forbidden"`, so the endpoint is what identifies it —
+      see `OnePlaylist.Providers.Spotify.playlist_items_error/2`. A user told to
+      "reconnect to continue" here would reconnect forever.
+
   Retryability is answered per instance rather than taking the infrastructure
   default, because the difference between "Spotify is unwell" and "this request
   was wrong" is the difference between retrying and wasting the user's time.
@@ -30,6 +38,7 @@ defmodule OnePlaylist.Providers.Spotify.APIError do
       :unauthorized,
       :forbidden,
       :not_allowlisted,
+      :playlist_not_readable,
       :not_found,
       :rate_limited,
       :quota_exceeded,
@@ -46,7 +55,11 @@ defmodule OnePlaylist.Providers.Spotify.APIError do
   def retryable?(_error), do: false
 
   def http_status(%{reason: :unauthorized}), do: 401
-  def http_status(%{reason: reason}) when reason in [:forbidden, :not_allowlisted], do: 403
+
+  def http_status(%{reason: reason})
+      when reason in [:forbidden, :not_allowlisted, :playlist_not_readable],
+      do: 403
+
   def http_status(%{reason: :not_found}), do: 404
   def http_status(%{reason: reason}) when reason in [:rate_limited, :quota_exceeded], do: 429
   def http_status(_error), do: 502
@@ -58,6 +71,12 @@ defmodule OnePlaylist.Providers.Spotify.APIError do
     do:
       "this Spotify app is in development mode and your account has not been " <>
         "added to it — the app's owner has to allowlist you"
+
+  def display_message(%{reason: :playlist_not_readable}),
+    do:
+      "Spotify only lets this app read playlists you own or collaborate on. " <>
+        "It refuses playlists you follow, including its own editorial ones — " <>
+        "make a copy in Spotify and transfer that instead"
 
   def display_message(%{reason: :rate_limited}),
     do: "Spotify is asking us to slow down; this will retry shortly"

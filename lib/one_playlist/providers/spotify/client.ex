@@ -52,6 +52,18 @@ defmodule OnePlaylist.Providers.Spotify.Client do
   @receive_timeout :timer.seconds(10)
   @pool_timeout :timer.seconds(5)
 
+  # `/items`, not `/tracks`. Verified against the live API 2026-08-26: every
+  # `GET /playlists/{id}/tracks` answers **403 Forbidden** with no explanation,
+  # while `/items` answers normally — and the `href` Spotify itself puts inside
+  # a playlist's embedded paging object points at `/items`. A playlist holds
+  # tracks *and* episodes, so `items` is the honest name and `tracks` is the
+  # one being retired.
+  #
+  # The write endpoints below use it too. That is the same rename applied
+  # consistently rather than a second finding, and it is called out here because
+  # it was **not** verified live — see `add_tracks/4`.
+  @items_path "items"
+
   # Spotify's own maxima, and exceeding either is a 400 rather than a clamp.
   @playlist_page 50
   @items_page 100
@@ -74,11 +86,51 @@ defmodule OnePlaylist.Providers.Spotify.Client do
   @spec list_playlist_items(String.t(), String.t(), keyword()) ::
           {:ok, map()} | {:error, Errata.error()}
   def list_playlist_items(access_token, playlist_id, opts \\ []) do
-    page(
-      access_token,
-      "/playlists/#{playlist_id}/tracks",
+    access_token
+    |> page(
+      "/playlists/#{playlist_id}/#{@items_path}",
       [{"limit", @items_page}] ++ market_param(opts),
       opts
+    )
+    |> name_the_refusal()
+  end
+
+  # Spotify answers `403 Forbidden` with a body saying only `"Forbidden"`, and
+  # three different situations produce it. The **endpoint** is what tells them
+  # apart, which is why this sits on the one function that calls it rather than
+  # in `classify/1` where every endpoint's 403 arrives together.
+  #
+  # By the time a 403 reaches here the other two explanations are ruled out: the
+  # account is allowlisted, or `whoami/1` would have failed at connect; and the
+  # scopes are fixed at authorization, so one short of `playlist-read-private`
+  # would have failed the listing that produced this playlist id.
+  #
+  # What is left is the common case, verified live 2026-08-26 against a real
+  # account: every playlist the user owned read normally, one they collaborate
+  # on read normally, and every followed playlist — Spotify's own editorial ones
+  # included — answered 403.
+  # Only when Spotify said nothing beyond "Forbidden". A 403 that *does* carry a
+  # message — "Insufficient client scope" is the one seen in practice — is
+  # saying something more specific than this, and overwriting it with a guess
+  # would replace a true answer with a plausible one.
+  defp name_the_refusal({:error, %APIError{reason: :forbidden} = error})
+       when not is_map_key(error.context, :detail) do
+    {:error, renamed(error)}
+  end
+
+  defp name_the_refusal(
+         {:error, %APIError{reason: :forbidden, context: %{detail: detail}} = error}
+       )
+       when detail in [nil, "Forbidden"] do
+    {:error, renamed(error)}
+  end
+
+  defp name_the_refusal(result), do: result
+
+  defp renamed(error) do
+    Errata.create(APIError,
+      reason: :playlist_not_readable,
+      context: Map.put(error.context, :detail, "not owned by or shared with this account")
     )
   end
 
@@ -235,7 +287,7 @@ defmodule OnePlaylist.Providers.Spotify.Client do
     |> Enum.reduce_while({:ok, nil}, fn batch, {:ok, _snapshot} ->
       body = %{"uris" => Enum.map(batch, &track_uri/1)}
 
-      case write(access_token, :post, "/playlists/#{playlist_id}/tracks", body, opts) do
+      case write(access_token, :post, "/playlists/#{playlist_id}/#{@items_path}", body, opts) do
         {:ok, response} -> {:cont, {:ok, response["snapshot_id"]}}
         {:error, _reason} = error -> {:halt, error}
       end
@@ -279,7 +331,7 @@ defmodule OnePlaylist.Providers.Spotify.Client do
         %{"tracks" => Enum.map(batch, &%{"uri" => track_uri(&1)})}
         |> maybe_put("snapshot_id", snapshot)
 
-      case write(access_token, :delete, "/playlists/#{playlist_id}/tracks", body, opts) do
+      case write(access_token, :delete, "/playlists/#{playlist_id}/#{@items_path}", body, opts) do
         # Carried forward, so each batch is checked against the state the
         # previous batch produced rather than against the one this started with.
         {:ok, response} -> {:cont, {:ok, response["snapshot_id"]}}

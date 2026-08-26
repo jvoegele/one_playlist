@@ -139,8 +139,8 @@ defmodule OnePlaylist.Providers.Spotify.Mapper do
   def tracks(page) do
     page
     |> items()
+    |> Enum.filter(&entry_playable?/1)
     |> Enum.map(&entry/1)
-    |> Enum.filter(&playable?/1)
     |> Enum.map(&track/1)
   end
 
@@ -156,8 +156,8 @@ defmodule OnePlaylist.Providers.Spotify.Mapper do
   def track_ids(page) do
     page
     |> items()
+    |> Enum.filter(&entry_playable?/1)
     |> Enum.map(&entry/1)
-    |> Enum.filter(&playable?/1)
     |> Enum.map(&to_string(&1["id"]))
   end
 
@@ -220,12 +220,35 @@ defmodule OnePlaylist.Providers.Spotify.Mapper do
     |> Enum.map(&to_string(&1["id"]))
   end
 
-  # A playlist item wraps its track; every other endpoint returns the track
-  # itself. `|| %{}` rather than a clause, because `track: null` is a real
-  # response and pattern matching `nil` here would only move the branch.
+  # A playlist entry wraps what it holds; every other endpoint returns the
+  # resource itself. Spotify's current shape calls the payload **`item`**, which
+  # is the name that goes with `/playlists/{id}/items`; the retired `/tracks`
+  # endpoint called it `track`. Both are accepted, because a stored response or
+  # an older deployment can still carry the old spelling and the cost of
+  # accepting it is one clause.
+  #
+  # The ordering is load-bearing and the reason for the `is_map/1` guards: a
+  # Spotify **track object** carries `"track" => true`, a boolean flag saying it
+  # is a track rather than an episode. Matching `%{"track" => _}` without the
+  # guard would take that `true` for a payload and turn every search result into
+  # an empty map.
+  defp entry(%{"item" => item}) when is_map(item), do: item
   defp entry(%{"track" => track}) when is_map(track), do: track
-  defp entry(%{"track" => _null}), do: %{}
+  # A wrapper whose payload is `null` — a removed or region-blocked entry. Keyed
+  # on `added_at`, which every playlist entry has and no track object does.
+  defp entry(%{"added_at" => _when}), do: %{}
+  defp entry(%{"item" => _null}), do: %{}
   defp entry(resource) when is_map(resource), do: resource
+
+  # `is_local` lives on the **entry**, not on what it wraps — so the check has
+  # to happen before the payload is extracted. Spotify happens to repeat the
+  # flag on the inner object too, and `playable?/1` still reads it there, but
+  # relying on that would be relying on a redundancy rather than on the field
+  # that is documented to carry the answer.
+  defp entry_playable?(wrapper) when is_map(wrapper),
+    do: wrapper["is_local"] != true and playable?(entry(wrapper))
+
+  defp entry_playable?(_wrapper), do: false
 
   # The three shapes from the moduledoc, in one predicate. An episode is
   # rejected on `type` rather than on id shape: episode ids are perfectly

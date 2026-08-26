@@ -42,7 +42,12 @@ defmodule OnePlaylist.Providers.Spotify.MapperTest do
     )
   end
 
-  defp item(track), do: %{"added_at" => "2026-01-01T00:00:00Z", "track" => track}
+  # Spotify's current shape keys the payload `item`, matching
+  # `/playlists/{id}/items`; the retired `/tracks` endpoint called it `track`.
+  # Both are exercised — see the "either wrapper key" tests below.
+  defp item(track), do: %{"added_at" => "2026-01-01T00:00:00Z", "item" => track}
+
+  defp legacy_item(track), do: %{"added_at" => "2026-01-01T00:00:00Z", "track" => track}
 
   defp page(items), do: %{"items" => items, "next" => nil}
 
@@ -131,6 +136,22 @@ defmodule OnePlaylist.Providers.Spotify.MapperTest do
       assert Enum.map(tracks, & &1.provider_id) == ["t1"]
     end
 
+    # `is_local` is documented on the **entry**, not on what it wraps. Spotify
+    # happens to repeat it on the inner object, and relying on that would be
+    # relying on a redundancy rather than on the field that carries the answer.
+    test "a local file flagged only on the entry is dropped" do
+      entry = %{
+        "added_at" => "2026-01-01T00:00:00Z",
+        "is_local" => true,
+        "item" => %{"id" => "local-1", "type" => "track", "name" => "Bootleg.mp3"}
+      }
+
+      assert Mapper.tracks(page([item(track_object("t1")), entry]))
+             |> Enum.map(& &1.provider_id) == ["t1"]
+
+      assert Mapper.track_ids(page([entry])) == []
+    end
+
     test "a podcast episode is dropped" do
       episode = %{"id" => "ep1", "type" => "episode", "name" => "Some Podcast"}
 
@@ -169,6 +190,32 @@ defmodule OnePlaylist.Providers.Spotify.MapperTest do
 
       assert ids == ["t1"]
       refute "" in ids
+    end
+  end
+
+  describe "either wrapper key" do
+    # `/playlists/{id}/items` keys the payload `item`; the retired `/tracks`
+    # endpoint keyed it `track`. Accepting both costs one clause.
+    test "reads a legacy `track` wrapper" do
+      assert Mapper.tracks(page([legacy_item(track_object("t1"))]))
+             |> Enum.map(& &1.provider_id) == ["t1"]
+    end
+
+    test "reads a current `item` wrapper" do
+      assert Mapper.tracks(page([item(track_object("t1"))]))
+             |> Enum.map(& &1.provider_id) == ["t1"]
+    end
+
+    # The trap this ordering exists for. A Spotify **track object** carries
+    # `"track" => true` — a boolean saying it is a track rather than an
+    # episode — so a clause matching `%{"track" => _}` without an `is_map/1`
+    # guard would take that `true` for a payload and turn every search result
+    # into an empty map.
+    test "a bare track object carrying `track: true` is not mistaken for a wrapper" do
+      bare = track_object("t1") |> Map.put("track", true) |> Map.put("episode", false)
+
+      assert Mapper.tracks_from_search(%{"tracks" => %{"items" => [bare]}})
+             |> Enum.map(& &1.provider_id) == ["t1"]
     end
   end
 
