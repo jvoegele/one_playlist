@@ -112,6 +112,13 @@ defmodule OnePlaylistWeb.SyncLive.Index do
                     <span class="opacity-70">
                       {Connection.display_name(sync.destination_provider)}
                     </span>
+                    <%!-- Only `:replace` is badged. `:add` is the default and
+                          the harmless one; badging both would make the
+                          destructive setting one word among two rather than the
+                          exception it is. --%>
+                    <span :if={sync.mode == :replace} class="badge badge-warning badge-sm">
+                      Mirror
+                    </span>
                     <span :if={not sync.enabled} class="badge badge-ghost badge-sm">Paused</span>
                   </div>
 

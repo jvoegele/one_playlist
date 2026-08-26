@@ -289,6 +289,64 @@ defmodule OnePlaylistWeb.TransferLive.Show do
             value={@transfer.unmatched_count}
             tone={@transfer.unmatched_count > 0 && "text-warning"}
           />
+          <%!-- Shown only for a replace run. On an add-only transfer a
+                permanent "Removed 0" would suggest removal was on the table. --%>
+          <.stat
+            :if={@transfer.mode == :replace}
+            label="Removed"
+            value={@transfer.removed_count}
+            tone={@transfer.removed_count > 0 && "text-error"}
+          />
+        </div>
+
+        <%!-- The withheld case, and it is stated rather than left to be
+              inferred from a zero. A replace run that removed nothing because
+              it did not trust itself is a different fact from one that had
+              nothing to remove, and only the first is something a person can
+              act on. --%>
+        <div
+          :if={
+            @transfer.status == :completed and @transfer.mode == :replace and
+              @transfer.unmatched_count > 0
+          }
+          class="alert alert-warning mb-6"
+          role="status"
+        >
+          <.icon name="hero-shield-check" class="w-5 h-5 shrink-0" />
+          <div>
+            <p class="font-semibold">Nothing was removed from the destination.</p>
+            <p class="text-sm">
+              {@transfer.unmatched_count} {if @transfer.unmatched_count == 1,
+                do: "track",
+                else: "tracks"} could not be matched this run, so this run cannot tell a
+              track the source dropped from one it simply failed to find. Fix the
+              unmatched tracks and the next run will mirror.
+            </p>
+          </div>
+        </div>
+
+        <div :if={@transfer.removed_tracks != []} class="mb-6">
+          <h2 class="text-sm font-semibold opacity-70 mb-2">
+            Removed from the destination
+          </h2>
+          <ul class="space-y-1">
+            <li
+              :for={removal <- @transfer.removed_tracks}
+              class="text-sm flex items-baseline gap-2"
+            >
+              <.icon name="hero-minus-circle" class="w-4 h-4 text-error shrink-0" />
+              <span class="font-medium">{removal["title"]}</span>
+              <span :if={removal["artist"] not in [nil, ""]} class="opacity-60">
+                {removal["artist"]}
+              </span>
+            </li>
+          </ul>
+          <p
+            :if={@transfer.removed_count > length(@transfer.removed_tracks)}
+            class="text-xs opacity-60 mt-2"
+          >
+            and {@transfer.removed_count - length(@transfer.removed_tracks)} more.
+          </p>
         </div>
 
         <%!-- Offered only once the run is over and only when there is something

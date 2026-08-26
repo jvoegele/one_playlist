@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(30);
+select plan(31);
 
 -- Two users, written straight into auth.users. Fine here: this is a test
 -- fixture inside a doomed transaction, not a sign-up path.
@@ -71,6 +71,12 @@ values
    'tidal', 'alice-src', 'Alice''s weekly', 'tidal', 1440, true, now(), now()),
   (gen_random_uuid(), '22222222-2222-4222-8222-222222222222',
    'tidal', 'bob-src', 'Bob''s weekly', 'tidal', 1440, true, now(), now());
+
+-- Alice's is a mirror, which is the setting that deletes. It exists in this
+-- fixture so the test below is asking about a row where being able to write
+-- `mode` would matter most.
+update public.syncs set mode = 'replace'
+ where user_id = '11111111-1111-4111-8111-111111111111';
 
 -- ---------------------------------------------------------------------------
 -- The starting position: protection is opt-in, so assert it was opted into.
@@ -314,6 +320,17 @@ select throws_ok(
   '42501',
   null,
   'bob cannot pause a sync, not even his own'
+);
+
+-- The sharpest version of the same wall. `mode = 'replace'` is the setting that
+-- makes a sync delete tracks; a client that could set it could turn somebody's
+-- add-only schedule into a destructive one, and the next sweep would carry it
+-- out with the owner's own credentials.
+select throws_ok(
+  $$update public.syncs set mode = 'replace'$$,
+  '42501',
+  null,
+  'and cannot turn a sync into a mirror'
 );
 
 -- ---------------------------------------------------------------------------

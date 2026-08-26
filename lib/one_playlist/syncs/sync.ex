@@ -8,14 +8,20 @@ defmodule OnePlaylist.Syncs.Sync do
   is what lets a sync's history be the ordinary transfers list rather than a
   second reporting surface built beside it.
 
-  ## Add-only, for now
+  ## Add or mirror
 
-  A run adds what the source has gained and never removes. That is exactly what
-  running a transfer twice already does, so the first cut of this feature is the
-  schedule and nothing else — and it is the safe default, because a bug adds a
-  duplicate rather than deleting somebody's music. Replace mode is the second
-  piece, and `c:OnePlaylist.Providers.Adapter.remove_tracks/4` is already in
-  place for it.
+  `:add` is the default and it is what running a transfer twice already does:
+  the run adds what the source has gained and never removes. It is the safe
+  setting, because a bug adds a duplicate rather than deleting somebody's music.
+
+  `:replace` mirrors — a track the source no longer has is taken out of the
+  destination. `OnePlaylist.Transfers.Runner.surplus/3` is where the rules for
+  that live, and they are narrower than the name suggests: this is the only
+  code in the application that deletes music, and each rule exists to stop a bad
+  run doing it.
+
+  The mode is copied onto each run rather than read back off the sync, so a
+  transfer records what it was allowed to do at the time. See the migration.
 
   ## The destination is pinned after the first run
 
@@ -61,6 +67,11 @@ defmodule OnePlaylist.Syncs.Sync do
     field :interval_minutes, :integer
     field :enabled, :boolean, default: true
 
+    # `:add` keeps everything the destination has ever held; `:replace` makes it
+    # a mirror of the source. See `OnePlaylist.Transfers.Runner` for what
+    # "mirror" is allowed to mean, which is narrower than it sounds.
+    field :mode, Ecto.Enum, values: [:add, :replace], default: :add
+
     field :last_run_at, :utc_datetime_usec
     field :next_run_at, :utc_datetime_usec
     field :last_transfer_id, :binary_id
@@ -96,6 +107,7 @@ defmodule OnePlaylist.Syncs.Sync do
       :destination_playlist_name,
       :interval_minutes,
       :enabled,
+      :mode,
       :next_run_at
     ])
     |> validate_required([

@@ -61,6 +61,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
      |> assign(:destination, source)
      |> assign(:selected, MapSet.new())
      |> assign(:cadence, :once)
+     |> assign(:mode, :add)
      |> assign(:submitting?, false)
      |> load_playlists(source)}
   end
@@ -112,7 +113,19 @@ defmodule OnePlaylistWeb.TransferLive.New do
   # reason `provider!/2` checks the provider: the value arrives from a form and
   # anything not on the list is a forged request.
   def handle_event("cadence", %{"cadence" => choice}, socket) do
-    {:noreply, assign(socket, :cadence, cadence!(choice))}
+    cadence = cadence!(choice)
+
+    {:noreply,
+     socket
+     |> assign(:cadence, cadence)
+     # Mirroring is meaningless for a one-off, and leaving it set would carry a
+     # destructive choice into a transfer that cannot act on it — then back out
+     # again invisibly if the cadence were set a second time.
+     |> assign(:mode, if(cadence == :once, do: :add, else: socket.assigns.mode))}
+  end
+
+  def handle_event("mode", params, socket) do
+    {:noreply, assign(socket, :mode, if(params["mirror"] == "true", do: :replace, else: :add))}
   end
 
   def handle_event("transfer", _params, socket) do
@@ -228,6 +241,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
     socket
     |> attrs_for(playlist)
     |> Map.put(:interval_minutes, minutes)
+    |> Map.put(:mode, socket.assigns.mode)
   end
 
   defp attrs_for(socket, playlist) do
@@ -373,6 +387,31 @@ defmodule OnePlaylistWeb.TransferLive.New do
                       </option>
                     </select>
                   </form>
+                </div>
+
+                <%!-- Only for a schedule, and worded as what it does rather
+                      than as a mode name. "Replace" is what the incumbents call
+                      it and it reads as replacing the *playlist*; what actually
+                      happens is that tracks get deleted, so the label says so
+                      and the hint says whose. --%>
+                <div :if={@cadence != :once} class="max-w-xs">
+                  <form id="mode-form" phx-change="mode">
+                    <label class="label cursor-pointer justify-start gap-2 py-0">
+                      <input type="hidden" name="mirror" value="false" />
+                      <input
+                        type="checkbox"
+                        name="mirror"
+                        value="true"
+                        checked={@mode == :replace}
+                        class="checkbox checkbox-sm"
+                      />
+                      <span class="label-text text-xs">Mirror the source</span>
+                    </label>
+                  </form>
+                  <p :if={@mode == :replace} class="text-xs opacity-60 mt-1">
+                    Tracks you remove from the source will be removed from the
+                    destination too — including any you added there by hand.
+                  </p>
                 </div>
 
                 <button

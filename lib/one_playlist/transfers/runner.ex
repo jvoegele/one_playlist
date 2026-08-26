@@ -124,8 +124,13 @@ defmodule OnePlaylist.Transfers.Runner do
          {:ok, tracks} <- read_source(transfer),
          {:ok, transfer, destination} <-
            ensure_destination(transfer, destination_adapter, destination_connection),
-         {:ok, present} <-
-           destination_adapter.playlist_track_ids(destination_connection, destination),
+         {:ok, present, held} <-
+           snapshot_destination(
+             transfer,
+             destination_adapter,
+             destination_connection,
+             destination
+           ),
          {resolutions, candidates} =
            resolve_all(
              transfer,
@@ -149,8 +154,42 @@ defmodule OnePlaylist.Transfers.Runner do
              destination_adapter,
              destination_connection,
              destination
+           ),
+         {:ok, removed} <-
+           remove_surplus(
+             transfer,
+             resolutions,
+             held,
+             destination_adapter,
+             destination_connection,
+             destination
            ) do
-      finish(transfer, tracks, resolutions, added, candidates)
+      finish(transfer, tracks, resolutions, added, candidates, removed)
+    end
+  end
+
+  # Two ways to look at the destination, and the mode decides which.
+  #
+  # An add-only run needs identity and nothing else, so it asks for
+  # `playlist_track_ids/3` — one cheap paginated read of a relationship. A
+  # replace run has to be able to say *what* it deleted, and an id is not an
+  # answer a person can check, so it reads the tracks themselves and derives the
+  # ids from them. One pass either way; the more expensive one is paid for only
+  # by the mode that needs it.
+  #
+  # Order and multiplicity are preserved in both, because `write_missing/5`
+  # diffs on frequencies: a playlist holding a track twice must read as twice.
+  defp snapshot_destination(%Transfer{mode: :replace}, adapter, connection, destination) do
+    with {:ok, stream} <- adapter.stream_tracks(connection, destination, []) do
+      held = Enum.to_list(stream)
+
+      {:ok, Enum.map(held, &to_string(&1.provider_id)), held}
+    end
+  end
+
+  defp snapshot_destination(%Transfer{}, adapter, connection, destination) do
+    with {:ok, present} <- adapter.playlist_track_ids(connection, destination, []) do
+      {:ok, present, []}
     end
   end
 
@@ -753,6 +792,114 @@ defmodule OnePlaylist.Transfers.Runner do
     end
   end
 
+  @doc """
+  The tracks a replace run takes out of the destination, and why so few.
+
+  `:replace` is the mode Soundiiz and TuneMyMusic both call *Replace*: the
+  destination becomes a mirror of the source rather than accumulating
+  everything the source has ever held. So a track the source no longer has is
+  taken out.
+
+  What "no longer has" is allowed to mean here is deliberately narrower than the
+  name suggests, because this is the only code in the application that deletes
+  somebody's music. Three rules bound it, and each exists because the obvious
+  version of this function is dangerous:
+
+    * **An unmatched row withholds the whole removal.** A destination track is
+      known to belong only because some source track matched to it, so a run
+      where matching went wrong cannot tell "the source dropped this" from "the
+      search failed today". A provider hiccup would otherwise delete music. The
+      report says so — `mode == :replace` with `unmatched_count > 0` is exactly
+      this case — and the library bridge is how a user clears it.
+
+    * **An empty source removes nothing.** A source playlist that reads as empty
+      is far more often a glitch or a deleted playlist than a deliberate
+      instruction to empty the mirror, and the two are indistinguishable from
+      here. The cost of the guard is a mirror that stays stale; the cost of
+      omitting it is every track gone.
+
+    * **Only a whole track, never a surplus copy.**
+      `c:OnePlaylist.Providers.Adapter.remove_tracks/4` removes *every*
+      occurrence — that is what makes it safe to call twice — so it cannot
+      express "the source has this once and the destination twice". A playlist
+      holding a duplicate keeps it.
+
+  The destination is always a playlist this application created and pinned, so
+  the tracks at risk are ones a previous run of the same sync put there, plus
+  anything the user added to it by hand. That second group is what *Replace*
+  means everywhere it is offered, and the UI says so before it is chosen.
+  """
+  # `nothing_removed_that_the_source_justifies` is the law worth stating: the
+  # rules above are safety margins, and a bug in any of them still must not
+  # remove a track the source currently matches to. Proven by mutation: turning
+  # the `reject` into a `filter` fires it.
+  @post whenever(
+          {:ok, removed} <- result,
+          nothing_removed_that_the_source_justifies:
+            forall(
+              track <- removed,
+              not MapSet.member?(justified(resolutions), to_string(track.provider_id))
+            ),
+          add_mode_removes_nothing: (transfer.mode == :add) ~> (removed == [])
+        )
+  @spec surplus(Transfer.t(), [tuple()], [Track.t()]) :: {:ok, [Track.t()]}
+  # One clause with a `cond` rather than a clause per mode, so that `transfer` is
+  # genuinely read in the body. A head that matched `%Transfer{mode: :replace}`
+  # left the binding unused and the `add_mode_removes_nothing` assertion with
+  # nothing obvious to refer to — which is the kind of thing that compiles and
+  # then never fires.
+  def surplus(%Transfer{} = transfer, resolutions, held) do
+    cond do
+      transfer.mode != :replace -> {:ok, []}
+      resolutions == [] -> {:ok, []}
+      Enum.any?(resolutions, &match?({_position, _source, {:error, _error}}, &1)) -> {:ok, []}
+      true -> {:ok, unjustified(resolutions, held)}
+    end
+  end
+
+  defp unjustified(resolutions, held) do
+    keep = justified(resolutions)
+
+    held
+    |> Enum.reject(&MapSet.member?(keep, to_string(&1.provider_id)))
+    # One entry per track, because `remove_tracks/4` removes every occurrence:
+    # asking twice for a track the playlist holds twice would remove it once and
+    # then remove nothing, and report two.
+    |> Enum.uniq_by(&to_string(&1.provider_id))
+  end
+
+  # The destination ids the source currently accounts for. `to_string/1` because
+  # `playlist_track_ids/3` promises strings and a matched track's id comes from
+  # a different code path — a mismatch here reads as "unjustified", which is the
+  # direction that deletes.
+  defp justified(resolutions) do
+    resolutions
+    |> Enum.flat_map(fn
+      {_position, _source, {:ok, match}} -> [to_string(match.track.provider_id)]
+      _unmatched -> []
+    end)
+    |> MapSet.new()
+  end
+
+  defp remove_surplus(transfer, resolutions, held, adapter, connection, destination) do
+    with {:ok, [_first | _rest] = doomed} <- surplus(transfer, resolutions, held) do
+      doomed
+      |> Enum.chunk_every(@batch_size)
+      |> Enum.reduce_while({:ok, []}, &remove_batch(&1, &2, adapter, connection, destination))
+    end
+  end
+
+  # Batched for the reason the adds are: TIDAL rate-limits mutations to roughly
+  # one call every two seconds. Accumulates what actually went, so a failure
+  # part-way through still reports the batches that succeeded rather than
+  # claiming the whole removal or none of it.
+  defp remove_batch(batch, {:ok, done}, adapter, connection, destination) do
+    case adapter.remove_tracks(connection, destination, batch, []) do
+      {:ok, _count} -> {:cont, {:ok, done ++ batch}}
+      {:error, _reason} = error -> {:halt, error}
+    end
+  end
+
   # How many tracks `write_missing/5` owes the destination, computed the other
   # way round from how it computes them — see that function's postcondition for
   # why the duplication is the point rather than an oversight.
@@ -831,7 +978,7 @@ defmodule OnePlaylist.Transfers.Runner do
      )}
   end
 
-  defp finish(transfer, tracks, resolutions, added_positions, candidates) do
+  defp finish(transfer, tracks, resolutions, added_positions, candidates, removed) do
     # Reset first: a run recomputes the whole ledger, so a re-run must not add
     # to the previous one's numbers.
     base = transfer |> Transfer.reset_counters() |> Transfer.with_total(length(tracks))
@@ -862,6 +1009,6 @@ defmodule OnePlaylist.Transfers.Runner do
         end
       end)
 
-    OnePlaylist.Transfers.record_run(transfer, counted, items)
+    OnePlaylist.Transfers.record_run(transfer, Transfer.with_removals(counted, removed), items)
   end
 end

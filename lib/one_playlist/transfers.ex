@@ -958,6 +958,11 @@ defmodule OnePlaylist.Transfers do
         matched_count: counted.matched_count,
         added_count: counted.added_count,
         unmatched_count: counted.unmatched_count,
+        # Reset the same way the counters are, and for the same reason: a
+        # re-run recomputes what it removed, so a second run that removes
+        # nothing must say zero rather than keep the first run's list.
+        removed_count: counted.removed_count,
+        removed_tracks: counted.removed_tracks,
         completed_at: now
       })
     )

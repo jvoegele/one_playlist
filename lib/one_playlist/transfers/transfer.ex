@@ -52,6 +52,7 @@ defmodule OnePlaylist.Transfers.Transfer do
 
   import Ecto.Changeset
 
+  alias OnePlaylist.Music.Track
   alias OnePlaylist.Providers.Connection
 
   # `balanced?/1` is deliberately reachable from here: Meyer's Assertion
@@ -67,6 +68,11 @@ defmodule OnePlaylist.Transfers.Transfer do
              # not added — which is what idempotency means here, and why a re-run
              # adds nothing while still matching everything.
              added_at_most_matched: subject.added_count <= subject.matched_count
+
+  # How many removed tracks a report names before it stops naming them. A
+  # replace run against a mirror somebody has stopped using can remove hundreds;
+  # the first hundred are what a person reads, and `removed_count` stays exact.
+  @removed_sample 100
 
   @statuses ~w(pending running completed failed)a
 
@@ -123,10 +129,21 @@ defmodule OnePlaylist.Transfers.Transfer do
     field :status, Ecto.Enum, values: @statuses, default: :pending
     field :threshold, :float
 
+    # What this run was told to do, recorded on the run rather than read back
+    # off the sync — see the migration. `:add` for everything a person asks for
+    # by hand, which is the default that deletes nothing.
+    field :mode, Ecto.Enum, values: [:add, :replace], default: :add
+
     field :total_tracks, :integer, default: 0
     field :matched_count, :integer, default: 0
     field :added_count, :integer, default: 0
     field :unmatched_count, :integer, default: 0
+
+    # What a replace run took out of the destination. The count is exact; the
+    # list is capped, because a report naming the tracks it deleted is worth
+    # keeping and an unbounded one is not. See the migration.
+    field :removed_count, :integer, default: 0
+    field :removed_tracks, {:array, :map}, default: []
 
     field :started_at, :utc_datetime_usec
     field :completed_at, :utc_datetime_usec
@@ -169,6 +186,7 @@ defmodule OnePlaylist.Transfers.Transfer do
       :destination_playlist_id,
       :destination_playlist_name,
       :threshold,
+      :mode,
       :batch_id,
       :sync_id
     ])
@@ -225,6 +243,38 @@ defmodule OnePlaylist.Transfers.Transfer do
       transfer
       | matched_count: transfer.matched_count + 1,
         added_count: transfer.added_count + if(added?, do: 1, else: 0)
+    }
+  end
+
+  @doc """
+  Records what a replace run took out of the destination.
+
+  The count is exact and the list is capped, so a report can name what it
+  deleted without a run against a large mirror carrying a large column. See the
+  migration for why this is not a table.
+  """
+  # Falsifiable: raising `@removed_sample` above the cap, or dropping the
+  # `Enum.take/2`, fires it.
+  @post count_is_exact: result.removed_count == length(removed)
+  @post sample_is_bounded: length(result.removed_tracks) <= @removed_sample
+  @spec with_removals(t(), [Track.t()]) :: t()
+  def with_removals(%__MODULE__{} = transfer, removed) when is_list(removed) do
+    %{
+      transfer
+      | removed_count: length(removed),
+        removed_tracks: removed |> Enum.take(@removed_sample) |> Enum.map(&removal/1)
+    }
+  end
+
+  # Deliberately a plain map of three strings rather than a serialized `Track`.
+  # This is a record of something that is gone, read by one page and never
+  # matched against again, so storing the whole struct would preserve fields
+  # that can only mislead — a `Track` read back out of JSON is not one.
+  defp removal(track) do
+    %{
+      "provider_id" => to_string(track.provider_id),
+      "title" => track.title,
+      "artist" => track.artists |> Enum.reject(&is_nil/1) |> Enum.join(", ")
     }
   end
 
@@ -382,6 +432,8 @@ defmodule OnePlaylist.Transfers.Transfer do
       :matched_count,
       :added_count,
       :unmatched_count,
+      :removed_count,
+      :removed_tracks,
       :started_at,
       :completed_at,
       :last_error

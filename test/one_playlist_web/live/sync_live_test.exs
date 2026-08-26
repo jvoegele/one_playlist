@@ -93,6 +93,18 @@ defmodule OnePlaylistWeb.SyncLiveTest do
       refute html =~ ">tidal<", "the internal atom should never reach the page"
     end
 
+    test "badges a mirroring sync, and only that one", %{conn: conn, user_id: user_id} do
+      sync_fixture(user_id, %{mode: :add})
+
+      {:ok, _view, html} = live(conn, ~p"/syncs")
+      refute html =~ "Mirror"
+
+      sync_fixture(user_id, %{mode: :replace, source_playlist_name: "Mirrored"})
+
+      {:ok, _view, html} = live(conn, ~p"/syncs")
+      assert html =~ "Mirror"
+    end
+
     test "shows nobody else's", %{conn: conn, user_id: user_id} do
       sync_fixture(user_id, %{source_playlist_name: "Mine"})
       sync_fixture(user_id_fixture(), %{source_playlist_name: "Theirs"})
@@ -184,6 +196,62 @@ defmodule OnePlaylistWeb.SyncLiveTest do
       assert sync.interval_minutes == 60 * 24
       assert sync.source_playlist_id == "tidal-1"
       refute is_nil(sync.last_transfer_id), "the first run should have happened immediately"
+    end
+
+    # Mirroring is only offered once a cadence is chosen: a one-off transfer
+    # has no later run to remove anything on.
+    test "the mirror option appears only with a cadence", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/transfers/new")
+      render_async(view)
+
+      refute render(view) =~ "Mirror the source"
+
+      html = view |> element("#cadence-form") |> render_change(%{"cadence" => "weekly"})
+
+      assert html =~ "Mirror the source"
+    end
+
+    test "a mirrored sync is created in replace mode", %{conn: conn, user_id: user_id} do
+      {:ok, view, _html} = live(conn, ~p"/transfers/new")
+      render_async(view)
+
+      view |> element("#cadence-form") |> render_change(%{"cadence" => "weekly"})
+      view |> element("#mode-form") |> render_change(%{"mirror" => "true"})
+      view |> element("button[phx-value-id=tidal-1]") |> render_click()
+      view |> element("button[phx-click=transfer]") |> render_click()
+
+      assert [sync] = Syncs.list(user_id)
+      assert sync.mode == :replace
+    end
+
+    test "without the mirror box a sync only ever adds", %{conn: conn, user_id: user_id} do
+      {:ok, view, _html} = live(conn, ~p"/transfers/new")
+      render_async(view)
+
+      view |> element("#cadence-form") |> render_change(%{"cadence" => "weekly"})
+      view |> element("button[phx-value-id=tidal-1]") |> render_click()
+      view |> element("button[phx-click=transfer]") |> render_click()
+
+      assert [sync] = Syncs.list(user_id)
+      assert sync.mode == :add
+    end
+
+    # Dropping back to a one-off must not leave a destructive setting armed,
+    # ready to apply the next time a cadence is picked.
+    test "going back to just once disarms mirroring", %{conn: conn, user_id: user_id} do
+      {:ok, view, _html} = live(conn, ~p"/transfers/new")
+      render_async(view)
+
+      view |> element("#cadence-form") |> render_change(%{"cadence" => "weekly"})
+      view |> element("#mode-form") |> render_change(%{"mirror" => "true"})
+      view |> element("#cadence-form") |> render_change(%{"cadence" => "once"})
+      view |> element("#cadence-form") |> render_change(%{"cadence" => "daily"})
+
+      view |> element("button[phx-value-id=tidal-1]") |> render_click()
+      view |> element("button[phx-click=transfer]") |> render_click()
+
+      assert [sync] = Syncs.list(user_id)
+      assert sync.mode == :add
     end
 
     # The default must stay `:once`. A user who never touches the control is

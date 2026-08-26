@@ -161,12 +161,44 @@ defmodule OnePlaylist.TransfersTest do
           Req.Test.json(conn, source_document())
 
         # The destination playlist's current contents.
+        #
+        # Carries `meta.itemId` and an `included` entry per track, because three
+        # different reads land here: `playlist_track_ids/3` wants the ids,
+        # `stream_tracks/3` — which is what a replace run uses — wants the
+        # attributes, and `playlist_item_references/3` wants the item ids that
+        # TIDAL demands alongside a track id when removing. See
+        # `OnePlaylist.Providers.Tidal.remove_tracks/4`.
         conn.method == "GET" and String.contains?(path, "/relationships/items") ->
+          held = Agent.get(state, & &1.added)
+
           Req.Test.json(conn, %{
             "data" =>
-              Agent.get(state, & &1.added) |> Enum.map(&%{"id" => &1, "type" => "tracks"}),
+              Enum.map(
+                held,
+                &%{"id" => &1, "type" => "tracks", "meta" => %{"itemId" => "item-#{&1}"}}
+              ),
+            "included" =>
+              Enum.map(held, fn id ->
+                %{
+                  "id" => id,
+                  "type" => "tracks",
+                  "attributes" => %{"title" => "Destination #{id}", "isrc" => nil}
+                }
+              end),
             "links" => %{}
           })
+
+        # Removal. TIDAL takes the track id *and* the item id and rejects either
+        # alone, which is why the fixture above supplies both.
+        conn.method == "DELETE" and String.contains?(path, "/relationships/items") ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          ids = body |> Jason.decode!() |> Map.fetch!("data") |> Enum.map(& &1["id"])
+
+          Agent.update(state, fn s ->
+            %{s | added: s.added -- ids, removed: s.removed ++ ids}
+          end)
+
+          Req.Test.json(conn, %{})
 
         # Candidate lookup by ISRC.
         conn.method == "GET" and path == "/v2/tracks" ->
@@ -232,7 +264,7 @@ defmodule OnePlaylist.TransfersTest do
   defp provider_state(opts \\ []) do
     {:ok, state} =
       Agent.start_link(fn ->
-        %{added: [], add_calls: 0, playlists_created: 0, searches: 0}
+        %{added: [], removed: [], add_calls: 0, playlists_created: 0, searches: 0}
       end)
 
     stub_provider(state, opts)
@@ -481,6 +513,119 @@ defmodule OnePlaylist.TransfersTest do
       assert Transfers.count_items(completed) == 3,
              "an unmatched track still gets a row: that is the whole promise"
     end
+  end
+
+  describe "replace mode" do
+    # The whole feature in one test: a track the source has dropped is taken out
+    # of the destination on the next run, and the tracks it still has stay.
+    #
+    # Set up by running once in add mode against a source that then loses a
+    # track — which is what a real sync looks like, and is why the source is
+    # edited between the two runs rather than stubbed differently.
+    test "removes what the source no longer has", %{user: user} do
+      state = provider_state()
+      source = source_playlist(user)
+
+      {:ok, first} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+      assert first.added_count == 3
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds2 ds3)
+
+      drop_last_track(user, source)
+
+      {:ok, second} =
+        Runner.run(transfer_for(user, %{source_playlist_id: source.id, mode: :replace}))
+
+      assert second.removed_count == 1
+      assert Agent.get(state, & &1.removed) == ~w(ds3)
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds2)
+    end
+
+    test "names what it removed, so the report is a record rather than a count", %{user: user} do
+      _state = provider_state()
+      source = source_playlist(user)
+
+      {:ok, _first} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+      drop_last_track(user, source)
+
+      {:ok, second} =
+        Runner.run(transfer_for(user, %{source_playlist_id: source.id, mode: :replace}))
+
+      assert [%{"provider_id" => "ds3", "title" => "Destination ds3"}] = second.removed_tracks
+    end
+
+    # The rule that keeps a provider hiccup from deleting music. With `s2`
+    # unresolvable the run cannot tell "the source dropped ds3" from "the search
+    # failed today", and it declines to act on either.
+    #
+    # `s2` is unmatchable from the *first* run rather than only the second, and
+    # that detail is itself a finding: making it fail only on the second run
+    # does not produce an unmatched row at all, because the identity spine
+    # recorded `s2 → ds2` the first time and recalls it without a search. So the
+    # spine already absorbs the most common version of the hazard this rule
+    # guards — a track that has matched once keeps matching — and the guard is
+    # cheaper than it looks. It is left in place for the case the spine cannot
+    # cover: a track that has never resolved.
+    test "an unmatched row withholds the removal", %{user: user} do
+      state = provider_state(unmatchable: ["s2"])
+      source = source_playlist(user)
+
+      {:ok, first} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+      assert first.unmatched_count == 1
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds3)
+
+      drop_last_track(user, source)
+
+      {:ok, second} =
+        Runner.run(transfer_for(user, %{source_playlist_id: source.id, mode: :replace}))
+
+      assert second.unmatched_count == 1
+
+      assert second.removed_count == 0,
+             "ds3 is unjustified, but an unmatched row means the run cannot be trusted to say so"
+
+      assert Agent.get(state, & &1.removed) == []
+    end
+
+    test "an add-mode run removes nothing at all", %{user: user} do
+      state = provider_state()
+      source = source_playlist(user)
+
+      {:ok, _first} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+      drop_last_track(user, source)
+
+      {:ok, second} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+
+      assert second.removed_count == 0
+      assert Agent.get(state, & &1.removed) == []
+      assert Agent.get(state, & &1.added) == ~w(ds1 ds2 ds3)
+    end
+
+    # Idempotent in the same way the add side is: the second run finds the
+    # destination already mirroring the source and has nothing left to do.
+    test "running a replace twice removes nothing the second time", %{user: user} do
+      state = provider_state()
+      source = source_playlist(user)
+
+      {:ok, _first} = Runner.run(transfer_for(user, %{source_playlist_id: source.id}))
+      drop_last_track(user, source)
+
+      {:ok, _second} =
+        Runner.run(transfer_for(user, %{source_playlist_id: source.id, mode: :replace}))
+
+      {:ok, third} =
+        Runner.run(transfer_for(user, %{source_playlist_id: source.id, mode: :replace}))
+
+      assert third.removed_count == 0
+      assert Agent.get(state, & &1.removed) == ~w(ds3)
+    end
+  end
+
+  # Takes the last entry out of a library playlist, which is what a user
+  # reorganising a source does and what a sync then has to notice.
+  defp drop_last_track(user_id, playlist) do
+    last = user_id |> Library.entries(playlist.id) |> List.last()
+
+    :ok = Library.remove_entry(user_id, playlist.id, last.id)
   end
 
   describe "running again" do

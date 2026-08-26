@@ -262,6 +262,7 @@ defmodule OnePlaylist.Syncs do
   defp transfer_attrs(%Sync{} = sync) do
     %{
       sync_id: sync.id,
+      mode: sync.mode,
       user_id: sync.user_id,
       source_provider: sync.source_provider,
       source_playlist_id: sync.source_playlist_id,
