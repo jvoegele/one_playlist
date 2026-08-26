@@ -66,11 +66,11 @@ defmodule OnePlaylistWeb.Router do
     # callback has no account to attach the connection to.
     pipe_through [:browser, :require_authenticated_user]
 
-    get "/tidal", TidalAuthController, :start
-    get "/tidal/callback", TidalAuthController, :callback
-
-    get "/spotify", SpotifyAuthController, :start
-    get "/spotify/callback", SpotifyAuthController, :callback
+    # One pair for every provider, with the segment as a parameter — so
+    # `~p"/auth/\#{provider}"` verifies against the router instead of having to
+    # be written out per provider. See OnePlaylistWeb.OAuthController.
+    get "/:provider", OAuthController, :start
+    get "/:provider/callback", OAuthController, :callback
   end
 
   # Other scopes may use custom stacks.

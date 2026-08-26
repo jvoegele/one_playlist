@@ -17,7 +17,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuthTest do
 
   describe "authorization_url/1" do
     test "builds a PKCE authorization URL" do
-      assert {:ok, %{url: url, code_verifier: verifier, state: state}} =
+      assert {:ok, %{url: url, state: state, session: %{"code_verifier" => verifier}}} =
                OAuth.authorization_url()
 
       uri = URI.parse(url)
@@ -49,7 +49,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuthTest do
       {:ok, first} = OAuth.authorization_url()
       {:ok, second} = OAuth.authorization_url()
 
-      refute first.code_verifier == second.code_verifier
+      refute first.session["code_verifier"] == second.session["code_verifier"]
       refute first.state == second.state
     end
   end
@@ -75,7 +75,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuthTest do
         })
       end)
 
-      assert {:ok, tokens} = OAuth.exchange_code("the-code", "the-verifier")
+      assert {:ok, tokens} = OAuth.exchange_code("the-code", %{"code_verifier" => "the-verifier"})
       assert tokens.access_token == "at-1"
       assert tokens.refresh_token == "rt-1"
       assert tokens.scopes == ["playlists.read", "playlists.write"]
@@ -90,7 +90,7 @@ defmodule OnePlaylist.Providers.Tidal.OAuthTest do
         Req.Test.json(conn, %{"access_token" => "at", "expires_in" => 3600})
       end)
 
-      assert {:ok, _tokens} = OAuth.exchange_code("c", "v")
+      assert {:ok, _tokens} = OAuth.exchange_code("c", %{"code_verifier" => "v"})
     end
   end
 

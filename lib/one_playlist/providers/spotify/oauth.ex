@@ -54,39 +54,26 @@ defmodule OnePlaylist.Providers.Spotify.OAuth do
   """
 
   alias OnePlaylist.Providers.Spotify
+  alias OnePlaylist.Providers.Spotify.Client
   alias OnePlaylist.Providers.Spotify.Service
   alias OnePlaylist.Providers.TokenRefreshFailed
   alias OnePlaylist.Providers.Tokens
 
-  use Bond
+  use Bond, behaviours: [OnePlaylist.Providers.OAuthFlow]
   use Errata
+
+  @impl true
+  def provider, do: :spotify
 
   @doc """
   Builds the URL to redirect a user to, plus the state nonce.
 
-  The caller must stash `:state` in the session and hand it back when the
-  callback arrives. It is returned rather than stored here so this module stays
-  free of session concerns.
+  `session` is empty, and that emptiness is the whole difference between this
+  flow and TIDAL's: a confidential client keeps its secret on the server, so
+  there is nothing to carry across the two legs. The CSRF contracts on
+  `c:OnePlaylist.Providers.OAuthFlow.authorization_url/1` are inherited.
   """
-  # `state` is the whole CSRF defence for this flow — there is no PKCE verifier
-  # beside it, as there is for TIDAL, so nothing else would catch a forged
-  # callback. Two things have to be true of it and neither is visible in the
-  # happy path: it must actually reach Spotify (a URL built without it completes
-  # the flow perfectly while accepting anybody's authorization code), and it
-  # must be long enough not to be guessed.
-  #
-  # 32 bytes of `:crypto.strong_rand_bytes/1` is 43 base64url characters, so the
-  # bound is expressed as the encoded length a reader can count in a URL.
-  #
-  # Proven by mutation: dropping `"state"` from the query fires the first, and
-  # `random_url_safe(8)` fires the second.
-  @post whenever(
-          {:ok, authorization} <- result,
-          state_reaches_spotify: state_in(authorization.url) == authorization.state,
-          state_is_unguessable: String.length(authorization.state) >= 32
-        )
-  @spec authorization_url(keyword()) ::
-          {:ok, %{url: String.t(), state: String.t()}} | {:error, Errata.error()}
+  @impl true
   def authorization_url(opts \\ []) do
     with {:ok, config} <- config() do
       state = random_url_safe(32)
@@ -101,7 +88,7 @@ defmodule OnePlaylist.Providers.Spotify.OAuth do
           "state" => state
         })
 
-      {:ok, %{url: "#{config[:login_url]}/authorize?#{query}", state: state}}
+      {:ok, %{url: "#{config[:login_url]}/authorize?#{query}", state: state, session: %{}}}
     end
   end
 
@@ -112,8 +99,8 @@ defmodule OnePlaylist.Providers.Spotify.OAuth do
   authorize leg. That is the spec, and Spotify enforces it: the two must match
   byte for byte or the exchange fails with `invalid_grant` naming neither side.
   """
-  @spec exchange_code(String.t()) :: {:ok, Tokens.t()} | {:error, Errata.error()}
-  def exchange_code(code) do
+  @impl true
+  def exchange_code(code, _session \\ %{}) do
     with {:ok, config} <- config() do
       post_token(config, %{
         "grant_type" => "authorization_code",
@@ -245,21 +232,35 @@ defmodule OnePlaylist.Providers.Spotify.OAuth do
   end
 
   @doc """
-  The `state` carried by an authorization URL, or `nil`.
+  Who authorized, as attributes for `OnePlaylist.Providers.connect/3`.
 
-  Public because `authorization_url/1` names it in a postcondition, and an
-  assertion that appears in generated documentation should reference something a
-  reader can look up. See `OnePlaylist.Providers.Tidal.OAuth.challenge_in/1` for
-  the same reasoning applied to PKCE.
+  `GET /me` returns a flat object — `id`, `display_name`, `country` — where
+  TIDAL answers a JSON:API resource. That difference is the reason this callback
+  exists rather than the controller reading the payload itself.
   """
-  @spec state_in(String.t()) :: String.t() | nil
-  def state_in(url) when is_binary(url) do
-    url
-    |> URI.parse()
-    |> Map.get(:query)
-    |> Kernel.||("")
-    |> URI.decode_query()
-    |> Map.get("state")
+  @impl true
+  def connection_attrs(%Tokens{} = tokens) do
+    with {:ok, account} <- Client.current_user(tokens.access_token) do
+      {:ok,
+       %{
+         provider_user_id: to_string(account["id"]),
+         # Can be `null` for an account that never set one, so callers fall back
+         # rather than interpolating it into a sentence.
+         display_name: account["display_name"],
+         # Captured now because every read takes it as `market`. Fetching it
+         # later would mean a round trip to /me before every other round trip.
+         #
+         # Needs the `user-read-private` scope; without it Spotify omits the
+         # field rather than failing, and `market` then goes unsent — which
+         # degrades catalogue visibility silently. That is why the scope is
+         # requested even though nothing displays the value.
+         country: account["country"],
+         access_token: tokens.access_token,
+         refresh_token: tokens.refresh_token,
+         access_token_expires_at: tokens.expires_at,
+         scopes: tokens.scopes
+       }}
+    end
   end
 
   defp present?(value), do: is_binary(value) and value != ""

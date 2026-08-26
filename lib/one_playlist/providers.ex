@@ -653,6 +653,49 @@ defmodule OnePlaylist.Providers do
     navidrome: OnePlaylist.Providers.Navidrome
   }
 
+  # Which providers are reached by an OAuth round trip, and what drives it.
+  # Separate from `@adapters` because the two sets genuinely differ: the library
+  # has no credential at all, and a Subsonic server is a form rather than a
+  # redirect.
+  @oauth_flows %{
+    tidal: OnePlaylist.Providers.Tidal.OAuth,
+    spotify: OnePlaylist.Providers.Spotify.OAuth
+  }
+
+  @doc """
+  The `OnePlaylist.Providers.OAuthFlow` for a provider, or an error.
+
+  An error rather than a raise for the same reason `adapter/1` answers one: a
+  provider this application does not authorize by OAuth is a `501`, not a crash.
+  `OnePlaylistWeb.OAuthController` also reaches this with a segment out of a URL,
+  where "no such provider" is an ordinary thing to be told.
+
+      iex> alias OnePlaylist.Providers
+      iex> {:ok, flow} = Providers.oauth_flow(:spotify)
+      iex> flow.provider()
+      :spotify
+      iex> match?({:error, _}, Providers.oauth_flow(:navidrome))
+      true
+  """
+  @spec oauth_flow(Connection.provider()) ::
+          {:ok, module()} | {:error, ProviderNotSupported.t()}
+  def oauth_flow(provider) do
+    case Map.fetch(@oauth_flows, provider) do
+      {:ok, module} -> {:ok, module}
+      :error -> {:error, Errata.create(ProviderNotSupported, context: %{provider: provider})}
+    end
+  end
+
+  @doc """
+  Whether a provider is connected by an OAuth redirect.
+
+      iex> alias OnePlaylist.Providers
+      iex> {Providers.oauth?(:tidal), Providers.oauth?(:navidrome)}
+      {true, false}
+  """
+  @spec oauth?(Connection.provider()) :: boolean()
+  def oauth?(provider), do: Map.has_key?(@oauth_flows, provider)
+
   @doc """
   The `OnePlaylist.Providers.Adapter` implementation for a provider.
 

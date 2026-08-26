@@ -68,10 +68,13 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   # be clicked.
   #
   # A function rather than a module attribute because `~p` may only appear inside
-  # one. `:connect_path` is written out per provider rather than interpolated,
-  # since `~p"/auth/#{provider}"` cannot be verified against a router that spells
-  # the segment out — and compile-time verification is the last thing to give up
-  # on the one button whose whole job is to leave the application.
+  # one.
+  #
+  # `:connect_path` used to be written out per provider, because the router
+  # spelled each segment out and an interpolated `~p` could not be verified
+  # against it. `OnePlaylistWeb.OAuthController` made the segment a parameter, so
+  # the interpolated form verifies now and an `:oauth` entry no longer repeats
+  # its own name — compile-time verification kept, duplication gone.
   defp catalogue do
     %{
       library: %{
@@ -84,7 +87,6 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
         name: "TIDAL",
         blurb: "Playlists, albums and liked tracks. Sign in with your TIDAL account.",
         kind: :oauth,
-        connect_path: ~p"/auth/tidal",
         icon: "hero-musical-note"
       },
       spotify: %{
@@ -93,7 +95,6 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
           "Playlists and liked tracks. This app is in Spotify's development " <>
             "mode, so only accounts its owner has allowlisted can connect.",
         kind: :oauth,
-        connect_path: ~p"/auth/spotify",
         icon: "hero-musical-note"
       },
       navidrome: %{
@@ -338,7 +339,7 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
 
   defp connect_action(%{service: %{kind: :oauth}} = assigns) do
     ~H"""
-    <.link href={@service.connect_path} class="btn btn-primary btn-sm">
+    <.link href={~p"/auth/#{@service.provider}"} class="btn btn-primary btn-sm">
       Connect
     </.link>
     """

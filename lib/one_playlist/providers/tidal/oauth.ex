@@ -24,19 +24,29 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   """
 
   alias OnePlaylist.Providers.Tidal
+  alias OnePlaylist.Providers.Tidal.Client
   alias OnePlaylist.Providers.Tidal.Service
   alias OnePlaylist.Providers.TokenRefreshFailed
   alias OnePlaylist.Providers.Tokens
 
-  use Bond
+  use Bond, behaviours: [OnePlaylist.Providers.OAuthFlow]
   use Errata
+
+  @impl true
+  def provider, do: :tidal
 
   @doc """
   Builds the URL to redirect a user to, plus the PKCE verifier and state.
 
-  The caller must stash `:code_verifier` and `:state` (in the session) and hand
-  the verifier back to `exchange_code/2`. They are returned rather than stored
-  here so this module stays free of session concerns.
+  The verifier travels in `session`, which
+  `OnePlaylistWeb.OAuthController` stashes and hands back at
+  `exchange_code/2` without reading. That is the whole of what distinguishes
+  this flow from Spotify's, whose `session` is empty — see
+  `OnePlaylist.Providers.OAuthFlow`.
+
+  The two CSRF contracts on `c:OnePlaylist.Providers.OAuthFlow.authorization_url/1`
+  are inherited; the PKCE ones below are this flow's own, because no other
+  provider here has a verifier to get wrong.
   """
   # PKCE's entire security value rests on one relationship: what travels to
   # TIDAL must be the *hash* of the secret we keep, never the secret itself.
@@ -47,19 +57,30 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   # happy path.
   #
   # The length bound is RFC 7636 §4.1, which a provider may or may not enforce.
-  @post whenever(
-          {:ok, authorization} <- result,
-          challenge_is_hashed:
-            challenge_in(authorization.url) ==
-              Base.url_encode64(:crypto.hash(:sha256, authorization.code_verifier),
-                padding: false
-              ),
-          verifier_never_sent: challenge_in(authorization.url) != authorization.code_verifier,
-          verifier_length_per_rfc7636: String.length(authorization.code_verifier) in 43..128
-        )
-  @spec authorization_url(keyword()) ::
-          {:ok, %{url: String.t(), code_verifier: String.t(), state: String.t()}}
-          | {:error, Errata.error()}
+  #
+  # `@post_strengthen` rather than `@post`, and Bond is right to insist: an
+  # implementation adding a plain postcondition to an inherited one would demand
+  # more of *callers* than the behaviour promises, which is the Liskov violation
+  # it refuses. These genuinely strengthen — every URL this returns still
+  # satisfies the CSRF laws in `OAuthFlow`, and additionally hashes its verifier.
+  #
+  # Stated with `~>` and a helper rather than `whenever`, because
+  # `@post_strengthen` accepts no binding form. `pkce/1` answers `nil` for
+  # anything that is not a successful PKCE authorization, so each assertion is
+  # vacuously true on the error path rather than raising there.
+  @post_strengthen challenge_is_hashed:
+                     not is_nil(pkce(result))
+                     ~> (challenge_in(pkce(result).url) ==
+                           Base.url_encode64(:crypto.hash(:sha256, pkce(result).verifier),
+                             padding: false
+                           ))
+  @post_strengthen verifier_never_sent:
+                     not is_nil(pkce(result))
+                     ~> (challenge_in(pkce(result).url) != pkce(result).verifier)
+  @post_strengthen verifier_length_per_rfc7636:
+                     not is_nil(pkce(result))
+                     ~> (String.length(pkce(result).verifier) in 43..128)
+  @impl true
   def authorization_url(opts \\ []) do
     with {:ok, config} <- config() do
       verifier = random_url_safe(64)
@@ -80,24 +101,81 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
       {:ok,
        %{
          url: "#{config[:login_url]}/authorize?#{query}",
-         code_verifier: verifier,
-         state: state
+         state: state,
+         session: %{"code_verifier" => verifier}
        }}
     end
   end
 
-  @doc "Exchanges an authorization code for tokens."
-  @spec exchange_code(String.t(), String.t()) :: {:ok, Tokens.t()} | {:error, Errata.error()}
-  def exchange_code(code, code_verifier) do
+  @doc """
+  Exchanges an authorization code for tokens.
+
+  `session` is the map `authorization_url/1` asked to keep, so the verifier
+  arrives the same way any other flow's stashed value would.
+  """
+  @impl true
+  def exchange_code(code, session) do
     with {:ok, config} <- config() do
       post_token(config, %{
         "grant_type" => "authorization_code",
         "code" => code,
         "redirect_uri" => config[:redirect_uri],
-        "code_verifier" => code_verifier
+        "code_verifier" => session["code_verifier"]
       })
     end
   end
+
+  @doc """
+  Who authorized, as attributes for `OnePlaylist.Providers.connect/3`.
+
+  TIDAL answers a JSON:API resource whose identity lives in `id` and
+  `attributes` — where Spotify answers a flat object. That difference is the
+  reason this callback exists rather than the controller reading the payload.
+  """
+  @impl true
+  def connection_attrs(%Tokens{} = tokens) do
+    with {:ok, account} <- Client.current_user(tokens.access_token) do
+      {:ok,
+       %{
+         provider_user_id: to_string(account["id"]),
+         display_name: display_name(account),
+         # Captured now because most TIDAL endpoints take it as `countryCode`,
+         # and fetching it later would mean a round trip to /users/me before
+         # every other round trip.
+         country: get_in(account, ["attributes", "country"]),
+         access_token: tokens.access_token,
+         refresh_token: tokens.refresh_token,
+         access_token_expires_at: tokens.expires_at,
+         scopes: tokens.scopes
+       }}
+    end
+  end
+
+  # Which attribute a given account carries depends on how it was registered,
+  # so this falls through several rather than trusting one. Verified live:
+  # `username` and `country` are both populated for a real account.
+  defp display_name(%{"attributes" => attributes}) when is_map(attributes) do
+    attributes["username"] || attributes["firstName"] || attributes["email"]
+  end
+
+  defp display_name(_account), do: nil
+
+  @doc """
+  The URL and verifier of a successful authorization, or `nil`.
+
+  Public because `authorization_url/1` names it in three postconditions, and an
+  assertion rendered into the documentation should reference something a reader
+  can look up.
+
+  Takes the whole result tuple rather than the authorization inside it, because
+  `@post_strengthen` accepts no binding form and every assertion would otherwise
+  have to spell out `elem(result, 1)` for itself.
+  """
+  @spec pkce(term()) :: %{url: String.t(), verifier: String.t()} | nil
+  def pkce({:ok, %{url: url, session: %{"code_verifier" => verifier}}}),
+    do: %{url: url, verifier: verifier}
+
+  def pkce(_result), do: nil
 
   @doc """
   Exchanges a refresh token for a fresh access token.
