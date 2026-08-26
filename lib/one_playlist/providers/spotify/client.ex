@@ -246,23 +246,24 @@ defmodule OnePlaylist.Providers.Spotify.Client do
   @doc """
   Creates a private playlist owned by the authorizing user.
 
-  The user id goes in the path — Spotify has no "current user" form of this
-  endpoint — so callers must supply it, which is why
-  `OnePlaylist.Providers.Connection.provider_user_id` is captured at connect.
+  `POST /me/playlists`, **not** `POST /users/{id}/playlists`. Verified live
+  2026-08-26: the user-scoped form answers 403 Forbidden and the `/me` form
+  answers 201, which is the same migration `/tracks` → `/items` represents —
+  Spotify is moving what it can to `/me`, and retiring the old spellings for
+  apps that were not already using them.
 
   Private by default. A transfer tool that published somebody's playlists to
   their followers by omission would be a bad surprise, and `public: false` is
   the explicit way of saying so — Spotify's own default is `true`.
   """
-  @spec create_playlist(String.t(), String.t(), String.t(), keyword()) ::
+  @spec create_playlist(String.t(), String.t(), keyword()) ::
           {:ok, OnePlaylist.Music.Playlist.t()} | {:error, Errata.error()}
-  def create_playlist(access_token, spotify_user_id, name, opts \\ []) do
+  def create_playlist(access_token, name, opts \\ []) do
     body =
       %{"name" => name, "public" => false}
       |> maybe_put("description", Keyword.get(opts, :description))
 
-    with {:ok, resource} <-
-           write(access_token, :post, "/users/#{spotify_user_id}/playlists", body, []) do
+    with {:ok, resource} <- write(access_token, :post, "/me/playlists", body, []) do
       {:ok, Mapper.playlist(resource)}
     end
   end
@@ -311,11 +312,24 @@ defmodule OnePlaylist.Providers.Spotify.Client do
   a zero-based index and no id at all, and Spotify takes a URI. That the adapter
   boundary absorbs all three without the caller knowing is the point of it.
 
-  ## The snapshot is optimistic concurrency, and is passed when known
+  ## `snapshot_id` is **not** sent, and that is a measurement rather than taste
 
-  `snapshot_id` names the playlist state a removal was computed against. Given
-  one, Spotify refuses the removal if the playlist has changed underneath — the
-  one protection available against a concurrent edit, and free to use.
+  Spotify documents `snapshot_id` on a removal as optimistic concurrency: name
+  the state you computed against, and the removal is refused if the playlist has
+  moved. This code sent it for exactly that reason, and it was wrong — verified
+  against the live API on 2026-08-26, twice, from a known state:
+
+      DELETE /items  {"items": [...], "snapshot_id": <current>}  → 200 OK, removed 0
+      DELETE /items  {"items": [...]}                            → 200 OK, removed 4
+
+  The snapshot was the *current* one, read immediately before. Spotify answers
+  **200 with a fresh snapshot id** and removes nothing at all. That is worse
+  than a refusal by a wide margin: a refusal is an error a caller handles, and
+  this is a success a caller believes.
+
+  So the field is omitted, and — because a 200 from this endpoint has been shown
+  not to mean the removal happened — `OnePlaylist.Providers.Spotify` counts what
+  went by re-reading rather than by trusting the status.
   """
   @spec remove_tracks(String.t(), String.t(), [String.t()], keyword()) ::
           {:ok, String.t() | nil} | {:error, Errata.error()}
@@ -326,10 +340,20 @@ defmodule OnePlaylist.Providers.Spotify.Client do
   def remove_tracks(access_token, playlist_id, track_ids, opts) do
     track_ids
     |> Enum.chunk_every(@write_batch)
-    |> Enum.reduce_while({:ok, Keyword.get(opts, :snapshot_id)}, fn batch, {:ok, snapshot} ->
-      body =
-        %{"tracks" => Enum.map(batch, &%{"uri" => track_uri(&1)})}
-        |> maybe_put("snapshot_id", snapshot)
+    |> Enum.reduce_while({:ok, nil}, fn batch, {:ok, _snapshot} ->
+      # `items`, and objects rather than bare strings — which is **not** the
+      # shape the append above uses, and not the shape the retired `/tracks`
+      # endpoint used either. All three were tried against the live API on
+      # 2026-08-26 and only this one is accepted:
+      #
+      #     POST   /items  {"uris":  ["spotify:track:ID"]}          201
+      #     DELETE /items  {"items": [{"uri": "spotify:track:ID"}]} 200
+      #     DELETE /items  {"uris":  [...]}  |  {"tracks": [...]}   400 "No uris provided"
+      #
+      # The asymmetry is Spotify's. The 400 it answers is worth reading twice:
+      # "No uris provided" is what it says when the uris are provided under a
+      # key it does not read, which sends you looking at the values.
+      body = %{"items" => Enum.map(batch, &%{"uri" => track_uri(&1)})}
 
       case write(access_token, :delete, "/playlists/#{playlist_id}/#{@items_path}", body, opts) do
         # Carried forward, so each batch is checked against the state the
@@ -338,21 +362,6 @@ defmodule OnePlaylist.Providers.Spotify.Client do
         {:error, _reason} = error -> {:halt, error}
       end
     end)
-  end
-
-  @doc """
-  The current snapshot id of a playlist.
-
-  One cheap request — `fields` narrows the response to the single value, so this
-  does not drag a thousand tracks back to learn one string.
-  """
-  @spec playlist_snapshot(String.t(), String.t(), keyword()) ::
-          {:ok, String.t() | nil} | {:error, Errata.error()}
-  def playlist_snapshot(access_token, playlist_id, _opts \\ []) do
-    with {:ok, body} <-
-           get(access_token, "/playlists/#{playlist_id}", [{"fields", "snapshot_id"}]) do
-      {:ok, body["snapshot_id"]}
-    end
   end
 
   defp search(access_token, query, type, opts) do

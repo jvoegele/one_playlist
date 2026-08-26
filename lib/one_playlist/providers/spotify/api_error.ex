@@ -24,8 +24,8 @@ defmodule OnePlaylist.Providers.Spotify.APIError do
       user **owns or collaborates on**, and answers 403 for every other one,
       including a playlist they merely follow and every editorial playlist.
       The body says only `"Forbidden"`, so the endpoint is what identifies it —
-      see `OnePlaylist.Providers.Spotify.playlist_items_error/2`. A user told to
-      "reconnect to continue" here would reconnect forever.
+      see `OnePlaylist.Providers.Spotify.Client.list_playlist_items/3`. A user
+      told to "reconnect to continue" here would reconnect forever.
 
   Retryability is answered per instance rather than taking the infrastructure
   default, because the difference between "Spotify is unwell" and "this request

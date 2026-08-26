@@ -132,14 +132,7 @@ defmodule OnePlaylist.Providers.Spotify do
   @impl true
   def create_playlist(%Connection{} = connection, name, opts \\ []) do
     with {:ok, connection} <- Providers.ensure_fresh(connection) do
-      # The user id goes in the path: Spotify has no "current user" form of this
-      # endpoint. Captured at connect for exactly this.
-      Client.create_playlist(
-        connection.access_token,
-        connection.provider_user_id,
-        name,
-        call_opts(connection, opts)
-      )
+      Client.create_playlist(connection.access_token, name, call_opts(connection, opts))
     end
   end
 
@@ -189,38 +182,43 @@ defmodule OnePlaylist.Providers.Spotify do
              connection.access_token,
              playlist,
              call_opts(connection, opts)
-           ),
-         {:ok, snapshot} <-
-           Client.playlist_snapshot(
-             connection.access_token,
-             playlist,
-             call_opts(connection, opts)
            ) do
-      # Counted from what the playlist actually holds rather than from what was
-      # asked for, because removing every occurrence means one id can account
-      # for two entries — and because an id the playlist does not hold must
-      # count as nothing rather than as one.
-      #
-      # Read before the write, so the count describes the same state the
-      # snapshot pins. See `Client.remove_tracks/4` on what the snapshot buys.
       wanted = MapSet.new(ids)
-      removing = Enum.count(held, &MapSet.member?(wanted, &1))
+      doomed = held |> Enum.filter(&MapSet.member?(wanted, &1)) |> Enum.uniq()
 
-      remove_present(connection, playlist, held, wanted, snapshot, opts, removing)
+      remove_present(connection, playlist, doomed, opts)
     end
   end
 
-  defp remove_present(_connection, _playlist, _held, _wanted, _snapshot, _opts, 0), do: {:ok, 0}
+  defp remove_present(_connection, _playlist, [], _opts), do: {:ok, 0}
 
-  defp remove_present(connection, playlist, held, wanted, snapshot, opts, removing) do
-    doomed = held |> Enum.filter(&MapSet.member?(wanted, &1)) |> Enum.uniq()
-    call_opts = connection |> call_opts(opts) |> Keyword.put(:snapshot_id, snapshot)
+  # Counted by **re-reading**, not by trusting the response.
+  #
+  # That is a request this adapter would rather not spend, and it is spent
+  # because Spotify has been shown to answer `200 OK` to a removal it did not
+  # perform — see `Client.remove_tracks/4` on the `snapshot_id` measurement. The
+  # bug that produced it is fixed, but what the measurement established is more
+  # general and did not go away with it: a 200 from this endpoint is not
+  # evidence that anything was removed.
+  #
+  # So the count is a difference rather than an intention, and a removal that
+  # silently does nothing reports zero rather than reporting what it meant to
+  # do. `OnePlaylist.Transfers.Runner` writes that number into a report a person
+  # reads, and a report that is confidently wrong is the one failure mode this
+  # application is organised against.
+  defp remove_present(connection, playlist, doomed, opts) do
+    wanted = MapSet.new(doomed)
+    call_opts = call_opts(connection, opts)
+    token = connection.access_token
 
-    with {:ok, _snapshot} <-
-           Client.remove_tracks(connection.access_token, playlist, doomed, call_opts) do
-      {:ok, removing}
+    with {:ok, before} <- Client.playlist_track_ids(token, playlist, call_opts),
+         {:ok, _snapshot} <- Client.remove_tracks(token, playlist, doomed, call_opts),
+         {:ok, left} <- Client.playlist_track_ids(token, playlist, call_opts) do
+      {:ok, occurrences(before, wanted) - occurrences(left, wanted)}
     end
   end
+
+  defp occurrences(ids, wanted), do: Enum.count(ids, &MapSet.member?(wanted, &1))
 
   @impl true
   def playlist_track_ids(connection, playlist, opts \\ [])

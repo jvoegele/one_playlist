@@ -152,21 +152,28 @@ defmodule OnePlaylist.Providers.SpotifyTest do
     # of having one.
     test "removes by uri and counts occurrences", %{connection: connection} do
       test_pid = self()
+      {:ok, held} = Agent.start_link(fn -> ~w(t1 t2 t1) end)
 
       Req.Test.stub(Spotify, fn conn ->
         cond do
           conn.method == "DELETE" ->
             {:ok, body, conn} = Plug.Conn.read_body(conn)
-            send(test_pid, {:removed, Jason.decode!(body)})
+            decoded = Jason.decode!(body)
+            send(test_pid, {:removed, decoded})
+
+            gone =
+              decoded
+              |> Map.fetch!("items")
+              |> Enum.map(&String.replace(&1["uri"], "spotify:track:", ""))
+              |> MapSet.new()
+
+            Agent.update(held, fn ids -> Enum.reject(ids, &MapSet.member?(gone, &1)) end)
+
             Req.Test.json(conn, %{"snapshot_id" => "snap-2"})
 
           String.ends_with?(conn.request_path, "/items") ->
             Req.Test.json(conn, %{
-              "items" => [
-                item(track_object("t1")),
-                item(track_object("t2")),
-                item(track_object("t1"))
-              ],
+              "items" => Enum.map(Agent.get(held, & &1), &item(track_object(&1))),
               "next" => nil
             })
 
@@ -177,7 +184,8 @@ defmodule OnePlaylist.Providers.SpotifyTest do
 
       # Counted from what the playlist holds, not from what was asked for: one
       # id accounts for two entries here, because Spotify removes every
-      # occurrence of a uri.
+      # occurrence of a uri — and counted by re-reading, so the stub has to
+      # actually shrink.
       assert {:ok, 2} =
                Spotify.remove_tracks(
                  connection,
@@ -187,8 +195,46 @@ defmodule OnePlaylist.Providers.SpotifyTest do
                )
 
       assert_received {:removed, body}
-      assert body["tracks"] == [%{"uri" => "spotify:track:t1"}]
-      assert body["snapshot_id"] == "snap-1"
+
+      # `items`, and objects — not the `uris` the append uses, and not the
+      # `tracks` the retired endpoint took. All three were tried live; only this
+      # one is accepted. See `Client.remove_tracks/4`.
+      assert body["items"] == [%{"uri" => "spotify:track:t1"}]
+
+      # And **no** `snapshot_id`. Sending one makes Spotify answer 200 and
+      # remove nothing, which is the failure mode this application is least able
+      # to afford: a success a caller believes.
+      refute Map.has_key?(body, "snapshot_id")
+    end
+
+    # The counterpart to the rule above. A 200 has been shown not to mean the
+    # removal happened, so the count is the difference between two reads rather
+    # than the number that was asked for.
+    test "reports what actually went, not what was asked for", %{connection: connection} do
+      {:ok, state} = Agent.start_link(fn -> ~w(t1 t2 t1) end)
+
+      Req.Test.stub(Spotify, fn conn ->
+        if conn.method == "DELETE" do
+          # A provider that says yes and does nothing — exactly what a
+          # `snapshot_id` used to produce.
+          Req.Test.json(conn, %{"snapshot_id" => "unchanged"})
+        else
+          held = Agent.get(state, & &1)
+
+          Req.Test.json(conn, %{
+            "items" => Enum.map(held, &item(track_object(&1))),
+            "next" => nil
+          })
+        end
+      end)
+
+      assert {:ok, 0} =
+               Spotify.remove_tracks(
+                 connection,
+                 "p1",
+                 [%Track{provider: :spotify, provider_id: "t1"}],
+                 []
+               )
     end
 
     test "a track the playlist does not hold removes nothing", %{connection: connection} do
@@ -257,7 +303,11 @@ defmodule OnePlaylist.Providers.SpotifyTest do
       assert playlist.provider_id == "new"
 
       assert_received {:created, path, body}
-      assert path =~ "/users/jason/playlists"
+
+      # `/me/playlists`, not `/users/{id}/playlists`. The user-scoped form
+      # answers 403 Forbidden — verified live, same migration as `/items`.
+      assert path =~ "/me/playlists"
+      refute path =~ "/users/"
       assert body["public"] == false
     end
   end

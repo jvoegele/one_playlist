@@ -127,7 +127,17 @@ better code.
   including one the user owns; the endpoint is now **`/playlists/{id}/items`**,
   and the entry key is `item` rather than `track`. Spotify's own `href` inside a
   playlist's embedded paging object points at `/items`, which is how it was
-  found. Separately, a Development Mode app may only read playlists the
+  found — and it is a **pattern, not one endpoint**: `POST /users/{id}/playlists`
+  also answers 403 where `POST /me/playlists` answers 201, so Spotify is moving
+  what it can under `/me` and retiring the old spellings for apps not already
+  using them. The two write verbs on `/items` then disagree with each other:
+  an append takes `{"uris": [...]}` and a removal takes
+  `{"items": [{"uri": ...}]}`, while the old `{"tracks": [...]}` answers
+  *400 No uris provided* — a message that sends you looking at the values when
+  the key is what is wrong. **Worst of all, a removal carrying `snapshot_id`
+  answers `200 OK` and removes nothing**, so a 200 from that endpoint is not
+  evidence a removal happened and `Spotify.remove_tracks/4` counts by re-reading.
+  Separately, a Development Mode app may only read playlists the
   connected user **owns or collaborates on** — a followed playlist, and every
   editorial playlist, answers 403 with a body saying only `"Forbidden"`. That
   makes Spotify a source for *your own* playlists and not for the curated ones
