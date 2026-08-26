@@ -255,7 +255,23 @@ defmodule OnePlaylist.Library.Identities do
   carries `recalled: true` in its evidence — so a report says the tracks
   correspond because their ISRCs agreed, and also that nobody re-checked that
   today.
+
+  A recalled match always **names a track at the service that was asked about**,
+  and never the source track itself. Both halves are load-bearing: a transfer
+  adds `match.track` to the destination without re-checking anything, so a match
+  carrying another service's id would add a TIDAL id to a Navidrome playlist —
+  accepted by the adapter, reported as success, and pointing at nothing. And an
+  identity naming the source is not a memory of anything, which is what a
+  same-service transfer would otherwise recall to "match" a track to itself.
   """
+  # Proven by mutation: dropping the `i.provider == ^provider` clause fires
+  # `recalls_the_service_asked_about` on the two-service fixture, and deleting
+  # the `same == source_id` clause fires `never_recalls_the_source_itself`.
+  @post recalls_the_service_asked_about: is_nil(result) or result.track.provider == provider
+  @post never_recalls_the_source_itself:
+          is_nil(result) or
+            not (result.track.provider == source.provider and
+                   result.track.provider_id == source.provider_id)
   @spec recall(Recording.t() | nil, Track.t(), atom()) :: Match.t() | nil
   def recall(nil, _source, _provider), do: nil
 
@@ -295,7 +311,15 @@ defmodule OnePlaylist.Library.Identities do
   For an identity that has stopped being true — a track a service removed, or an
   id a correction supersedes. Deleting rather than marking: a spine's answer is
   the current one, and a row that is known to be wrong has no second use.
+
+  At most one row is ever deleted, because the spine holds **one identity per
+  service per recording**. A count above one means the uniqueness this module is
+  built on has stopped holding, and the delete that reports it has already
+  removed somebody else's answer.
   """
+  # Proven by mutation: dropping the `i.provider == ^provider` clause fires it
+  # on any recording known at two services.
+  @post forgets_at_most_one: result <= 1
   @spec forget(Recording.t() | nil, atom()) :: non_neg_integer()
   def forget(nil, _provider), do: 0
 
@@ -313,7 +337,15 @@ defmodule OnePlaylist.Library.Identities do
 
   For a recording's own page and for answering "what does the spine actually
   hold" without a query per service.
+
+  Every identity returned belongs to the recording asked about. No service
+  appears twice either, but that is the database's guarantee rather than this
+  function's — a unique index on `(recording_id, provider)` prevents the state
+  instead of detecting it here, which is why there is no assertion for it.
   """
+  # Proven by mutation: dropping the `where` fires it as soon as a second
+  # recording is known anywhere.
+  @post all_for_this_recording: forall(identity <- result, identity.recording_id == recording.id)
   @spec for_recording(Recording.t() | nil) :: [Identity.t()]
   def for_recording(nil), do: []
 

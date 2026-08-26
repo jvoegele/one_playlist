@@ -313,6 +313,35 @@ defmodule OnePlaylist.Library.IdentitiesTest do
       assert Identities.forget(Identities.anchor(track()), :navidrome) == 0
       assert Identities.forget(nil, :navidrome) == 0
     end
+
+    test "forgets one service without touching the other", %{} do
+      # A recording known at *two* services, which nothing exercised until
+      # `forget/2` and `recall/3` grew postconditions and no mutation could make
+      # them fire. Every fixture here knew a recording at one service, so
+      # widening either query to all providers changed nothing observable —
+      # `docs/reference/contracts.md` on fixtures that do not exhibit the case.
+      recording = Identities.anchor(track())
+
+      Identities.record(recording, track(%{provider_id: "t-1"}), :isrc, 1.0)
+
+      Identities.record(
+        recording,
+        track(%{provider: :navidrome, provider_id: "n-1"}),
+        :isrc,
+        1.0
+      )
+
+      assert Identities.for_recording(recording) |> length() == 2
+
+      assert Identities.forget(recording, :navidrome) == 1
+
+      # The other service is untouched, and still recalls its own id rather than
+      # the one that was forgotten.
+      assert %{track: %{provider: :tidal, provider_id: "t-1"}} =
+               Identities.recall(recording, track(%{provider: :file, provider_id: "src"}), :tidal)
+
+      refute Identities.recall(recording, track(%{provider: :file}), :navidrome)
+    end
   end
 
   describe "a disputed ISRC is not an anchor" do
