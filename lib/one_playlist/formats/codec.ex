@@ -55,28 +55,26 @@ defmodule OnePlaylist.Formats.Codec do
 
   @doc """
   Reads a playlist file into tracks, in the order the file lists them.
+
+  Two laws make a parsed track safe to hand onwards, and this is where untrusted
+  input stops being untrusted.
+
+  **Every track is identifiable.** `OnePlaylist.Music.Track`'s own invariant,
+  restated as an obligation on the parser, because a codec builds tracks from
+  nothing and has to invent the id. The invariant would catch a violation
+  eventually — but only once the value reached one of `Track`'s functions, which
+  for an id-less track might be after a snapshot-and-diff had conflated two rows.
+
+  **Every track is usable**, which is the filter's debt to
+  `c:OnePlaylist.Providers.Adapter.search_tracks/3`, whose own precondition
+  *raises*. A row with neither a title nor an ISRC cannot be searched for, so a
+  codec must reject it rather than pass it on — the user gets "row 47 has no
+  title" instead of a `Bond.PreconditionError` from three layers away.
   """
-  # The two laws that make a parsed track safe to hand onwards, stated where the
-  # untrusted input stops being untrusted.
-  #
-  # These precede the `@callback` they belong to: `Bond.Behaviour` attaches
-  # `@pre`/`@post` to the *following* callback, so writing them underneath
-  # silently moves them onto the next one. Put below, `parse/2`'s postconditions
-  # land on `render/2`, where `tracks` is not even bound — and the only sign is
-  # a compiler warning about an unused variable in a generated function.
-  #
-  # `every_track_is_identifiable` is `Track`'s own invariant restated as an
-  # obligation on the parser, because a codec builds tracks from nothing and has
-  # to invent the id. `Track`'s invariant would catch a violation, but only once
-  # the value reached one of *its* functions — which for an id-less track might
-  # be after `Runner`'s snapshot-and-diff had already conflated two rows.
-  #
-  # `every_track_is_usable` is the filter's debt to
-  # `c:OnePlaylist.Providers.Adapter.search_tracks/3`, whose `searchable`
-  # precondition **raises**. A row with neither a title nor an ISRC cannot be
-  # searched for, so a codec must reject it rather than pass it on: the user
-  # gets "row 47 has no title" instead of a `Bond.PreconditionError` from three
-  # layers away.
+  # These precede the `@callback` they belong to, and must: `Bond.Behaviour`
+  # attaches `@pre`/`@post` to the *following* callback. Written underneath, these
+  # land on `render/2` where `tracks` is not even bound, and the only sign is a
+  # warning about an unused variable in a generated function.
   @post whenever(
           {:ok, tracks} <- result,
           every_track_is_identifiable:

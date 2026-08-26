@@ -327,25 +327,20 @@ defmodule OnePlaylist.Providers.Adapter do
   read is also what makes a *stale* removal safe: positions and item ids are
   resolved in the same breath as the delete rather than passed in from
   somewhere older.
+
+  **Removing nothing removes nothing.** That is the dangerous direction here, and
+  the opposite of `c:add_tracks/4`'s: an implementation computing positions by
+  *difference* rather than by membership answers "remove everything" when asked
+  to remove nothing, and the symptom is somebody's playlist emptied by a no-op
+  call. Appending an empty list, by contrast, appends nothing whatever the bug.
+
+  There is deliberately no `removed <= length(tracks)` bound. Removing every
+  occurrence of a track a playlist holds twice legitimately returns 2 for one
+  track, so the real upper bound is the playlist's length, which this cannot see.
   """
-  # Conservation again, and the direction that matters is the opposite of
-  # `add_tracks/4`'s. There is deliberately no `removed <= length(tracks)` bound
-  # — removing every occurrence of a track a playlist holds twice legitimately
-  # returns 2 for one track — so the upper bound is the playlist's length, which
-  # this cannot see.
-  #
-  # What it can see is the empty case, and that is the dangerous one. An
-  # implementation that computes positions by difference rather than by
-  # membership answers "remove everything" when asked to remove nothing, and the
-  # symptom is somebody's playlist emptied by a no-op call. `add_tracks/4` has
-  # no equivalent hazard: appending an empty list appends nothing whatever the
-  # bug.
-  #
-  # Reads `⚠ never failed` in the coverage table and should: no input can
-  # falsify it while the implementations are right, so it is verified by
-  # mutation instead. Turning `Tidal.remove_tracks/4`'s `Enum.filter` into an
-  # `Enum.reject` — precisely the difference-not-membership slip above — fires
-  # it, on the call that asks for nothing.
+  # Verified by mutation: turning `Tidal.remove_tracks/4`'s `Enum.filter` into an
+  # `Enum.reject` — the difference-not-membership slip above — fires it on the
+  # call that asks for nothing.
   @pre something_to_remove: is_list(tracks)
   @post whenever(
           {:ok, removed} <- result,
@@ -365,22 +360,20 @@ defmodule OnePlaylist.Providers.Adapter do
   The snapshot an idempotent transfer diffs against. `docs/reference/domain.md`
   requires that a retried transfer must not duplicate, and the only way to keep
   that promise is to look before writing.
+
+  These are not data to display, they are **identity keys**:
+  `OnePlaylist.Transfers.Runner` builds a `MapSet` from them and tests each
+  match's `provider_id` for membership. So an id that is not a usable key does
+  not fail — it answers the membership question wrongly, in whichever direction
+  is worse. A blank or mistyped id that should have matched reads as *absent* and
+  the track is written again, a duplicate no later run can tell from one the user
+  added themselves; a blank id colliding with a blank `provider_id` reads as
+  *present*, and the track is silently never written at all.
+
+  Both break the idempotency promise, and neither raises.
   """
-  # These ids are not data to display, they are **identity keys**: `Runner`
-  # builds a `MapSet` from them and tests `match.track.provider_id` for
-  # membership to decide whether a track needs writing. So an id that is not a
-  # usable key does not fail — it answers the membership question wrongly, in
-  # whichever direction is worse:
-  #
-  #   * a blank or mistyped id that should have matched reads as *absent*, and
-  #     the track is written again — a duplicate in somebody's playlist that no
-  #     later run can tell from one they added themselves;
-  #   * a blank id that collides with a blank `provider_id` reads as *present*,
-  #     and the track is silently never written at all.
-  #
-  # Both break the idempotency promise `docs/reference/domain.md` makes, and
-  # neither raises. `to_string(nil)` is `""`, which is the realistic way a
-  # provider omitting an id arrives here rather than a hypothetical one.
+  # `to_string(nil)` is `""`, which is how a provider omitting an id realistically
+  # arrives here rather than a hypothetical.
   @post whenever({:ok, ids} <- result),
     ids_are_usable_keys: forall(id <- ids, is_binary(id) and id != "")
   @callback playlist_track_ids(

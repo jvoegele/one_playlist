@@ -248,24 +248,17 @@ defmodule OnePlaylist.Library.Albums do
 
   Public so the moduledoc's rule 4 can be read against something, and so the
   choice can be measured without writing anything.
+
+  `covers_something` is not implied by `nothing_covers_more`: a release can be
+  maximal at zero coverage, which is precisely the case where an album has
+  nothing to agree about and `nil` is the honest answer.
   """
-  # Three laws, none of which any input can falsify — this function chooses from
-  # the list it was handed — so all three are proven by mutation, per
-  # `docs/reference/contracts.md`. Each fires, applied alone and reverted:
+  # No input can falsify these — the function chooses from the list it was handed
+  # — so each is proven by mutation, applied alone and reverted:
   #
   #   * `chosen_from_the_candidates` — return the winner with a fresh `mbid`
-  #   * `nothing_covers_more` — drop the `-` from `ranking/2`'s coverage term,
-  #     so the sort runs narrowest-first
+  #   * `nothing_covers_more` — drop the `-` from `ranking/2`'s coverage term
   #   * `covers_something` — delete the `Enum.filter/2` below
-  #
-  # The second is worth the cross-check it looks like: the body sorts on a
-  # composite key and the assertion recomputes coverage independently, and they
-  # stop agreeing the moment the key is reordered to weigh the barcode first —
-  # a plausible edit, since `Ten Redux`'s narrower candidate carries one too.
-  #
-  # The third is not implied by the second. A release can be maximal at zero
-  # coverage, which is precisely the case where an album has nothing to agree
-  # about and the honest answer is `nil`.
   @post chosen_from_the_candidates: is_nil(result) or result in releases
   @post nothing_covers_more:
           is_nil(result) or
@@ -306,18 +299,17 @@ defmodule OnePlaylist.Library.Albums do
 
   The correcting half, and the only function here that writes. See the
   moduledoc for why this is allowed to replace a value where `enrich/1` is not.
+
+  `nothing_else_changed` is what stands in for
+  `OnePlaylist.Library.Enrichment.only_filled_gaps?/2`, and the reason that
+  contract did not have to be weakened to make album resolution possible. It is
+  what keeps this operation's permission narrow enough to be worth granting: a
+  background job that could rewrite a user's titles is exactly what `enrich/1`
+  refuses to be, and the only difference here is a contract saying it cannot.
   """
-  # The law that stands in for `Enrichment.only_filled_gaps?/2`, and the reason
-  # that one did not have to be weakened. `adopt/2` builds its own attributes,
-  # so no input can violate either; both are proven by mutation, and both fire:
-  #
-  #   * `release_adopted` — write a fresh `Ecto.UUID` instead of `release.mbid`
-  #   * `nothing_else_changed` — add `title: "mutated"` to `attrs`
-  #
-  # The second is the one that matters. It is what makes this operation's
-  # permission narrow enough to be worth granting: a background job that could
-  # rewrite a user's titles is the thing `enrich/1` refuses to be, and the only
-  # difference here is that this one has a contract saying it cannot.
+  # `adopt/2` builds its own attributes, so no input can violate either. Proven
+  # by mutation: a fresh `Ecto.UUID` for `release.mbid` fires the first, and
+  # adding `title: "mutated"` to `attrs` fires the second.
   @post whenever(
           {:ok, adopted} <- result,
           release_adopted: adopted.musicbrainz_release_id == release.mbid,

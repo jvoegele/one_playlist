@@ -46,17 +46,13 @@ defmodule OnePlaylist.Matching.Strategy do
   surface much later, as a `KeyError` from a band lookup, or — worse — as a
   match whose confidence silently failed to derive.
   """
-  # Asked of `Confidence` rather than listed here. A literal list is a copy that
-  # has to be kept in step, and adding a rung to one and not the other reports
-  # the failure from `strategy/0` while the mistake sits three files away.
-  # `Confidence.strategies/0` is derived from the band table, which is the thing
-  # that would actually break — a rung with no band cannot have a confidence
-  # derived at all — so this names the real requirement.
+  # Asked of `Confidence` rather than listed here: its `strategies/0` is derived
+  # from the band table, which is the thing that would actually break — a rung
+  # with no band cannot have a confidence derived at all.
   #
-  # Fully qualified, and it has to be: an inherited contract's expression is
-  # resolved in the *implementing* module's aliases, not this one's. Written as
-  # `Confidence.strategies()` it compiles here and fails in every rung that does
-  # not happen to alias it. Recorded in `docs/library-feedback.md`.
+  # Fully qualified, and it has to be: an inherited contract's expression resolves
+  # in the *implementing* module's aliases, not this one's. See
+  # `docs/library-feedback.md`.
   @post known_to_match: result in OnePlaylist.Matching.Confidence.strategies()
   @callback strategy() :: Match.strategy()
 

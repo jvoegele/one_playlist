@@ -294,23 +294,20 @@ defmodule OnePlaylist.Transfers.Transfer do
   was lost. The same choice as `OnePlaylist.Matching.Report.match_rate/1`, and
   for the same reason — reporting a perfect transfer of no tracks as a total
   failure is the less useful lie.
+
+  A rate above `1.0` is not a rounding artefact, it is a ledger that does not add
+  up — and `OnePlaylistWeb.TransferLive.Show` renders it as "150% of the source"
+  rather than as an error. The counters are independent columns rather than
+  values derived from one list, so it is reachable from any write that skips
+  `record_matched/2`: a migration, a manual fix, a future writer. A re-run
+  accumulating onto the previous run's numbers gets there in one step — six
+  matched of three total — which is what `reset_counters/1` prevents.
+
+  Raising is the intended behaviour rather than a regrettable side effect. The
+  alternative is rendering a number this application knows to be false.
   """
-  # A rate above 1.0 is not a rounding artefact, it is a ledger that does not add
-  # up — and `OnePlaylistWeb.TransferLive.Show` renders it as "150% of the
-  # source" rather than as an error. The counters are independent columns rather
-  # than values derived from one list, so this is reachable from any write that
-  # skips `record_matched/2`: a migration, a manual fix, a future writer. A
-  # re-run accumulating onto the previous run's numbers gets there in one step —
-  # six matched of three total — which is what `reset_counters/1` prevents.
-  #
-  # Raising here is the intended behaviour rather than a regrettable side
-  # effect. The alternative is rendering a number this application knows to be
-  # false, which is the one failure mode it is organised against — and now that
-  # `record_run/3` checks the ledger before writing it, an inconsistent row is a
-  # genuine "cannot happen" rather than an inconvenience.
-  #
-  # `>=` on the lower bound rather than `>`, because zero matched of ten is a
-  # real and reportable outcome.
+  # `>=` on the lower bound rather than `>`: zero matched of ten is a real and
+  # reportable outcome.
   @post is_a_proportion: result >= 0.0 and result <= 1.0
   @spec match_rate(t()) :: float()
   def match_rate(%__MODULE__{total_tracks: 0}), do: 1.0
