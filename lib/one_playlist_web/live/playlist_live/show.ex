@@ -139,13 +139,18 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   a first lookup is already in flight, and "look up again" on top of that is
   not a thing anybody means.
 
-  **It cannot fix a wrong credit, and that limit is worth stating** because the
-  button looks like it should. Enrichment searches with the *recording's*
-  metadata, and a correction made here lives on the **item**. Correcting an
-  item's artist and pressing this re-runs the same failing search: verified on
-  *Throw Your Arms Around Me*, whose recording still reads "Hunters &
-  Collectors" where the item now reads "Neil Finn; Eddie Vedder", and which
-  declined at ten candidates both times.
+  **A correction here does reach the search, and once did not.** Enrichment
+  searches with the *recording's* metadata while an edit made on this screen
+  lives on the **item**, so pressing this used to re-run the identical failing
+  search — verified at the time on *Throw Your Arms Around Me*, which declined
+  at ten candidates both before and after its credit was fixed.
+  `OnePlaylist.Library.Enrichment` closed that: an unidentified
+  recording is asked about again using its items' corrected words, newest first.
+
+  The limit that remains is narrower and worth knowing. It only applies to a
+  recording MusicBrainz has **not** identified. One identified *wrongly* is not
+  reconsidered, because enrichment fills gaps and never corrects — the gesture
+  for that is `unlink/3` and then choosing the right recording.
 
   ## What the row says the recording is
 

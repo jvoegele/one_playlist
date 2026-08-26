@@ -392,6 +392,102 @@ defmodule OnePlaylist.Transfers do
   end
 
   @doc """
+  Creates one transfer per playlist, all sharing a batch id, and queues them.
+
+  What "move my library across" actually is. Somebody switching services has
+  forty playlists, and one transfer per trip through the form is forty trips.
+
+  `attrs` carries what every member has in common — the user, the two providers,
+  the threshold. `playlists` carries what differs: one map per playlist with
+  `:source_playlist_id`, `:source_playlist_name` and
+  `:destination_playlist_name`.
+
+  ## All of them or none
+
+  One transaction. A partial batch is the worst outcome available: some
+  playlists queued, some not, and nothing on screen saying which — the user
+  would have to compare forty names by hand to find out what to retry. Failing
+  whole is recoverable by pressing the button again.
+
+  That is deliberately *not* how the batch behaves once it is **running**. Each
+  member is its own Oban job, so a playlist that hits a rate limit fails alone
+  and the other thirty-nine still land. Atomic to create, independent to run.
+
+  Answers `{:ok, transfers}` in the order the playlists were given.
+  """
+  # The conservation law, and the failure it guards is silent: a batch that
+  # queues fewer transfers than the user selected leaves playlists behind with
+  # nothing to say so. `Enum.uniq_by/2` on the way in is the plausible source —
+  # a picker that hands the same id twice would otherwise queue it twice, and a
+  # dedupe that reached too far would drop a playlist that only *looked* like
+  # another.
+  #
+  # `one_batch` is the other half: two batch ids among the members means the
+  # grouping this exists for is already wrong, and `/transfers` would draw them
+  # as two unrelated groups.
+  #
+  # `every_playlist_got_a_transfer` checks the **shape** as well as the count,
+  # and the first version did not — which a mutation caught. Building the multi
+  # from `Enum.take(playlists, 1)` while still mapping the result over every
+  # playlist leaves a `nil` where the second transfer should be, and a `nil`
+  # satisfies a length check perfectly. It is also what makes the two assertions
+  # below total: they are only reached when this one held, since Bond fails fast
+  # in order.
+  #
+  # Proven by mutation: `Enum.take(playlists, 1)` fires the first, and generating
+  # the id per transfer rather than per batch fires `one_batch`.
+  @post whenever(
+          {:ok, transfers} <- result,
+          every_playlist_got_a_transfer:
+            length(transfers) == length(playlists) and
+              forall(transfer <- transfers, is_struct(transfer, Transfer)),
+          # `transfers != []` is not decoration: an empty selection answers
+          # `{:ok, []}`, and `Enum.uniq_by([])` has length zero rather than one.
+          # The test for the empty case is what found that.
+          one_batch: transfers == [] or length(Enum.uniq_by(transfers, & &1.batch_id)) == 1,
+          batch_is_named: forall(transfer <- transfers, not is_nil(transfer.batch_id))
+        )
+  @spec create_batch(map(), [map()]) :: {:ok, [Transfer.t()]} | {:error, term()}
+  def create_batch(_attrs, []), do: {:ok, []}
+
+  def create_batch(attrs, playlists) when is_list(playlists) do
+    batch_id = Ecto.UUID.generate()
+
+    attrs =
+      attrs
+      |> Map.put_new(:threshold, default_threshold())
+      |> Map.put(:batch_id, batch_id)
+
+    playlists
+    |> Enum.with_index()
+    |> Enum.reduce(Ecto.Multi.new(), fn {playlist, index}, multi ->
+      changeset = Transfer.create_changeset(%Transfer{}, Map.merge(attrs, playlist))
+
+      multi
+      |> Ecto.Multi.insert({:transfer, index}, changeset)
+      |> Ecto.Multi.run({:job, index}, fn _repo, changes ->
+        %{transfer_id: changes[{:transfer, index}].id}
+        |> TransferWorker.new()
+        |> Oban.insert()
+      end)
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, changes} ->
+        {:ok,
+         playlists
+         |> Enum.with_index()
+         |> Enum.map(fn {_playlist, index} -> changes[{:transfer, index}] end)}
+
+      {:error, {:transfer, _index}, changeset, _changes} ->
+        {:error, changeset}
+
+      {:error, _step, reason, _changes} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
   Fetches one of a user's own transfers.
 
   Answers `:error` for a transfer belonging to somebody else, exactly as it does

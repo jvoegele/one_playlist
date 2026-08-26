@@ -48,7 +48,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
      |> assign(:connections, connections)
      |> assign(:source, source)
      |> assign(:destination, source)
-     |> assign(:selected, nil)
+     |> assign(:selected, MapSet.new())
      |> assign(:submitting?, false)
      |> load_playlists(source)}
   end
@@ -61,7 +61,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
      socket
      |> assign(:source, source)
      # The selection belongs to the previous service and means nothing here.
-     |> assign(:selected, nil)
+     |> assign(:selected, MapSet.new())
      |> load_playlists(source)}
   end
 
@@ -69,18 +69,96 @@ defmodule OnePlaylistWeb.TransferLive.New do
     {:noreply, assign(socket, :destination, provider!(socket, provider))}
   end
 
+  # Toggling rather than replacing, because the list is now a multi-select. A
+  # `MapSet` rather than a list: clicking the same row twice is an ordinary
+  # gesture and must not queue the playlist twice.
   def handle_event("select", %{"id" => id}, socket) do
-    {:noreply, assign(socket, :selected, id)}
+    selected = socket.assigns.selected
+
+    toggled =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, :selected, toggled)}
   end
 
-  def handle_event("transfer", _params, %{assigns: %{selected: nil}} = socket) do
-    {:noreply, put_flash(socket, :error, "Pick a playlist first.")}
+  def handle_event("select_all", _params, socket) do
+    everything =
+      case socket.assigns.playlists do
+        %{result: playlists} when is_list(playlists) -> MapSet.new(playlists, & &1.provider_id)
+        _not_loaded -> MapSet.new()
+      end
+
+    {:noreply, assign(socket, :selected, everything)}
   end
+
+  def handle_event("select_none", _params, socket),
+    do: {:noreply, assign(socket, :selected, MapSet.new())}
 
   def handle_event("transfer", _params, socket) do
-    playlist = find_playlist(socket, socket.assigns.selected)
+    # Ordered by the list rather than by the set, so the batch reads in the same
+    # order as the picker the user was just looking at. A `MapSet` has no order
+    # to offer and iterating it would shuffle the report.
+    chosen =
+      case socket.assigns.playlists do
+        %{result: playlists} when is_list(playlists) ->
+          Enum.filter(playlists, &MapSet.member?(socket.assigns.selected, &1.provider_id))
 
-    attrs = %{
+        _not_loaded ->
+          []
+      end
+
+    queue(socket, chosen)
+  end
+
+  defp queue(socket, []), do: {:noreply, put_flash(socket, :error, "Pick a playlist first.")}
+
+  defp queue(socket, [playlist]) do
+    case Transfers.create(attrs_for(socket, playlist)) do
+      {:ok, transfer} ->
+        {:noreply, push_navigate(socket, to: ~p"/transfers/#{transfer.id}")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "That transfer could not be queued.")}
+    end
+  end
+
+  # Several playlists land on the list rather than on one report, because there
+  # is no single report to show: each playlist is its own transfer with its own
+  # report, and `/transfers` is where the batch can be watched as a whole.
+  defp queue(socket, playlists) do
+    common = %{
+      user_id: socket.assigns.current_user_id,
+      source_provider: socket.assigns.source,
+      destination_provider: socket.assigns.destination
+    }
+
+    per_playlist =
+      Enum.map(playlists, fn playlist ->
+        %{
+          source_playlist_id: playlist.provider_id,
+          source_playlist_name: playlist.name,
+          destination_playlist_name: destination_name(socket, playlist)
+        }
+      end)
+
+    case Transfers.create_batch(common, per_playlist) do
+      {:ok, transfers} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Queued #{length(transfers)} playlists.")
+         |> push_navigate(to: ~p"/transfers")}
+
+      {:error, _reason} ->
+        # Nothing was queued: `create_batch/2` is one transaction, so the button
+        # can simply be pressed again.
+        {:noreply, put_flash(socket, :error, "Those transfers could not be queued.")}
+    end
+  end
+
+  defp attrs_for(socket, playlist) do
+    %{
       user_id: socket.assigns.current_user_id,
       source_provider: socket.assigns.source,
       source_playlist_id: playlist.provider_id,
@@ -88,14 +166,6 @@ defmodule OnePlaylistWeb.TransferLive.New do
       destination_provider: socket.assigns.destination,
       destination_playlist_name: destination_name(socket, playlist)
     }
-
-    case Transfers.create(attrs) do
-      {:ok, transfer} ->
-        {:noreply, push_navigate(socket, to: ~p"/transfers/#{transfer.id}")}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "That transfer could not be queued.")}
-    end
   end
 
   @impl true
@@ -179,7 +249,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
                 phx-value-id={playlist.provider_id}
                 class={[
                   "w-full text-left card bg-base-200 hover:bg-base-300 transition-colors",
-                  @selected == playlist.provider_id && "ring-2 ring-primary"
+                  MapSet.member?(@selected, playlist.provider_id) && "ring-2 ring-primary"
                 ]}
               >
                 <div class="card-body py-3 flex-row items-center justify-between gap-4">
@@ -191,14 +261,31 @@ defmodule OnePlaylistWeb.TransferLive.New do
               </button>
             </div>
 
-            <div class="mt-6 flex justify-end">
+            <div class="mt-6 flex items-center justify-between gap-4">
+              <div class="flex items-center gap-2 text-sm">
+                <button type="button" phx-click="select_all" class="btn btn-ghost btn-xs">
+                  Select all
+                </button>
+                <button
+                  :if={MapSet.size(@selected) > 0}
+                  type="button"
+                  phx-click="select_none"
+                  class="btn btn-ghost btn-xs"
+                >
+                  Clear
+                </button>
+                <span :if={MapSet.size(@selected) > 0} class="opacity-70 tabular-nums">
+                  {MapSet.size(@selected)} selected
+                </span>
+              </div>
+
               <button
                 type="button"
                 phx-click="transfer"
-                disabled={is_nil(@selected)}
+                disabled={MapSet.size(@selected) == 0}
                 class="btn btn-primary"
               >
-                Transfer to {Connection.display_name(@destination)}
+                {transfer_label(MapSet.size(@selected))} to {Connection.display_name(@destination)}
               </button>
             </div>
           </.async_result>
@@ -207,6 +294,12 @@ defmodule OnePlaylistWeb.TransferLive.New do
     </Layouts.app>
     """
   end
+
+  # "Transfer" for one and "Transfer 12 playlists" for several, so the button
+  # says how much is about to happen rather than leaving the count to the row
+  # highlights.
+  defp transfer_label(1), do: "Transfer"
+  defp transfer_label(count), do: "Transfer #{count} playlists"
 
   attr :id, :string, required: true
   attr :label, :string, required: true
@@ -298,9 +391,4 @@ defmodule OnePlaylistWeb.TransferLive.New do
     do: "#{playlist.name} (copy)"
 
   defp destination_name(_socket, playlist), do: playlist.name
-
-  defp find_playlist(socket, id) do
-    socket.assigns.playlists.result
-    |> Enum.find(&(&1.provider_id == id))
-  end
 end

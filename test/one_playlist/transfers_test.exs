@@ -278,6 +278,57 @@ defmodule OnePlaylist.TransfersTest do
     end
   end
 
+  describe "create_batch/2" do
+    defp batch_common(user) do
+      %{user_id: user, source_provider: :tidal, destination_provider: :navidrome}
+    end
+
+    defp batch_members(count) do
+      for n <- 1..count do
+        %{
+          source_playlist_id: "src-#{n}",
+          source_playlist_name: "Playlist #{n}",
+          destination_playlist_name: "Playlist #{n}"
+        }
+      end
+    end
+
+    test "queues one transfer per playlist, all sharing a batch", %{user: user} do
+      assert {:ok, transfers} = Transfers.create_batch(batch_common(user), batch_members(3))
+
+      assert length(transfers) == 3
+      assert [_one] = transfers |> Enum.map(& &1.batch_id) |> Enum.uniq()
+
+      assert Enum.map(transfers, & &1.source_playlist_id) == ~w(src-1 src-2 src-3),
+             "in the order the playlists were given, so the list reads like the picker"
+
+      for transfer <- transfers do
+        assert_enqueued(worker: TransferWorker, args: %{transfer_id: transfer.id})
+      end
+    end
+
+    test "all of them or none", %{user: user} do
+      # The docstring's claim, and the reason it is one transaction: a partial
+      # batch leaves some playlists queued and some not, with nothing on screen
+      # saying which — the user would have to compare names by hand to find out
+      # what to retry. Failing whole is recoverable by pressing the button again.
+      members = batch_members(2) ++ [%{source_playlist_id: nil, source_playlist_name: nil}]
+
+      assert {:error, _changeset} = Transfers.create_batch(batch_common(user), members)
+
+      assert Transfers.list(user) == []
+      refute_enqueued(worker: TransferWorker)
+    end
+
+    test "an empty selection is not an error, and queues nothing", %{user: user} do
+      # `{:ok, []}` rather than a refusal: "transfer nothing" is a coherent thing
+      # to have asked for, and the caller has a flash for it.
+      assert {:ok, []} = Transfers.create_batch(batch_common(user), [])
+
+      refute_enqueued(worker: TransferWorker)
+    end
+  end
+
   describe "a first run" do
     test "one user's two reports do not bleed into each other", %{user: user} do
       # `items/2` is scoped by `transfer_id` *and* by the policy on

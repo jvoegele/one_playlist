@@ -132,6 +132,10 @@ defmodule OnePlaylist.Transfers.Transfer do
     field :completed_at, :utc_datetime_usec
     field :last_error, :string
 
+    # Which transfers were asked for together, or `nil` for one on its own. See
+    # the migration for why a batch is a column rather than a table.
+    field :batch_id, Ecto.UUID
+
     timestamps(type: :utc_datetime_usec)
   end
 
@@ -159,7 +163,8 @@ defmodule OnePlaylist.Transfers.Transfer do
       :destination_provider,
       :destination_playlist_id,
       :destination_playlist_name,
-      :threshold
+      :threshold,
+      :batch_id
     ])
     |> validate_required([
       :user_id,

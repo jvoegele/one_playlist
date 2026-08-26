@@ -70,7 +70,8 @@ defmodule OnePlaylistWeb.TransferNewLiveTest do
           "version" => "1.16.1",
           "playlists" => %{
             "playlist" => [
-              %{"id" => "nav-1", "name" => "Shelf", "songCount" => 30}
+              %{"id" => "nav-1", "name" => "Shelf", "songCount" => 30},
+              %{"id" => "nav-2", "name" => "Rack", "songCount" => 12}
             ]
           }
         }
@@ -160,6 +161,57 @@ defmodule OnePlaylistWeb.TransferNewLiveTest do
 
       assert transfer.destination_playlist_name == "Shelf",
              "across services the original name is right; (copy) would be noise"
+    end
+
+    test "several playlists queue as one batch and land on the list", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # The reason bulk exists: somebody switching services has forty playlists,
+      # and one transfer per trip through this form is forty trips.
+      {:ok, view, _html} = live(conn, ~p"/transfers/new")
+      render_async(view)
+
+      view |> form("form[phx-change='source']", %{"provider" => "navidrome"}) |> render_change()
+      view |> form("form[phx-change='destination']", %{"provider" => "tidal"}) |> render_change()
+      render_async(view)
+
+      view |> element("button[phx-value-id='nav-1']") |> render_click()
+      view |> element("button[phx-value-id='nav-2']") |> render_click()
+
+      # The button says how much is about to happen.
+      assert render(view) =~ "Transfer 2 playlists to TIDAL"
+
+      view |> element("button", "Transfer 2 playlists to TIDAL") |> render_click()
+
+      transfers = Transfers.list(user_id)
+      assert length(transfers) == 2
+
+      assert [batch_id] = transfers |> Enum.map(& &1.batch_id) |> Enum.uniq()
+      refute is_nil(batch_id), "a batch is what says these went together"
+
+      assert transfers |> Enum.map(& &1.source_playlist_name) |> Enum.sort() == ["Rack", "Shelf"]
+      assert Enum.all?(transfers, &(&1.destination_provider == :tidal))
+    end
+
+    test "clicking a chosen playlist again takes it back out", %{conn: conn, user_id: user_id} do
+      # A multi-select where clicking twice queues the playlist twice would be a
+      # duplicate nobody asked for, at the destination, with no way to tell it
+      # from one they added themselves.
+      {:ok, view, _html} = live(conn, ~p"/transfers/new")
+      render_async(view)
+
+      view |> form("form[phx-change='source']", %{"provider" => "navidrome"}) |> render_change()
+      render_async(view)
+
+      view |> element("button[phx-value-id='nav-1']") |> render_click()
+      view |> element("button[phx-value-id='nav-2']") |> render_click()
+      view |> element("button[phx-value-id='nav-2']") |> render_click()
+
+      view |> element("button", "Transfer to") |> render_click()
+
+      assert [transfer] = Transfers.list(user_id)
+      assert transfer.source_playlist_id == "nav-1"
     end
 
     test "and in the other direction, so neither end is quietly fixed", %{
