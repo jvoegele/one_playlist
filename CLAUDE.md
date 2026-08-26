@@ -116,11 +116,12 @@ better code.
   only accounts allowlisted in the dashboard can connect, and Extended Quota Mode has
   required, since May 2025, an **organization with ≥ 250,000 MAU**. So Spotify is a
   personal/small-group feature, not a public product feature, until that changes.
-  Two details in the older note here were wrong or unverified and are corrected:
-  **the allowlist cap is whatever the dashboard says** — read it there rather than trusting
-  a number in this file — and **Premium is not required** for what this application does.
-  Premium gates the Web Playback SDK and the player endpoints; playlist read and write on
-  the Web API work with a free account.
+  **The cap is 5**, confirmed on the dashboard 2026-08-26: *"You can add a maximum of 5
+  users"*, and it applies to the Web API and the Web Playback SDK only. Each is added by
+  name and the email on their Spotify account, under the app's **User Management** tab.
+  **Premium is not required**, and the older note here saying the owner needs it was wrong:
+  Premium gates the Web Playback SDK and the player endpoints, while playlist read and write
+  on the Web API work with a free account.
   The redirect URI must use **`127.0.0.1`, not `localhost`**: Spotify tightened its loopback
   rules in 2025 and rejects the hostname. That is the one place TIDAL's and Spotify's local
   URLs differ, and it is not a typo.
