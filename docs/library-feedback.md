@@ -1607,3 +1607,78 @@ was reworded"* from *"this reverses advice you may have built on"*. Both arrive 
 lines. A `## Changed guidance` note in the release, naming reversals specifically, would have
 turned a careful read into an obvious one — and a project that had not read the diff closely
 would still be running on the old rule with no signal that anything had moved.
+
+---
+
+## `bond` — a contract on an **arity-1** function in a LiveView will not compile
+
+Found while contracting `OnePlaylistWeb.ConnectionLive.Index`. It is a hard block rather than a
+wrinkle: the module does not compile at all, and the diagnostic names neither Bond nor the
+function you annotated in terms that suggest what to change.
+
+```
+** (MatchError) no match of right hand side value:
+
+    {:__bond_postconditions__load_connections__1, 2}
+
+    (phoenix_live_view 1.2.10) expanding macro: Phoenix.Component.Declarative.__pattern__!/2
+    lib/one_playlist_web/live/connection_live/index.ex:1: OnePlaylistWeb.ConnectionLive.Index (module)
+    (bond 1.17.1) lib/one_playlist_web/live/connection_live/index.ex:1: Bond.Compiler.__before_compile__/1
+```
+
+### Isolated by arity, not by anything else
+
+Measured against bond 1.17.1 / phoenix_live_view 1.2.10, one variable at a time, in a module
+that `use`s `OnePlaylistWeb, :live_view`:
+
+| Contracted function | Result |
+| --- | --- |
+| `defp services()` — arity 0 | compiles |
+| `defp stop_connecting(socket)` — arity 1 | **MatchError** |
+| `defp load_connections(socket)` — arity 1 | **MatchError** |
+| `defp remember(socket, item)` — arity 2 | compiles |
+| `defp assign_entries(socket, entries)` — arity 2 | compiles |
+| `def mount(params, session, socket)` — arity 3 | compiles |
+
+Arity 1 is the whole of it, and the reason is not Bond's fault so much as a collision:
+`Phoenix.Component` overrides `def`/`defp` and treats **every arity-1 function** as a candidate
+function component, because that is what a function component is. Bond's generated wrapper —
+`__bond_postconditions__<name>__<arity>/2` — reaches that override and `__pattern__!/2` cannot
+match it.
+
+### Why this matters more than it looks
+
+Arity 1 is the *natural* shape for the functions worth contracting in a LiveView. Every
+socket-transforming helper is `socket -> socket`: `load_connections/1`, `assign_form/1`,
+`load_first_page/1`, `stop_connecting/1`. Those are exactly where a LiveView's assigns get their
+invariants, and they are the only arity in the module that cannot carry one.
+
+The workaround is to move the law to a neighbour of a different arity — here, `mount/3` for the
+scoping law and `services/0` for the catalogue one. That works and it is not free: `mount/3`
+covers the initial load and *not* the two reload paths through `handle_event/3` and
+`handle_async/3`, so the contract is weaker than the one that could not be written. The
+alternative is reshaping application code to a tool's constraint, which is worse.
+
+### What would fix it
+
+Bond only needs its generated helpers to be invisible to `Phoenix.Component`'s `def` override.
+Two plausible routes, both Bond-side:
+
+  * Emit the wrappers via `Kernel.def/2` explicitly rather than through whatever `def` is
+    currently in scope, so a module that has overridden `def` does not see them.
+  * Generate them at an arity Phoenix ignores, or under a name shape `__pattern__!/2` tolerates.
+
+Failing either, a **diagnostic** would go most of the way: Bond's `__before_compile__` hook
+knows both the module and the annotated function, and could say "a contract on an arity-1
+function is not supported in a module using Phoenix.Component" instead of a `MatchError` on an
+internal tuple. The current message costs an hour if you have not seen it before, and gives no
+hint that arity is the variable.
+
+### The part that is right
+
+Everything else about contracting LiveViews worked, which is why this is worth fixing rather
+than avoiding. Four postconditions across two LiveViews found a real coupling
+(`every_group_can_render`), a real scoping law, and a header that could silently disagree with
+the list beneath it — all on the layer bond 1.17.1's own usage rules had just talked this project
+out of exempting. The arity-1 hole is the one thing standing between that and the natural way to
+write it.

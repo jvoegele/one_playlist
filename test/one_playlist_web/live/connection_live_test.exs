@@ -224,6 +224,36 @@ defmodule OnePlaylistWeb.ConnectionLiveTest do
     end
   end
 
+  describe "somebody else's connections" do
+    test "are not listed, and their Disconnect is not offered", %{conn: conn} do
+      # This page lists credentials and puts **Disconnect** beside each one, so
+      # a scoping failure here is not a display bug — it hands one person a
+      # button that revokes another's access to their own music server.
+      #
+      # `list_connections/1` is scoped and `Repo.as_user/3` is scoped beneath it,
+      # and neither was exercised across a user boundary from this screen. Found
+      # by mutation: `every_connection_is_this_users` on `mount/3` could not be
+      # made to fire, because a wrong user id returns an empty list and every
+      # `forall` over nothing holds. Proving the law needed a second user with
+      # something to see.
+      stub_accepts()
+
+      stranger = AuthFixtures.user_id_fixture()
+
+      {:ok, _theirs} =
+        Providers.connect_subsonic(stranger, %OnePlaylist.Providers.SubsonicCredentials{
+          server_url: "http://not-yours.local:4533",
+          username: "stranger",
+          password: @password
+        })
+
+      {:ok, _live, html} = live(conn, ~p"/connections")
+
+      refute html =~ "not-yours.local"
+      refute html =~ "stranger"
+    end
+  end
+
   describe "authentication" do
     test "signed-out visitors are sent to sign in" do
       assert {:error, {:redirect, %{to: "/sign-in"}}} =

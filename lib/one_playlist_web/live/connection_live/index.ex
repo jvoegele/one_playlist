@@ -36,6 +36,7 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
   """
 
   use OnePlaylistWeb, :live_view
+  use Bond
 
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Connection
@@ -81,6 +82,43 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
     }
   end
 
+  # The scoping law. A `Connection` carries the credential to somebody's music
+  # service, and this is the screen that lists them and offers **Disconnect** —
+  # so another user's connection reaching this assign is not a display bug, it is
+  # one person handed a button that revokes another's. Nothing about the page
+  # would look wrong; the services would simply be the wrong ones.
+  #
+  # `Providers.list_connections/1` is scoped and `Repo.as_user/3` is scoped
+  # beneath it. Two guards is not a reason to leave the promise unwritten: this
+  # is the page's contract with its reader, and it is the last place it can be
+  # said before a template renders the lot.
+  #
+  # It sits on `mount/3` rather than on `load_connections/1`, which is where it
+  # belongs and cannot go — a Bond contract on any **arity-1** function in a
+  # LiveView fails to compile, because Phoenix treats every arity-1 function as a
+  # candidate component and cannot match Bond's generated wrapper. Measured and
+  # written up in `docs/library-feedback.md`. The practical cost is that the
+  # reload paths in `handle_event/3` and `handle_async/3` are not covered; every
+  # page load is.
+  #
+  # Proven by mutation, and the mutation is the interesting part. Neither guard
+  # can be removed *alone* to falsify this, because each one suffices by itself:
+  # drop the `where user_id` and RLS still filters the rows; drop `as_user/3` and
+  # the `where` still does. It fires when **both** go — which is the only way the
+  # law is actually breakable, and precisely what a belt-and-braces design should
+  # look like from above.
+  #
+  # It also needed a test written for it. A wrong user id returns an empty list,
+  # and every `forall` over nothing holds, so the law was unfalsifiable until
+  # `connection_live_test.exs` grew a second user with a connection to not see.
+  @post whenever(
+          {:ok, mounted} <- result,
+          every_connection_is_this_users:
+            forall(
+              connection <- Map.values(mounted.assigns.connections),
+              connection.user_id == socket.assigns.current_user_id
+            )
+        )
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -434,6 +472,20 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
     |> assign(:services, services())
   end
 
+  # The coupling `catalogue/0`'s comment claims — "a provider gaining an adapter
+  # cannot be silently missing from this page" — and which nothing checked. This
+  # function walks `supported_providers/0` and **drops** anything with no
+  # catalogue entry, so a provider that gains an adapter but no entry here works
+  # perfectly and is invisible on the one page that can connect it. The failure
+  # is a whole feature that appears not to exist, and the only symptom is an
+  # absence.
+  #
+  # Proven by mutation: deleting an entry from `catalogue/0` fires it.
+  @post every_supported_provider_is_offered:
+          forall(
+            provider <- Providers.supported_providers(),
+            provider in Enum.map(result, & &1.provider)
+          )
   defp services do
     entries = catalogue()
 

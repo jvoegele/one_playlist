@@ -180,6 +180,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   """
 
   use OnePlaylistWeb, :live_view
+  use Bond
 
   require Logger
 
@@ -189,6 +190,30 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching.Normalize
 
+  # The scoping law, stated where the page's whole authority comes from. `id` is
+  # a path segment a person can type, and every subsequent `handle_event/3`
+  # reads `socket.assigns.playlist.id` and trusts it — so if a playlist that is
+  # not this user's ever reached the assign, they could rename it, reorder it and
+  # delete it, and the page would look completely ordinary while they did.
+  #
+  # `Library.fetch_playlist/2` is scoped and `Repo.as_user/3` is scoped beneath
+  # it, which is two guards and still not a reason to leave the promise
+  # unwritten: this function's contract with its reader is that the assign is
+  # theirs, and it is the last place that can be said before eleven event
+  # handlers rely on it.
+  #
+  # Proven by mutation: replacing `fetch_playlist/2`'s scoped read with a bare
+  # `Repo.get_by(Playlist, id: id)` fires it against the "somebody else's
+  # playlist" test. That mutation has to remove `Repo.as_user/3` as well as the
+  # `user_id` filter, because either one alone still returns nothing — which is
+  # the same thing `ConnectionLive.Index`'s scoping law found, and is what two
+  # independent guards are supposed to look like from above.
+  @post whenever(
+          {:ok, mounted} <- result,
+          playlist_belongs_to_the_viewer:
+            is_nil(mounted.assigns[:playlist]) or
+              mounted.assigns.playlist.user_id == socket.assigns.current_user_id
+        )
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     case Library.fetch_playlist(socket.assigns.current_user_id, id) do
@@ -1162,6 +1187,30 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp track_word(1), do: "track"
   defp track_word(_many), do: "tracks"
 
+  # The header and the list describe the same thing. Four counts sit above a
+  # table of rows, and a person reads "3 need looking at" and goes looking — so a
+  # count that disagrees with the rows underneath it is not a cosmetic bug, it is
+  # the screen lying about the data it is showing.
+  #
+  # This is a **mirror** of the body, deliberately, and it earns its place for
+  # the reason Meyer gives (§11.7): the instruction prescribes, the assertion
+  # describes, and their agreement is the evidence. What it actually guards is a
+  # *divergence* between the two — the four predicates here are confusable
+  # (`unidentified?` and `disagreeing?` differ by one field; `enriched?` and
+  # `isrc` read alike), swapping two of them is a one-character edit, and the
+  # result is a header that is quietly wrong about a real library.
+  #
+  # It cannot guard the other failure this function's comment names — a caller
+  # assigning `:entries` without coming through here — because a postcondition
+  # only sees the calls that arrive. `load_entries/1` and the reorder handlers
+  # all route through it today; keeping that true is a code-review matter.
+  #
+  # Proven by mutation: counting `&(not &1.enriched?)` for `:identified` fires it.
+  @post counts_describe_the_entries:
+          result.assigns.identified == Enum.count(entries, &is_binary(&1.track.isrc)) and
+            result.assigns.pending == Enum.count(entries, &(not &1.enriched?)) and
+            result.assigns.unidentified == Enum.count(entries, &unidentified?/1) and
+            result.assigns.disagreeing == Enum.count(entries, &disagreeing?/1)
   defp assign_entries(socket, entries) do
     socket
     |> assign(:entries, entries)
