@@ -701,6 +701,26 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       refute html =~ "Load more", "there is nothing left to ask for"
     end
 
+    test "changing the filter starts from the top rather than adding to the count",
+         %{conn: conn, user_id: user_id} do
+      # `load_first_page/1` streams with `reset: true` and must **replace** the
+      # loaded count, not add to it. `load_next_page/1` is the accumulating one,
+      # one function below it and easy to paste from — and the symptom of getting
+      # it wrong is "Showing 250 of 150" plus a "Load more" that pages past the
+      # end fetching nothing.
+      transfer = report_fixture(user_id, 150)
+
+      {:ok, view, _html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      # Load the rest, so the count is above a page before the filter changes.
+      view |> element("button", "Load more") |> render_click()
+
+      html = render_click(view, "filter", %{"outcome" => "matched"})
+
+      assert html =~ "Showing 100 of 150",
+             "a filter change is a fresh first page, not a continuation of the old one"
+    end
+
     test "a report that fits on one page offers nothing", %{conn: conn, user_id: user_id} do
       transfer = report_fixture(user_id, 20)
 

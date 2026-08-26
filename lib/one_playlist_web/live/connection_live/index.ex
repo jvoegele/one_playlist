@@ -98,22 +98,6 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
     }
   end
 
-  # Here rather than on `load_connections/1`, where it belongs and cannot go: a
-  # Bond contract on any arity-1 function in a LiveView fails to compile. See
-  # `docs/library-feedback.md`. The cost is that the reload paths through
-  # `handle_event/3` and `handle_async/3` are uncovered; every page load is not.
-  #
-  # Proven by mutation, and neither guard falsifies it *alone* — drop the
-  # `where user_id` and RLS still filters; drop `as_user/3` and the `where` still
-  # does. It fires when both go, which is the only way the law is breakable.
-  @post whenever(
-          {:ok, mounted} <- result,
-          every_connection_is_this_users:
-            forall(
-              connection <- Map.values(mounted.assigns.connections),
-              connection.user_id == socket.assigns.current_user_id
-            )
-        )
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -456,6 +440,28 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
     end
   end
 
+  # The scoping law, on the function that actually does the reading rather than
+  # on `mount/3`. It lived there because a **postcondition** on an arity-1
+  # function in a LiveView would not compile (bond#134, fixed in 1.18.0), which
+  # left both reload paths — `handle_event("disconnect", …)` and
+  # `handle_async/3` — enforcing nothing.
+  #
+  # Hard to falsify locally, and that is a fact about the function rather than a
+  # defect in the law: the scoping lives in `Providers.list_connections/1`, which
+  # states it too and fires first. The plausible local bug — reading for the
+  # wrong id — returns `[]`, which every `forall` satisfies. It fires on a
+  # mutation that corrupts a `user_id` on the way into the assign, which is what
+  # proves it can fail at all.
+  #
+  # `Providers.list_connections/1`'s own copy needs **both** its guards dropped:
+  # remove the `where user_id` and RLS still filters, remove `Repo.as_user/3` and
+  # the `where` still does. Defence in depth, so keep both and mutate both — the
+  # fourth row of the `⚠ never failed` table, not the third.
+  @post every_connection_is_this_users:
+          forall(
+            connection <- Map.values(result.assigns.connections),
+            connection.user_id == socket.assigns.current_user_id
+          )
   defp load_connections(socket) do
     connections =
       socket.assigns.current_user_id

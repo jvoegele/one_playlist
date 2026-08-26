@@ -198,6 +198,19 @@ defmodule OnePlaylistWeb.PlaylistLive.Index do
     """
   end
 
+  # The library half of the page is the user's own playlists, rendered as links
+  # into them. `Library.playlists/1` is scoped and says so, but that is a claim
+  # about its argument — this relates the **assign** to the session, which is
+  # the thing no callee can see.
+  #
+  # Falsifiable only by corrupting the value on the way into the assign, for the
+  # same reason `ConnectionLive.Index`'s is: reading for a wrong id returns `[]`,
+  # which every `forall` satisfies.
+  @post every_playlist_is_this_users:
+          forall(
+            {playlist, _count} <- result.assigns.library,
+            playlist.user_id == socket.assigns.current_user_id
+          )
   defp assign_library(socket) do
     assign(socket, :library, Library.playlists(socket.assigns.current_user_id))
   end

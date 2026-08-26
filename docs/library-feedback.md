@@ -1610,7 +1610,7 @@ would still be running on the old rule with no signal that anything had moved.
 
 ---
 
-## `bond` — a contract on an **arity-1** function in a LiveView will not compile
+## `bond` — a **postcondition** on an arity-1 function in a LiveView will not compile ✅ fixed in 1.18.0
 
 Found while contracting `OnePlaylistWeb.ConnectionLive.Index`. It is a hard block rather than a
 wrinkle: the module does not compile at all, and the diagnostic names neither Bond nor the
@@ -1728,3 +1728,59 @@ published usage rules is exactly the kind of thing that rots silently — and be
 draws the lesson from (roughly five postconditions to every precondition) is the part a reader
 will act on. That ratio is real here and the explanation given for it matches this project's
 experience: most functions have something to promise, far fewer have something to demand.
+
+---
+
+## `bond` 1.18.0 — the arity-1 defect is fixed, and one thing we reported was wider than the bug
+
+Closing the third and last entry in this thread. `bond` 1.18.0 fixes the `Phoenix.Component`
+interop defect reported in 1.17.1 and re-reported against 1.17.3. Verified here: a `@post` on
+`ConnectionLive.Index`'s private `load_connections/1` now compiles, and the scoping law has
+moved off `mount/3` onto the function that actually does the reading — which covers the two
+reload paths that were enforcing nothing.
+
+### Our report was broader than the bug
+
+We wrote it up as "a contract on any arity-1 function". It was **postconditions only**;
+`@pre` and `check/1` on arity-1 always worked. Worth recording as our error rather than theirs,
+because a report stated wider than the evidence is a report that causes work nobody needed to do:
+in this project it meant eight socket helpers were skipped wholesale on the strength of the
+broader claim, when only postconditions were ever affected.
+
+Re-audited on the fix. Of the eight, **three** have a law worth stating and now carry one; the
+other five — `assign_form/1`, `stop_connecting/1`, `subscribe_to_enrichment/1`, `load_entries/1`,
+and one more — promise nothing beyond their `@spec`. So the defect blocked less than feared, and
+the fix is still worth having for the three.
+
+### `invariants_hold/2` fits fewer modules here than expected, and the reason may be general
+
+The 1.18.0 rules call it "the most under-used macro in the library" and say a struct module with
+an `@invariant` needs "no generator design". Both are fair, and neither quite held here. Twelve
+modules declare an invariant; we could reach **one** cheaply.
+
+Two obstacles, both likely common in Phoenix applications rather than peculiar to this one:
+
+  * **Constructors.** `Sequence.run/2` starts from `{fun_name, args}` on the module, and most of
+    our structs have no in-memory constructor at all — they are `Ecto.Schema`s built by a
+    changeset and `Repo.insert`. `Transfer` carries the richest invariant in the codebase
+    (`ledger_balances`) and a perfect set of transformers, and cannot be driven, because nothing
+    turns arguments into a `%Transfer{}`.
+  * **Tuple returns.** `unwrap_struct!/4` accepts a bare struct or `{:ok, struct}`.
+    `Transfers.Progress` — `new/2`, then `add/3` and `flush/2` — is otherwise the ideal shape,
+    and both transformers return `{batch, progress}`. That is the same `{value, struct}` shape
+    whose *invariant* handling we reported in an earlier entry, appearing again on a different
+    surface.
+
+`Providers.Tokens` fits and now has one: 473 invariant checks from a single property, and it
+catches a mistyped key in `from_oauth_response/2` that no example test had.
+
+Two things that would widen the macro's reach a long way, in rough order of value:
+
+  1. **Accept a `{value, struct}` transformer return**, or an opt saying which element is the
+     state — `transformers: [{:add, [gen], take: 1}]`. Bond already documents this tuple shape as
+     one an `@invariant` cannot see; teaching the property driver about it would let the module
+     that most needs the coverage have it.
+  2. **Accept a generator for the initial state** as an alternative to `:constructors` — the
+     error message says "there's no way to test invariants on a struct module without a way to
+     produce instances", and for an `Ecto.Schema` the way is a struct literal rather than a
+     function. `initial: StreamData.map(...)` would cover every schema-backed module here.

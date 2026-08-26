@@ -712,6 +712,17 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   # Replaces whatever was on screen with the first page of the current filter.
   # `reset: true` is what makes this safe to call on every transfer update: the
   # rows are rebuilt from the database rather than accumulated.
+  # `reset: true` makes this safe to call on every transfer update, and `:loaded`
+  # has to be **replaced** rather than added to or the two drift: a filter change
+  # that accumulated would render "showing 250 of 100" on a hundred-row report,
+  # and "Load more" would page past the end of the result set fetching nothing.
+  #
+  # Proven by mutation with `Map.get(socket.assigns, :loaded, 0) + length(rows)`
+  # — `load_next_page/1`'s line, one function down and easy to paste. The
+  # obvious form of that mutation is *invalid* rather than merely wrong:
+  # `socket.assigns.loaded` raises on the first call, since `mount/3` reaches
+  # here before `:loaded` exists, so it crashes instead of failing the contract.
+  @post starts_from_the_top: result.assigns.loaded <= @page_size
   defp load_first_page(socket) do
     {rows, more?} = page(socket.assigns.transfer, socket.assigns.filter, 0)
 
