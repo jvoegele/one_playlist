@@ -349,12 +349,13 @@ defmodule OnePlaylist.Library.Enrichment do
   MusicBrainz has never heard of must not be asked about again tomorrow, and the
   timestamp is the only thing that distinguishes "nothing to find" from "not
   looked at yet".
+
+  **Gaps are filled and nothing is overwritten** — `nothing_was_overwritten`, and
+  the failure it guards is quiet and hard to notice afterwards: a job that
+  assigned rather than merged would rewrite a user's own titles and albums with a
+  stranger's spelling, on a schedule, in the background, for every recording in
+  the library.
   """
-  # Filling gaps only, stated where it can be checked. The failure it guards is
-  # quiet and hard to notice afterwards: a job that assigned rather than merged
-  # would rewrite a user's own titles and albums with a stranger's spelling, on
-  # a schedule, in the background, for every recording in the library.
-  #
   # No input can falsify either, so both are verified by mutation. Dropping
   # `record_attempt/2`'s "already has a value" test fires
   # `nothing_was_overwritten`; dropping its `Map.put(:enriched_at, …)` fires

@@ -124,16 +124,14 @@ defmodule OnePlaylist.Transfers.Progress do
   Returns the batch to broadcast, which is empty unless this track is the one
   that made a batch due, and the buffer to carry forward.
   """
-  # Bond checks an `@invariant` on entry and on a result that *is* a struct of
-  # the module. This returns the struct inside a tuple, so the exit check finds
-  # nothing to look at and a violation introduced here is caught only by the
-  # next call's entry check — which for the last call of a run never comes.
-  # Verified: with the outcome tally broken, `add/3` returned a bad struct
-  # without raising, and only the following `flush/2` noticed.
+  # Bond checks an `@invariant` on a result that *is* a struct of the module, and
+  # this returns one inside a tuple — so the exit check finds nothing and a
+  # violation is caught only by the next call's entry check, which for the last
+  # call of a run never comes. Verified: with the tally broken, `add/3` returned
+  # a bad struct without raising and only the following `flush/2` noticed.
   #
-  # So the laws are restated where they can see the value the caller actually
-  # gets. The predicates are shared with the invariant, so this is one law in
-  # two places rather than two statements of one law.
+  # Restated here over the value the caller actually gets, sharing the
+  # invariant's predicates — one law in two places, not two laws.
   @post whenever(
           {_batch, updated} <- result,
           every_track_accounted_for: accounted_for?(updated),

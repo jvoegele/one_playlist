@@ -23,21 +23,12 @@ defmodule OnePlaylist.Providers.Connection do
 
   alias OnePlaylist.Encrypted
 
-  # Possible since Bond 1.15.0, which made `@invariant` usable on an
-  # `Ecto.Schema` at all.
-  #
-  # Deliberately one assertion, and deliberately not the obvious ones. The
-  # field-presence laws — a `user_id`, a non-blank `access_token` — are true of
-  # every *persisted* connection and false of `%Connection{}`, which is exactly
-  # what `Providers.connect/3` hands to `changeset/2`. An invariant that fails on
-  # the module's own construction path is the base-case mistake Meyer warns
-  # about, and no amount of it being "morally true of real rows" fixes that.
-  #
-  # What is left is genuinely a property of every value. The counter is how "this
-  # connection keeps failing" is eventually noticed; a negative one means no
-  # threshold ever triggers, and nothing raises — the signal simply never
-  # arrives. `record_failure/2`'s `counter_advances_by_one` is the matching
-  # *transition* law and stays where it is.
+  # Deliberately one assertion, and not the obvious ones. The field-presence
+  # laws — a `user_id`, a non-blank `access_token` — are true of every
+  # *persisted* connection and false of `%Connection{}`, which is exactly what
+  # `Providers.connect/3` hands to `changeset/2`. An invariant that fails on the
+  # module's own construction path is Meyer's base-case mistake, and "morally
+  # true of real rows" does not fix it.
   @invariant failures_never_negative: subject.consecutive_failures >= 0
 
   @providers ~w(library spotify apple_music youtube_music tidal deezer plex jellyfin navidrome subsonic)a
@@ -219,16 +210,12 @@ defmodule OnePlaylist.Providers.Connection do
   @pre valid_now: is_struct(now, DateTime)
   @pre now_after_creation: now_after_creation?(connection, now)
   @pre non_negative_skew: is_integer(skew_seconds) and skew_seconds >= 0
-  # The upper bound is the assertion that earns its place. A skew is seconds,
-  # and the classic way to get it wrong is to pass milliseconds: `300_000`
-  # instead of `300`. Nothing about that is a type error, and nothing fails —
-  # every token simply looks due for refresh on every call, so the application
-  # quietly hammers the provider with refreshes it does not need until the rate
-  # limiter or the breaker notices.
-  #
-  # A day is the ceiling because access tokens are short-lived by construction:
-  # TIDAL's last four hours. A skew longer than any plausible token lifetime
-  # means `needs_refresh?/3` is a constant function, which is never intended.
+  # A skew is seconds, and the classic way to get it wrong is milliseconds —
+  # `300_000` for `300`. Not a type error, and nothing fails: every token simply
+  # looks due on every call, so the application hammers the provider with
+  # refreshes it does not need. A day is the ceiling because access tokens are
+  # short-lived by construction (TIDAL's last four hours), so a longer skew makes
+  # `needs_refresh?/3` a constant function.
   @pre skew_under_a_day: skew_seconds <= 86_400
   # An *active* connection whose token has already expired must be refreshed.
   #

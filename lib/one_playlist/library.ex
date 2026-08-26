@@ -540,19 +540,14 @@ defmodule OnePlaylist.Library do
   because the guess was not measured and does not survive being measured: a
   renumber of half a five-thousand-entry playlist is **2.3ms** in one statement,
   and an adjacent move does not need even that.
+
+  The returned order always has **distinct positions** — a swap that wrote one
+  position to both rows leaves a tie, and a swap that lost an entry leaves a
+  short list. That is deliberately weaker than "no entry was lost", which cannot
+  be a contract here: two tabs reordering one playlist can produce an order
+  neither asked for, so a before-and-after law over shared state would accuse
+  correct code. It lives in a test, where the sandbox makes the state exclusive.
   """
-  # Sound under interleaving, which is what it costs to be honest here. Two
-  # tabs reordering one playlist can produce an order neither asked for, so a
-  # before-and-after conservation law over shared state would accuse correct
-  # code — the failure `docs/reference/contracts.md` and `Providers.disconnect/2`
-  # both name as the worst a contract can have.
-  #
-  # What survives is a claim about the value returned: a swap that wrote one
-  # position to both rows leaves a tie, and a swap that lost an entry leaves a
-  # short list. Neither is falsifiable by another writer's timing.
-  #
-  # "No entry was lost" belongs in a test, where the sandbox makes the state
-  # genuinely exclusive and the strong assertion is sound.
   @post positions_stay_distinct: distinct_positions?(result)
   @spec move_entry(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), :up | :down) :: [entry()]
   def move_entry(user_id, playlist_id, entry_id, direction)
@@ -595,17 +590,14 @@ defmodule OnePlaylist.Library do
   Answers with the current order unchanged when either id is not in this
   playlist, or when the entry is dropped onto itself. None of those is an error:
   a drag that ends where it began is a drag the user cancelled.
+
+  The same distinct-positions guarantee `move_entry/4` makes, and it matters
+  more here: a renumber writes every row in one statement, so getting the
+  expression wrong collapses an entire playlist's ordering at once, silently —
+  the list still renders, in whatever order the tie-break happens to give.
   """
-  # The same claim `move_entry/4` makes, and sound for the same reason: it is
-  # about the value returned rather than about shared state, so another tab
-  # reordering concurrently cannot falsify it.
-  #
-  # No input can falsify it either, so it is verified by mutation: making
-  # `renumber/1` write a constant position instead of the index fires it. That is
-  # the failure worth guarding, because a renumber writes every row in one
-  # statement and getting the expression wrong collapses an entire playlist's
-  # ordering at once, silently — the list still renders, in whatever order the
-  # tie-break happens to give.
+  # Proven by mutation: making `renumber/1` write a constant position instead of
+  # the index fires it.
   @post positions_stay_distinct: distinct_positions?(result)
   @spec place_entry(Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), Ecto.UUID.t(), :before | :after) ::
           [entry()]

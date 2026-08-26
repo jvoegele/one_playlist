@@ -179,21 +179,19 @@ defmodule OnePlaylist.Transfers.TransferItem do
   `added?` decides between `:matched` and `:already_present`; everything else
   is copied off the `OnePlaylist.Matching.Match` so the report can explain the
   decision without re-running it.
+
+  A report row is this application's product: `docs/reference/domain.md` argues
+  that explaining *what happened to every track* is what distinguishes it from
+  the incumbents, so a row recording an outcome without the evidence for it is
+  the feature failing quietly rather than a cosmetic problem.
+
+  `outcome_is_a_resolution` is the specification of `added?` — a resolved track
+  is `:matched` when this run wrote it and `:already_present` when the
+  destination already had it, never anything else, which is what makes a re-run
+  legible. `names_what_it_matched` is the half that can fail on data:
+  `to_string(nil)` is `""`, so a provider omitting an id yields a row that says
+  "matched" while naming nothing.
   """
-  # A report row is this application's product. `docs/reference/domain.md` argues
-  # that explaining *what happened to every track* is what distinguishes it from
-  # the incumbents, so a row that records an outcome without the evidence for it
-  # is the feature failing quietly rather than a cosmetic problem.
-  #
-  # `names_what_it_matched` is the one that can fail on data. `provider_id` comes
-  # from a mapper, and `to_string(nil)` is `""` — a provider that omits an id on
-  # one entry yields a row saying "matched" while naming nothing, which is
-  # exactly the shape `ids_are_usable_keys` guards on the adapter boundary.
-  #
-  # `outcome_is_a_resolution` is the specification of `added?`: a resolved track
-  # is `:matched` when this run wrote it and `:already_present` when the
-  # destination already had it, and never anything else. That distinction is what
-  # makes a re-run legible in the report, per the table above.
   @post outcome_is_a_resolution: result.outcome in [:matched, :already_present],
         names_what_it_matched:
           is_binary(result.destination_track_id) and result.destination_track_id != ""

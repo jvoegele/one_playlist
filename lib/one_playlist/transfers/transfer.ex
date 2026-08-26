@@ -54,18 +54,13 @@ defmodule OnePlaylist.Transfers.Transfer do
 
   alias OnePlaylist.Providers.Connection
 
-  # The conservation law this application is organised around, stated where it
-  # belongs: on the type, not on the three functions that happen to build one.
+  # `balanced?/1` is deliberately reachable from here: Meyer's Assertion
+  # Evaluation rule suppresses its own woven invariant while this runs, so there
+  # is no recursion — and it stays public because an assertion rendered into the
+  # docs should name something a reader can look up.
   #
-  # `balanced?/1` is deliberately reachable from here. Meyer's Assertion
-  # Evaluation rule means its own woven invariant is suppressed while this
-  # assertion runs, so there is no recursion — and the predicate stays public
-  # because an assertion rendered into the documentation should name something a
-  # reader can look up.
-  #
-  # A bare `%Transfer{}` satisfies both: every counter defaults to zero, which is
-  # Meyer's base case for a struct invariant and the thing most often gotten
-  # wrong.
+  # A bare `%Transfer{}` satisfies both, every counter defaulting to zero, which
+  # is Meyer's base case and the thing most often gotten wrong.
   @invariant ledger_balances: balanced?(subject),
              # Not implied by the first. `added` counts what was *written*, and a
              # matched track already present at the destination is matched but

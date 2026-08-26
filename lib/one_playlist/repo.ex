@@ -88,17 +88,18 @@ defmodule OnePlaylist.Repo do
 
   That is a test-only mechanism producing a production-shaped bug, so it is
   handled here rather than in the test helper.
+
+  **The user id must be a non-blank binary**, and the blank half is the one that
+  matters. `auth.uid()` casts the claim to `uuid`, and `""` casts to NULL rather
+  than raising — so a blank id produces a session where every
+  `auth.uid() = user_id` comparison is NULL, which is not true, which silently
+  returns zero rows. A query that finds nothing looks exactly like a user who
+  owns nothing.
+
+  A precondition rather than an error tuple because every caller is application
+  code that has already established who is signed in: a malformed id here is a
+  bug in this repository, not a user mistake.
   """
-  # A precondition rather than a filter: every caller is application code that
-  # has already established who is signed in, so a malformed id here is a bug in
-  # this repository, not a user mistake. Answering an error tuple would let it
-  # travel further from where it was introduced.
-  #
-  # The blank check is the one that matters. `auth.uid()` casts the claim to
-  # `uuid`, and `""` casts to NULL rather than raising — so a blank id would
-  # produce a session where every `auth.uid() = user_id` comparison is NULL,
-  # which is not true, which silently returns zero rows. A query that finds
-  # nothing looks exactly like a user who owns nothing.
   @pre user_is_identified: is_binary(user_id) and user_id != ""
   @spec as_user(String.t(), (-> result), keyword()) :: {:ok, result} | {:error, term()}
         when result: term()

@@ -54,18 +54,11 @@ defmodule OnePlaylist.Matching.Match do
     alternatives: 0
   ]
 
-  # The law that makes a score comparable across rungs, stated on the type
-  # rather than at the one place that currently upholds it.
-  #
-  # `Matching.to_matches/3` scales every raw score through `in_band/2`, so today
-  # this cannot fail. It is not thereby vacuous: `new/1` is public and takes a
-  # bare keyword list, so the next rung's author calling
-  # `Match.new(score: raw, strategy: :fuzzy)` — forgetting the scaling, which is
-  # a separate call and easy to miss — produces a match whose confidence reads
-  # plausibly and outranks rungs that are more trustworthy. That is this
-  # product's worst failure mode wearing a believable number, and an invariant
-  # on the struct catches it wherever it is constructed rather than only where
-  # it is constructed today.
+  # Not vacuous despite `Matching.to_matches/3` scaling every score through
+  # `in_band/2` today: `new/1` is public and takes a bare keyword list, so
+  # `Match.new(score: raw, strategy: :fuzzy)` — forgetting the scaling, a
+  # separate call and easy to miss — produces a match whose confidence reads
+  # plausibly and outranks rungs that are more trustworthy.
   @invariant score_within_its_strategys_band: score_in_band?(subject)
 
   @doc """

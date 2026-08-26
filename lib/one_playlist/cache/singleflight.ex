@@ -44,18 +44,14 @@ defmodule OnePlaylist.Cache.Singleflight do
 
   @default_timeout :timer.seconds(30)
 
-  # The state records one fact twice: a key's monitor reference lives both on
-  # its `in_flight` entry and as a key of `monitors`, which exists so a `:DOWN`
-  # can find the key it belongs to. Nothing else keeps the two in step, and
-  # drift is silent in both directions — a `release/3` that forgot to delete
-  # from `monitors` would leak a reference per completed fetch forever, and a
-  # stale entry there would make a later, unrelated `:DOWN` release a key that
-  # is legitimately in flight.
+  # The state records one fact twice — a key's monitor reference lives on its
+  # `in_flight` entry *and* as a key of `monitors` — and drift is silent both
+  # ways: a `release/3` forgetting to delete from `monitors` leaks a reference
+  # per completed fetch, and a stale entry there makes a later unrelated `:DOWN`
+  # release a key that is legitimately in flight.
   #
-  # This is `docs/reference/contracts.md`'s "two implementations of one rule"
-  # shape, applied to state rather than to code — and unlike the cache this
-  # coordinates, it is genuinely assertable, because a GenServer's state is
-  # touched by one process and no interleaving can be observed mid-callback.
+  # Assertable where the cache this coordinates is not, because a GenServer's
+  # state is touched by one process and no interleaving is observable mid-callback.
   @state_invariant one_monitor_per_in_flight_key:
                      map_size(state.monitors) == map_size(state.in_flight),
                    monitors_point_back_at_their_keys: monitors_agree?(state)
