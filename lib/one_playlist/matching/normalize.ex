@@ -150,61 +150,46 @@ defmodule OnePlaylist.Matching.Normalize do
       "dont stop me now"
       iex> Normalize.text(nil)
       ""
+
+  ## What "normalized" means
+
+  The four postconditions below are the definition, and they are claims about the
+  *output* rather than restatements of the pipeline. Every step survives a
+  reordering, and reordering is what breaks them: strip `\p{Mn}` before the NFKD
+  decomposition and nothing is decomposed yet, so accent folding silently stops;
+  collapse whitespace before turning punctuation into spaces and doubled spaces
+  come back.
+
+  None of that raises. Each degrades comparison quietly — a lower Jaro score, a
+  token set that does not intersect — so a transfer reports "no match found" for
+  tracks that are plainly the same, and the match rate drops with nothing in a
+  log.
+
+  They earn their place over example tests for a reason particular to this
+  function: it is the one place where **every** string from **every** provider
+  arrives. Examples cover the spellings someone thought of; a postcondition
+  covers the Vietnamese stacked diacritic, the Turkish dotted capital and the
+  Arabic harakat in a real user's library.
   """
-  # Three claims about the *output*, not three restatements of the pipeline — and
-  # the distinction is the plausible rewrite. Every step below is still present
-  # under a reordering, and reordering is what breaks them: strip `\p{Mn}`
-  # before the NFKD decomposition and nothing is decomposed yet, so accent
-  # folding silently stops; collapse whitespace before turning punctuation into
-  # spaces and doubled spaces come back.
-  #
-  # None of that raises. Each one degrades comparison quietly — a lower Jaro
-  # score, a token set that does not intersect — so a transfer reports "no match
-  # found" for tracks that are plainly the same, and the match rate drops without
-  # anything appearing in a log.
-  #
-  # These earn their place over the example tests for a reason particular to this
-  # function: it is the one place where **every** string from **every** provider
-  # arrives. Examples cover the spellings someone thought of; a postcondition
-  # covers the Vietnamese stacked diacritic, the Turkish dotted capital and the
-  # Arabic harakat in a real user's library. Postconditions are compiled in and
-  # gated off in production (see `config/prod.exs`), so "is normalization the
-  # reason this user's matches are bad?" is a question answerable from a remote
-  # console mid-incident rather than a rebuild.
-  #
-  # Deliberately three and not four: a `decomposed:` assertion naming the
-  # accent-folding bug directly does not belong here, because no combining mark
-  # is also a letter, a digit or a space — an exhaustive scan confirms it — so
-  # `only_letters_digits_and_spaces` already implies it and it could never fail
-  # first. A marginally better error message is not worth an assertion that
-  # cannot fail independently, evaluated 70,000 times a test run. A leftover
-  # combining mark still fails the assertion below.
+  # Three and not four: a `decomposed:` assertion naming the accent-folding bug
+  # cannot fail independently, because no combining mark is also a letter, digit
+  # or space — an exhaustive scan confirms it — so
+  # `only_letters_digits_and_spaces` already implies it. A leftover combining
+  # mark still fails that one.
   @post case_folded: result == String.downcase(result)
   @post only_letters_digits_and_spaces: not Regex.match?(~r/[^\p{L}\p{N} ]/u, result)
   @post single_spaced: result == String.trim(result) and not String.contains?(result, "  ")
-  # Independent of the three above despite looking like a consequence, which is
-  # worth proving rather than assuming — a `decomposed:` assertion is absent
-  # from this very list for being implied.
+  # Independent of the three above rather than implied by them, which is worth
+  # proving: they constrain what the output *looks like*, this constrains what
+  # `text/1` **is** — a projection. Leading-article stripping is the plausible
+  # edit that separates them, under which "The The Beatles" becomes "the beatles"
+  # and then "beatles", satisfying all three at every step. The band The The is a
+  # real counterexample, not a contrived one. It matters because the pipeline
+  # applies `text/1` twice to the same data — `featured_names/1` normalizes a
+  # segment that `artists/1` then normalizes again.
   #
-  # The three above constrain what the output *looks like*; this one constrains
-  # what `text/1` *is*: a projection. Nothing in "lowercase, letters and digits
-  # and single spaces, trimmed" forbids a pipeline that keeps changing its
-  # answer. Leading-article stripping is the plausible edit that separates them —
-  # a standard music-library normalization, and one this module may well want —
-  # under which "The The Beatles" normalizes to "the beatles" and then to
-  # "beatles", satisfying all three assertions above at every step. The band
-  # The The is a real counterexample rather than a contrived one.
-  #
-  # Idempotence is load-bearing here because the pipeline applies `text/1` twice
-  # to the same data: `featured_names/1` normalizes a segment before handing it
-  # to `artists/1`, which normalizes each split piece again. A non-projection
-  # would make those two passes disagree about one artist's name, silently.
-  #
-  # Last in the list on purpose. It is the only assertion that re-enters the
-  # function, so the three cheaper ones get to fail first and name the problem
-  # more precisely. Bond suppresses contract checking while evaluating an
-  # assertion — Eiffel's rule — so the nested call terminates instead of
-  # recursing forever, and is checked once rather than once per level.
+  # Last so the cheaper three fail first, and sound only because Meyer's
+  # Assertion Evaluation rule suppresses contracts while an assertion runs.
   @post idempotent: text(result) == result
   @spec text(String.t() | nil) :: String.t()
   def text(nil), do: ""
@@ -244,17 +229,17 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> parsed = Normalize.title("Hey Jude - Remastered 2015")
       iex> {parsed.title, MapSet.to_list(parsed.tags)}
       {"hey jude", [:remaster]}
+
+  **Every tag returned is one the comparison rules know how to use** —
+  `every_tag_is_classified` below, and the most valuable assertion in this
+  module. `tags_in/1` builds from one list and the discriminating/editorial
+  partition from two others, and nothing else holds the three in step. Add a
+  pattern for `:acapella` and forget to classify it, and the tag is recognised,
+  parsed and returned — then dropped by *both* partitions, because it is in
+  neither. `Signals.compare/2` asks only those two questions, so an acapella
+  version compares as a perfect match to the studio recording. Nothing raises, no
+  test fails, and the veto is simply gone.
   """
-  # The most valuable assertion in this module, and the one nothing else states.
-  #
-  # `tags_in/1` builds from `@tag_patterns`; `discriminating/1` and `editorial/1`
-  # partition using `@discriminating` and `@editorial`. Three lists, and nothing
-  # holds them in step. Add a pattern for `:acapella` and forget to classify it,
-  # and the tag is recognised, parsed, returned — and then dropped by *both*
-  # partitions, because it is in neither. `Signals.compare/2` asks only those two
-  # questions, so an acapella version compares as a perfect match to the studio
-  # recording, which is precisely the failure the whole tag mechanism exists to
-  # prevent. Nothing raises, no test fails, and the veto is simply gone.
   @post every_tag_is_classified: MapSet.subset?(result.tags, MapSet.new(known_tags()))
   # Stated as a fixed point rather than as `result.title == text(core)`, which
   # would restate the body. It catches the omission — returning the raw core —
@@ -321,13 +306,13 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> alias OnePlaylist.Matching.Normalize
       iex> Normalize.artists(["JAY-Z", "Alicia Keys"]) |> MapSet.to_list() |> Enum.sort()
       ["alicia keys", "jay z"]
+
+  **No empty name is ever in the set**, which catches a false *positive* rather
+  than a missed match and is the more dangerous direction. A track whose artist
+  credit is punctuation — `"???"`, `"-"`, a stray separator — normalizes to `""`,
+  and two such tracks then score a perfect artist match against each other while
+  naming nobody at all.
   """
-  # `no_empty_names` is the one that catches a false *positive* rather than a
-  # missed match, which makes it the more dangerous direction. Drop the
-  # `Enum.reject(&(&1 == ""))` and a track whose artist credit is punctuation —
-  # `"???"`, `"-"`, a stray separator — normalizes to `""` and yields the set
-  # `#MapSet<[""]>`. Two such tracks then score `dice/2` = 1.0 on artists: a
-  # perfect artist match between two recordings that named nobody at all.
   @post names_are_normalized: forall(name <- result, name == text(name))
   @post no_empty_names: forall(name <- result, name != "")
   @spec artists([String.t()] | String.t() | nil) :: MapSet.t(String.t())
@@ -540,16 +525,13 @@ defmodule OnePlaylist.Matching.Normalize do
       iex> credits = Normalize.credits(["Pearl Jam feat. Eddie Vedder"])
       iex> {Enum.sort(credits.primary), Enum.sort(credits.featured)}
       {["pearl jam"], ["eddie vedder"]}
+
+  **No name is lost**: every name goes to exactly one side, and the two sides
+  together are exactly what `artists/1` reports. The separator lists have to stay
+  a partition of one another and nothing else checks that — adding a marker to
+  one and forgetting the other silently drops a collaborator, which is the very
+  bug this function exists to fix wearing other clothes.
   """
-  # Every name goes to exactly one side, and the two sides together are exactly
-  # what `artists/1` reports — which is the useful form of "no name was lost".
-  # `@featuring_separators` and `@cobilling_separators` have to stay a partition
-  # of `@word_separators`, and nothing else checks that: adding a marker to one
-  # list and forgetting the other silently drops a collaborator, which is the
-  # very bug this function exists to fix wearing other clothes.
-  #
-  # Two implementations of one rule, cross-checked, in the shape
-  # `docs/reference/contracts.md` recommends looking for.
   @post loses_no_name: MapSet.union(result.primary, result.featured) == artists(values)
   @spec credits([String.t()] | String.t() | nil) :: %{
           primary: MapSet.t(String.t()),

@@ -88,17 +88,25 @@ defmodule OnePlaylist.Matching do
       `t:OnePlaylist.Matching.Match.confidence/0` or a float. Defaults to
       `#{inspect(@default_threshold)}`, overridable in config.
     * `:strategies` — the ladder to use, in order. Defaults to `strategies/0`.
+
+  A returned match is always **to a track that was among `candidates`**, always
+  attributed to the `source` it was asked about, and always at or above the
+  threshold. Those are conservation laws rather than pleasantries: a ranking bug,
+  a stale accumulator in the ladder fold, or a rung building a `Match` from the
+  wrong side of its own comparison all produce a *plausible* match to a track
+  that was never a candidate. Nothing raises, the transfer completes, and a track
+  the user never had appears in their playlist.
+
+  The veto that stops a karaoke version matching the original is restated here
+  too, over the returned pair rather than trusted to each rung — it is one `not`
+  away from being silently inverted in `Strategy.Text` or `Strategy.Fuzzy`, and
+  restating it means removing it *there* fails *here*. It deliberately does not
+  apply to the identifier rungs, which trust the identifier over the text: a
+  provider mislabelling a version on a correctly-ISRC'd track must not become a
+  crash.
   """
-  # Conservation, and the most important contract in the module. A ranking bug,
-  # a stale accumulator in the ladder fold, or a rung that builds a Match from
-  # the wrong side of its own comparison all produce a *plausible* match to a
-  # track that was never a candidate. Nothing raises, the transfer completes,
-  # and a track the user never had appears in their playlist.
-  #
-  # All three verified by mutation on 2026-08-25, since none can be made to fail
-  # from outside — `match/3` chooses from the list it was handed, so only a bug
-  # *inside* fires them, and a `Bond.Test` assertion cannot reach that. The
-  # mutations that do, each applied alone and reverted:
+  # Verified by mutation, each applied alone and reverted — `match/3` chooses
+  # from the list it was handed, so no input can falsify these:
   #
   #   * `{:ok, %Match{best | track: source}}` — `chosen_from_candidates`
   #   * `{:ok, %Match{best | source: best.track}}` — `source_preserved`
@@ -107,21 +115,9 @@ defmodule OnePlaylist.Matching do
     chosen_from_candidates: match.track in candidates,
     source_preserved: match.source == source,
     meets_threshold: match.score >= threshold(opts)
-  # The veto in `Strategy.Text` and `Strategy.Fuzzy` is the rule that stops a
-  # karaoke version matching the original, and it is one `not` away from being
-  # silently inverted. Restated here, over the returned pair, so removing it in
-  # either rung fires — the two implementations of one rule that
-  # `docs/reference/contracts.md` describes as the shape worth looking for.
-  #
-  # Deliberately not applied to the identifier rungs: they trust the identifier
-  # over the text, which is correct, and a provider that mislabels a version on
-  # a correctly-ISRC'd track must not become a crash here.
-  #
-  # Verified by mutation on 2026-08-25, and this is the one that most needed it:
-  # deleting `not Signals.vetoed?(signals)` from `Strategy.Text.certain?/1` —
-  # the other implementation of the rule, in another module — fires this
-  # postcondition here. That is the whole point of restating it over the
-  # returned pair rather than trusting each rung.
+  # The mutation that matters most here reaches *another module*: deleting
+  # `not Signals.vetoed?(signals)` from `Strategy.Text.certain?/1` fires this,
+  # which is the whole point of restating the rule over the returned pair.
   @post whenever({:ok, match} <- result),
     veto_respected:
       (match.strategy in [:text, :fuzzy])
@@ -147,18 +143,17 @@ defmodule OnePlaylist.Matching do
   Only the winning rung's candidates appear — see the ladder note in the
   module documentation. Useful directly for a "pick the right one yourself"
   screen, where the rejected candidates are as informative as the chosen one.
+
+  **Best first**, and `ordered_best_first` below says so. A comparator with its
+  arguments the wrong way round is a one-character bug that makes `match/3`
+  return the *worst* candidate it found — every score still real, the confidence
+  still plausible, and no test that checks only "a match was returned" any the
+  wiser.
   """
-  # A comparator with its arguments the wrong way round is a one-character bug
-  # that makes `match/3` return the *worst* candidate it found. Every score is
-  # still real, the confidence still reads plausibly, and no test that only
-  # checks "a match was returned" would notice.
-  #
-  # Verified by mutation on 2026-08-25 with `|> Enum.reverse()` after the sort,
-  # which is the one-character bug described above. Worth recording that the
-  # *obvious* mutation does not fire it: returning `List.last/1` from `match/3`
-  # leaves `rank/3`'s own result correctly ordered, so a mutation aimed at the
-  # wrong function proves nothing. The contract is on `rank/3` and only a
-  # mutation there reaches it.
+  # Proven by mutation with `|> Enum.reverse()` after the sort. Worth recording
+  # that the *obvious* mutation proves nothing: returning `List.last/1` from
+  # `match/3` leaves `rank/3`'s own result correctly ordered. The contract is on
+  # `rank/3` and only a mutation there reaches it.
   @post ordered_best_first: descending?(result)
   @spec rank(Track.t(), [Track.t()], keyword()) :: [Match.t()]
   def rank(%Track{} = source, candidates, opts \\ []) when is_list(candidates) do
@@ -177,25 +172,23 @@ defmodule OnePlaylist.Matching do
 
   Takes `{source, candidates}` pairs rather than a flat list because candidates
   are fetched per track — see `c:OnePlaylist.Providers.Adapter.search_tracks/3`.
+
+  **Every track asked about appears in the report exactly once**, matched or
+  unmatched. A report whose halves do not add up to what was asked for is
+  precisely the "finished, reported success, and was wrong" failure this product
+  exists to avoid, and a `flat_map` that drops an error or an accumulator
+  reversed onto itself is caught here and nowhere else.
+
+  Stated as multiset equality rather than as a count plus a uniqueness check,
+  because **a playlist may legitimately contain the same track twice** — the
+  first version asserted no source appeared twice and accused correct code the
+  first time it met a repeated track. Comparing sorted ids rejects a drop, a
+  duplication *and* a substitution, which is strictly stronger than the pair it
+  replaced and sound where they were not.
   """
-  # The ledger law. `docs/reference/contracts.md` names this shape as the one
-  # the transfer engine will want most, and this is the first place it applies:
-  # a report whose halves do not add up to what was asked for is precisely the
-  # "finished, reported success, and was wrong" failure the product exists to
-  # avoid. A `flat_map` that drops an error, or an accumulator reversed onto
-  # itself, is caught here and nowhere else.
-  #
-  # Stated as multiset equality rather than as a count plus a uniqueness check.
-  # The first version of this asserted that no source appeared twice, and it was
-  # unsound: **a playlist may legitimately contain the same track twice**, so it
-  # accused correct code the first time it ran against a repeated track. Sorting
-  # both sides compares what was reported against what was asked for without
-  # caring about order, and rejects a drop, a duplication and a substitution
-  # alike — strictly stronger than the pair it replaced, and sound.
-  # Verified by mutation on 2026-08-25 in both directions, which a conservation
-  # law needs: `unmatched: []` drops the failures and fires it, and a `flat_map`
-  # emitting each match twice fires it too. One mutation would have proven only
-  # half a law.
+  # Proven by mutation in both directions, which a conservation law needs:
+  # `unmatched: []` drops the failures, and a `flat_map` emitting each match
+  # twice invents them. One would have proven half a law.
   @post every_track_accounted_for_exactly_once:
           Enum.sort(source_ids(result)) == Enum.sort(source_ids(pairs))
   @spec match_all([{Track.t(), [Track.t()]}], keyword()) :: Report.t()
@@ -228,35 +221,30 @@ defmodule OnePlaylist.Matching do
   rendered into the documentation should reference something a reader can look
   up — the same reason
   `OnePlaylist.Providers.Tidal.Mapper.item_ids/1` is public.
+
+  ## Two ways to ask for a threshold nothing can reach
+
+  Both are caught here, and they are the most consequential mistakes in this
+  application because neither raises.
+
+  A **percentage where a proportion belongs** — `threshold: 75`, which is how
+  everyone says it — becomes `75.0`, and no score exceeds `1.0`. Every transfer
+  then completes with every track reported unmatched and the destination playlist
+  empty, and the report reads as an honest account of a catalogue that happens to
+  contain none of the user's music. `is_a_proportion` refuses it, and it is
+  falsifiable by *data*: it fires on a config file alone, with no code change.
+
+  A **misspelled confidence** — `threshold: :hgih` — is the same catastrophe by
+  the other road. It resolves to `1.0`, which is a perfectly valid proportion, so
+  only a flawless score matches and everything but an exact identifier is
+  reported unmatched. `threshold_request_is_meaningful` refuses that one, because
+  the check has to be on what was *asked for* rather than on what came back —
+  `1.0` is also the correct answer for a valid confidence like `:exact_isrc`.
   """
-  # A magnitude bug, and the most consequential one in this application.
-  #
-  # `to_score/1` passes a float straight through and turns an integer into
-  # `value / 1`, so a caller or a config file writing `threshold: 75` — meaning
-  # 75%, which is how everyone says it — gets `75.0`. Every score is at most
-  # `1.0`, so **nothing ever matches again**: every transfer completes, every
-  # track is reported unmatched, and the destination playlist is empty. Nothing
-  # raises, nothing is logged, and the report looks like an honest account of a
-  # catalogue that happens to contain none of the user's music.
-  #
-  # Unlike the assertions on `Normalize`, this one is falsifiable by *data*: it
-  # fires on `config :one_playlist, OnePlaylist.Matching, threshold: 75` with no
-  # code change at all. The DB path is separately validated by
-  # `Transfer.create_changeset/2`; config and direct callers had nothing.
-  #
-  # The precondition catches the *other* way to ask for an impossible threshold,
-  # and it is genuinely complementary rather than a second guard on one thing.
-  # A misspelled confidence — `threshold: :hgih` — resolves through
-  # `to_score/1`'s `Enum.find/3` default to `1.0`, which is in range, so the
-  # postcondition below waves it through. The effect is the same catastrophe by
-  # a different road: only a flawless score passes, so all but exact-identifier
-  # matches are reported unmatched. Neither assertion sees what the other does —
-  # `is_number(75)` satisfies the precondition, `:hgih` satisfies the
-  # postcondition.
-  #
-  # The 1.0 default is not itself a bug: a *valid* confidence no text score can
-  # reach, like `:exact_isrc`, correctly resolves to 1.0. That is exactly why the
-  # check has to be on what was asked for rather than on what came back.
+  # `:hgih` resolves through `to_score/1`'s `Enum.find/3` default to `1.0`, which
+  # is in range — so the postcondition waves it through and only the precondition
+  # sees it. `is_number(75)` is the mirror image. Neither assertion can see what
+  # the other does, which is why both are here.
   @pre threshold_request_is_meaningful: valid_threshold_request?(opts)
   @post is_a_proportion: result >= 0.0 and result <= 1.0
   @spec threshold(keyword()) :: float()
