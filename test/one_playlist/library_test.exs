@@ -791,6 +791,21 @@ defmodule OnePlaylist.LibraryTest do
   end
 
   describe "search/2" do
+    test "never returns more than the caller asked for" do
+      # `search/2` reads a **shared, ownerless** table, so an unbounded read is
+      # every recording anyone has ever imported, sent to a LiveView to render.
+      # Nothing exercised the bound until `no_more_than_asked_for` went in and no
+      # mutation could make it fire: every fixture held fewer rows than the
+      # limit, so deleting the `limit/2` changed nothing observable.
+      title = "Zzyzx Bounded #{System.unique_integer([:positive])}"
+
+      for n <- 1..4 do
+        Library.find_or_create(track(%{isrc: nil, title: title, album: "Take #{n}"}))
+      end
+
+      assert Library.search(track(%{isrc: nil, title: title}), 2) |> length() == 2
+    end
+
     test "finds a held recording by ISRC" do
       Library.find_or_create(track(%{isrc: "USSM11100234"}))
 

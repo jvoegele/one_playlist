@@ -92,10 +92,18 @@ defmodule OnePlaylist.Library do
   @doc """
   A user's library playlists, most recently made first, with their sizes.
 
+  Only theirs, and the postcondition says so rather than trusting the two scopes
+  beneath it. This is what `/playlists` renders and what every picker offers as a
+  transfer source, so another user's playlist reaching this list is not a display
+  bug — it is a playlist somebody can read the contents of and copy.
+
   One query for the playlists and one for every count, rather than a count per
   playlist: a user with fifty playlists should not cost fifty round trips to
   render a list.
   """
+  # Proven by mutation: dropping both the `where user_id` and `Repo.as_user/3`
+  # fires it — neither alone does, since each scope suffices on its own.
+  @post all_belong_to_the_user: forall({playlist, _count} <- result, playlist.user_id == user_id)
   @spec playlists(Ecto.UUID.t()) :: [{Playlist.t(), non_neg_integer()}]
   def playlists(user_id) do
     {:ok, found} =
@@ -168,7 +176,20 @@ defmodule OnePlaylist.Library do
   matters: it carries the **entry's** id as well as the recording's. A playlist
   may hold the same recording twice, so "remove this one" and "move this one"
   are questions about an entry, and a recording id cannot answer them.
+
+  Two guarantees the editor is built on. **Positions are distinct** — the drag
+  handle, the arrow keys and `place_entry/5` all derive an order from them, and a
+  tie means the list renders in whatever order the tie-break happens to give.
+  And **`enriched?` implies `linked?`**: the three states this returns are "not
+  linked", "linked but not looked up" and "looked up", so a row claiming to be
+  enriched while naming no recording is a fourth state nothing downstream knows
+  how to draw.
   """
+  # Proven by mutation: `position: 0` in the map fires `positions_are_distinct`
+  # on any two-entry playlist, and reading `enriched?` from the *item* rather
+  # than the recording fires `enriched_implies_linked`.
+  @post positions_are_distinct: distinct_positions?(result)
+  @post enriched_implies_linked: forall(entry <- result, entry.enriched? ~> entry.linked?)
   @spec entries(Ecto.UUID.t(), Ecto.UUID.t()) :: [entry()]
   def entries(user_id, playlist_id) do
     {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(items_with_recordings(playlist_id)) end)
@@ -765,6 +786,16 @@ defmodule OnePlaylist.Library do
   nobody — that is §5's asset that compounds. It leaks nothing: the row says
   what the music is, never who has it.
   """
+  # `limit` is the caller's bound and this is a shared, ownerless table — an
+  # unbounded read here is every recording anyone has ever imported, sent to a
+  # LiveView to render. Proven by mutation: dropping the `limit/2` fires it once
+  # the library holds more rows than the caller asked for.
+  @post no_more_than_asked_for: length(result) <= limit
+  @post every_candidate_is_addressable:
+          forall(
+            candidate <- result,
+            is_binary(candidate.provider_id) and candidate.provider_id != ""
+          )
   @spec search(Track.t(), pos_integer()) :: [Track.t()]
   def search(%Track{} = track, limit) do
     track
