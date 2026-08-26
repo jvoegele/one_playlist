@@ -494,6 +494,10 @@ defmodule OnePlaylist.Transfers do
   end
 
   @doc "A user's transfers, most recent first."
+  # The scoping law for the transfer list. Proven by mutation: dropping both the
+  # `where` and `Repo.as_user/3` fires it — neither alone does, since each scope
+  # suffices on its own.
+  @post all_belong_to_the_user: forall(transfer <- result, transfer.user_id == user_id)
   @spec list(Ecto.UUID.t()) :: [Transfer.t()]
   def list(user_id) do
     {:ok, transfers} =
@@ -509,6 +513,10 @@ defmodule OnePlaylist.Transfers do
   @doc """
   The per-track report, in source playlist order.
 
+  Every row belongs to the transfer asked about, and the order is the source
+  playlist's — which is the whole readability of the report, since a reader
+  compares it against the playlist they can see. Both are asserted below.
+
   `:outcome` is the column worth filtering on: `:unmatched` is the list a person
   resolves by hand, and `:already_present` is what a re-run looks like.
 
@@ -518,6 +526,14 @@ defmodule OnePlaylist.Transfers do
   `:limit` and `:offset` take a window. Unwindowed by default, which is right
   for a CSV export and wrong for a page — see `OnePlaylistWeb.TransferLive.Show`.
   """
+  # Proven by mutation: dropping the `where` fires `all_from_this_transfer` once
+  # a second transfer has a report, and dropping the `order_by` fires
+  # `ordered_by_source_position` on any report whose rows were not inserted in
+  # order.
+  @post all_from_this_transfer: forall(item <- result, item.transfer_id == transfer.id)
+  @post ordered_by_source_position:
+          result |> Enum.map(& &1.position) |> Enum.sort() ==
+            Enum.map(result, & &1.position)
   @spec items(Transfer.t(), keyword()) :: [TransferItem.t()]
   def items(%Transfer{} = transfer, opts \\ []) do
     query =

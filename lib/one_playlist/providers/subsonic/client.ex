@@ -67,6 +67,17 @@ defmodule OnePlaylist.Providers.Subsonic.Client do
   end
 
   @doc "Every playlist visible to the account."
+  # A playlist with no id cannot be transferred from or written to, and the
+  # picker renders it happily — the failure is a row somebody clicks that does
+  # nothing.
+  @post whenever(
+          {:ok, playlists} <- result,
+          every_playlist_is_addressable:
+            forall(
+              playlist <- playlists,
+              is_binary(playlist.provider_id) and playlist.provider_id != ""
+            )
+        )
   @spec playlists(Connection.t()) ::
           {:ok, [OnePlaylist.Music.Playlist.t()]} | {:error, Errata.error()}
   def playlists(%Connection{} = connection) do

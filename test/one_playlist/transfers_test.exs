@@ -279,6 +279,26 @@ defmodule OnePlaylist.TransfersTest do
   end
 
   describe "a first run" do
+    test "one user's two reports do not bleed into each other", %{user: user} do
+      # `items/2` is scoped by `transfer_id` *and* by the policy on
+      # `transfer_items`, and nothing exercised the first until
+      # `all_from_this_transfer` went in and no mutation could make it fire: one
+      # transfer per user meant dropping the `where` returned the same rows.
+      #
+      # Two reports for one user is also the ordinary case for anybody using the
+      # application twice, which is reason enough on its own.
+      provider_state()
+
+      {:ok, first} = Runner.run(transfer_for(user))
+      {:ok, second} = Runner.run(transfer_for(user))
+
+      refute first.id == second.id
+
+      assert Enum.all?(Transfers.items(first), &(&1.transfer_id == first.id))
+      assert Enum.all?(Transfers.items(second), &(&1.transfer_id == second.id))
+      assert length(Transfers.items(first)) == 3
+    end
+
     test "transfers every track and reports on each one", %{user: user} do
       state = provider_state()
       transfer = transfer_for(user)

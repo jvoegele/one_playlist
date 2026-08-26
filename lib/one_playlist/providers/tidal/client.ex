@@ -113,6 +113,17 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   it the artist names and the album barcode — the fields the text and UPC rungs
   need — are absent, and a candidate that cannot be scored is not a candidate.
   """
+  # The same law `c:OnePlaylist.Formats.Codec.parse/2` states for a parser, owed
+  # here for the same reason: `Track`'s own `identifiable` invariant fires only
+  # when one of *its* functions is called, so a blank id built by a mapper
+  # travels a long way before anything notices — and `Transfers.Runner` keys a
+  # `MapSet` on it, where a blank reads as "already present" and the track is
+  # silently never written.
+  @post whenever(
+          {:ok, tracks} <- result,
+          every_track_is_addressable:
+            forall(track <- tracks, is_binary(track.provider_id) and track.provider_id != "")
+        )
   @spec tracks_by_isrc(String.t(), String.t(), keyword()) ::
           {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
   def tracks_by_isrc(access_token, isrc, opts \\ []) do
@@ -157,6 +168,11 @@ defmodule OnePlaylist.Providers.Tidal.Client do
   `include=items.artists` costs nothing extra and makes the results scoreable
   on text as well, so a candidate rejected by rung 2 is not wasted.
   """
+  @post whenever(
+          {:ok, tracks} <- result,
+          every_track_is_addressable:
+            forall(track <- tracks, is_binary(track.provider_id) and track.provider_id != "")
+        )
   @spec album_items(String.t(), String.t(), keyword()) ::
           {:ok, [OnePlaylist.Music.Track.t()]} | {:error, Errata.error()}
   def album_items(access_token, album_id, opts \\ []) do

@@ -39,11 +39,19 @@ defmodule OnePlaylist.Providers do
   @doc """
   Lists a user's connections, most recently connected first, library last.
 
+  Only theirs. Every picker in the application is built from this list, and each
+  entry carries the credential to somebody's music service — so another user's
+  connection reaching it is a service somebody else can read, write and revoke.
+
   Runs under `OnePlaylist.Repo.as_user/3`, so the `where` below is not the only
   thing standing between one user and another's credentials — Postgres applies
   the `own connections select` policy to the same query. Belt and braces, on the
   path that reads encrypted access tokens.
   """
+  # Proven by mutation: dropping both the `where user_id` and `Repo.as_user/3`
+  # fires it. Neither alone does — each scope suffices by itself, which is what
+  # defence in depth looks like from above.
+  @post all_belong_to_the_user: forall(connection <- result, connection.user_id == user_id)
   @spec list_connections(user_id()) :: [Connection.t()]
   def list_connections(user_id) do
     {:ok, connections} =
@@ -68,9 +76,17 @@ defmodule OnePlaylist.Providers do
   @doc """
   Fetches one connection.
 
+  The one it was asked for, and the caller's own — the two things every caller
+  assumes without checking, since what comes back goes straight to an adapter.
+
   Returns `{:error, %ConnectionNotFound{}}` rather than `nil` so the failure
   carries the provider and user it was looking for into whatever logs it.
   """
+  # Proven by mutation: dropping both scopes fires it; neither alone does.
+  @post whenever(
+          {:ok, connection} <- result,
+          is_the_one_asked_for: connection.user_id == user_id and connection.provider == provider
+        )
   @spec fetch_connection(user_id(), Connection.provider()) ::
           {:ok, Connection.t()} | {:error, ConnectionNotFound.t()}
   def fetch_connection(user_id, provider) do
@@ -98,6 +114,11 @@ defmodule OnePlaylist.Providers do
   @doc """
   Fetches a connection that is ready to call the provider with.
 
+  "Ready" is the whole point of the function and `usable_and_this_users` says so:
+  a caller takes what this returns straight to an adapter, so a connection that
+  is another user's, or one carrying no credential, becomes a request made with
+  the wrong identity or none at all.
+
   This is the function callers should reach for. It distinguishes the three
   situations that a bare fetch conflates: no connection at all, a connection
   that needs the user to reconnect, and a usable one.
@@ -117,6 +138,12 @@ defmodule OnePlaylist.Providers do
   Cheap in the common case: a token with more than the skew left is returned
   untouched, with no request.
   """
+  # Proven by mutation: dropping the `Connection.usable?/1` branch fires
+  # `usable_and_this_users` on the credential-less library fixture.
+  @post whenever(
+          {:ok, connection} <- result,
+          usable_and_this_users: connection.user_id == user_id and connection.provider == provider
+        )
   @spec fetch_usable_connection(user_id(), Connection.provider()) ::
           {:ok, Connection.t()}
           | {:error, ConnectionNotFound.t() | ConnectionUnusable.t()}
