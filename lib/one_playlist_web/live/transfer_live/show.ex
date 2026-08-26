@@ -31,12 +31,14 @@ defmodule OnePlaylistWeb.TransferLive.Show do
   use OnePlaylistWeb, :live_view
   use Bond
 
+  alias OnePlaylist.Library
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Connection
 
   alias OnePlaylist.Transfers
   alias OnePlaylist.Transfers.Candidate
   alias OnePlaylist.Transfers.Transfer
+  alias OnePlaylist.Transfers.TransferItem
 
   require Logger
 
@@ -129,6 +131,37 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
       :error ->
         {:noreply, put_flash(socket, :error, "That transfer could not be deleted.")}
+    end
+  end
+
+  # The bridge from a transfer to the library, and the moment it exists for: a
+  # run that went 47 of 50 is where somebody who never meant to curate anything
+  # starts caring about three tracks.
+  #
+  # A new playlist rather than an append to an existing one, because there is no
+  # existing one to guess at and a playlist named after the transfer says what it
+  # is. From there the ordinary library loop applies — correct the credit,
+  # re-enrich, and transfer it on when it looks right.
+  def handle_event("rescue_unmatched", _params, socket) do
+    transfer = socket.assigns.transfer
+    user_id = socket.assigns.current_user_id
+
+    tracks =
+      transfer
+      |> Transfers.items(outcome: :unmatched)
+      |> Enum.map(&TransferItem.to_source_track(&1, transfer.source_provider))
+
+    case Library.create_playlist(user_id, rescue_name(transfer)) do
+      {:ok, playlist} ->
+        _appended = Library.append(user_id, playlist.id, tracks)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Copied #{length(tracks)} unmatched tracks here to fix.")
+         |> push_navigate(to: ~p"/playlists/#{playlist.id}")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not make a playlist for those.")}
     end
   end
 
@@ -256,6 +289,28 @@ defmodule OnePlaylistWeb.TransferLive.Show do
             value={@transfer.unmatched_count}
             tone={@transfer.unmatched_count > 0 && "text-warning"}
           />
+        </div>
+
+        <%!-- Offered only once the run is over and only when there is something
+              to fix: mid-run the count is still moving, and a transfer that
+              matched everything has nothing to send anywhere. --%>
+        <div
+          :if={@transfer.status == :completed and @transfer.unmatched_count > 0}
+          class="alert mb-6"
+          role="status"
+        >
+          <.icon name="hero-wrench-screwdriver" class="w-5 h-5 shrink-0" />
+          <div class="min-w-0">
+            <p class="font-medium">
+              {@transfer.unmatched_count} {track_word(@transfer.unmatched_count)} could not be matched.
+            </p>
+            <p class="text-sm opacity-70">
+              Copy them to your library, correct what they say, and transfer them on.
+            </p>
+          </div>
+          <button type="button" phx-click="rescue_unmatched" class="btn btn-sm">
+            Fix in my library
+          </button>
         </div>
 
         <%!-- `@progress` as well as the counters, because `total_tracks` is not
@@ -850,6 +905,15 @@ defmodule OnePlaylistWeb.TransferLive.Show do
 
     assign(socket, :provisional, provisional)
   end
+
+  # Named after the source so the playlist says where it came from.
+  defp rescue_name(transfer) do
+    source = transfer.source_playlist_name || transfer.source_playlist_id
+    "#{source} — unmatched"
+  end
+
+  defp track_word(1), do: "track"
+  defp track_word(_many), do: "tracks"
 
   # `limit: -@live_window` keeps the most recent rows and drops the rest, which
   # is the browser-side half of the same bound. Negative because we append

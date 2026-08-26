@@ -14,6 +14,7 @@ defmodule OnePlaylistWeb.TransferLiveTest do
   import Req.Test, only: [set_req_test_from_context: 1]
 
   alias OnePlaylist.AuthFixtures
+  alias OnePlaylist.Library
   alias OnePlaylist.Repo
   alias OnePlaylist.Transfers
   alias OnePlaylist.Transfers.Progress
@@ -72,6 +73,71 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       Transfers.record_progress(transfer, Map.merge(%{status: :completed}, counts))
 
     transfer
+  end
+
+  describe "the bridge to the library" do
+    test "copies the unmatched tracks into a new playlist and goes there", %{
+      conn: conn,
+      user_id: user_id
+    } do
+      # The moment somebody who never meant to curate anything starts caring:
+      # a run that went two of three, and three tracks is not worth retyping
+      # into another service by hand.
+      transfer = transfer_fixture(user_id, %{source_playlist_name: "Road Trip"})
+
+      item_fixture(transfer, %{position: 0, source_track_id: "s1", outcome: :matched})
+
+      item_fixture(transfer, %{
+        position: 1,
+        source_track_id: "s2",
+        source_title: "Hard to Imagine",
+        source_artist: "Pearl Jam",
+        source_album: "Chicago Cab",
+        source_isrc: "USSM19902306",
+        outcome: :unmatched
+      })
+
+      complete(transfer, %{total_tracks: 2, matched_count: 1, unmatched_count: 1})
+
+      {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      assert html =~ "could not be matched"
+
+      view |> element("button", "Fix in my library") |> render_click()
+
+      assert [{playlist, 1}] = Library.playlists(user_id)
+      assert playlist.name == "Road Trip — unmatched"
+
+      assert [entry] = Library.entries(user_id, playlist.id)
+      assert entry.track.title == "Hard to Imagine"
+      assert entry.track.album == "Chicago Cab"
+
+      assert entry.track.isrc == "USSM19902306",
+             "the code is what lets the library recognise it later, and the report is the only record of it"
+    end
+
+    test "is not offered when everything matched", %{conn: conn, user_id: user_id} do
+      # Nothing to send anywhere, and an alert about it would be furniture.
+      transfer = transfer_fixture(user_id, %{})
+      item_fixture(transfer, %{outcome: :matched})
+      complete(transfer, %{total_tracks: 1, matched_count: 1, unmatched_count: 0})
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ "Fix in my library"
+    end
+
+    test "is not offered while the run is still going", %{conn: conn, user_id: user_id} do
+      # Mid-run the count is still moving, so the offer would be about a number
+      # that is about to change.
+      transfer = transfer_fixture(user_id, %{status: :running})
+      item_fixture(transfer, %{outcome: :unmatched})
+      {:ok, _running} = Transfers.record_progress(transfer, %{unmatched_count: 1})
+
+      {:ok, _view, html} = live(conn, ~p"/transfers/#{transfer.id}")
+
+      refute html =~ "Fix in my library"
+    end
   end
 
   describe "index" do

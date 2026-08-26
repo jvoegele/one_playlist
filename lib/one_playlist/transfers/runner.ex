@@ -346,6 +346,7 @@ defmodule OnePlaylist.Transfers.Runner do
   defp provisional_item(position, track, outcome) do
     base = %{
       position: position,
+      source_isrc: track.isrc,
       source_title: track.title,
       source_artist: primary_artist(track),
       source_album: track.album,

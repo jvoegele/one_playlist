@@ -320,6 +320,41 @@ defmodule OnePlaylist.TransfersTest do
       refute_enqueued(worker: TransferWorker)
     end
 
+    test "a batch reads as one row on the list, in place", %{user: user} do
+      # Forty playlists drawn flat is what makes the transfers screen unusable
+      # the moment somebody moves a library across.
+      {:ok, _batch} = Transfers.create_batch(batch_common(user), batch_members(3))
+      lone = transfer_for(user)
+
+      groups = user |> Transfers.list() |> Transfers.group_batches()
+
+      assert [{:single, ^lone}, {:batch, batch}] = groups
+      assert length(batch.transfers) == 3
+      assert batch.status == :running, "nothing has run yet, so the batch is still going"
+
+      assert Enum.map(batch.transfers, & &1.source_playlist_id) == ~w(src-1 src-2 src-3),
+             "members keep their own order inside the batch"
+    end
+
+    test "a batch with one failure is partial rather than completed or failed", %{user: user} do
+      # "38 of 40" has no honest single badge: completed hides two playlists that
+      # are not there, failed hides thirty-eight that are.
+      {:ok, [first, second, third]} =
+        Transfers.create_batch(batch_common(user), batch_members(3))
+
+      for transfer <- [first, second], do: mark(transfer, :completed)
+      mark(third, :failed)
+
+      assert [{:batch, batch}] = user |> Transfers.list() |> Transfers.group_batches()
+      assert batch.status == :partial
+    end
+
+    defp mark(transfer, status) do
+      transfer
+      |> Ecto.Changeset.change(status: status)
+      |> OnePlaylist.Repo.update!()
+    end
+
     test "an empty selection is not an error, and queues nothing", %{user: user} do
       # `{:ok, []}` rather than a refusal: "transfer nothing" is a coherent thing
       # to have asked for, and the caller has a flash for it.

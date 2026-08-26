@@ -76,6 +76,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
     field :position, :integer
 
     field :source_track_id, :string
+    field :source_isrc, :string
     field :source_title, :string
     field :source_artist, :string
     field :source_album, :string
@@ -130,6 +131,51 @@ defmodule OnePlaylist.Transfers.TransferItem do
   @bond_warn_skipped_invariants false
   @spec display_fields() :: [atom()]
   def display_fields, do: __schema__(:fields) -- @persistence_only
+
+  @doc """
+  The source track as this row recorded it.
+
+  A report row is the only durable account of what the source said: the playlist
+  it came from may have changed, and for a file source it is gone entirely. So
+  the row is what a track has to be rebuilt from, and this is that rebuild.
+
+  `provider` is the transfer's, because a row does not carry one — every row of a
+  report shares it, so storing it per row would be forty thousand copies of one
+  fact.
+
+  Deliberately partial. A row keeps what a person reads — title, credit, album,
+  artwork, and now the ISRC — and not the length, the track number or the
+  explicit flag, because the report never showed them. What comes back is
+  therefore the source *as reported*, which is the honest thing to call it and
+  enough for `OnePlaylist.Library.find_or_create/1` to key on.
+  """
+  # `identifies_the_source` is the law that makes the result usable at all:
+  # `Track`'s own `identifiable` invariant demands a non-blank `provider_id`, and
+  # a row whose `source_track_id` were blank would build a track that compares
+  # equal to every other blank one — `Runner`'s snapshot-and-diff conflating two
+  # rows, one level further on. `source_track_id` is `validate_required`, so this
+  # is a restatement over the value a caller actually receives.
+  #
+  # Proven by mutation: taking `provider_id` from `destination_track_id` fires it
+  # on any unmatched row, where that field is `nil`.
+  @post identifies_the_source:
+          result.provider == provider and is_binary(result.provider_id) and
+            result.provider_id != ""
+  @post keeps_what_the_row_recorded:
+          result.title == item.source_title and result.album == item.source_album and
+            result.isrc == item.source_isrc
+  @spec to_source_track(t(), atom()) :: Track.t()
+  def to_source_track(%__MODULE__{} = item, provider) when is_atom(provider) do
+    %Track{
+      provider: provider,
+      provider_id: item.source_track_id,
+      isrc: item.source_isrc,
+      title: item.source_title,
+      artists: List.wrap(item.source_artist),
+      album: item.source_album,
+      artwork_url: item.source_artwork_url
+    }
+  end
 
   @doc """
   Counts a set of report rows by what happened to them.
@@ -250,10 +296,17 @@ defmodule OnePlaylist.Transfers.TransferItem do
       :user_id,
       :position,
       :source_track_id,
+      :source_isrc,
       :source_title,
       :source_artist,
+      :source_album,
+      :source_artwork_url,
       :outcome,
       :destination_track_id,
+      :destination_title,
+      :destination_artist,
+      :destination_album,
+      :destination_artwork_url,
       :confidence,
       :score,
       :strategy,
@@ -268,6 +321,7 @@ defmodule OnePlaylist.Transfers.TransferItem do
     Map.merge(base, %{
       position: position,
       source_track_id: source.provider_id,
+      source_isrc: source.isrc,
       source_title: source.title,
       source_artist: Track.primary_artist(source),
       source_album: source.album,

@@ -487,6 +487,95 @@ defmodule OnePlaylist.Transfers do
     end
   end
 
+  @typedoc """
+  What one row of the transfers list is: a transfer on its own, or a batch.
+  """
+  @type group ::
+          {:single, Transfer.t()}
+          | {:batch, %{id: Ecto.UUID.t(), transfers: [Transfer.t()], status: atom()}}
+
+  @doc """
+  Groups a user's transfers so a batch reads as one row rather than forty.
+
+  Pure, and takes the list rather than a user id, because the interesting part
+  is the grouping rather than the query — and because a law about it is worth
+  stating where no database is involved.
+
+  A batch appears where its first member appeared, which for `list/1`'s
+  newest-first ordering is where the batch was created.
+
+  Its members read **oldest first**, which is the order they were picked. That is
+  deliberately the opposite of the list around them: newest-first is right for
+  "what did I do lately" and wrong inside a batch, where the forty rows were
+  asked for in one gesture and the useful order is the one the picker showed.
+
+  ## The batch's status is the honest summary, not the best one
+
+    * anything still `:pending` or `:running` → `:running`
+    * anything `:failed` → `:partial`, even when most of it worked
+    * otherwise → `:completed`
+
+  `:partial` exists because "38 of 40" has no honest single badge. Calling it
+  completed hides two playlists that are not there; calling it failed hides
+  thirty-eight that are.
+  """
+  # Conservation, and the failure it guards is a batch that swallows a transfer:
+  # forty playlists queued, thirty-nine rows on screen, and the missing one
+  # reachable only by URL. A grouping bug is invisible precisely because the
+  # thing it loses is the thing you would have looked for.
+  #
+  # Multiset over ids rather than a count, for the reason
+  # `docs/reference/contracts.md` gives about uniqueness: a count alone is
+  # satisfied by a duplicate replacing a drop.
+  #
+  # Proven by mutation: dropping the singles from the rebuild fires it, and so
+  # does emitting a batch member twice.
+  @post every_transfer_in_exactly_one_group:
+          result |> Enum.flat_map(&group_ids/1) |> Enum.sort() ==
+            transfers |> Enum.map(& &1.id) |> Enum.sort()
+  @spec group_batches([Transfer.t()]) :: [group()]
+  def group_batches(transfers) when is_list(transfers) do
+    batches = Enum.group_by(transfers, & &1.batch_id)
+
+    transfers
+    |> Enum.reduce({[], MapSet.new()}, fn transfer, {rows, drawn} ->
+      cond do
+        is_nil(transfer.batch_id) ->
+          {[{:single, transfer} | rows], drawn}
+
+        MapSet.member?(drawn, transfer.batch_id) ->
+          {rows, drawn}
+
+        true ->
+          members =
+            batches |> Map.fetch!(transfer.batch_id) |> Enum.sort_by(& &1.inserted_at, DateTime)
+
+          row =
+            {:batch,
+             %{
+               id: transfer.batch_id,
+               transfers: members,
+               status: batch_status(members)
+             }}
+
+          {[row | rows], MapSet.put(drawn, transfer.batch_id)}
+      end
+    end)
+    |> elem(0)
+    |> Enum.reverse()
+  end
+
+  defp group_ids({:single, transfer}), do: [transfer.id]
+  defp group_ids({:batch, batch}), do: Enum.map(batch.transfers, & &1.id)
+
+  defp batch_status(members) do
+    cond do
+      Enum.any?(members, &(&1.status in [:pending, :running])) -> :running
+      Enum.any?(members, &(&1.status == :failed)) -> :partial
+      true -> :completed
+    end
+  end
+
   @doc """
   Fetches one of a user's own transfers.
 
