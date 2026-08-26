@@ -211,6 +211,13 @@ defmodule OnePlaylist.Accounts.Session do
       iex> Session.needs_refresh?(session, ~U[2029-12-31 23:00:00Z])
       false
   """
+  # The same magnitude trap `Connection.needs_refresh?/3` carries, for the same
+  # reason: a skew is seconds, and passing milliseconds — `300_000` for `300` —
+  # is not a type error and nothing fails. Every session simply looks due on
+  # every request, so the application re-authenticates against GoTrue on each
+  # page load until its rate limiter notices. A day is the ceiling because a
+  # GoTrue access token lives an hour.
+  @pre skew_is_seconds: is_integer(skew) and skew >= 0 and skew <= 86_400
   @spec needs_refresh?(t(), DateTime.t(), non_neg_integer()) :: boolean()
   def needs_refresh?(
         %__MODULE__{} = session,

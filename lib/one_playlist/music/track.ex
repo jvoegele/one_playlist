@@ -281,7 +281,19 @@ defmodule OnePlaylist.Music.Track do
       iex> alias OnePlaylist.Music.Track
       iex> Track.to_map(%Track{provider: :file, provider_id: "1", title: "Corduroy"})["provider"]
       "file"
+
+  **Round-trips through `from_map/1`**, which is what makes it safe to store. An
+  uploaded playlist is parsed in the request and handed to a background worker
+  through a `jsonb` column, so a field added to the struct and forgotten in
+  `from_map/1` silently loses that field for every imported track — between two
+  processes, with nothing to raise and nothing in a log.
   """
+  # Cheap enough to run per track: `from_map/1` is field access and one
+  # `to_existing_atom`. Sound because Meyer's Assertion Evaluation rule runs the
+  # nested call uncontracted, so `Track`'s own invariant does not re-enter.
+  #
+  # Proven by mutation: dropping any field from `from_map/1` fires it.
+  @post round_trips: from_map(result) == track
   @spec to_map(t()) :: map()
   def to_map(%__MODULE__{} = track) do
     track

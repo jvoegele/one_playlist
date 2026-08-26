@@ -176,7 +176,21 @@ defmodule OnePlaylist.Accounts do
   and lives in a signed, encrypted cookie is already trustworthy. This is for
   the paths where a token arrives from somewhere less certain, and for reading
   the claims RLS will be given.
+
+  Verified claims always carry a **`sub`** — the user id `auth.uid()` reads. It
+  is the one field that must be there: `OnePlaylist.Repo.as_user/3` sets it as a
+  Postgres claim, `auth.uid()` casts it to `uuid`, and a missing or blank one
+  casts to NULL rather than raising. Every `auth.uid() = user_id` comparison is
+  then NULL, which is not true, which silently returns zero rows — a signed-in
+  user who appears to own nothing.
   """
+  # Exercised only by the `:supabase`-tagged tests, which need a configured
+  # local stack — so it does not appear in the default coverage table. It runs on
+  # every real call, which is the path that matters.
+  @post whenever(
+          {:ok, claims} <- result,
+          names_a_subject: is_binary(claims["sub"]) and claims["sub"] != ""
+        )
   @spec claims(String.t()) :: {:ok, map()} | {:error, Errata.Error.t()}
   def claims(access_token) when is_binary(access_token) do
     with {:ok, client} <- client() do

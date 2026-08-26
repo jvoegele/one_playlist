@@ -538,6 +538,11 @@ defmodule OnePlaylist.Library.Enrichment do
   change nothing. A rule that gets stricter and should re-examine what it once
   accepted needs `reset/1`, which discards first and is nobody's nightly job.
   """
+  # The sweep runs nightly over a shared, ownerless table and enqueues an Oban
+  # job per row, on a queue of one at a request a second. An unbounded read is
+  # the whole library queued at once — days of work scheduled by a cron job
+  # nobody is watching. Proven by mutation: dropping the `limit/2` fires it.
+  @post no_more_than_asked_for: length(result) <= limit
   @spec due(pos_integer()) :: [Recording.t()]
   def due(limit) do
     import Ecto.Query

@@ -126,4 +126,26 @@ defmodule OnePlaylist.Accounts.SessionTest do
       assert rendered =~ "someone@example.test", "the identifying fields stay useful"
     end
   end
+
+  describe "the refresh skew is seconds" do
+    test "milliseconds are refused rather than silently believed" do
+      # The classic magnitude bug: `300_000` for `300`. Not a type error and
+      # nothing fails — every session simply looks due on every request, so the
+      # application re-authenticates against GoTrue on each page load until its
+      # rate limiter notices. Falsifiable by input, so it gets a test rather
+      # than a mutation.
+      assert_precondition_violation(
+        Session.needs_refresh?(session(), DateTime.utc_now(), 300_000),
+        label: :skew_is_seconds
+      )
+    end
+
+    test "a real skew is accepted" do
+      refute Session.needs_refresh?(
+               session(expires_at: DateTime.add(DateTime.utc_now(), 3600, :second)),
+               DateTime.utc_now(),
+               300
+             )
+    end
+  end
 end

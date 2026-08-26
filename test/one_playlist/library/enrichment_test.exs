@@ -1252,6 +1252,13 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       old = recording(%{title: "old", enriched_at: stale, enrichment_engine: Enrichment.engine()})
       never = recording(%{title: "never"})
 
+      # The sweep enqueues an Oban job per row on a queue of one at a request a
+      # second, so an unbounded read is days of work scheduled by a cron job
+      # nobody is watching. Nothing exercised the bound until `due/1` grew a
+      # postcondition and no mutation could make it fire — every call asked for
+      # more than the fixtures held.
+      assert Enrichment.due(1) |> length() == 1
+
       ids = Enrichment.due(50) |> Enum.map(& &1.id)
 
       assert never.id in ids
