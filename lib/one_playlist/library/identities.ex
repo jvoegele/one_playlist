@@ -85,7 +85,29 @@ defmodule OnePlaylist.Library.Identities do
   see the moduledoc. Creating the recording is deliberate rather than a side
   effect: the shared store is the asset, and a transfer between two services
   that never touches the library still contributes to it.
+
+  **An anchor always carries a canonical ISRC**, which is what makes the
+  duplicate-recording risk structurally impossible rather than merely unlikely:
+  every identity this module records hangs off one, so two anchors for one piece
+  of music cannot disagree about which recording it is. A track with no code
+  anchors to nothing, and a code already caught naming other music
+  (`isrc_disputed`) is refused too.
   """
+  # `no_code_no_anchor` names `track`, not `result`, and has to: a track with no
+  # code can still *find* a recording that has one, through
+  # `find_or_create/1`'s second key — so the law is about what was asked, not
+  # about what came back. The `:library` clause is exempted because it answers
+  # from an id rather than from a code.
+  #
+  # Proven by mutation: dropping the `Isrc.normalize/1` case fires
+  # `no_code_no_anchor`, and removing `undisputed/1` fires
+  # `anchored_on_a_canonical_isrc`.
+  @post no_code_no_anchor:
+          (track.provider != :library and is_nil(Isrc.normalize(track.isrc))) ~> is_nil(result)
+  @post anchored_on_a_canonical_isrc:
+          is_nil(result) or
+            (not is_nil(result.isrc) and result.isrc == Isrc.normalize(result.isrc) and
+               not result.isrc_disputed)
   @spec anchor(Track.t()) :: Recording.t() | nil
   def anchor(%Track{provider: :library, provider_id: id}), do: Repo.get(Recording, id)
 

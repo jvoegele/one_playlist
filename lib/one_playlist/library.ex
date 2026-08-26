@@ -815,7 +815,24 @@ defmodule OnePlaylist.Library do
   looks like. Roughly 40% of a real self-hosted library carries no ISRC, and
   without a way to recognise those, a playlist re-imported grows a second copy
   of every one of them — a slower kind of wrong rather than a safer one.
+
+  The recording handed back always **agrees with the track on whichever key
+  matched it**, and `recognised_by_an_exact_key` below says so. A similarity
+  match reaching this function is not a near miss to be tidied up later: it joins
+  two pieces of music forever, and every playlist naming one then points at the
+  other.
   """
+  # Stated over the canonical ISRC, because that is the key — a track carrying
+  # `ussm11100234` and a row carrying `USSM11100234` are a correct match, and
+  # comparing raw would report it as a violation.
+  #
+  # `~>` gates on the track having a code at all, since the second key admits a
+  # row whose ISRC is `nil` or differs. Proven by mutation: relaxing `existing/1`
+  # to a title-only lookup fires it against `library_test.exs`'s two-sessions
+  # fixture, which is the *Hard to Imagine* case the docstring describes.
+  @post recognised_by_an_exact_key:
+          (not is_nil(Isrc.normalize(track.isrc)) and not is_nil(result.isrc))
+          ~> (result.isrc == Isrc.normalize(track.isrc))
   @spec find_or_create(Track.t()) :: Recording.t()
   def find_or_create(%Track{provider: :library, provider_id: id}) when not is_nil(id),
     do: Repo.get!(Recording, id)
