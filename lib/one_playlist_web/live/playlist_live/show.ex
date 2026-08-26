@@ -5,6 +5,19 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   `docs/reference/domain.md` §5's L2. The first screen in this application where
   a user *changes* something rather than watching a pipeline report what it did.
 
+  ## The playlist in the assign is always the viewer's
+
+  `mount/3` carries `playlist_belongs_to_the_viewer`, and it is where the page's
+  whole authority comes from. The id is a path segment a person can type, and
+  every `handle_event/3` below reads `socket.assigns.playlist.id` and trusts it —
+  so a playlist that was not this user's reaching that assign would let them
+  rename, reorder and delete it while the page looked entirely ordinary.
+
+  The header counts carry a smaller version of the same idea: `assign_entries/2`
+  promises they describe the entries on screen, because a person reads "3 need
+  looking at" and goes looking, and four confusable predicates are one character
+  apart from disagreeing with the list beneath them.
+
   ## Entries, not tracks
 
   Every action here names an **entry** — the row joining a playlist to a
@@ -190,24 +203,10 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching.Normalize
 
-  # The scoping law, stated where the page's whole authority comes from. `id` is
-  # a path segment a person can type, and every subsequent `handle_event/3`
-  # reads `socket.assigns.playlist.id` and trusts it — so if a playlist that is
-  # not this user's ever reached the assign, they could rename it, reorder it and
-  # delete it, and the page would look completely ordinary while they did.
-  #
-  # `Library.fetch_playlist/2` is scoped and `Repo.as_user/3` is scoped beneath
-  # it, which is two guards and still not a reason to leave the promise
-  # unwritten: this function's contract with its reader is that the assign is
-  # theirs, and it is the last place that can be said before eleven event
-  # handlers rely on it.
-  #
   # Proven by mutation: replacing `fetch_playlist/2`'s scoped read with a bare
   # `Repo.get_by(Playlist, id: id)` fires it against the "somebody else's
-  # playlist" test. That mutation has to remove `Repo.as_user/3` as well as the
-  # `user_id` filter, because either one alone still returns nothing — which is
-  # the same thing `ConnectionLive.Index`'s scoping law found, and is what two
-  # independent guards are supposed to look like from above.
+  # playlist" test. That mutation has to remove `Repo.as_user/3` *as well as* the
+  # `user_id` filter, because either alone still returns nothing.
   @post whenever(
           {:ok, mounted} <- result,
           playlist_belongs_to_the_viewer:

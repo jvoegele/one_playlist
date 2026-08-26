@@ -17,6 +17,20 @@ defmodule OnePlaylistWeb.PlaylistLive.Index do
 
   That is the same shape `OnePlaylistWeb.TransferLive.New` uses for one source,
   applied per group.
+
+  ## Every group can draw itself
+
+  `@services` and the per-service `assign_async/3` keys are built in different
+  places, and the template reads `assigns[service.key]` for each. Nothing but
+  `mount/3`'s postcondition holds them in step — and a service listed without its
+  key loaded renders an `.async_result` over `nil`: a whole service's playlists
+  gone from the page, with no error anywhere to say so. That is the failure this
+  screen is shaped to avoid, arriving by the back door.
+
+  The library is kept out of that list, because it has its own section above and
+  `Connection.usable?/1` says it carries no credential — a library group would
+  ask an adapter for playlists with nothing to authenticate and render a failed
+  box under a heading the page has already drawn.
   """
 
   use OnePlaylistWeb, :live_view
@@ -33,24 +47,9 @@ defmodule OnePlaylistWeb.PlaylistLive.Index do
   # needs no argument about whether that stays true.
   @async_keys Map.new(Connection.providers(), &{&1, :"playlists_#{&1}"})
 
-  # The template renders one `.async_result` per entry in `@services`, reading
-  # `assigns[service.key]`. Those two assigns are built in different places and
-  # nothing but this holds them in step, so a service listed without its key
-  # loaded renders an `.async_result` over `nil` — a whole service's playlists
-  # gone from the page, with no error anywhere to say so. That is the failure
-  # this screen is shaped to avoid, arriving by the back door.
-  #
-  # The second is what keeps the library out of the service list. It has its own
-  # section above, and `Connection.usable?/1` says a library connection carries
-  # no credential — so a library group would ask an adapter for playlists with
-  # nothing to authenticate, and render a failed box under a heading the page
-  # already showed.
-  #
-  # Neither is falsifiable by input — `mount/3` builds both assigns itself — so
-  # both are proven by mutation, and both fire against the existing LiveView
-  # tests: drop the `Enum.reject/2` below for `library_is_not_a_service`, and
-  # return `{:ok, socket}` instead of the `Enum.reduce/3` for
-  # `every_group_can_render`.
+  # Both proven by mutation against the existing LiveView tests: drop the
+  # `Enum.reject/2` below for `library_is_not_a_service`, and return
+  # `{:ok, socket}` instead of the `Enum.reduce/3` for `every_group_can_render`.
   @post whenever(
           {:ok, mounted} <- result,
           every_group_can_render:

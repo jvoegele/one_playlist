@@ -652,32 +652,21 @@ defmodule OnePlaylist.Providers do
   @spec supported_providers() :: [Connection.provider()]
   def supported_providers, do: Map.keys(@adapters)
 
-  @doc "Removes a connection, revoking this application's access locally."
-  # Only the pure half of what this function guarantees is asserted here, and
-  # the omission is deliberate.
-  #
-  # The interesting law is about *blast radius*: a rewrite to `Repo.delete_all`
-  # with a filter that drops the `user_id` clause would wipe other people's
-  # connections while still satisfying "the requested one is gone". Expressing
-  # that needs a before-and-after count of shared state —
-  # `connection_count() == old(connection_count()) - 1` — and that assertion is
-  # unsound. Any concurrent `connect/3` or `disconnect/2` by a *different user*
-  # can interleave between the `old/1` snapshot and the check, and the
-  # postcondition then fails on code that did exactly what it was asked to.
-  #
-  # Bond's own `contracts-and-concurrency` guide names this the worst failure
-  # mode a contract can have: it accuses correct code, and teaches you to
-  # distrust the contract rather than the program. Its advice is to assert only
-  # what the implementation can actually guarantee under interleaving — and for
-  # a global table count under concurrent writes, that is nothing at all.
-  #
-  # So the blast-radius law lives in a test instead
-  # (`providers_test.exs`, "disconnecting removes one row and leaves other users
-  # alone"), where the sandbox makes the state genuinely exclusive and the strong
-  # assertion is sound. Verified to catch the `delete_all` rewrite on its own.
-  #
-  # What survives here is race-free because it touches no shared state: it is a
-  # claim about the struct this call returned.
+  @doc """
+  Removes a connection, revoking this application's access locally.
+
+  The postcondition below is a claim about the struct returned and nothing more,
+  which is less than this function actually guarantees. The interesting law is
+  *blast radius* — a rewrite to `Repo.delete_all` dropping the `user_id` clause
+  would wipe other people's connections while still satisfying "the requested one
+  is gone" — and that law cannot be a contract: it needs a before-and-after count
+  of shared state, and a concurrent `connect/3` by a different user interleaving
+  between snapshot and check would fail it on code that did exactly as asked.
+
+  It lives in `providers_test.exs` instead, where the sandbox makes the state
+  exclusive and the strong assertion is sound. Verified to catch the `delete_all`
+  rewrite on its own.
+  """
   @post whenever(
           {:ok, removed} <- result,
           removed_what_was_asked_for: removed.user_id == user_id and removed.provider == provider

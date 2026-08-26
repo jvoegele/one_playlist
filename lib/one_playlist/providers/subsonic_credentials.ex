@@ -83,27 +83,25 @@ defmodule OnePlaylist.Providers.SubsonicCredentials do
   only ever been submitted — this form deliberately has no `phx-change`, because
   validating on every keystroke would mean sending the password on every
   keystroke.
+
+  This module is a **filter** in Meyer's sense (*OOSC* §11.6): it faces the
+  outside world, so it has no preconditions — a typo is the expected input rather
+  than a caller's bug, and comes back as a changeset. What a filter owes the
+  modules behind it is the other half of that bargain, and the two postconditions
+  below are that debt.
+
+  **The base URL has no trailing slash.** `OnePlaylist.Providers.Subsonic.Client`
+  builds each request by concatenating `/rest/<endpoint>`, and `//rest/...` is
+  answered by some Subsonic servers and not others — a failure that depends on
+  which server the user happens to run.
+
+  **Neither credential is blank.** The password becomes
+  `Connection.access_token`, and `Connection.usable?/1` answers `true` for `""`
+  because an empty string is a binary — so a blank one produces a connection that
+  looks healthy and 401s on every call.
   """
-  # This module is a **filter** in Meyer's sense (*OOSC* §11.6): it faces the
-  # outside world, so it has no preconditions — a typo is the expected input, not
-  # a caller's bug, and it comes back as a changeset rather than a violation.
-  #
-  # What a filter owes the processing modules behind it is the other half of that
-  # arrangement: *its postconditions must match or exceed their preconditions*.
-  # These two are that debt, stated.
-  #
-  # `usable_base_url` is what `OnePlaylist.Providers.Subsonic.Client` assumes
-  # when it builds the request URL by concatenating `/rest/<endpoint>`. A
-  # trailing slash yields `//rest/...`, which some Subsonic servers answer and
-  # others do not — a failure that depends on which server the user happens to
-  # run. `Client` trims defensively too, and that is belt-and-braces rather than
+  # `Client` trims the URL defensively too; that is belt-and-braces rather than
   # the guarantee.
-  #
-  # `credentials_are_present` mirrors `Tokens`' `access_token_present`, and for
-  # the same reason: the password becomes `Connection.access_token`, and
-  # `Connection.usable?/1` answers `true` for `""` because an empty string is a
-  # binary. A blank one therefore produces a connection that looks healthy and
-  # 401s on every call — the exact shape this project is organised against.
   @post whenever(
           {:ok, credentials} <- result,
           usable_base_url: usable_base_url?(credentials.server_url),
