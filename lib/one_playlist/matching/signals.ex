@@ -27,6 +27,17 @@ defmodule OnePlaylist.Matching.Signals do
   guest in the title and one that credits them in the artist list produce the
   same two sets — which is the single most common reason a true match fails on
   text.
+
+  ## Every similarity is a proportion, or `nil`
+
+  A value outside `0.0..1.0` is the textbook silently-poisonous one: not a type
+  error, nothing raises, and it goes straight into the weighted mean both scoring
+  rungs use. A single `1.5` drags a non-match over the confidence threshold and a
+  transfer adds the wrong recording, reported as a match with a plausible score.
+
+  `nil` is explicitly allowed and means "these could not be compared", which is
+  different from "they are not similar" and is what stops an absent album scoring
+  as a mismatch.
   """
 
   use Bond
@@ -65,30 +76,12 @@ defmodule OnePlaylist.Matching.Signals do
           editorial_conflict: boolean()
         }
 
-  # A similarity outside 0..1 is the textbook silently-poisonous value: it is not
-  # a type error, nothing raises, and it goes straight into the weighted mean
-  # that both scoring rungs use. A single 1.5 drags a non-match over the
-  # confidence threshold and a transfer adds the wrong recording — reported as a
-  # match, with a plausible-looking score.
-  #
-  # What this adds over `Similarity`'s own `in_unit_interval` postconditions is
-  # worth being exact about, because for a value `compare/2` builds it really is
-  # implied by them: every field here comes from a contracted `Similarity`
-  # function, so the *exit* check restates what those already promise.
-  #
-  # The **entry** check is the part that earns its place. It guards values this
-  # module did not build:
-  #
-  #   * a `%{signals | duration: ...}` update — the natural way a new rung will
-  #     adjust a signal, and a path through no contracted function at all;
-  #   * a hand-built `%Signals{}` in a fixture, which is how a test comes to
-  #     assert against a score the engine could never produce;
-  #   * a future signal computed inline rather than by `Similarity`, which the
-  #     existing postconditions cannot see by construction.
-  #
-  # `nil` is explicitly allowed: it means "these could not be compared", which is
-  # different from "they are not similar" and is what stops an absent album
-  # scoring as a mismatch.
+  # The **entry** check is what earns this its place. On exit it restates what
+  # `Similarity`'s own `in_unit_interval` postconditions already promise, since
+  # every field `compare/2` builds comes from a contracted function. On entry it
+  # guards values this module did not build: a `%{signals | duration: ...}`
+  # update, a hand-built `%Signals{}` in a fixture, or a future signal computed
+  # inline rather than by `Similarity`.
   @invariant similarities_are_proportions:
                forall(
                  score <- [subject.title, subject.artists, subject.album, subject.duration],

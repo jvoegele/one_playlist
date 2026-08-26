@@ -74,25 +74,24 @@ defmodule OnePlaylist.Transfers.Runner do
   Runs the transfer, returning it with its counters filled in.
 
   Safe to call again on the same transfer: see the module documentation.
+
+  **A completed run accounts for every source track exactly once** —
+  `every_track_accounted_for` below, and the product's central promise. `<=`
+  would let a dropped track pass, which is the failure this application is
+  organised against and which is invisible in every other signal: the transfer
+  completes, the report looks plausible, and the playlist is short.
+
+  That is strictly stronger than the `@invariant` on
+  `OnePlaylist.Transfers.Transfer`, which must use `<=` because a transfer
+  legitimately passes through partial states while running. Here the run is over,
+  so equality is the honest claim — and that difference is the whole reason the
+  assertion exists separately from the invariant.
   """
-  # The product's central promise, stated where it can be checked. A run that
-  # finished must account for every source track exactly once — `<=` would let a
-  # dropped track pass, which is the failure this application is organised
-  # against, and it is invisible in every other signal: the transfer completes,
-  # the report looks plausible, and the playlist is short.
-  #
-  # Strictly stronger than the `@invariant` on `Transfer`, which must use `<=`
-  # because a transfer legitimately passes through partial states while running.
-  # Here the run is over, so equality is the honest claim, and that difference is
-  # the whole reason this assertion exists separately.
-  #
-  # `added_at_most_matched` deliberately does *not* sit here beside it. Unlike
-  # the equality above, it is identical to `Transfer`'s invariant, and every
-  # counter this function returns passes through `Transfer.reset_counters/1`,
-  # `with_total/2`, `record_matched/2` or `record_unmatched/1` — each of which
-  # checks it on the way out. Meyer's Non-Redundancy principle, and the
-  # invariant is also the better locus: it names the counter update that broke
-  # the law rather than the run that contained it.
+  # `added_at_most_matched` deliberately does not sit beside it: that one *is*
+  # identical to `Transfer`'s invariant, and every counter returned here passes
+  # through a counter update that checks it on the way out. The invariant is also
+  # the better locus — it names the update that broke the law rather than the run
+  # that contained it.
   @post whenever({:ok, completed} <- result),
     every_track_accounted_for:
       completed.matched_count + completed.unmatched_count == completed.total_tracks,
@@ -320,14 +319,11 @@ defmodule OnePlaylist.Transfers.Runner do
   # `:already_present` is not known yet: it depends on what the destination
   # already holds, which is compared after every track has been resolved. The
   # final report corrects it.
-  # A provisional row is drawn by the same template as a persisted one, so it
-  # has to carry the same fields. Asserted rather than commented, because the
-  # failure mode is a `KeyError` in the middle of a running transfer and the
-  # thing that causes it is a migration in a different file — adding a column to
-  # the report is all it takes.
-  #
-  # `TransferItem.display_fields/0` is derived from the schema, so a column
-  # added later is required here without anyone remembering to come back.
+  # Drawn by the same template as a persisted row, so it must carry the same
+  # fields. Asserted rather than commented because the failure is a `KeyError`
+  # mid-transfer caused by a migration in another file, and
+  # `TransferItem.display_fields/0` is derived from the schema — a column added
+  # later is required here without anyone remembering to come back.
   @post shaped_like_a_report_row:
           Enum.all?(TransferItem.display_fields(), &Map.has_key?(result, &1))
   defp provisional_item(position, track, outcome) do
@@ -679,34 +675,20 @@ defmodule OnePlaylist.Transfers.Runner do
   # "Hard to Imagine" — one from *Lost Dogs*, one from the *Chicago Cab*
   # soundtrack — and, before this, one of them silently.
   #
-  # That paragraph, as a law: for every destination id, write the number the
-  # source asks for **less** the number already there, and never below zero.
-  # Both halves of "idempotent and faithful" are that one sentence, so it is one
-  # assertion rather than two.
+  # The paragraph above as one law, cross-checked against `missing_count/2` — a
+  # second implementation existing only so the comparison can be written. The
+  # body streams a reduce and decrements a counter; the assertion builds two
+  # frequency maps and sums the differences. Sharing an implementation would make
+  # the cross-check vacuous.
   #
-  # It is stated against `missing_count/2`, which is a second implementation of
-  # the same rule and exists only so the comparison can be written — the same
-  # device as `Transfers.record_run/3`'s `report_agrees_with_counters`, and shape
-  # 0 in `docs/reference/contracts.md`. The body streams a reduce and decrements
-  # a counter as it goes; the assertion builds two frequency maps and sums the
-  # differences. Sharing an implementation between the two would make the
-  # cross-check vacuous, which is the whole reason it is written the other way
-  # round.
+  # Two weaker forms were tried and both looked obviously right:
+  # `size <= matched_count` is satisfied exactly by writing *everything*, and
+  # `size >= matched_count - length(present)` is nearly vacuous because `present`
+  # counts tracks this transfer never mentioned.
   #
-  # Two weaker forms were tried first and both were wrong, which is worth
-  # recording because both looked obviously right. `size <= matched_count` is
-  # satisfied exactly by writing *everything*, so it does not catch the
-  # duplication it was aimed at. And `size >= matched_count - length(present)`
-  # is nearly vacuous, because `present` counts every track at the destination
-  # including the ones this transfer never mentioned.
-  #
-  # A postcondition on a `defp` is fine: Meyer's Precondition Availability rule
-  # constrains what a *client* must discharge, and a postcondition is the
-  # supplier's own promise.
-  #
-  # Proven by mutation in both directions, as a conservation law must be:
-  # restoring the old skip-if-present-at-all fires it low, and dropping the
-  # `held` bookkeeping so everything is written fires it high.
+  # Proven by mutation both ways, as a conservation law must be: the old
+  # skip-if-present-at-all fires it low, dropping the `held` bookkeeping fires it
+  # high.
   @post whenever(
           {:ok, positions} <- result,
           wrote_exactly_what_was_missing:

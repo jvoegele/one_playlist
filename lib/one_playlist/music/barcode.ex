@@ -59,49 +59,38 @@ defmodule OnePlaylist.Music.Barcode do
       iex> alias OnePlaylist.Music.Barcode
       iex> {Barcode.normalize(""), Barcode.normalize("no digits"), Barcode.normalize("0000")}
       {nil, nil, nil}
+
+  ## What a normalized barcode is
+
+  Digits only, no leading zeros, or `nil` — `normalized_form` below, and what
+  every caller relies on. `OnePlaylist.Catalogue.album_id/3` states its own
+  precondition against this function, so the definition has to live here.
+
+  Two plausible rewrites break it silently. Dropping the non-digit strip leaves
+  `"6-025 476.70052"` intact, so it never equals another service's digits and
+  rung 2 stops firing across providers. Returning `""` rather than `nil` for an
+  unusable value gives the catalogue cache an empty-string key shared by every
+  barcode-less release.
+
+  Normalizing is also **idempotent**, which is a separate claim rather than a
+  consequence — see `idempotent` below.
   """
-  # What a normalized barcode *is*, which is what every caller relies on and
-  # what `Catalogue.album_id/3`'s precondition is stated against.
-  #
-  # Two plausible rewrites break it, both silently. Dropping the `\\D` strip
-  # leaves `"6-025 476.70052"` intact, so it never equals another service's
-  # digits and rung 2 stops firing across providers. Returning `""` rather than
-  # `nil` for an unusable value gives the catalogue cache an empty-string key
-  # shared by every barcode-less release.
-  #
-  # It does **not** catch the trailing-zero bug — `String.trim/2` in place of
-  # `String.trim_leading/2` truncates `"602547670050"` to `"60254767005"`, which
-  # is still a leading-zero-free digit string. That one is a wrong value that is
-  # structurally fine, and it belongs to the example tests; see the division of
-  # labour in `docs/reference/contracts.md`.
-  #
+  # `normalized_form` does not catch the trailing-zero bug: `String.trim/2` for
+  # `String.trim_leading/2` truncates `"602547670050"` to `"60254767005"`, still
+  # a leading-zero-free digit string. A wrong value that is structurally fine
+  # belongs to the example tests.
   @post normalized_form: is_nil(result) or Regex.match?(~r/^[1-9][0-9]*$/, result)
-  # `normalize/1` is a **projection**, and that is a different claim from the
-  # shape above rather than a consequence of it — checked rather than assumed,
-  # because assuming it is the easy mistake.
+  # Separate from `normalized_form` rather than implied by it: slicing off the
+  # trailing check digit turns `"00602547670052"` into `"60254767005"`, which
+  # satisfies the shape perfectly and normalizes again to `"6025476700"`. Only
+  # idempotence notices.
   #
-  # A plausible edit separates them: deciding the trailing check digit is not
-  # part of a release's identity and slicing it off. On a real barcode —
-  # `"00602547670052"` — that yields `"60254767005"`, which satisfies
-  # `normalized_form` perfectly, and normalizing again yields `"6025476700"`.
-  # Only idempotence notices.
+  # It belongs *here* by Meyer's Assertion Violation rule. `Catalogue.album_id/3`
+  # requires `barcode == normalize(barcode)`, so a non-idempotent `normalize/1`
+  # makes that precondition unsatisfiable — and it would fire as a *precondition*
+  # violation, accusing a client that normalized exactly once as instructed.
   #
-  # (`normalized_form` does catch the same edit on inputs short enough that
-  # slicing empties the string, so across the whole suite both fire. The
-  # separation is real for the twelve- and thirteen-digit values this function
-  # exists to handle, which is the case that matters.)
-  #
-  # The reason it belongs *here* rather than being left to the caller is
-  # Meyer's Assertion Violation rule. `Catalogue.album_id/3` requires
-  # `barcode == Barcode.normalize(barcode)`, so a non-idempotent `normalize/1`
-  # makes that precondition unsatisfiable — and it fires as a **precondition**
-  # violation, which by definition accuses the client. The client would be
-  # innocent: it normalized exactly once, as instructed. Stating the law where
-  # it is owed puts the blame on the supplier that broke it.
-  #
-  # Last in the list because it re-enters the function. Bond suppresses contract
-  # checking during assertion evaluation, so this terminates and the three
-  # cheaper checks above get to fail first.
+  # Last because it re-enters the function, so the cheaper checks fail first.
   @post idempotent: normalize(result) == result
   @spec normalize(String.t() | nil) :: String.t() | nil
   def normalize(nil), do: nil

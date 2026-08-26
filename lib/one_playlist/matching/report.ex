@@ -11,6 +11,20 @@ defmodule OnePlaylist.Matching.Report do
   `unmatched` holds `OnePlaylist.Matching.TrackNotMatched` errors rather than
   bare tracks, so each carries its own reason: not found at all, found but not
   confident enough, or too little information to search with.
+
+  ## The threshold is always a proportion
+
+  `threshold_is_a_proportion` holds for every report however it was built, which
+  is a different surface from `OnePlaylist.Matching.threshold/1`'s postcondition:
+  `match/3` resolves a threshold and never builds a report, while a report
+  assembled by hand never goes near `threshold/1`. Neither is reachable from the
+  other.
+
+  The consequence of a bad one is total and silent. At `75.0` no score can clear
+  it, so every track is reported unmatched, the transfer completes, and the
+  destination playlist is empty — and `match_rate/1` then divides by a total made
+  entirely of failures and answers `0.0`, which reads as a catalogue containing
+  none of the user's music rather than as a misconfiguration.
   """
 
   use Bond
@@ -27,27 +41,7 @@ defmodule OnePlaylist.Matching.Report do
   @enforce_keys [:threshold]
   defstruct matched: [], unmatched: [], threshold: 0.0
 
-  # `OnePlaylist.Matching.threshold/1` already asserts this about the value it
-  # *returns*, and this is not that assertion repeated — it is the same law
-  # lifted to where it belongs, on the type, so it holds for every report
-  # however the report was built.
-  #
-  # The two cover different surfaces, which is what stops this being the "two
-  # guards" mistake in `docs/reference/contracts.md`. `match/3` resolves a
-  # threshold and never builds a report, so only the postcondition guards that
-  # path; a report assembled by hand — a fixture, a future caller, a second
-  # construction site — never goes near `threshold/1`, so only the invariant
-  # guards that one. Neither is reachable from the other, and each has its own
-  # test.
-  #
-  # The consequence of a bad threshold is total and silent: at `75.0` no score
-  # can clear it, so every track is reported unmatched, the transfer completes,
-  # and the destination playlist is empty. `match_rate/1` then divides by a
-  # total made entirely of failures and answers `0.0`, which reads as a
-  # catalogue that contains none of the user's music rather than as a
-  # misconfiguration.
-  #
-  # The `defstruct` default of `0.0` satisfies it, per Meyer's base case: a bare
+  # The `defstruct` default of `0.0` satisfies it, per Meyer's base case. A bare
   # `%Report{}` is not constructible anyway — `:threshold` is enforced — but the
   # default is part of the contract regardless of whether it can be reached.
   @invariant threshold_is_a_proportion:
@@ -65,14 +59,12 @@ defmodule OnePlaylist.Matching.Report do
   An empty report rates `1.0`: nothing was asked for and nothing was lost.
   Returning `0.0` would report a perfect transfer of no tracks as a total
   failure.
+
+  Always a proportion — what the function *means*, and what a caller comparing
+  two reports relies on.
   """
-  # The same law `OnePlaylist.Transfers.Transfer.match_rate/1` carries, and it is
-  # here for the same reason: "the match rate is a proportion" is what the
-  # function *means*, and a caller comparing two reports relies on it.
-  #
-  # Not omitted as implied by the arithmetic. That is true of the body as
-  # written and is not a reason: `length(matched)` and `total/1` are two counts
-  # a plausible rewrite could take from different places, and the
+  # Not omitted as implied by the arithmetic: `length(matched)` and `total/1` are
+  # two counts a plausible rewrite could take from different places, and the
   # inverted-division typo is the obvious one.
   @post is_a_proportion: result >= 0.0 and result <= 1.0
   @spec match_rate(t()) :: float()

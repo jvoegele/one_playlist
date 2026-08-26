@@ -39,6 +39,23 @@ defmodule OnePlaylist.Music.Track do
 
   `artwork_url`, `isrc_family` and `work_titles` are not ladder inputs in the
   same sense; each is documented on the `defstruct` below, beside its default.
+
+  ## What a track always is
+
+  `identifiable` is the law the whole application leans on without saying so.
+  `to_string(nil)` is `""`, so a provider omitting an id yields a track that
+  compares equal to every other id-less track — `Transfers.Runner`'s
+  snapshot-and-diff then treats them as one and either duplicates a track or
+  silently skips one.
+
+  `duration_is_never_negative` is a poisonous value caught at the type rather
+  than at the parser: a negative duration is not a shorter track, it scores as a
+  *near miss* against real durations in `OnePlaylist.Matching.Similarity`.
+
+  `artists_is_a_list` is a type check, and earns its place because `nil` there
+  makes `[title | artists]` an improper list — so `search_query/1` raises a
+  `Protocol.UndefinedError` from inside `Enum.filter/2` rather than saying what
+  was wrong.
   """
 
   use Bond
@@ -139,29 +156,9 @@ defmodule OnePlaylist.Music.Track do
           artists: [String.t()]
         }
 
-  # What a track *is*, stated once, on the type rather than at each of the
-  # several places that build one.
-  #
   # These fire on entry to and exit from the functions below, which is why they
   # can exist at all: a module with no function taking or returning its own
-  # struct has nowhere for an invariant to be checked. See
-  # `docs/reference/contracts.md`.
-  #
-  # `identifiable` is the law the whole application leans on without saying so.
-  # `to_string(nil)` is `""`, so a provider omitting an id yields a track that
-  # compares equal to every other id-less track: `Runner`'s snapshot-and-diff
-  # then treats them as one, and either duplicates a track or silently skips
-  # one. The same shape as `ids_are_usable_keys` on the adapter boundary, caught
-  # one level earlier.
-  #
-  # `artists_is_a_list` is a type check, and earns its place under the exception
-  # this project already recognises: `nil` there makes `[title | artists]` an
-  # improper list, so `search_query/1` raises a `Protocol.UndefinedError` from
-  # inside `Enum.filter/2` rather than saying what was wrong.
-  #
-  # `duration_is_never_negative` is the poisonous value from shape 4, lifted
-  # from the parser to the type. A negative duration is not a shorter track — it
-  # scores as a *near miss* against real durations in `Matching.Similarity`.
+  # struct has nowhere for an invariant to be checked.
   @invariant identifiable:
                is_atom(subject.provider) and is_binary(subject.provider_id) and
                  subject.provider_id != "",
@@ -194,17 +191,15 @@ defmodule OnePlaylist.Music.Track do
       iex> alias OnePlaylist.Music.Track
       iex> Track.search_query(%Track{provider: :tidal, provider_id: "1", title: "Omaha"})
       "Omaha"
+
+  **An absent field leaves no trace**, which is what makes the result usable as a
+  query. A track carrying `artists: [nil, "Moby Grape"]` — which the invariant
+  permits, since it constrains the list and not its members — would otherwise
+  search for `"Omaha  Moby Grape"`, and a provider's tokenizer reads that doubled
+  space as an extra empty term.
   """
-  # The law that makes this usable as a query: an absent field leaves no trace.
-  # Dropping the `is_binary/1` filter renders `nil` as the empty string, so a
-  # track carrying `artists: [nil, "Moby Grape"]` — which the invariant permits,
-  # since it constrains the list and not its members — searches for
-  # `"Omaha  Moby Grape"`. The doubled space is what a provider's tokenizer sees
-  # as an extra empty term, and it is invisible in every log and test output
-  # that does not quote the string.
-  #
-  # Trimming alone would not catch it: a `nil` at either end is absorbed by the
-  # trim, and only one in the middle survives. Both halves are needed.
+  # Both halves are needed: trimming alone misses it, because a `nil` at either
+  # end is absorbed by the trim and only one in the middle survives.
   @post no_absent_fields_rendered:
           result == String.trim(result) and not String.contains?(result, "  ")
   @spec search_query(t()) :: String.t()
