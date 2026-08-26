@@ -88,7 +88,7 @@ The last row is the common case for specifications and is developed under
 **"No current caller violates it" is not a fourth row**, and the temptation to add it is why this
 is stated here rather than only where it bit. All three rows ask whether the assertion *could* be
 false for an input the specification admits. None asks whether today's call sites produce one —
-see [Anything the specification does not actually require](#anything-the-specification-does-not-actually-require).
+see ["no caller can violate it" is not a reason](#correction-no-caller-can-violate-it-is-not-a-reason).
 
 Three habits enforce this, in increasing order of confidence:
 
@@ -145,64 +145,44 @@ anything** before believing it.
 
 ## What not to assert
 
-Every entry below is here for exactly one of three reasons: the assertion is **unsound** (it can
-accuse correct code), **unreachable** (it cannot run), or **not warranted by the specification**.
-Nothing is on this list because contracting is costly, because a layer feels unimportant, or
-because nothing currently violates it. If you find yourself declining a contract for a reason
-that is not one of the three, the reason is not good enough — that is how the
-[layer table](#where-contracts-go-by-layer) came to exempt two whole layers on arguments that do
-not survive being written down.
+**The list itself is Bond's**, in the `bond` usage rules: a type where the type is all you would
+be saying; what a guard already enforces; assertions about data from outside your system; a
+precondition your caller cannot evaluate; shared mutable state; uniqueness where duplicates are
+legal; anything on dead code; anything the specification does not require. So is the frame — every
+entry is there because the assertion is **unsound**, **unreachable**, or **not warranted by the
+specification**, and nothing else counts.
 
-### A type, where the type is all you would be saying
+What follows is not that list again. It is the cases from this codebase that make the entries
+believable, plus the two places the entries had to be *corrected* here — recorded where they
+happened, because both corrections were of rules this file had stated too widely.
 
-`@spec` documents more prominently, Dialyzer checks it, and it costs nothing at runtime. So the
-default is `@spec`.
+> #### Read Bond's list, not a summary of it {: .warning}
+>
+> A summary drifts. This section held a paraphrase of the guard/precondition split as a table,
+> and Bond's version has since gained a qualifier the table does not have — **apply the purge
+> test first, because a load-bearing guard cannot be replaced by a `@pre`.** Anyone following
+> the table alone would have deleted a check that stops existing under `preconditions: :purge`.
 
-But this is a **division of labour, not a ban**, and reading it as a ban is the mistake worth
-naming: `@spec` is *static* and never runs. Where the value arrives at runtime from outside the
-compiler's view, a `@pre` is the only one of the two that actually fires — and it names the
-caller. In this codebase that describes a great deal: parsed CSV rows, provider payloads, a
-message arriving at a LiveView, a row read back from a database written before an invariant
-existed.
+### Evidence: a type check that earns its place
 
-Two things that were never in question:
+The rule is a division of labour rather than a ban — `@spec` is static and never runs, so where a
+value arrives at runtime from outside the compiler's view a `@pre` is the only one of the two
+that fires.
 
-  * A type check that **carries a further constraint** — `is_integer(n) and n > 0` — is not a
-    type check. Write it.
-  * A type check whose violation produces a *confusing crash somewhere else*. This is why
-    `valid_now` survives: `DateTime.compare/2` raises a `FunctionClauseError` on a
-    `NaiveDateTime`, and the precondition converts that into a named violation identifying the
-    caller.
+In this codebase that describes a great deal: parsed CSV rows, provider payloads, a message
+arriving at a LiveView, a row read back from a database written before the invariant that would
+have refused it. `valid_now` is the case worth keeping: `DateTime.compare/2` raises a
+`FunctionClauseError` on a `NaiveDateTime`, and the precondition turns a confusing crash three
+frames away into a named violation identifying the caller.
 
-### A `@pre` a guard already enforces — but check which of three cases it is
+### Correction: "restates the body" was the wrong rule
 
-Bond reproduces `when` guards on the wrapper clauses, so a failing argument raises
-`FunctionClauseError` *before* any precondition runs. The assertion is unreachable.
+This entry once read *"do not write restatements of the body"*, with
+`@post computed: result == a + b` beside `def add(a, b), do: a + b` as its example. The example is
+still a poor contract; the rule drawn from it was wrong, and Meyer says so directly (§11.7) — see
+[Where this file used to depart from Meyer](#where-this-file-used-to-depart-from-meyer-and-no-longer-does).
 
-*Which* side to drop is Meyer's Non-Redundancy principle, and only one of three cases is
-redundant at all:
-
-| The guard | What it is | What to do |
-| --- | --- | --- |
-| Selects a clause | Dispatch | Keep it, write no `@pre` |
-| Stands in for a type — `when is_binary(email)` | Elixir's declared parameter type | Keep it, state the fact in `@spec` |
-| States a domain rule — `when amount <= account.balance` | A caller obligation in disguise | **Pick one** |
-
-In the third case, if a violation is the caller's bug, that is the `@pre`: write it and delete
-the guard. Only the contract names the caller, renders into the docs, and appears in the coverage
-table — and a `FunctionClauseError` at a domain rule tells the caller nothing about which rule.
-
-A `@pre` **stronger** than its guard is not redundant at all. It can fail, so it stands as it is.
-
-### The *mechanism*, as opposed to the meaning
-
-This entry used to read "restatements of the body", with `@post computed: result == a + b`
-beside `def add(a, b), do: a + b` as the example. The example is still a poor contract; the
-rule drawn from it was wrong, and it is now stated the other way round —
-see [Where this file used to depart from Meyer](#where-this-file-used-to-depart-from-meyer-and-no-longer-does).
-
-The distinction that survives is **mechanism versus meaning**, and mirroring the body is not
-the test for it:
+What survives is **mechanism versus meaning**, and mirroring the body is not the test for it:
 
 ```elixir
 # ❌ mechanism: `Enum.map/2` is how the answer is computed, not what it means
@@ -212,23 +192,29 @@ the test for it:
 @post no_tracks_invented: length(result) <= length(tracks)
 ```
 
-`result == a + b` is degenerate rather than mechanistic — for `add/2` the `+` genuinely *is*
-the meaning, and the `@spec` plus the name already carry it. Nothing is gained, so leave it
-out. But "it looks like the body" is not the reason.
+`result == a + b` is *degenerate* rather than mechanistic — for `add/2` the `+` genuinely is the
+meaning, and the `@spec` plus the name already carry it. Nothing is gained, so leave it out. But
+"it looks like the body" is not the reason, and treating it as one cost this project five
+contracts before it was caught.
 
-### Anything about a lazy stream
+### Additive: contract the eager thing next to the stream
 
-`Adapter.stream_playlists/2` and `stream_tracks/3` carry **no** postcondition. Asserting
-anything about a stream's contents consumes it — turning a lazy read into hundreds of HTTP
-requests, inside an assertion, on every call. "It is an Enumerable" restates the `@spec`.
+Bond's rule is that quantifying over an effectful enumerable is a side effect — enumerating one
+inside an assertion consumes what the caller was going to get. The house rule that follows from it
+is about **where the contract goes instead**, which Bond does not say.
 
-Contract the *eager* thing next to it instead: this is why `refresh_tokens/1` is heavily
-contracted and the streaming callbacks are not at all.
+`Adapter.stream_playlists/2` and `stream_tracks/3` carry no postcondition at all: asserting
+anything about their contents would turn a lazy read into hundreds of HTTP requests, inside an
+assertion, on every call — and "it is an Enumerable" only restates the `@spec`. So the laws live
+on the eager function beside them. That is why `refresh_tokens/1` is heavily contracted and the
+streaming callbacks are not at all, and it is the pattern to reach for whenever a callback returns
+something lazy.
 
-### That external data was well formed
+### Evidence: a "law" that turned out to be about their data, not ours
 
-A contract guards *our* logic. A provider sending nonsense is not a programming error, and a
-postcondition that raises on it converts their bad data into our crash.
+Bond's rule — at a parsing boundary, assert what you emit and never what you received — reads as
+obvious until an assertion fires and the tempting fix is to relax it. This is what that looks
+like.
 
 Written first as `@post sane_track_count: is_integer(result.track_count) ~> (result.track_count >= 0)`
 on `Mapper.playlist/1`, this fired 14 times against generated input — because the mapper was
@@ -240,7 +226,11 @@ At a parsing boundary, assert what you emit, never what you received. The proper
 "never raises on an arbitrary resource" is what caught the mistake — the two techniques check
 each other.
 
-### A cache, beyond its keys
+### Additive: when the state is unassertable, assert the boundary
+
+Bond's rule is that an assertion over shared mutable state accuses correct code. It says what not
+to write; this is what to write instead, and in this codebase it turned out to be the more
+valuable half.
 
 `OnePlaylist.Cache` and `OnePlaylist.Catalogue` carry **no postconditions**, and the reason
 is shape 0b rather than oversight. Every law worth stating about them — "an error is never
@@ -266,7 +256,7 @@ It also caught something immediately — not in `lib/`, but in the tests, which 
 readable labels like `"doomed"` as barcodes. A fixture that cannot occur in production tests
 nothing that matters, and the fix was the fixtures.
 
-### Anything the specification does not actually require
+### Correction: "no caller can violate it" is not a reason
 
 Requiring `now` to be UTC looked principled — the schema is `:utc_datetime_usec` throughout. It
 is wrong because `DateTime.compare/2` is correct across zones, so a non-UTC value is a perfectly
@@ -781,7 +771,7 @@ because a private helper is awkward to contract and pointless to contract twice.
 The duplication was the symptom; the missing abstraction was the cause. Every provider mapper
 stands at the same boundary — a stranger's JSON on one side, the values the matching engine
 compares on the other — and that boundary is exactly where
-[assert what you emit, never what you received](#that-external-data-was-well-formed) applies.
+[assert what you emit, never what you received](#evidence-a-law-that-turned-out-to-be-about-their-data-not-ours) applies.
 Gathering them into `Providers.Payload` means each law is stated **once and inherited by every
 provider**, present and future.
 
@@ -934,7 +924,7 @@ consequence.
 Read that narrowly. The question is **how many callers, not what they pass** — zero callers is a
 design problem, and that is the whole of what this entry claims. Auditing what today's callers
 happen to supply, and concluding from it that a contract is unnecessary, is the
-[census ruled out above](#anything-the-specification-does-not-actually-require). The two look
+[census ruled out above](#correction-no-caller-can-violate-it-is-not-a-reason). The two look
 similar and point in opposite directions.
 
 ### Lift a law to an invariant when it is a property of the type
