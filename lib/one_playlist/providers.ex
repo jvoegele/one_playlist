@@ -545,6 +545,27 @@ defmodule OnePlaylist.Providers do
   and a dead grant is marked as needing re-authorization rather than being
   retried forever.
   """
+  # What this function is *for*, and not `refresh/1`'s promise: `refresh/1`
+  # exchanges a token whether or not it needed exchanging, and this is the one
+  # that decides. A caller takes what comes back straight to an adapter, so a
+  # connection still inside the refresh window is a request about to 401 — and
+  # the caller has no way to tell, because asking again is exactly what it
+  # delegated here.
+  #
+  # Stated against the same skew the body used rather than the default, so a
+  # caller passing a wider window is judged by the window it asked for.
+  #
+  # Proven by mutation: inverting the `needs_refresh?/3` branch fires it on the
+  # near-expiry fixture.
+  @post whenever(
+          {:ok, fresh} <- result,
+          does_not_still_need_refreshing:
+            not Connection.needs_refresh?(
+              fresh,
+              DateTime.utc_now(),
+              Keyword.get(opts, :skew_seconds, 300)
+            )
+        )
   @spec ensure_fresh(Connection.t(), keyword()) ::
           {:ok, Connection.t()} | {:error, Errata.error()}
   def ensure_fresh(%Connection{} = connection, opts \\ []) do

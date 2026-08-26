@@ -7,6 +7,27 @@ contracts in this codebase.
 Read [Bond's own guides](https://hexdocs.pm/bond) for the language. This is the house style,
 and the answer to "should I add a contract here, and what should it say?"
 
+## What this file is allowed to be
+
+The `bond` usage rules in `AGENTS.md` are **authoritative for mechanics and for the general
+rules**, and `mix usage_rules.sync` keeps them current. This file may be one of three things and
+nothing else:
+
+  * **Evidence.** A rule of Bond's, with the case from this codebase that makes it believable
+    rather than merely plausible.
+  * **Additive.** A rule Bond does not state, justified on its own terms — the production
+    posture, where contracts go *here*, the shapes that recur in a transfer engine.
+  * **A recorded deviation**, argued and logged in `docs/library-feedback.md`. There are none
+    at present.
+
+It may **not** paraphrase Bond's mechanics — a second copy drifts, and Bond's rules say durable
+knowledge belongs where it loads regardless of which file is open. A table doing exactly that was
+deleted from this file on 2026-08-26.
+
+And it may not stretch a named principle past what the source says. It did, twice, with Meyer's
+Non-Redundancy principle; both are recorded where they happened rather than quietly corrected.
+**Cite the quote, not the memory of it.**
+
 ---
 
 ## What a contract is for
@@ -823,7 +844,7 @@ works: `Transfer.balanced?/1`, named in the `@post`s that guard the counters.
 If the answer is "at functions this module does not have" or "inside somebody else's assertion",
 the lift buys a name and nothing more — which may still be worth it, but not for that reason.
 
-### Two guards mean the contract cannot earn its place
+### Two guards *by accident* mean the contract cannot earn its place
 
 While proving the above by mutation, `no_empty_names` on `Normalize.artists/1` refused to fire
 under any single edit. The reason was that the property was guaranteed twice: `trim: true` on
@@ -837,6 +858,13 @@ edit — dropping the `trim: true` — fail loudly.
 
 Worth doing deliberately: when an assertion will not fire under mutation, check whether the
 body defends the property more than once before concluding the assertion is wrong.
+
+**And then check whether the second defence is deliberate**, because the answer inverts. The
+`Enum.reject` above was dead code left by a restructure — an accident, and deleting it made a
+single edit fail loudly. An application-level `where user_id` sitting above Postgres RLS is not:
+each suffices alone, so no single mutation falsifies the contract over them, and deleting either
+removes a layer somebody chose. There the answer is **keep both and mutate both together** — see
+the four-row table under [the quality check](#the-quality-check-can-this-assertion-fail).
 
 ### Two assertions on one function are fine when neither can see the other's bug
 
@@ -974,10 +1002,20 @@ is exactly the wanted outcome. The real reason is
 > Under no circumstances shall the body of a routine ever test for the routine's
 > precondition. — §11.6
 
-Read from the *supplier's* side this is about not writing `if x < 0` under a `require x >= 0`;
-the codebase was audited and is clean.
+It is about **preconditions**, and about a routine's **own body** against its **own** contract.
+Both halves are load-bearing, and this file has twice stretched the name past them — see
+[the withdrawn exclusion](#2-a-caller-s-assertion-that-a-callee-already-makes-withdrawn). It says
+nothing about postconditions, nothing about invariants, and nothing about one function's contract
+against another's.
 
-Read from the **client's** side it is sharper, and it found a bug.
+Read as written, it is about not writing `if x < 0` under a `require x >= 0`. The codebase was
+audited on that reading and is clean.
+
+### Auditing a precondition's call sites — a different lesson, often confused with the above
+
+Not Non-Redundancy. This is the client's side of the same §11.6 bargain: the *supplier* may
+assume the precondition, which means the **client** must establish it, and adding one does not
+establish it retroactively. It found a bug here.
 `Adapter.refresh_tokens/1` requires a non-blank token; `Providers.refresh/1` calls it and
 matched only `refresh_token: nil` in its guarding clause. A `""` — reachable from a row
 written before `Tokens`' invariant existed — reached the callee and raised
@@ -1152,19 +1190,23 @@ singling out is `veto_respected`: deleting the veto from `Strategy.Text` — a
 different module — fires the postcondition in `Matching`, which is exactly what
 restating a rule over the returned pair is for.
 
-## Mechanics learned the hard way
+## Mechanics: Bond's rules own these
+
+`~>` versus `implies?/2`, `|||` being exclusive-or, the parameter-name rule across clauses,
+`whenever`'s binding form, totality, purity, the Assertion Evaluation rule, `old/1` under
+sharing, which heads and returns an `@invariant` sees, and the `use Bond` check that explains
+every otherwise-baffling diagnostic — **all of these live in the `bond` usage rules in
+`AGENTS.md`**, which `mix usage_rules.sync` keeps current.
+
+They used to be repeated here as a table. That table was deleted: a second copy of somebody
+else's mechanics can only drift against the original, and Bond's own guidance says as much —
+durable knowledge belongs where it loads regardless of which file is open.
+
+Two entries were **not** Bond mechanics and survive:
 
 | Thing | What actually happens |
 | --- | --- |
-| `~>` vs `implies?/2` | `~>` is a **macro** and short-circuits; `implies?/2` is a function and evaluates both sides. Use `~>` whenever the consequent is partial. |
-| `~>` in a function body | Needs `import Bond.Predicates, only: [~>: 2]`. Scope it — `\|\|\|` is exclusive-or despite reading as "or". |
-| Multi-clause functions | Every clause must use the same top-level parameter names. Prefix unused ones with `_` but keep the name. |
-| `@post` with several labels | Both forms are valid — the prefix `@post whenever(pat <- result), a: ..., b: ...` and the all-inside `@post whenever(pat <- result, a: ..., b: ...)` — under `use Bond` **and** on a `Bond.Behaviour` callback. The all-inside form used to be a `CompileError` on a callback, with a diagnostic about nesting that did not apply; Bond 1.15.0 fixed it, verified against 1.16.0 and 1.17.0. The prefix form remains the house default for several labelled assertions, on readability alone: the labels line up under one another instead of trailing off the end of the `whenever`. |
-| `whenever`'s first argument | Must be a binding form — `pat <- source`. A plain boolean is not one: `whenever(is_float(result), ok: ...)` is rejected. For "assert only when this holds", the operator is what you want: `@post ok: is_float(result) ~> (result >= 0.0)`. |
-| `@pre`/`@post` behaving strangely | **Check the module has `use Bond`.** Without it the annotations fall through to `Kernel.@` and the diagnostics never mention Bond: an assertion referencing parameters fails with `undefined variable "x"`, a multi-label one with `expected 0 or 1 argument for @post, got: 2`, and a parameter-free one merely warns `module attribute @post was set but never used` while enforcing nothing. This is the first thing to check, not the last. |
-| Preconditions calling helpers | The helper must be **public** (Bond warns otherwise, citing Meyer) *and* documented — `@doc false` passes Bond's check while defeating its stated rationale. |
-| `@apply_contract` + behaviours | Mutually exclusive on the same function, except for result-only contracts. Adapters inherit from `Providers.Adapter`, so `defcontract` is largely unavailable there. |
-| `defcontract` for small duplication | Measured: 15 lines added to remove 1 duplicated line, and the contract disappears from the function. Not worth it below several non-trivial shared clauses. |
+| `@post` with several labels | Both forms work — the prefix `@post whenever(pat <- result), a: ..., b: ...` and the all-inside `@post whenever(pat <- result, a: ..., b: ...)`. The prefix form is the **house default** for several labelled assertions, on readability alone: the labels line up under one another instead of trailing off the end of the `whenever`. |
 | Duplication vs. value | One repeated assertion is a poor reason to skip a contract worth having. `now_after_creation` is deliberately duplicated. |
 
 ---
@@ -1306,38 +1348,37 @@ function is used**. Bond's rules say the same thing from the other side: a predi
 assertions "has to carry its own weight: keep it simple enough to be obviously correct and test
 it directly."
 
-### 2. A caller's assertion over the callee's return value, **verbatim**
+### 2. ~~A caller's assertion that a callee already makes~~ — withdrawn
 
-`Providers.ensure_fresh/2` over `refresh/1`, `Transfers.count_items/1`, `Accounts.ensure_fresh/2`
-— functions that hand back exactly what they were given, untouched.
+**There is no such exclusion**, and this entry stands as the record of getting it wrong twice.
 
-This is Meyer's Non-Redundancy principle, and it is a **narrow** category. Written wider it
-becomes the implementation-detail argument the specification view exists to refuse, and this file
-got it wrong once by writing it wider.
+It was first written as "a thin wrapper over a contracted callee", on the grounds that a
+caller's postcondition restating a callee's fires second and so adds nothing. That is an
+argument about *implementation* — which callee happens to be correct today — and the
+specification view exists to refuse it. A caller's postcondition firing less often because the
+callee is also right is not a defect; it is what a layered system looks like when both layers
+keep their promises.
 
-> Contracts were written on `Tidal.Client` and `Subsonic.Client` asserting that the tracks and
-> ids they emit are usable, then deleted because `c:Providers.Adapter.playlist_track_ids/3`
-> already says something similar and `navidrome_test.exs` began failing under a different label.
->
-> Both halves of that reasoning were wrong. The adapter **transforms** — the client returns
-> tracks, the adapter maps them to ids — so the two assertions are over *different values* and
-> are different laws: one catches a mapper emitting a blank id, the other catches the mapping.
-> And a caller's postcondition firing less often because the callee is also correct is not a
-> defect; it is what a layered system looks like when both layers keep their promises. The
-> contracts are back, and the test asserts the label that fires first — one layer closer to the
-> server that sent the bad entry, which is the better place to catch it.
+It was then rewritten as a narrow "verbatim restatement" category and attributed to Meyer's
+**Non-Redundancy principle**. That attribution is wrong, and wrong twice over. §11.6 reads:
 
-**The test is what the assertion is over, never which of the two fires first.** Over the callee's
-return value untouched, it is redundant and one of them should go. Over anything the *caller*
-made — a transformation, a pair of values, an assign compared against another assign — it is the
-caller's own law and belongs, however rarely it fires.
+> Under no circumstances shall the body of a routine ever test for the routine's precondition.
 
-`OnePlaylistWeb.TransferLive.Index.mount/3` makes the distinction concrete. Its
-`rows_account_for_every_transfer` compares `assigns.groups` against `assigns.transfers`, while
-`OnePlaylist.Transfers.group_batches/1` guarantees only that its output accounts for *its
-argument*. Nothing but the caller relates the two, so grouping a list other than the one it
-stored passes the callee's contract and fails this one — leaving a transfer the user can reach
-only by URL.
+It is about **preconditions**, and about a routine's **own body** against its **own** contract.
+A caller's postcondition against a callee's postcondition is two steps outside it. Meyer argues
+the *opposite* direction for postconditions (§11.7): an assertion that mirrors the
+implementation is evidence of consistency, not redundancy — which this file already records
+under [Where this file used to depart from Meyer](#where-this-file-used-to-depart-from-meyer-and-no-longer-does).
+
+Take the name away and nothing supports the exclusion. So it is gone, and the examples it
+listed were wrong too: `Providers.ensure_fresh/2` promises *"the connection returned does not
+need refreshing"*, which is not `refresh/1`'s promise at all and is now asserted. `count_items/1`
+belongs under [nothing to promise](#4-nothing-to-promise-beyond-the-spec).
+
+What survives is a much smaller observation, and it is Bond's rather than Meyer's: **before
+deleting either side of an apparent duplicate, remove it and ask what stops being true.**
+Two checks that read alike may be an accident, a deliberate second line of defence, or a
+purgeable thing standing in front of one that is not. Only the first is redundancy.
 
 ### 3. A raw provider payload
 
