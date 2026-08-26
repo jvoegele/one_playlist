@@ -164,6 +164,43 @@ config :one_playlist, OnePlaylist.Providers.Tidal,
   # here; production leaves it empty.
   req_options: []
 
+# Spotify. Same arrangement as TIDAL above: endpoints here, credentials from the
+# environment in config/runtime.exs.
+#
+# Spotify is second despite being the service most people's playlists actually
+# live in, because a new application is capped at a handful of allowlisted
+# accounts and extended quota now requires an organization with 250,000 monthly
+# users. So this is a personal and small-group feature by construction, and the
+# cap is a fact about Spotify rather than something better code can lift. See
+# docs/reference/domain.md.
+config :one_playlist, OnePlaylist.Providers.Spotify,
+  # Authorization *and* the token endpoint. Spotify serves both from
+  # accounts.spotify.com, where TIDAL splits login from auth.
+  login_url: "https://accounts.spotify.com",
+  api_url: "https://api.spotify.com/v1",
+  # Requested at authorization time.
+  #
+  # The two `playlist-read-*` scopes are not redundant: `private` covers the
+  # user's own unlisted playlists and `collaborative` covers ones shared with
+  # them, and neither implies the other. Both `modify` scopes are needed for the
+  # same reason — this application creates private playlists, but a user may
+  # point a transfer at a public one they own.
+  #
+  # `user-read-private` is what puts `country` on `GET /me`, which becomes the
+  # `market` parameter on every read. Without it Spotify omits the field rather
+  # than refusing, and catalogue visibility degrades silently.
+  scopes: ~w(user-read-private playlist-read-private playlist-read-collaborative
+       playlist-modify-private playlist-modify-public),
+  # Overridden by SPOTIFY_REDIRECT_URI, and must match a redirect URI registered
+  # on the Spotify application exactly.
+  #
+  # `127.0.0.1` rather than `localhost`, which Spotify stopped accepting for
+  # loopback redirects in 2025 — it requires either HTTPS or the literal IP.
+  # This is the one place the two providers' local URLs differ, and it is not a
+  # typo.
+  redirect_uri: "http://127.0.0.1:4000/auth/spotify/callback",
+  req_options: []
+
 # Content-Security-Policy for the browser pipeline.
 #
 # Notes on the non-obvious directives:

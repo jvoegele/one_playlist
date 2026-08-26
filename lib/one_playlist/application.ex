@@ -25,6 +25,12 @@ defmodule OnePlaylist.Application do
       # wrong for one of them. See Tidal.WriteService.
       {OnePlaylist.Providers.Tidal.WriteService,
        Application.get_env(:one_playlist, :tidal_service_opts, [])},
+      # One front door where TIDAL has two: Spotify's rate limit is a single
+      # rolling window over reads and writes together, so splitting the budget
+      # would leave two limiters guessing at their share of one quota. See
+      # Spotify.Service.
+      {OnePlaylist.Providers.Spotify.Service,
+       Application.get_env(:one_playlist, :spotify_service_opts, [])},
       # A volunteer-run project that asks for one request a second and means it.
       # Consulted only when an identifier lookup has already missed, and cached
       # in two tiers — see OnePlaylist.MusicBrainz.

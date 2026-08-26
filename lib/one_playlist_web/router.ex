@@ -68,6 +68,9 @@ defmodule OnePlaylistWeb.Router do
 
     get "/tidal", TidalAuthController, :start
     get "/tidal/callback", TidalAuthController, :callback
+
+    get "/spotify", SpotifyAuthController, :start
+    get "/spotify/callback", SpotifyAuthController, :callback
   end
 
   # Other scopes may use custom stacks.

@@ -87,6 +87,15 @@ defmodule OnePlaylistWeb.ConnectionLive.Index do
         connect_path: ~p"/auth/tidal",
         icon: "hero-musical-note"
       },
+      spotify: %{
+        name: "Spotify",
+        blurb:
+          "Playlists and liked tracks. This app is in Spotify's development " <>
+            "mode, so only accounts its owner has allowlisted can connect.",
+        kind: :oauth,
+        connect_path: ~p"/auth/spotify",
+        icon: "hero-musical-note"
+      },
       navidrome: %{
         name: "Subsonic server",
         blurb:

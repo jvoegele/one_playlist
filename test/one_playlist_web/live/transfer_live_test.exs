@@ -605,9 +605,17 @@ defmodule OnePlaylistWeb.TransferLiveTest do
       # right track without taking the wrong one out turns one wrong track into
       # two — so where an adapter cannot remove, the button is not drawn *and*
       # the event is refused, because hiding a button is not a rule.
+      #
+      # `:apple_music` is a placeholder, and an unsatisfying one: every adapter
+      # this application actually implements *can* remove, so the only way to
+      # exercise the negative branch is a provider that does not exist yet —
+      # `supports?/2` answers `false` for those. It was `:spotify` until Spotify
+      # was built, and it will need moving again for the same reason. If a real
+      # adapter ever lands without `:remove_tracks`, use that one instead and
+      # this comment can go.
       transfer =
         user_id
-        |> report_with_alternatives(%{destination_provider: :spotify})
+        |> report_with_alternatives(%{destination_provider: :apple_music})
         |> already_matched("d-live")
 
       {:ok, view, html} = live(conn, ~p"/transfers/#{transfer.id}")

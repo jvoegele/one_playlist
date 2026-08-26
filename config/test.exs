@@ -76,6 +76,12 @@ config :one_playlist, :tidal_service_opts,
   concurrency: [limit: 1_000],
   retry: [max_attempts: 3, backoff: :linear, base: 0]
 
+config :one_playlist, :spotify_service_opts,
+  circuit_breaker: [tolerate: :infinity],
+  rate_limit: [limit: :infinity],
+  concurrency: [limit: 1_000],
+  retry: [max_attempts: 3, backoff: :linear, base: 0]
+
 config :one_playlist, :subsonic_service_opts,
   circuit_breaker: [tolerate: :infinity],
   concurrency: [limit: 1_000],
@@ -114,6 +120,15 @@ config :one_playlist, OnePlaylist.Providers.Tidal,
   client_id: "test-client-id",
   client_secret: "test-client-secret",
   redirect_uri: "http://localhost:4002/auth/tidal/callback"
+
+# The same for Spotify. `client_secret` is not decoration here: Spotify is a
+# confidential client, so `OAuth.config/0` reports a configuration error without
+# one and every Spotify test would exercise that instead of what it means to.
+config :one_playlist, OnePlaylist.Providers.Spotify,
+  req_options: [plug: {Req.Test, OnePlaylist.Providers.Spotify}],
+  client_id: "test-client-id",
+  client_secret: "test-client-secret",
+  redirect_uri: "http://127.0.0.1:4002/auth/spotify/callback"
 
 # Jobs are not run by a queue in tests. `testing: :manual` means
 # `Oban.insert/1` records the job and nothing executes it, so a test decides

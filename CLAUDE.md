@@ -112,10 +112,18 @@ Deep reference: **`docs/reference/domain.md`**.
 These are the facts most likely to invalidate a plan. They are not negotiable by writing
 better code.
 
-- **Spotify.** New apps are in Development Mode: **max 5 allowlisted users**, and the app
-  owner needs Spotify Premium. Extended Quota Mode has required, since May 2025, an
-  **organization with ≥ 250,000 MAU**. So Spotify support is a personal/small-group feature,
-  not a public product feature, until that changes.
+- **Spotify.** Built and connected as of 2026-08-26. New apps are in Development Mode:
+  only accounts allowlisted in the dashboard can connect, and Extended Quota Mode has
+  required, since May 2025, an **organization with ≥ 250,000 MAU**. So Spotify is a
+  personal/small-group feature, not a public product feature, until that changes.
+  Two details in the older note here were wrong or unverified and are corrected:
+  **the allowlist cap is whatever the dashboard says** — read it there rather than trusting
+  a number in this file — and **Premium is not required** for what this application does.
+  Premium gates the Web Playback SDK and the player endpoints; playlist read and write on
+  the Web API work with a free account.
+  The redirect URI must use **`127.0.0.1`, not `localhost`**: Spotify tightened its loopback
+  rules in 2025 and rejects the hostname. That is the one place TIDAL's and Spotify's local
+  URLs differ, and it is not a typo.
 - **YouTube Music.** 10,000 quota units/day per Google Cloud project;
   `playlistItems.insert` costs 50 → **~200 track adds per day in total**. `search.list` costs
   100. Unusable at scale without a quota grant or per-user projects.
@@ -546,6 +554,7 @@ A fresh session should read this before proposing what to build.
 | Batch view | A batch is **one collapsible row** on `/transfers`, not forty. `Transfers.group_batches/1` is a pure function over the list with a conservation law — every transfer in exactly one row — and a batch's status is `:partial` when some members failed, because "38 of 40" has no honest single badge. Members read oldest-first inside it, which is the order they were picked, deliberately against the newest-first list around them |
 | Batch page | `/transfers/batch/:id` — the members, the aggregate, and **Run N failed again**, which re-queues only the failed ones. Re-running the ones that worked is safe, since `Runner.run/1` re-reads the destination, but each would spend a full transfer's provider quota to discover it has nothing to do. `retried_no_more_than_failed` is stated over the *input* rather than the result, because a count cannot say which rows were touched |
 | The bridge | A completed transfer with unmatched rows offers **Fix in my library**: the unmatched tracks are copied into a new library playlist named after the source, and the ordinary curator loop takes over — correct, re-enrich, transfer on. This is where somebody who never meant to curate anything starts caring, so it is offered at the moment of friction rather than advertised up front. `transfer_items` gained `source_isrc` for it: a report row is the only durable record of what the source said, and without the code `Library.find_or_create/1` falls back to title and album |
+| Spotify | **The third real provider**, and the first driven as a **confidential OAuth client** — plain Authorization Code with a client secret, where TIDAL is public + PKCE. Supabase Auth's built-in Spotify provider was considered and rejected: it hands over `provider_token` once and never refreshes it, which is fatal for a *scheduled* transfer. Three things are new rather than a second copy of TIDAL. Playlists contain **non-tracks** — local files with a null id, podcast episodes, withdrawn entries — and all three are dropped in the mapper, because `to_string(nil)` is `""` and a blank key in the diff either duplicates a track or silently drops one. Pagination follows a **`next` URL** rather than a cursor. And **`Retry-After` is honoured explicitly**: Spotify's limit is one rolling window over the whole application, so the wait it asks for is slept inside the guarded call, holding the concurrency slot on purpose. One `ExternalService` where TIDAL has two, for the same reason. Development Mode's 403 is told apart from a scope refusal by its message, since the two have opposite fixes |
 | Sync | **Scheduled sync.** A cadence beside the transfer button — hourly, daily, weekly — turns a transfer into a standing instruction, and `/syncs` lists them with pause, resume and delete. Each run is an **ordinary transfer** with its own report, which is the whole design: the runner is already idempotent, so a sync run needs no pipeline of its own and its history is the transfers list rather than a second reporting surface that would drift. An `Oban.Plugins.Cron` sweeper every fifteen minutes — the *resolution* of the schedule, not its cadence, whose floor is an hour and is a provider-quota decision. Overlap is prevented by the schedule rather than a lock: `run/2` moves `next_run_at` forward **before** it queues, so the next sweep cannot see the same sync twice. The destination playlist is pinned by the first run and never rewritten, or a weekly sync leaves fifty-two playlists behind |
 | Mirroring | **Replace mode**, the second half of sync. A `mode` on the sync and on each run — on the *run* because a transfer is the record of what happened, and reading it back off the sync would report today's setting rather than the one in force. A replace run reads the destination with `stream_tracks` rather than `playlist_track_ids`, one pass either way, because a report that deletes must be able to say *what* it deleted. Three rules bound the only code here that removes somebody's music: an **unmatched row withholds the whole removal** (a run whose matching went wrong cannot tell "the source dropped this" from "the search failed"), an **empty source removes nothing**, and only a whole track goes, never a surplus copy — `remove_tracks/4` takes out every occurrence, which is what makes it safe to call twice and also what makes "one of two" inexpressible |
 | Limits | A source playlist over `max_tracks` (10,000 by default) is refused with `PlaylistTooLarge`, before a track is read past the limit. The worker cancels rather than retries any error whose `retryable?/1` says not to |
@@ -673,7 +682,17 @@ backlog below is the road to it, not a separate list.
     query change, and it will most likely say no.
 
   * A third provider. Apple Music needs $99/yr and a browser flow; Qobuz is partner-only
-    (email `api@qobuz.com`); Spotify is self-serve but permanently capped at 5 users.
+    (email `api@qobuz.com`). Spotify is **done** — see the status table.
+
+    What Spotify's arrival actually proved is worth keeping: it is the first provider whose
+    playlists contain things that are **not tracks** (local files with a null id, podcast
+    episodes, withdrawn entries), the first driven as a **confidential OAuth client**, and
+    the third distinct **removal model**. None of those needed a change to
+    `Providers.Adapter` — which is the strongest evidence so far that the boundary is in the
+    right place. What it did need was the OAuth plumbing, which is still TIDAL-shaped:
+    `TidalAuthController` and `SpotifyAuthController` are two copies of one flow differing
+    only in what they stash. **Extracting that is the next refactor**, and it should be done
+    now that there are two concrete cases to generalise from rather than one guessed at.
 
 **Local state that is not in this repository.** Running `supabase start`, the Navidrome
 container, and a TIDAL connection in the dev database. The TIDAL account was reconnected on

@@ -24,6 +24,24 @@ config :one_playlist, OnePlaylist.Providers.Tidal,
   client_secret: "your-tidal-client-secret",
   redirect_uri: "http://localhost:4000/auth/tidal/callback"
 
+# Spotify — https://developer.spotify.com/dashboard
+#
+# Create an app, tick **Web API**, and register the redirect URI below under its
+# settings byte for byte. Two things differ from TIDAL and both bite silently:
+#
+#   * `127.0.0.1`, **not** `localhost`. Spotify stopped accepting `localhost`
+#     for loopback redirects in 2025 and requires the literal IP.
+#   * the client secret is required, not optional — Spotify is driven as a
+#     confidential client, so a missing secret authorizes the user and then
+#     fails the token exchange with `invalid_client`.
+#
+# A new app is in Development Mode, which serves only the accounts listed under
+# its User Management tab. Add yourself there, or every call answers 403.
+config :one_playlist, OnePlaylist.Providers.Spotify,
+  client_id: "your-spotify-client-id",
+  client_secret: "your-spotify-client-secret",
+  redirect_uri: "http://127.0.0.1:4000/auth/spotify/callback"
+
 # Supabase — copy the values printed by `supabase status`.
 #
 # `api_key` is the **publishable (anon)** key, never the service role key: the

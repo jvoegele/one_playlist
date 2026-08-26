@@ -649,6 +649,7 @@ defmodule OnePlaylist.Providers do
   @adapters %{
     library: OnePlaylist.Providers.Library,
     tidal: OnePlaylist.Providers.Tidal,
+    spotify: OnePlaylist.Providers.Spotify,
     navidrome: OnePlaylist.Providers.Navidrome
   }
 
@@ -686,6 +687,8 @@ defmodule OnePlaylist.Providers do
       iex> {Providers.supports?(:tidal, :artwork), Providers.supports?(:navidrome, :artwork)}
       {true, false}
       iex> Providers.supports?(:spotify, :remove_tracks)
+      true
+      iex> Providers.supports?(:deezer, :remove_tracks)
       false
   """
   @spec supports?(atom(), Adapter.capability()) :: boolean()

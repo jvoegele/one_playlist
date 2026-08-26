@@ -22,6 +22,22 @@ if tidal_env != [] do
   config :one_playlist, OnePlaylist.Providers.Tidal, tidal_env
 end
 
+# Spotify, on exactly the same terms and for the same reason — see the comment
+# above. `SPOTIFY_CLIENT_SECRET` is not optional the way TIDAL's is: Spotify is
+# driven as a confidential client, so a client id without a secret authorizes
+# the user and then fails the token exchange.
+spotify_env =
+  [
+    client_id: System.get_env("SPOTIFY_CLIENT_ID"),
+    client_secret: System.get_env("SPOTIFY_CLIENT_SECRET"),
+    redirect_uri: System.get_env("SPOTIFY_REDIRECT_URI")
+  ]
+  |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+if spotify_env != [] do
+  config :one_playlist, OnePlaylist.Providers.Spotify, spotify_env
+end
+
 # Supabase, on the same terms and for the same reason: assigned only when the
 # environment actually sets it, so an unset variable does not clobber
 # config/dev_local.exs or config/test.exs.
