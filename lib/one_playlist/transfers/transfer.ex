@@ -136,6 +136,11 @@ defmodule OnePlaylist.Transfers.Transfer do
     # the migration for why a batch is a column rather than a table.
     field :batch_id, Ecto.UUID
 
+    # The standing instruction this run came from, or `nil` for a transfer
+    # somebody asked for by hand. Also the runner's route back to the sync when
+    # it creates the destination playlist — see the migration.
+    field :sync_id, Ecto.UUID
+
     timestamps(type: :utc_datetime_usec)
   end
 
@@ -164,7 +169,8 @@ defmodule OnePlaylist.Transfers.Transfer do
       :destination_playlist_id,
       :destination_playlist_name,
       :threshold,
-      :batch_id
+      :batch_id,
+      :sync_id
     ])
     |> validate_required([
       :user_id,

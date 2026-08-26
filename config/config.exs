@@ -115,7 +115,13 @@ config :one_playlist, Oban,
     # 04:00 UTC, well clear of the pg_cron pruning jobs. See
     # OnePlaylist.Library.EnrichmentSweeper for why this one is scheduled here
     # rather than in Postgres with the others.
-    {Oban.Plugins.Cron, crontab: [{"0 4 * * *", OnePlaylist.Library.EnrichmentSweeper}]}
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 4 * * *", OnePlaylist.Library.EnrichmentSweeper},
+       # Every fifteen minutes: the resolution of the sync schedule rather than
+       # its cadence, which has an hourly floor. See OnePlaylist.Syncs.Sweeper.
+       {"*/15 * * * *", OnePlaylist.Syncs.Sweeper}
+     ]}
   ]
 
 # L1 of the catalogue cache. Bounded by memory rather than by a guessed entry

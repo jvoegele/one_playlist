@@ -27,6 +27,17 @@ defmodule OnePlaylistWeb.TransferLive.New do
   same work again, and clears the selection: a playlist id belongs to the
   service it came from, and carrying one across a source change would send the
   worker looking for a TIDAL id in a Navidrome library.
+
+  ## A schedule is a property of the transfer being set up, not a separate page
+
+  Scheduled sync is offered here, as a cadence beside the button, because that
+  is where the user has already answered every question a sync needs — which
+  playlist, from where, to where. A `/syncs/new` page would ask all three again.
+
+  Choosing a cadence still runs the transfer **now** as well as scheduling it.
+  Someone setting up a weekly sync wants to see it work, not to find out next
+  Tuesday whether they configured it correctly, and `OnePlaylist.Syncs.run/2`
+  is the same call the sweeper makes — so what they watch is what will happen.
   """
 
   use OnePlaylistWeb, :live_view
@@ -34,7 +45,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
 
   alias OnePlaylist.Providers
   alias OnePlaylist.Providers.Connection
-
+  alias OnePlaylist.Syncs
   alias OnePlaylist.Transfers
 
   @impl true
@@ -49,6 +60,7 @@ defmodule OnePlaylistWeb.TransferLive.New do
      |> assign(:source, source)
      |> assign(:destination, source)
      |> assign(:selected, MapSet.new())
+     |> assign(:cadence, :once)
      |> assign(:submitting?, false)
      |> load_playlists(source)}
   end
@@ -96,6 +108,13 @@ defmodule OnePlaylistWeb.TransferLive.New do
   def handle_event("select_none", _params, socket),
     do: {:noreply, assign(socket, :selected, MapSet.new())}
 
+  # Validated against the offered cadences rather than parsed, for the same
+  # reason `provider!/2` checks the provider: the value arrives from a form and
+  # anything not on the list is a forged request.
+  def handle_event("cadence", %{"cadence" => choice}, socket) do
+    {:noreply, assign(socket, :cadence, cadence!(choice))}
+  end
+
   def handle_event("transfer", _params, socket) do
     # Ordered by the list rather than by the set, so the batch reads in the same
     # order as the picker the user was just looking at. A `MapSet` has no order
@@ -113,6 +132,9 @@ defmodule OnePlaylistWeb.TransferLive.New do
   end
 
   defp queue(socket, []), do: {:noreply, put_flash(socket, :error, "Pick a playlist first.")}
+
+  defp queue(%{assigns: %{cadence: cadence}} = socket, playlists) when cadence != :once,
+    do: schedule(socket, playlists)
 
   defp queue(socket, [playlist]) do
     case Transfers.create(attrs_for(socket, playlist)) do
@@ -157,6 +179,57 @@ defmodule OnePlaylistWeb.TransferLive.New do
     end
   end
 
+  # One sync per playlist, each run immediately. Deliberately not a transaction
+  # over the whole selection: a sync is a standing instruction and each is
+  # independent, so twelve playlists of which one is already synced should leave
+  # eleven schedules behind rather than none. The already-synced one is reported
+  # rather than swallowed — see `scheduled_flash/2`.
+  defp schedule(socket, playlists) do
+    minutes = cadence_minutes(socket.assigns.cadence)
+
+    results =
+      Enum.map(playlists, fn playlist ->
+        with {:ok, sync} <- Syncs.create(sync_attrs(socket, playlist, minutes)) do
+          Syncs.run(sync)
+        end
+      end)
+
+    made = for {:ok, transfer} <- results, do: transfer
+
+    socket = scheduled_flash(socket, {length(made), length(results)})
+
+    case made do
+      [transfer] -> {:noreply, push_navigate(socket, to: ~p"/transfers/#{transfer.id}")}
+      _several_or_none -> {:noreply, push_navigate(socket, to: ~p"/syncs")}
+    end
+  end
+
+  defp scheduled_flash(socket, {0, _asked}),
+    do: put_flash(socket, :error, "Those playlists are already being synced there.")
+
+  defp scheduled_flash(socket, {made, made}),
+    do: put_flash(socket, :info, "Syncing #{made} #{playlist_word(made)} from now on.")
+
+  defp scheduled_flash(socket, {made, asked}) do
+    put_flash(
+      socket,
+      :info,
+      "Syncing #{made} of #{asked} playlists. The rest were already scheduled."
+    )
+  end
+
+  defp playlist_word(1), do: "playlist"
+  defp playlist_word(_many), do: "playlists"
+
+  # The same attributes a one-off transfer gets, plus the cadence. Notably
+  # *without* `destination_playlist_id` — it is not castable, and the first run
+  # is what fills it in. See `OnePlaylist.Syncs.Sync`.
+  defp sync_attrs(socket, playlist, minutes) do
+    socket
+    |> attrs_for(playlist)
+    |> Map.put(:interval_minutes, minutes)
+  end
+
   defp attrs_for(socket, playlist) do
     %{
       user_id: socket.assigns.current_user_id,
@@ -180,7 +253,8 @@ defmodule OnePlaylistWeb.TransferLive.New do
         <h1 class="text-2xl font-semibold mb-1">New transfer</h1>
         <p class="text-sm opacity-70 mb-6">
           Pick a playlist and where it should go. Every track is matched on the
-          way, and the report says what happened to each one.
+          way, and the report says what happened to each one. Choose a cadence
+          and it keeps happening — see <.link navigate={~p"/syncs"} class="link">your syncs</.link>.
         </p>
 
         <div :if={@connections == []} class="alert alert-warning" role="alert">
@@ -279,14 +353,37 @@ defmodule OnePlaylistWeb.TransferLive.New do
                 </span>
               </div>
 
-              <button
-                type="button"
-                phx-click="transfer"
-                disabled={MapSet.size(@selected) == 0}
-                class="btn btn-primary"
-              >
-                {transfer_label(MapSet.size(@selected))} to {Connection.display_name(@destination)}
-              </button>
+              <div class="flex items-end gap-3">
+                <div>
+                  <label class="label py-0" for="cadence">
+                    <span class="label-text text-xs opacity-70">How often</span>
+                  </label>
+                  <form id="cadence-form" phx-change="cadence">
+                    <select
+                      id="cadence"
+                      name="cadence"
+                      class="select select-bordered select-sm w-36"
+                    >
+                      <option
+                        :for={{key, label, _minutes} <- cadences()}
+                        value={key}
+                        selected={key == @cadence}
+                      >
+                        {label}
+                      </option>
+                    </select>
+                  </form>
+                </div>
+
+                <button
+                  type="button"
+                  phx-click="transfer"
+                  disabled={MapSet.size(@selected) == 0}
+                  class="btn btn-primary"
+                >
+                  {transfer_label(@cadence, MapSet.size(@selected))} to {Connection.display_name(@destination)}
+                </button>
+              </div>
             </div>
           </.async_result>
         </div>
@@ -295,11 +392,48 @@ defmodule OnePlaylistWeb.TransferLive.New do
     """
   end
 
+  # Four choices rather than a number box. `interval_minutes` is a number in the
+  # database precisely so that this list can change without a migration, but a
+  # user asked "how often?" wants three or four answers, not a text field.
+  #
+  # Hourly is the floor `OnePlaylist.Syncs.Sync` enforces, and it is offered
+  # because a shared playlist somebody else is adding to is the case that wants
+  # it. Nothing faster is offered, or a user would spend a day's provider quota
+  # discovering that nothing had changed.
+  @cadences [
+    {:once, "Just once", nil},
+    {:hourly, "Every hour", 60},
+    {:daily, "Every day", 60 * 24},
+    {:weekly, "Every week", 60 * 24 * 7}
+  ]
+
+  # Exposed to the template, which cannot see a module attribute.
+  defp cadences, do: @cadences
+
+  defp cadence_minutes(choice) do
+    Enum.find_value(@cadences, fn {key, _label, minutes} -> key == choice && minutes end)
+  end
+
+  # `to_existing_atom` would accept any atom the VM has ever seen. This accepts
+  # only the four on the list, which is what the form actually offered.
+  defp cadence!(choice) do
+    Enum.find_value(@cadences, fn {key, _label, _minutes} ->
+      Atom.to_string(key) == choice && key
+    end) ||
+      raise ArgumentError, "refused a forged cadence: #{inspect(choice)}"
+  end
+
   # "Transfer" for one and "Transfer 12 playlists" for several, so the button
   # says how much is about to happen rather than leaving the count to the row
   # highlights.
-  defp transfer_label(1), do: "Transfer"
-  defp transfer_label(count), do: "Transfer #{count} playlists"
+  #
+  # A scheduled selection says "Sync" instead: the button is about to create a
+  # standing instruction, and a user who expected one transfer should be able to
+  # see the difference before pressing it rather than afterwards.
+  defp transfer_label(:once, 1), do: "Transfer"
+  defp transfer_label(:once, count), do: "Transfer #{count} playlists"
+  defp transfer_label(_scheduled, 1), do: "Sync"
+  defp transfer_label(_scheduled, count), do: "Sync #{count} playlists"
 
   attr :id, :string, required: true
   attr :label, :string, required: true

@@ -260,7 +260,31 @@ defmodule OnePlaylist.Transfers.Runner do
           destination_playlist_name: playlist.name
         })
 
+      pin_to_sync(transfer, playlist)
+
       {:ok, transfer, playlist.provider_id}
+    end
+  end
+
+  # A transfer from a standing instruction has to tell it where the tracks went,
+  # or next week's run creates a second playlist and the week after a third.
+  #
+  # Deliberately not part of the `with`: a sync that could not be pinned is a
+  # scheduling problem for next week, and failing this transfer over it would
+  # abandon a playlist that has just been created and is about to be filled.
+  # `Syncs.pin_destination/3` writes once, so a later run repairs it.
+  defp pin_to_sync(%Transfer{sync_id: nil}, _playlist), do: :ok
+
+  defp pin_to_sync(%Transfer{sync_id: sync_id}, playlist) do
+    case OnePlaylist.Repo.get(OnePlaylist.Syncs.Sync, sync_id) do
+      nil ->
+        :ok
+
+      sync ->
+        {:ok, _pinned} =
+          OnePlaylist.Syncs.pin_destination(sync, playlist.provider_id, playlist.name)
+
+        :ok
     end
   end
 

@@ -54,6 +54,7 @@ defmodule OnePlaylistWeb.Layouts do
           </li>
           <li :if={@current_scope}>
             <.link navigate={~p"/transfers"} class="btn btn-ghost btn-sm">Transfers</.link>
+            <.link navigate={~p"/syncs"} class="btn btn-ghost btn-sm">Syncs</.link>
           </li>
           <li :if={@current_scope}>
             <.link navigate={~p"/connections"} class="btn btn-ghost btn-sm">

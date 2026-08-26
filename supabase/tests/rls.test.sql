@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(30);
 
 -- Two users, written straight into auth.users. Fine here: this is a test
 -- fixture inside a doomed transaction, not a sign-up path.
@@ -58,6 +58,20 @@ values
   (gen_random_uuid(), 'bbbbbbbb-0000-4000-8000-000000000002',
    '22222222-2222-4222-8222-222222222222', 0, 'bob-pick', 'Bob''s choice', now());
 
+-- A sync each. A sync is the sharpest of these tables: it is a standing
+-- instruction the *system* acts on, unattended, with the owner's provider
+-- credentials. A caller able to write one could point somebody else's
+-- credentials at somebody else's playlist and have the application do it on a
+-- schedule — which is why `authenticated` is granted select and nothing more.
+insert into public.syncs
+  (id, user_id, source_provider, source_playlist_id, source_playlist_name,
+   destination_provider, interval_minutes, enabled, inserted_at, updated_at)
+values
+  (gen_random_uuid(), '11111111-1111-4111-8111-111111111111',
+   'tidal', 'alice-src', 'Alice''s weekly', 'tidal', 1440, true, now(), now()),
+  (gen_random_uuid(), '22222222-2222-4222-8222-222222222222',
+   'tidal', 'bob-src', 'Bob''s weekly', 'tidal', 1440, true, now(), now());
+
 -- ---------------------------------------------------------------------------
 -- The starting position: protection is opt-in, so assert it was opted into.
 -- ---------------------------------------------------------------------------
@@ -82,6 +96,11 @@ select ok(
   'transfer_overrides has row level security enabled'
 );
 
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.syncs'::regclass),
+  'syncs has row level security enabled'
+);
+
 -- A missing grant fails with 42501 *before* any policy runs, so the revoke is
 -- the outer wall and the policies are the inner one. Both are load-bearing.
 select is(
@@ -89,9 +108,22 @@ select is(
      from information_schema.role_table_grants
     where grantee = 'anon' and table_schema = 'public'
       and table_name in ('provider_connections', 'transfers', 'transfer_items',
-                         'transfer_overrides')),
+                         'transfer_overrides', 'syncs')),
   0,
   'anon has been granted nothing on the user-owned tables'
+);
+
+-- Read-only for the user, like `transfers` and for a sharper reason. The
+-- application writes syncs as `postgres`; a client that could insert or update
+-- one would be writing a job the system then executes with credentials it
+-- holds.
+select is(
+  (select string_agg(distinct privilege_type, ',' order by privilege_type)
+     from information_schema.role_table_grants
+    where grantee = 'authenticated' and table_schema = 'public'
+      and table_name = 'syncs'),
+  'SELECT',
+  'authenticated may only read syncs, never write one'
 );
 
 -- The ownerless tables are protected by the *absence* of a grant rather than by
@@ -267,6 +299,23 @@ select is(
   'and bob sees only his own correction'
 );
 
+select is(
+  (select source_playlist_name from public.syncs),
+  'Bob''s weekly',
+  'and bob sees only his own standing instruction'
+);
+
+-- The one that matters most on this table. Pausing somebody else's sync, or
+-- pointing it somewhere new, is an attack the read policy alone does not stop —
+-- it is the missing grant that does, and a grant is easy to add back by
+-- accident when a later migration needs one.
+select throws_ok(
+  $$update public.syncs set enabled = false$$,
+  '42501',
+  null,
+  'bob cannot pause a sync, not even his own'
+);
+
 -- ---------------------------------------------------------------------------
 -- With no identity at all.
 -- ---------------------------------------------------------------------------
@@ -283,6 +332,12 @@ select is(
   (select count(*)::int from public.transfer_overrides),
   0,
   'and no corrections either'
+);
+
+select is(
+  (select count(*)::int from public.syncs),
+  0,
+  'and no standing instructions either'
 );
 
 reset role;
