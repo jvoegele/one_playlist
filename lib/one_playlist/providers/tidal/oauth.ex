@@ -124,18 +124,10 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   # path is the one unguarded route by which an already-expired or blank token
   # could be stored and look healthy.
   #
-  # A postcondition on a private function is fine: Bond exempts them from the
-  # Precondition Availability rule, since a postcondition is a promise the
-  # function makes rather than an obligation on its caller.
-  #
-  # Freshness only. A non-blank access token is not asserted here because it is
-  # an invariant of `OnePlaylist.Providers.Tokens`, which fires when
-  # `from_oauth_response/2` builds the struct — earlier, in the module that owns
-  # the type, and strictly stronger, since it also rejects the blank *refresh*
-  # token that `Providers.refresh/1`'s `||` fallback would otherwise store.
-  #
-  # Freshness cannot go there: it is a property of the producer rather than of
-  # the value. See the moduledoc of `OnePlaylist.Providers.Tokens`.
+  # Freshness only. A non-blank access token belongs to `Tokens`' own invariant,
+  # which fires earlier and is stronger — it also rejects the blank *refresh*
+  # token `Providers.refresh/1`'s `||` fallback would otherwise store. Freshness
+  # cannot go there: it is a property of the producer, not of the value.
   @post whenever({:ok, tokens} <- result, fresh: Tokens.fresh?(tokens))
   defp post_token(config, params) do
     params = Map.put(params, "client_id", config[:client_id])

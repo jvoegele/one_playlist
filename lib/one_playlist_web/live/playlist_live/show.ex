@@ -1186,23 +1186,14 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   defp track_word(1), do: "track"
   defp track_word(_many), do: "tracks"
 
-  # The header and the list describe the same thing. Four counts sit above a
-  # table of rows, and a person reads "3 need looking at" and goes looking — so a
-  # count that disagrees with the rows underneath it is not a cosmetic bug, it is
-  # the screen lying about the data it is showing.
+  # A deliberate mirror of the body — Meyer §11.7 — guarding a *divergence*
+  # between two confusable predicate sets: `unidentified?` and `disagreeing?`
+  # differ by one field, `enriched?` and `isrc` read alike, and swapping two is a
+  # one-character edit.
   #
-  # This is a **mirror** of the body, deliberately, and it earns its place for
-  # the reason Meyer gives (§11.7): the instruction prescribes, the assertion
-  # describes, and their agreement is the evidence. What it actually guards is a
-  # *divergence* between the two — the four predicates here are confusable
-  # (`unidentified?` and `disagreeing?` differ by one field; `enriched?` and
-  # `isrc` read alike), swapping two of them is a one-character edit, and the
-  # result is a header that is quietly wrong about a real library.
-  #
-  # It cannot guard the other failure this function's comment names — a caller
-  # assigning `:entries` without coming through here — because a postcondition
-  # only sees the calls that arrive. `load_entries/1` and the reorder handlers
-  # all route through it today; keeping that true is a code-review matter.
+  # It cannot guard the other failure the comment above names — a caller
+  # assigning `:entries` without coming through here — since a postcondition only
+  # sees the calls that arrive.
   #
   # Proven by mutation: counting `&(not &1.enriched?)` for `:identified` fires it.
   @post counts_describe_the_entries:

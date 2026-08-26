@@ -38,6 +38,23 @@ defmodule OnePlaylist.Transfers.Runner do
   429s out of five rapid single deletes, and a 200-track playlist as 200 calls
   would spend the whole retry budget discovering that; as four calls of fifty
   it is four calls.
+
+  ## Counted, not set-compared
+
+  A playlist may legitimately hold the same track twice, and a source playlist
+  routinely holds two *different* recordings a service cannot tell apart. An
+  earlier version deduplicated writes by destination id, reasoning that writing a
+  track twice leaves a duplicate no later run could tell from one the user added
+  themselves — which is true of a **set** and not of a **count**.
+
+  Comparing how many the source asks for against how many the destination already
+  holds answers both at once: the source says three, the destination has one, so
+  two are written; run it again and the destination has three, so none are.
+  Idempotent and faithful, where set comparison could only be one or the other.
+
+  Found by a user whose playlist holds two different studio recordings of *Hard
+  to Imagine* — one from *Lost Dogs*, one from the *Chicago Cab* soundtrack — and,
+  before this, one of them silently. `write_missing/5` carries the law.
   """
 
   use Bond
@@ -656,30 +673,11 @@ defmodule OnePlaylist.Transfers.Runner do
   # Adds only what the destination does not already have, in batches. Returns
   # the set of source positions that were actually written, which is what tells
   # `:matched` apart from `:already_present`.
-  # Counted rather than set-compared, and that distinction is the whole of it.
-  #
-  # A playlist may legitimately hold the same track twice, and a source playlist
-  # routinely holds two *different* recordings a service cannot tell apart. The
-  # earlier version deduplicated by destination id, on the reasoning that
-  # writing a track twice would leave a duplicate no later run could tell from
-  # one the user had added themselves — which is true of a **set** and not of a
-  # **count**.
-  #
-  # Comparing how many the source asks for against how many the destination
-  # already holds answers both at once. The source says three, the destination
-  # has one, so two are written; run it again and the destination has three, so
-  # none are. Idempotent and faithful, where set comparison could only be one or
-  # the other.
-  #
-  # Found by a user whose playlist holds two different studio recordings of
-  # "Hard to Imagine" — one from *Lost Dogs*, one from the *Chicago Cab*
-  # soundtrack — and, before this, one of them silently.
-  #
-  # The paragraph above as one law, cross-checked against `missing_count/2` — a
-  # second implementation existing only so the comparison can be written. The
-  # body streams a reduce and decrements a counter; the assertion builds two
-  # frequency maps and sums the differences. Sharing an implementation would make
-  # the cross-check vacuous.
+  # Counted rather than set-compared — see the moduledoc. Stated as one law,
+  # cross-checked against `missing_count/2`: a second implementation existing
+  # only so the comparison can be written. The body streams a reduce and
+  # decrements a counter; the assertion builds two frequency maps and sums the
+  # differences. Sharing an implementation would make the cross-check vacuous.
   #
   # Two weaker forms were tried and both looked obviously right:
   # `size <= matched_count` is satisfied exactly by writing *everything*, and

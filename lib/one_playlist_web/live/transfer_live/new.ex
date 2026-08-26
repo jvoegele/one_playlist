@@ -248,27 +248,16 @@ defmodule OnePlaylistWeb.TransferLive.New do
   # rendered from those connections, so anything else is a forged request rather
   # than a choice, and raising is the right answer to one.
   #
-  # ## Why the refusal is not a precondition, having looked
+  # The refusal is **not** a precondition, though it reads exactly like one. A
+  # `@pre` is compiled out under `preconditions: :purge`, and a security check
+  # that stops existing when a config flag changes is not a check — a forged
+  # request is something this program must handle, not something it may assume
+  # away. So it stays ordinary code, and only its diagnostic changed.
   #
-  # It reads exactly like one — a caller obligation, violated only by a bad
-  # argument — and it must not be written as one. A `@pre` is compiled out under
-  # `preconditions: :purge`, and a security check that stops existing when a
-  # config flag changes is not a check. Bond states the rule the other way round
-  # and it applies here unchanged: a contract violation is the manifestation of a
-  # bug, not a business outcome, and a forged request is something this program
-  # must handle rather than something it may assume away.
-  #
-  # So the refusal stays ordinary code, unconditional in every build. What
-  # changed is only its diagnostic: `true = Enum.any?(...)` reported
-  # `MatchError: no match of right hand side value: false`, which names neither
-  # the value nor the rule, in the log of the one event worth reading carefully.
-  #
-  # The `@post` beside it is a different claim and survives purging being
-  # irrelevant to it: it says what this function *returns*, where the body
-  # checks what it *looked up*. Those are the same atom today and need not be —
-  # a version returning `provider`, or a default, would satisfy the check above
-  # and be caught here. Proven by mutation: deleting the `Enum.any?/2` branch
-  # fires `connected_to_that_provider` against the forged-provider test.
+  # The `@post` is a different claim, and purging is irrelevant to it: what this
+  # function *returns*, where the body checks what it *looked up*. The same atom
+  # today and need not be. Proven by mutation: deleting the `Enum.any?/2` branch
+  # fires it against the forged-provider test.
   @post connected_to_that_provider:
           Enum.any?(socket.assigns.connections, &(&1.provider == result))
   defp provider!(socket, provider) do
