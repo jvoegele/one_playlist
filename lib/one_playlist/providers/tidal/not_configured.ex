@@ -12,4 +12,12 @@ defmodule OnePlaylist.Providers.Tidal.NotConfigured do
     reasons: [:missing_credentials],
     http_status: 501,
     code: "TIDAL_NOT_CONFIGURED"
+
+  # See the note on `OnePlaylist.Providers.Spotify.NotConfigured`: the message
+  # names the missing variable, and `context.missing` holds a name rather than a
+  # value.
+  def display_message(%{context: %{missing: name}}) when is_binary(name),
+    do: "TIDAL is not configured on this server: #{name} is not set"
+
+  def display_message(error), do: error.message
 end

@@ -17,4 +17,17 @@ defmodule OnePlaylist.Providers.Spotify.NotConfigured do
     reasons: [:missing_credentials],
     http_status: 501,
     code: "SPOTIFY_NOT_CONFIGURED"
+
+  # Names the key rather than only the provider, because "Spotify is not
+  # configured" sends a reader to look at all of it. The distinction is not
+  # cosmetic here: this application needs *two* values where TIDAL needs one,
+  # and the second is easy to leave out.
+  #
+  # Safe to display. `context.missing` holds the *name* of a variable, never its
+  # value — and `:client_secret` is in `config :errata, redact:` regardless, so
+  # a future edit that put a value here would be redacted rather than shown.
+  def display_message(%{context: %{missing: name}}) when is_binary(name),
+    do: "Spotify is not configured on this server: #{name} is not set"
+
+  def display_message(error), do: error.message
 end
