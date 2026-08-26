@@ -583,8 +583,19 @@ A fresh session should read this before proposing what to build.
 | Match quality | Four corpora, all replayable offline. `dev/measure/replay.exs`: **82 certain, 12 duration-corroborated, 5 none, 1 wrong** of 100 random MusicBrainz recordings. `dev/corpus/replay_credit_cases.exs`: **96 correct, 12 equivalent, 7 missed, 0 wrong** of 115 hard credit cases, and **5 of 5** hand-labelled decline cases correctly declined. `dev/corpus/replay_enrichment.exs` (new, 255 cases from the library **and** `dev/playlists/*.csv`): **150 correct, 32 equivalent, 31 unverified, 20 missed, 1 wrong** of 234 labelled. See `docs/reference/domain.md` |
 
 **Proven live, not just in tests:** a TIDAL→TIDAL transfer (8/8 by ISRC, order and
-ISRCs identical, a second run adding nothing), and a TIDAL→Navidrome transfer whose
-report matched what actually landed in the destination.
+ISRCs identical, a second run adding nothing), a TIDAL→Navidrome transfer whose
+report matched what actually landed in the destination, and — 2026-08-26 — a
+**Spotify→library** transfer of *Pearl Jam - No Code (Ultimate Edition)*: 17 of 17
+matched, none unmatched, sixteen to recordings the library already held and one
+(*Lukin*) stored fresh. One row is worth keeping as evidence the ladder is doing what
+it claims: *Black, Red, Yellow* matched across differing album titles — the source said
+*Lost Dogs*, the library *Lost Dogs: Rarities and B Sides* — because the ISRC settled it
+before any text comparison ran.
+
+**What that run did not exercise**, so nobody reads more into it than it says: the
+playlist was 17 tracks, so **pagination past the first 100 never ran**; it contained no
+local files and no episodes, so the **non-track filtering is still only proven by
+test**; and it is a *read*, so nothing has yet written to Spotify.
 
 **Evaluate a matching change against the corpora, never by argument.** Six separate ideas this
 project was confident about have now been measured and *rejected*: a same-release exception to
