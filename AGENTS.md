@@ -62,6 +62,38 @@ contracts get written, so lead with it.
 Sub-rules: `bond:testing` (proving contracts fire, property testing, coverage) and
 `bond:inheritance` (behaviours, protocols, `defcontract`).
 
+## The default is yes
+
+**Aim for a contract on every non-trivial function.** Everything else in these rules constrains
+*what* to write; almost none of it is a reason to write *nothing*. Read the "do not write" list
+as a quality bar on the assertion you are about to write, not as a gate you have to argue your
+way through first.
+
+This needs saying because the failure mode is one-sided. A codebase with too few contracts looks
+exactly like a codebase that did not need them — nothing is missing, nothing is red, and the
+functions that quietly promise nothing are invisible. Under-contracting is the default outcome of
+careful screening, and it is the one nobody notices.
+
+Measured on a Phoenix application contracted with these rules: **67 of its 126 source files**
+`use Bond`, carrying 136 postconditions, 28 preconditions and 13 struct invariants across 12
+struct modules. Its author's judgement was that reaching that density took five passes, because
+every earlier pass had stopped too early.
+
+Two things follow from that ratio of nearly **five postconditions to every precondition**:
+
+  * **Most functions have something to promise; far fewer have something to demand.** If you are
+    looking for a `@pre` and not finding one, that is normal — ask what the function *returns*
+    instead, which is where the interesting laws are.
+  * **Start from the promise, not from the screening.** Ask "what does this guarantee?" first. If
+    you can state it, write it. If you genuinely cannot, that is a finding about the function —
+    usually that it does two things, or that its result has no describable shape — and it is worth
+    a moment's thought rather than a shrug.
+
+The bar does not move. A contract that restates mechanism, cannot be evaluated, or accuses correct
+code is worse than nothing, and none of what follows is suspended by this section. What changes is
+the presumption: **contract it unless one of the stated reasons applies**, rather than contract it
+only where the case is overwhelming.
+
 ## Setup
 
 ```elixir
@@ -138,6 +170,22 @@ end
     validation — it can be compiled out.
   * Contracts attach to a **function**, not a clause: put them before the first clause. A `@pre`
     between clauses is a compile error.
+  * **Explain a contract in its `@doc`, not in a comment above it.** Bond appends the generated
+    `#### Preconditions` / `#### Postconditions` sections to the function's `@doc`, so prose there
+    renders directly above the contract it justifies and reaches the callers who must satisfy it;
+    a `#` comment reaches nobody but whoever opens the file. Keep a comment beside an assertion
+    only for what the assertion **cannot say about itself** and a caller does not need — a bound
+    that came from a measurement, a deliberate suppression, a formulation that looks like a
+    mistake and is not — and keep it to a line or two. A comment long enough to skim past pushes
+    the next assertion off the screen and costs more than it records.
+
+**Write comments and docstrings for people, not for agents.** This one is about you. Source
+comments are a poor channel for anything aimed at an AI agent — not because agents don't read
+them, they do, but because a comment is paid for by every reader, duplicated at every site that
+needs it, and drifts out of step with the rules it paraphrases. Notes to your future self or to
+the next agent belong where they load regardless of which file is open: `AGENTS.md`, the files it
+references, or your project memory. Bond's own mechanics belong in these rules — a comment
+restating `bond:inheritance` above an inherited contract is a copy that will go stale.
 
 ## The traps
 
@@ -431,8 +479,10 @@ specification says:
     parameter type — keep it, and put the fact in a `@spec`; a guard **stating a domain rule**
     (`when amount <= account.balance`) is the only redundant case, and there you **pick one** —
     if a violation is the caller's bug, write the `@pre` and drop the guard, because only the
-    contract names the caller, renders into the docs, and appears in the coverage table. A `@pre`
-    **stronger** than the guard is not redundant at all: it can fail, so keep it as it stands.
+    contract names the caller, renders into the docs, and appears in the coverage table. **Apply
+    the purge test below before dropping anything**: a guard whose absence changes what the
+    program *does* is load-bearing, and a `@pre` cannot replace it. A `@pre` **stronger** than the
+    guard is not redundant at all: it can fail, so keep it as it stands.
   * **Assertions about data from outside your system.** A provider sending nonsense is not a
     programming error, and a `@post` that raises on it converts their bad data into your crash.
     At a parsing boundary, **assert what you emit, never what you received.**
@@ -447,6 +497,46 @@ specification says:
 obligation on every *future* caller, so a contract no existing call site violates is the normal
 case, not a redundant one — that is what a green suite looks like. Decide from the specification,
 not from a census of today's callers.
+
+### The purge test, before converting existing code into a contract
+
+Everything above is about what to write from scratch. **Converting a check that already exists is
+a different move with a different failure mode**, and it is the one you make constantly while
+sweeping a codebase. One question settles it:
+
+> Under `:purge`, would this change what the program **does**, or only what it **notices**?
+
+Only what it notices → contract. What it does → ordinary code, unconditional in every build.
+`@pre`, `@post`, `@invariant` and `check/1` are all purgeable; a refusal your program must always
+perform is not one of them.
+
+```elixir
+# The provider comes from a form. A mismatch is a FORGED REQUEST, not a caller's bug.
+true = Enum.any?(socket.assigns.connections, &(&1.provider == atom))
+
+@pre connected_to_that_provider: ...   # ❌ purged, and the forgery is accepted
+```
+
+**The tell is not how the check is written — it is what happens if it is not there.**
+`true = Enum.any?(...)` has no `case`, no `{:error, _}`, nothing shaped like control flow, so a
+sweep reads it as a contract someone wrote before they had Bond. What settles it is where the
+value came from: data from outside your system has no caller of yours to blame, so refusing it is
+behaviour, not diagnosis.
+
+This is the inverse of *never rescue a Bond error to decide what your program does*, and the
+direction that bites during an audit: **don't convert what the program does into something it
+merely notices.**
+
+When a load-bearing check cannot become a `@pre`, there is often still a `@post` worth having
+beside it — keep the refusal as ordinary code with a diagnostic that names the rule, and let the
+contract claim something purging cannot weaken (what the function *returns*, where the body
+validates what it *looked up*).
+
+**Non-Redundancy assumes the two checks are the same check.** Before deleting either side of an
+apparent duplicate, remove it and ask what stops being true, in *every build you ship*.
+"Redundant" is a conclusion, not an observation: two checks that read alike may be an accident,
+a deliberate second line of defence (`bond:testing`), or a purgeable thing standing in front of
+one that is not. Only the first is redundancy.
 
 **Do write** laws that are true of the *meaning*: conservation (`length(result) <= length(input)`,
 or comparing sorted multisets rather than appealing to uniqueness), relationships between two
@@ -741,6 +831,27 @@ Two tools, and they behave oppositely, so keep them straight:
 
 Putting a `contract_holds/2` inside a `test` block is an error, and Bond says so.
 
+**Use both, widely.** A contract you have never seen fail is a claim, not a check, so every
+non-trivial contract deserves a `Bond.Test` assertion that proves it fires — and every contract
+stating a *law* over an input space you cannot enumerate deserves a `contract_holds/2` alongside
+it. Measured on an application contracted with these rules: 27 `assert_precondition_violation`,
+27 `assert_invariant_violation`, 12 `assert_postcondition_violation` and 22 `contract_holds`,
+against roughly 180 contracts — about **one proof for every two contracts**, concentrated on the
+ones carrying real laws. That is a floor worth beating, not a ceiling.
+
+**Reach for property testing whenever the contract states a law rather than a bound.**
+`contract_holds/2` costs three lines once the generator exists, and it turns an assertion you
+checked on four fixtures into one checked on hundreds of inputs — using the contract you already
+wrote as the oracle, so there is no second assertion to keep in step. The best candidates are pure
+functions with a `@post` describing a relationship: conservation, ordering, idempotence, agreement
+between two spellings of one input.
+
+**`invariants_hold/2` is the most under-used macro in the library.** A struct module that already
+has an `@invariant` needs only a list of constructors, transformers and observers to get random
+operation sequences checked against it — no generator design, no new assertions, and it explores
+orderings you would not have thought to write down. If a module has an invariant and no property,
+that is usually the cheapest coverage available to you.
+
 ## Proving a contract fires
 
 ```elixir
@@ -923,10 +1034,11 @@ After each suite you get a table of which assertions ran and how often they were
 | Why it cannot fail | What to do |
 | --- | --- |
 | It transcribes *how* the body works | Restate it as *what* the function promises |
-| The body guards the property twice | Delete the redundant guard, keep the contract |
+| The body guards the property twice **by accident** | Delete the redundant guard, keep the contract |
+| Two guards are **independently sufficient** by design | Keep both — and mutate them *together* |
 | It is a true law of a pure function | Keep it — prove it by **mutation**, not by a test |
 
-The third is the common case, and in a mature codebase **most rows will read `⚠ never failed`**.
+The last is the common case, and in a mature codebase **most rows will read `⚠ never failed`**.
 That is what a green suite means. Skim the table for a contract that looks suspiciously safe;
 don't drive it to zero.
 
@@ -957,6 +1069,97 @@ Contracts and tests catch different things, and it is not a stylistic split:
 
 A bound cannot see a value that is wrong but in range. When a mutation survives, the question is
 which of the three is missing.
+
+## Running a mutation
+
+One mutation at a time, reverted before the next. Five things make a mutation lie to you; each
+has produced a wrong conclusion in a real audit, and one of them deleted a correct contract.
+
+### Aim at the function the contract is on
+
+**A surviving mutation is evidence about the mutation until you have checked it is evidence about
+the contract.** It misses in both directions:
+
+  * **Too far out.** `ordered_best_first` is a `@post` on `rank/3`. Mutating `match/3` to return
+    `List.last/1` leaves `rank/3`'s own result correctly ordered — the contract holds because it
+    is still true there, and nothing was tested.
+  * **Too far in.** A `@post` on `Client.playlist_item_references/3` says every returned reference
+    has both halves usable. Mutating the mapper it delegates to fires the *mapper's* own
+    postcondition first, one call inward, so the outer contract never sees the bad value and looks
+    unfalsifiable. It is not — corrupt how the client assembles pages instead, and the mapper stays
+    satisfied on every page while the outer contract fires immediately.
+
+The second licenses a wrong conclusion that sounds right: *the collaborator already guarantees
+this, so the outer contract is redundant*. **A function whose body delegates to a collaborator
+that already guarantees a property still owes that property to its own caller.** The delegation is
+an implementation fact and can be refactored away tomorrow; the guarantee is the specification, it
+renders into *that* function's ExDoc, and its callers read it there.
+
+### Run a null control first
+
+The coverage table prints **every** label on **every** run, so a harness that greps output for a
+label matches whether or not anything failed — reporting a hit for every mutation, including ones
+that changed nothing. Two things actually indicate a violation: `label: :the_name` inside a raised
+`Bond.*Error`, or a coverage row for that label whose **failed** count is non-zero.
+
+```elixir
+defp fired?(output, label) do
+  String.contains?(output, "label: :#{label}") or
+    ~r/:#{label}\s+checked\s+[\d,]+×\s+failed\s+([\d,]+)×/
+    |> Regex.run(output)
+    |> case do
+      [_, count] -> String.replace(count, ",", "") != "0"
+      nil -> false
+    end
+end
+```
+
+**Run the harness once with no mutation applied.** If it reports a hit, the detector is broken,
+not the code.
+
+### Each assertion needs a mutation its neighbours survive
+
+Assertions on one function fail fast in execution order, so a mutation breaking the first raises
+before the second is evaluated — and the second looks unfalsifiable under every mutation you try.
+
+Real case: `from_the_archive` and `names_the_album_asked_about` on a cover-art lookup. Returning a
+redirect target fires the first and pre-empts the second. Proving the second needs a mutation that
+**keeps the host intact and changes the album**.
+
+Across *function* boundaries the same pre-emption is a genuine signal rather than a trap: a law
+restated at two altitudes, where the inner assertion always raises first, is redundant and the
+outer one should go. The coverage table cannot tell the two readings apart. What separates them is
+**whether a bug exists that the inner assertion cannot see** — a paging bug is invisible to the
+mapper above, so that outer contract earns its place; where no such bug exists, it does not.
+
+### Two guards that are independently sufficient
+
+Where a property is enforced twice *by design*, no single mutation can falsify a contract above
+it, and the row reads `⚠ never failed` for a contract doing real work.
+
+Measured case: an application-level `where user_id == ^user_id` and Postgres row-level security
+underneath it. Drop the `where` and RLS still filters; drop the RLS scope and the `where` still
+does. The scoping postcondition fires only when **both** go — which is the only way the law is
+actually breakable, and exactly the refactor you want it to notice.
+
+This is the `⚠ never failed` row easiest to misread. Accidental double-guarding means delete one
+and keep the contract; defence in depth means **keep both and mutate both together**. Concluding
+"vacuous, delete it" removes the one thing that would notice a later refactor taking out both.
+
+**"Redundant" is a conclusion, not an observation.** Establish it by removing the check and asking
+what stops being true, in every build you ship — never by noticing that two things say the same
+words. The other half of this trap is the purge test in the main `bond` rules: a guard whose
+absence changes what the program *does* cannot be replaced by a `@pre`, which is compiled out.
+
+### Mutate toward wrong values, not toward no values
+
+`forall` over an empty enumerable is vacuously true, so a mutation making a collection *absent*
+rather than *wrong* leaves the contract satisfied.
+
+Real case: a scoping law over the connections a page lists. The obvious mutation — read them for a
+random user id — returns `[]`, and the law holds. Proving it needed a mutation returning *another
+user's* rows, which needed a second user in the fixtures. When the only realistic mutation empties
+the collection, the missing piece is usually a fixture.
 
 ## Gotchas
 

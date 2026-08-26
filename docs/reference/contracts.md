@@ -50,8 +50,16 @@ possible answers, and only one of them is "delete it":
 | Why it cannot fail | What to do |
 | --- | --- |
 | It transcribes *how* the body works | Restate it as *what* the function promises |
-| The body guards the property twice | Delete the redundant guard, keep the contract |
+| The body guards the property twice **by accident** | Delete the redundant guard, keep the contract |
+| Two guards are **independently sufficient** by design | Keep both — and mutate them *together* |
 | It is a true law of a pure function, unfalsifiable by data | Keep it; prove it by mutation |
+
+Row two used to read "the body guards the property twice", with no qualifier, and it was wrong
+for the case this codebase has most of. `every_connection_is_this_users` sits above an
+application-level `where user_id` **and** Postgres row-level security: drop either and the other
+still filters, so no single mutation falsifies it. Deleting one would remove a deliberate second
+line of defence on the advice of a table meant to improve the contract. Bond 1.17.3 splits the
+row for the same reason; the two now agree.
 
 The last row is the common case for specifications and is developed under
 [A postcondition on a pure function](#a-postcondition-on-a-pure-function-is-a-production-assertion-not-a-test-assertion).
@@ -1117,21 +1125,25 @@ their own result, so no input can violate them — only a bug can. `Bond.Test`'s
 write. That is why `Bond.Coverage` reports them as `⚠ never failed` for ever,
 and why the checklist below says to mutate.
 
-The mutation has to reach the function the contract is *on*. `ordered_best_first`
-is a postcondition on `rank/3`, and the obvious mutation — returning
-`List.last/1` from `match/3` — leaves `rank/3`'s own result correctly ordered
-and proves nothing. It looked like a proof and was not.
+**The method itself now lives in Bond's `bond:testing` rules**, under *Running a mutation* — aim
+at the function the contract is on, run a null control first, give each assertion a mutation its
+neighbours survive, mutate independently-sufficient guards together, and mutate toward wrong
+values rather than absent ones. All five were learned here and were contributed upstream in
+1.17.2; read them there rather than a second copy that can drift.
 
-A conservation law needs mutating in **both** directions. `unmatched: []` drops
-the failures; a `flat_map` emitting each match twice invents them. One mutation
-proves half a law.
+What stays here is the evidence, because the cases are this codebase's and they are what make the
+rules believable rather than plausible.
 
-And beware the detector. Grepping the test output for the label always matches,
-because the coverage table prints every label on every run. What distinguishes a
-violation is `label: :the_name` in a raised `Bond.PostconditionError`, or a
-coverage row whose failure count is non-zero. Run the harness once with **no**
-mutation first: if that reports a hit, the detector is broken rather than the
-code.
+**Aiming.** `ordered_best_first` is a postcondition on `rank/3`, and the obvious mutation —
+returning `List.last/1` from `match/3` — leaves `rank/3`'s own result correctly ordered and proves
+nothing. It looked like a proof and was not. The same error in the *opposite* direction deleted a
+correct contract: a `@post` on `Tidal.Client.playlist_item_references/3` was judged unfalsifiable
+because mutating the mapper it delegates to fires the mapper's own postcondition one call inward.
+Corrupting how the client assembles its pages fires the client's immediately.
+
+**Both directions.** A conservation law needs mutating both ways. `unmatched: []` drops the
+failures; a `flat_map` emitting each match twice invents them. One mutation proves half a law —
+and for `write_missing/5` the "too few" half needed a test written before it would fire at all.
 
 Six of `OnePlaylist.Matching`'s assertions were verified this way on 2026-08-25,
 each mutation applied alone and reverted, with the mutation recorded in a comment

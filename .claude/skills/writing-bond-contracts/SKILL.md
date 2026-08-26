@@ -21,6 +21,14 @@ implementation disagrees with it — a consequence worth having, not the purpose
 This is not academic. It changes which contracts get written, because the two frames disagree
 about a whole class of them, and the bug-catching frame deletes correct specifications.
 
+**And it changes how many.** Aim for a contract on every non-trivial function. This skill is a
+quality bar on the assertion you are writing, not a gate to argue past before writing one —
+almost nothing in it is a reason to leave a function bare. The failure mode is one-sided: a
+codebase with too few contracts looks exactly like one that never needed them, so careful
+screening under-contracts by default and nobody notices. Measured on an application contracted
+with these rules, reaching a density its author was happy with took **five passes**, each earlier
+one having stopped too soon. Start from "what does this promise?" and write what you can state.
+
 ## The test is mechanism versus meaning
 
 Not "does it restate the body". For a short function the answer is often yes and the contract is
@@ -57,6 +65,20 @@ an algorithm for computing square roots. That is the normal case; `full?` is the
 restatement but as **degenerate**: for `add/2`, `+` genuinely is the meaning, and the `@spec` and
 the name already carry it. Leave it out — but not because it looks like the body.
 
+**Delegation is mechanism too.** A function whose body hands the work to a collaborator that
+already guarantees a property still owes that property to *its own* caller:
+
+```elixir
+# The mapper's @post guarantees this. State it here anyway.
+@post both_halves_usable: forall(r <- result, usable?(r))
+def playlist_item_references(client, id, opts), do: Mapper.references(fetch_pages(client, id, opts))
+```
+
+"The callee already checks it" describes how this function is built today, and a refactor can
+retire that callee without touching this function's promise. The guarantee renders into *this*
+function's ExDoc, and its callers read it there — they have no reason to know the mapper exists.
+The same reasoning as `full?`: the delegation is prescriptive, the assertion descriptive.
+
 ## The three questions
 
 **What must the caller guarantee for this call to make sense?** → `@pre`. Not "what would crash
@@ -81,15 +103,22 @@ Treat "this cannot fail" as a question with three answers, only one of which is 
 | Why it cannot fail | What to do |
 | --- | --- |
 | It transcribes *how* the body works | Restate it as *what* the function promises |
-| The body guards the property twice | **Delete the redundant guard**, keep the contract |
+| The body guards the property twice **by accident** | **Delete the redundant guard**, keep the contract |
+| Two guards are **independently sufficient** by design | Keep both — mutate them *together* |
 | It is a true law of a pure function, unfalsifiable by data | Keep it — prove it by mutation |
 
-The second is easy to misread. One real case: a `no_empty_names` postcondition would not fire
+The two middle rows look identical from the coverage table and want opposite treatment. Defence
+in depth — an application-level scope *and* row-level security under it — is falsifiable only by
+removing both, which is the refactor the contract exists to notice. See `bond:testing` for how to
+mutate one. It is the same trap as the purge test below, in a different costume: **"redundant" is
+a conclusion, not an observation.**
+
+The accidental case is easy to misread. One real case: a `no_empty_names` postcondition would not fire
 under any single edit, because the body both passed `trim: true` *and* ran an explicit
 `Enum.reject(&(&1 == ""))`. Only a double mutation could falsify it. The fix was deleting the
 redundant guard, not weakening the contract — after which a single plausible edit failed loudly.
 
-The third is the common case for specifications and is **not** a defect. A pure function's
+The last row is the common case for specifications and is **not** a defect. A pure function's
 postconditions are *production* assertions: they hold over every input the application ever sees,
 which is the point. Measured on one normalization function: 128,992 codepoints, ~387,000 inputs,
 **zero violations** — and the contract still earns its place, because it is the single point every
@@ -100,9 +129,9 @@ answerable from a remote console instead of a rebuild.
 assertion fires, restore. Two minutes, and it is the only thing that distinguishes
 unbreakable-by-correct-code from unbreakable-because-vacuous.
 
-**"No current caller violates it" is not a fourth row.** All three ask whether the assertion
-*could* be false for an input the specification admits — never whether today's call sites produce
-one. A precondition is a standing obligation on every *future* caller, and callers arrive: the
+**"No current caller violates it" is not a row in that table.** Every row asks whether the
+assertion *could* be false for an input the specification admits — never whether today's call
+sites produce one. A precondition is a standing obligation on every *future* caller, and callers arrive: the
 value of `@pre positive: amount > 0` is that it holds the line the day someone adds a call site
 that gets it wrong. Well-behaved callers, even carefully contracted ones, are a reason the
 contract will stay green, not a reason to leave it unwritten. Census the call sites to understand
@@ -193,9 +222,10 @@ not one of the three, the reason is not good enough.
     (keep it, state the fact in `@spec`); a guard **stating a domain rule** —
     `when amount <= account.balance` — is the redundant one, and there you **pick one**. If a
     violation is the caller's bug, that is the `@pre`: write it and drop the guard, since only
-    the contract names the caller, reaches the docs, and appears in the coverage table. It is the
-    trade the falsifiability table names — **delete the redundant guard, keep the contract.** A
-    `@pre` *stronger* than the guard is not redundant and stands as it is.
+    the contract names the caller, reaches the docs, and appears in the coverage table — but
+    **apply the purge test first**, because a load-bearing guard cannot be replaced by a `@pre`.
+    It is otherwise the trade the falsifiability table names — **delete the redundant guard, keep
+    the contract.** A `@pre` *stronger* than the guard is not redundant and stands as it is.
   * **That external data was well formed.** A contract guards *your* logic. A provider sending
     nonsense is not a programming error, and a `@post` that raises on it converts their bad data
     into your crash. **At a parsing boundary, assert what you emit, never what you received.** If
@@ -218,6 +248,51 @@ not one of the three, the reason is not good enough.
     fails: it does not even appear in the coverage table. A function with **no callers at all** is
     a question about the design, and answering it is a prerequisite to contracting it. That is the
     only caller question worth asking here: how many, not what they pass.
+
+## Converting existing code: the purge test
+
+Everything above screens what to write **from scratch**. Converting a check that is already there
+is a different move with its own failure mode, and it is the move you make constantly while
+sweeping a codebase. One question screens it, and it is a fourth question rather than a fourth
+reason to decline:
+
+> Under `:purge`, would this change what the program **does**, or only what it **notices**?
+
+Only what it notices → a contract. What it does → ordinary code, unconditional in every build.
+`@pre`, `@post`, `@invariant` and `check/1` are all purgeable; a refusal the program must always
+perform is not one of them.
+
+```elixir
+defp provider!(socket, provider) do
+  atom = String.to_existing_atom(provider)
+  true = Enum.any?(socket.assigns.connections, &(&1.provider == atom))
+  atom
+end
+```
+
+Every signal of shape says precondition: a caller obligation, violated only by a bad argument,
+already raising, with a diagnostic that names neither the value nor the rule. Convert it and a
+purged build accepts a **forged request** — the provider came from a form.
+
+**The tell is not how the check is written, it is what happens if it is not there.** A `true = …`
+match has no `case`, no `{:error, _}`, nothing shaped like control flow, which is exactly why a
+sweep reads it as a contract written before Bond existed. Provenance settles it: data from outside
+your system has no caller of yours to blame, so refusing it is behaviour, not diagnosis.
+
+This is the inverse of *never rescue a Bond error to decide what your program does*, and the
+direction that bites during an audit — **don't convert what the program does into something it
+merely notices.**
+
+When a load-bearing check cannot become a `@pre`, look for a `@post` beside it that purging cannot
+weaken. Keep the refusal as ordinary code with a diagnostic naming the rule, then assert what the
+function *returns* where the body validates what it *looked up* — the same value today, not
+necessarily tomorrow, so a cross-check rather than a mirror.
+
+> **Non-Redundancy assumes the two checks are the same check.** Before deleting either side of an
+> apparent duplicate, remove it and ask what stops being true — in *every build you ship*.
+> "Redundant" is a conclusion, not an observation: two checks that read alike may be an accident,
+> a deliberate second line of defence, or a purgeable thing standing in front of one that is not.
+> Only the first is redundancy in Meyer's sense.
 
 ## Shared state: assert only what survives interleaving
 
@@ -286,6 +361,61 @@ Don't extract it to whichever caller seems closer — ask what boundary both cal
 and name *that*. Then name the abstraction **for the value, not the guard**: `count/1`, not
 `non_negative_integer/1`. The postcondition can carry the check without the name repeating it.
 
+**A map that travels between modules is a struct waiting to happen.** A bare map has nowhere to
+put a law: no invariant can attach to it, so whatever is true of it is re-asserted at each use, or
+more often nowhere. Lifting it gives the law one home that holds for every instance however
+constructed, including ones built in fixtures.
+
+```elixir
+# Was a map of comparison scores passed between four modules.
+defmodule Signals do
+  use Bond
+  defstruct title: nil, artists: nil, album: nil, duration: nil
+
+  @invariant similarities_are_proportions:
+               forall(s <- [subject.title, subject.artists, subject.album, subject.duration],
+                 is_nil(s) or (is_float(s) and s >= 0.0 and s <= 1.0))
+end
+```
+
+Two conditions make the lift pay, and they are the same condition twice:
+
+  * **Move the operations in with it.** An `@invariant` is checked around the **public functions
+    of its own module**, so a struct module with no operations is a struct whose invariant fires
+    nowhere. If the functions that build and read the map are scattered as private helpers across
+    the modules that use it, gathering them is most of the win — it removes the duplication *and*
+    makes the invariant reachable. Before lifting, ask where the invariant would fire; if the
+    answer is "at functions this module does not have", write those functions or don't lift.
+  * **Give `defstruct` defaults that satisfy the invariant.** `%Signals{}` is valid syntax for
+    anyone. With `nil` defaults under a stricter law, the first invariant to touch a bare struct
+    raises `Bond.AssertionEvaluationError` instead of reporting a violation. Choose defaults that
+    are the "nothing to say" value *and* legal — that is Meyer's base-case rule, and it is usually
+    a better default than `nil` regardless.
+
+The payoff compounds: once the map is a struct with a module, every function in that module is a
+candidate for a `@pre`/`@post` of its own, and they are usually the pure, law-bearing functions
+where contracts are worth the most.
+
+## Where the rationale goes
+
+You will often know *why* an assertion is worth having — the bug it catches, the reasoning behind
+a bound. That belongs in the function's `@doc`, because Bond appends the generated contract
+sections to it: prose there renders directly above the assertion it justifies, in the docs the
+callers read. The same words in a `#` comment above the assertion reach nobody but whoever opens
+the file.
+
+A comment beside an assertion earns its place only when it records what the assertion **cannot
+say about itself** and a caller does not need — a bound that came from a measurement, a
+deliberate suppression, a formulation that looks like a mistake and is not. One or two lines.
+Anything longer competes with the contract block it sits in, which exists to be read at a glance
+as a specification.
+
+**Write comments for people.** Not because agents don't read them, but because a source comment
+is the wrong channel for agent-directed content: every reader pays for it, it is duplicated at
+each site, and a comment paraphrasing these rules goes stale against them. Durable project
+knowledge belongs where it loads regardless of which file is open — `AGENTS.md`, the files it
+references, or project memory. Bond mechanics belong in the usage rules.
+
 ## Checklist for a new contract
 
 1. **State what the function or type promises**, in terms a caller can rely on. If you cannot say
@@ -297,8 +427,12 @@ and name *that*. Then name the abstraction **for the value, not the guard**: `co
 5. **Is it available to the caller?** A `@pre` naming a `defp` (or a `@doc false` function) is one
    the client cannot discharge — so publish the predicate, rather than dropping the obligation.
 6. **Justifiable from the specification alone**, or only from how you happened to implement it?
+   And if you are *converting* an existing check: under `:purge`, would removing it change what
+   the program **does** or only what it **notices**?
 7. **Can it fail?** Write a `Bond.Test` assertion targeting its `label:`. Where no input can
    falsify it, mutate the implementation and confirm it fires.
-8. **Read the coverage table.** `⚠ never failed` is a question with three answers.
-9. **When you add a precondition, audit its call sites.**
+8. **Does the reasoning belong in the `@doc`?** If you are about to write a comment explaining
+   the assertion, that is where it goes — published, next to the contract, for the caller.
+9. **Read the coverage table.** `⚠ never failed` is a question with four answers.
+10. **When you add a precondition, audit its call sites.**
 <!-- usage-rules-skill-end -->

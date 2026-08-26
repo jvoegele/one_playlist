@@ -1682,3 +1682,49 @@ than avoiding. Four postconditions across two LiveViews found a real coupling
 the list beneath it — all on the layer bond 1.17.1's own usage rules had just talked this project
 out of exempting. The arity-1 hole is the one thing standing between that and the natural way to
 write it.
+
+---
+
+## `bond` 1.17.3 — the rules landed; the arity-1 defect did not
+
+Closing the loop opened by the two previous entries. Bond 1.17.2/1.17.3 absorbed the mutation
+methodology this project developed — *Running a mutation* in `bond:testing` now carries all five
+traps, the main rules carry the purge test, and the `⚠ never failed` table splits accidental
+double-guarding from deliberate defence in depth. `docs/reference/contracts.md` has been trimmed
+to the evidence and now defers to the rules for the method, so the two cannot drift.
+
+Two notes back.
+
+### The compile defect is still open
+
+Retested against **bond 1.17.3 / phoenix_live_view 1.2.10**, unchanged:
+
+```
+** (MatchError) no match of right hand side value:
+    {:__bond_postconditions__stop_connecting__1, 2}
+    (phoenix_live_view 1.2.10) expanding macro: Phoenix.Component.Declarative.__pattern__!/2
+```
+
+A contract on any **arity-1** function in a module using `Phoenix.Component` still fails to
+compile. The documentation improvements are the larger half of the value and they shipped; this is
+the half that constrains where a LiveView's contracts can physically go. `load_connections/1` here
+still carries its scoping law on `mount/3` instead, covering page load but not the two reload
+paths, purely because of this.
+
+Restating the ask in decreasing order of cost: emit the generated wrappers via `Kernel.def/2` so a
+module that has overridden `def` never sees them; or generate them at a name/arity
+`__pattern__!/2` tolerates; or — cheapest and most of the value — **a diagnostic**, since the
+`__before_compile__` hook knows both the module and the annotated function and could name arity as
+the variable instead of raising a `MatchError` on an internal tuple.
+
+### The measured example in "The default is yes" is accurate
+
+1.17.3's new section cites this application by number. Verified against the tree at
+`1a57f94`, and every figure is right: **126 source files, 67 with `use Bond`, 136 `@post`,
+28 `@pre`, 13 `@invariant` across 12 struct modules.**
+
+Worth confirming explicitly rather than letting it stand unchecked, because a measured claim in
+published usage rules is exactly the kind of thing that rots silently — and because the ratio it
+draws the lesson from (roughly five postconditions to every precondition) is the part a reader
+will act on. That ratio is real here and the explanation given for it matches this project's
+experience: most functions have something to promise, far fewer have something to demand.
