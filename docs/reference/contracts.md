@@ -129,6 +129,21 @@ The lesson generalises: when a test's name states a distinction, check that the 
 *exhibits* the distinction. Capturing real data protects against imagined shapes, not against
 unexercised ones.
 
+### Reading the coverage table: one label, several rows
+
+A label appears once per **function** that carries it, not once per module.
+`Tidal.Mapper` declares `no_tracks_invented` on four functions and
+`identity_preserved` on two, so each has several rows with independent counts.
+
+That is worth stating because it is easy to automate wrongly. A mutation harness
+written here scanned for the first row matching a label and reported 3 of 10
+assertions firing; reading *every* row and summing gave 8 of 10. Seven sound
+assertions looked decorative because the harness was reading an unmutated site of
+the same name.
+
+**When a mutation surprises you, check the tooling before the contract** — the
+same rule as suspecting the suite, one layer further out.
+
 ### Bond stops at the first failing assertion, which hides the ones after it
 
 Measured on 2026-08-28, and it changes how `⚠ never failed` should be read.
