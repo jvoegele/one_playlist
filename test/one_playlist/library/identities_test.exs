@@ -17,6 +17,7 @@ defmodule OnePlaylist.Library.IdentitiesTest do
   alias OnePlaylist.Library.Recording
   alias OnePlaylist.Matching.Match
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Connection
 
   # `ZZ` is an unassigned ISRC country code, so a fixture cannot collide with
   # music in the dev database this shares. See `OnePlaylist.LibraryTest`.
@@ -76,6 +77,30 @@ defmodule OnePlaylist.Library.IdentitiesTest do
       assert %Match{} = match = Identities.recall(recording, track(), :navidrome)
       assert match.track.provider_id == "al-9f21"
       assert match.track.provider == :navidrome
+    end
+
+    test "can hold an identity at every provider a connection may be made to" do
+      # The regression that prompted this file to gain a structural test rather
+      # than another example. `Identity`'s `Ecto.Enum` restated the provider list
+      # instead of deriving it, Spotify was added without widening it, and the
+      # result was silent: the cast failed, `Repo.insert` answered
+      # `{:error, changeset}`, and `record/4` discards that and answers `:ok`.
+      # The spine learned nothing about a live provider for two days.
+      #
+      # Written over `Connection.providers/0` so it cannot go stale the way the
+      # enum did — a provider added tomorrow fails here on the same day.
+      recording = Identities.anchor(track())
+
+      for provider <- Connection.providers(), provider != :library do
+        found = track(%{provider: provider, provider_id: "id-#{provider}"})
+
+        assert :ok = Identities.record(recording, found, :isrc, 1.0)
+
+        assert %Match{} = match = Identities.recall(recording, track(), provider)
+
+        assert match.track.provider == provider,
+               "the spine silently declined to learn a #{provider} identity"
+      end
     end
 
     test "refuses evidence weaker than an exact identifier" do

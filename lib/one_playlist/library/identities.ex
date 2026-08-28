@@ -63,6 +63,8 @@ defmodule OnePlaylist.Library.Identities do
 
   import Ecto.Query
 
+  require Logger
+
   alias OnePlaylist.Library
   alias OnePlaylist.Library.Identity
   alias OnePlaylist.Library.Recording
@@ -240,6 +242,30 @@ defmodule OnePlaylist.Library.Identities do
       # better evidence than we are offering.
       stale_error_field: :recording_id
     )
+    |> reported()
+  end
+
+  # Answering `:ok` regardless is deliberate — see the docstring — but it must
+  # not extend to *not noticing*. Spotify identities were rejected by an
+  # `Ecto.Enum` that had never been widened, and this function discarded the
+  # invalid changeset and answered `:ok` for two days; the spine learned nothing
+  # about a live provider and said nothing about it. The migration
+  # `widen_identity_providers` records the whole shape of it.
+  #
+  # A stale error is the one failure that is *expected*: `stale_error_field`
+  # turns "the row already holds better evidence" into an error tuple, and Ecto
+  # marks it `stale: true`. Everything else is this application being wrong
+  # about its own schema, which is worth a log line even though it is not worth
+  # failing a transfer over.
+  defp reported({:ok, _identity}), do: :ok
+
+  defp reported({:error, %Ecto.Changeset{} = changeset}) do
+    unless Enum.any?(changeset.errors, fn {_field, {_message, opts}} -> opts[:stale] end) do
+      Logger.warning("""
+      identity not recorded: #{inspect(changeset.errors)}. \
+      The spine has silently not learned something it was offered.\
+      """)
+    end
 
     :ok
   end

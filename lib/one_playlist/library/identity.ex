@@ -17,6 +17,7 @@ defmodule OnePlaylist.Library.Identity do
   import Ecto.Changeset
 
   alias OnePlaylist.Music.Track
+  alias OnePlaylist.Providers.Connection
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -26,7 +27,11 @@ defmodule OnePlaylist.Library.Identity do
   schema "recording_identities" do
     field :recording_id, :binary_id
 
-    field :provider, Ecto.Enum, values: [:tidal, :subsonic, :navidrome, :library]
+    # Derived, not restated. This list was written out once and then not widened
+    # when Spotify arrived, which cost the spine every Spotify identity in
+    # silence — see the migration `widen_identity_providers`. `file` is not in
+    # `providers/0` at all, and `Identities.record/4` refuses it besides.
+    field :provider, Ecto.Enum, values: Connection.providers()
     field :provider_id, :string
 
     field :title, :string
