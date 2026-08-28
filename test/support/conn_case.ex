@@ -28,6 +28,11 @@ defmodule OnePlaylistWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import OnePlaylistWeb.ConnCase
+
+      # `attempt/1`, `attempted/2` and `settle_existing_enrichment/0`. A LiveView
+      # test that shows enrichment state has to be able to set it, and since §6
+      # split it off the recording that is a row rather than a column.
+      import OnePlaylist.DataCase, only: [attempt: 1, attempted: 1, attempted: 2]
     end
   end
 

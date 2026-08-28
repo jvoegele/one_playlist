@@ -39,6 +39,7 @@ defmodule OnePlaylist.Library do
   alias OnePlaylist.Library.Playlist
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Library.RecordingEnrichment
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Normalize
   alias OnePlaylist.Music.Isrc
@@ -166,7 +167,9 @@ defmodule OnePlaylist.Library do
   def tracks(user_id, playlist_id) do
     {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(items_with_recordings(playlist_id)) end)
 
-    Enum.map(rows, fn {item, recording} -> PlaylistItem.to_track(item, recording) end)
+    # The attempt is joined but not wanted here: a track is what the playlist
+    # holds, and how enrichment got on is not part of it.
+    Enum.map(rows, fn {item, recording, _attempt} -> PlaylistItem.to_track(item, recording) end)
   end
 
   @doc """
@@ -194,7 +197,16 @@ defmodule OnePlaylist.Library do
   def entries(user_id, playlist_id) do
     {:ok, rows} = Repo.as_user(user_id, fn -> Repo.all(items_with_recordings(playlist_id)) end)
 
-    Enum.map(rows, fn {item, recording} ->
+    Enum.map(rows, fn {item, recording, attempt} ->
+      # `nil` here means "loaded, and there is no attempt", which is what the
+      # left join actually established. Leaving the association unloaded would
+      # make `RecordingEnrichment.of/1` raise, correctly.
+      recording =
+        case recording do
+          %Recording{} = found -> %Recording{found | enrichment: attempt}
+          nil -> nil
+        end
+
       %{
         id: item.id,
         position: item.position,
@@ -203,7 +215,7 @@ defmodule OnePlaylist.Library do
         # and "MusicBrainz has not been asked yet" are different answers and a
         # reader acts differently on each.
         linked?: not is_nil(item.recording_id),
-        enriched?: not is_nil(recording) and not is_nil(recording.enriched_at),
+        enriched?: not is_nil(RecordingEnrichment.of(recording)),
         # What the *recording* says, beside what the item says. The screen showed
         # a bare UUID here, which tells a reader nothing — and the one time it
         # would have told them everything was the case where the two disagree.
@@ -226,7 +238,9 @@ defmodule OnePlaylist.Library do
     }
   end
 
-  defp musicbrainz(nil) do
+  @doc false
+  @spec musicbrainz(Recording.t() | nil) :: map()
+  def musicbrainz(nil) do
     %{
       recording_id: nil,
       release_id: nil,
@@ -237,13 +251,15 @@ defmodule OnePlaylist.Library do
     }
   end
 
-  defp musicbrainz(%Recording{} = recording) do
+  def musicbrainz(%Recording{} = recording) do
+    attempt = RecordingEnrichment.of(recording)
+
     %{
       recording_id: recording.musicbrainz_recording_id,
       release_id: recording.musicbrainz_release_id,
-      looked_up_at: recording.enriched_at,
-      outcome: recording.enrichment_outcome,
-      candidates: recording.enrichment_candidates,
+      looked_up_at: attempt && attempt.attempted_at,
+      outcome: attempt && attempt.outcome,
+      candidates: attempt && attempt.candidates,
       # Durable in a way the outcome is not: enrichment now sets the code aside
       # and asks by name instead, so a recording with a wrong ISRC can end up
       # `:identified` while its code is still wrong.
@@ -254,13 +270,19 @@ defmodule OnePlaylist.Library do
   # One query behind both readers, and a `left_join` because an item may not
   # know what recording it is. An inner join would silently drop exactly the
   # rows a person most needs to see.
+  # The enrichment attempt is joined rather than preloaded because the recording
+  # is not this query's root — it arrives through a left join of its own, and may
+  # be absent. Selected as a third element and attached in `entries/2`, which
+  # also keeps this a single query for a screen that renders a whole playlist.
   defp items_with_recordings(playlist_id) do
     from(i in PlaylistItem,
       left_join: r in Recording,
       on: r.id == i.recording_id,
+      left_join: e in RecordingEnrichment,
+      on: e.recording_id == r.id,
       where: i.playlist_id == ^playlist_id,
       order_by: [asc: i.position, asc: i.inserted_at],
-      select: {i, r}
+      select: {i, r, e}
     )
   end
 

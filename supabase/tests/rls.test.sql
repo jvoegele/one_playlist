@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(31);
+select plan(34);
 
 -- Two users, written straight into auth.users. Fine here: this is a test
 -- fixture inside a doomed transaction, not a sign-up path.
@@ -144,6 +144,37 @@ select is(
                          'musicbrainz_work_lookups', 'musicbrainz_releases')),
   0,
   'the ownerless caches are granted to nobody'
+);
+
+-- The *other* ownerless shape, and it is not the same one. `library_recordings`,
+-- `recording_identities` and `recording_enrichments` are public metadata: every
+-- signed-in user may read them, and none may write. So the assertion is not "no
+-- grants" but "exactly one grant, and it is SELECT" — a write grant here would
+-- let any anon-key holder rewrite the shared store through PostgREST.
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'anon' and table_schema = 'public'
+      and table_name in ('library_recordings', 'recording_identities',
+                         'recording_enrichments')),
+  0,
+  'anon reaches no part of the shared recording store'
+);
+
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated' and table_schema = 'public'
+      and privilege_type <> 'SELECT'
+      and table_name in ('library_recordings', 'recording_identities',
+                         'recording_enrichments')),
+  0,
+  'authenticated may read the shared recording store and never write it'
+);
+
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.recording_enrichments'::regclass),
+  'recording_enrichments has row level security enabled'
 );
 
 select ok(

@@ -324,8 +324,7 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
 
       Recording
       |> Repo.get!(entry.track.provider_id)
-      |> Ecto.Changeset.change(attrs)
-      |> Repo.update!()
+      |> attempted(attrs)
     end
 
     defp set_enrichment(user_id, playlist, states) do
@@ -339,14 +338,15 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
             {_isrc, _enriched_at, _mbid} = full -> full
           end
 
-        Recording
-        |> Repo.get!(entry.track.provider_id)
-        |> Ecto.Changeset.change(
-          isrc: isrc,
-          enriched_at: enriched_at,
-          musicbrainz_recording_id: mbid
-        )
-        |> Repo.update!()
+        recording =
+          Recording
+          |> Repo.get!(entry.track.provider_id)
+          |> Ecto.Changeset.change(isrc: isrc, musicbrainz_recording_id: mbid)
+          |> Repo.update!()
+
+        # A `nil` timestamp means never asked, which is now the absence of a row
+        # rather than a null column — so there is nothing to write for it.
+        if enriched_at, do: attempted(recording, %{attempted_at: enriched_at})
       end)
     end
 
@@ -482,12 +482,9 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       enriched =
         Recording
         |> Repo.get!(first.track.provider_id)
-        |> Ecto.Changeset.change(
-          enriched_at: DateTime.utc_now(),
-          musicbrainz_recording_id: "aaaaaaaa-1111-2222-3333-444444444444",
-          enrichment_outcome: :identified
-        )
+        |> Ecto.Changeset.change(musicbrainz_recording_id: "aaaaaaaa-1111-2222-3333-444444444444")
         |> Repo.update!()
+        |> attempted(%{outcome: :identified})
 
       send(view.pid, {:recording_enriched, enriched})
 
@@ -506,14 +503,9 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
 
       set_enrichment(user_id, playlist, [{nil, now, nil}, {nil, now, nil}, {nil, now, nil}])
 
-      set_outcome(user_id, playlist, 0, %{enrichment_outcome: :no_candidates})
-
-      set_outcome(user_id, playlist, 1, %{
-        enrichment_outcome: :declined,
-        enrichment_candidates: 12
-      })
-
-      set_outcome(user_id, playlist, 2, %{enrichment_outcome: :unnameable})
+      set_outcome(user_id, playlist, 0, %{outcome: :no_candidates})
+      set_outcome(user_id, playlist, 1, %{outcome: :declined, candidates: 12})
+      set_outcome(user_id, playlist, 2, %{outcome: :unnameable})
 
       {:ok, _view, html} = live(conn, ~p"/playlists/#{playlist.id}")
 
@@ -628,8 +620,9 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       # The **flag**, not the outcome. Enrichment sets the code aside and asks
       # by name instead, so a disputed recording is frequently `:identified` or
       # `:declined` by the time anybody looks — `isrc_disputed` is what lasts.
-      |> Ecto.Changeset.change(enriched_at: DateTime.utc_now(), isrc_disputed: true)
+      |> Ecto.Changeset.change(isrc_disputed: true)
       |> Repo.update!()
+      |> attempted()
 
       %{playlist: playlist, entry: first}
     end
@@ -674,11 +667,7 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       for entry <- Library.entries(user_id, playlist.id) do
         Recording
         |> Repo.get!(entry.track.provider_id)
-        |> Ecto.Changeset.change(
-          enriched_at: DateTime.utc_now(),
-          enrichment_outcome: :declined
-        )
-        |> Repo.update!()
+        |> attempted(%{outcome: :declined})
       end
 
       %{playlist: playlist}
@@ -797,11 +786,9 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       recording =
         Recording
         |> Repo.get!(entry.track.provider_id)
-        |> Ecto.Changeset.change(
-          album: "What The Catalogue Says It Is",
-          enriched_at: DateTime.utc_now()
-        )
+        |> Ecto.Changeset.change(album: "What The Catalogue Says It Is")
         |> Repo.update!()
+        |> attempted()
 
       send(view.pid, {:recording_enriched, recording})
 

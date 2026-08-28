@@ -726,8 +726,10 @@ defmodule OnePlaylist.LibraryTest do
       # The second one has an answer already, which is the case this must skip.
       Repo.update_all(
         from(r in Recording, where: r.id == ^second.track.provider_id),
-        set: [musicbrainz_recording_id: Ecto.UUID.generate(), enriched_at: DateTime.utc_now()]
+        set: [musicbrainz_recording_id: Ecto.UUID.generate()]
       )
+
+      attempted(%Recording{id: second.track.provider_id})
 
       %{playlist: playlist, unidentified: first, identified: second}
     end
@@ -749,10 +751,7 @@ defmodule OnePlaylist.LibraryTest do
       playlist: playlist,
       unidentified: unidentified
     } do
-      Repo.update_all(
-        from(r in Recording, where: r.id == ^unidentified.track.provider_id),
-        set: [enriched_at: DateTime.utc_now(), enrichment_outcome: :declined]
-      )
+      attempted(%Recording{id: unidentified.track.provider_id}, %{outcome: :declined})
 
       assert [%{enriched?: true} | _rest] = Library.entries(user_id, playlist.id)
 

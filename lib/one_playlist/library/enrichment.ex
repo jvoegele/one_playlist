@@ -242,6 +242,7 @@ defmodule OnePlaylist.Library.Enrichment do
   alias OnePlaylist.Library.EnrichmentUnavailable
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Library.RecordingEnrichment
   alias OnePlaylist.Matching
   alias OnePlaylist.Matching.Confidence
   alias OnePlaylist.Matching.Normalize
@@ -295,22 +296,13 @@ defmodule OnePlaylist.Library.Enrichment do
   # against either edge of it — see `agrees_by_name?/2`.
   @same_music 0.7
 
-  # What `reset/1` may clear, and the two lists are different for a reason worth
-  # reading. Only these three are written by enrichment and nothing else, so only
-  # these can be cleared unconditionally.
-  @always_cleared [
-    :enriched_at,
-    :musicbrainz_recording_id,
-    :musicbrainz_release_id,
-    :enrichment_outcome,
-    :enrichment_candidates,
-    :enrichment_engine
-  ]
-
-  # Enrichment's own record of what it did, rather than facts about the music.
-  # Every other field it writes only ever fills a gap; these are overwritten on
-  # every attempt, because last time's reason is not this time's.
-  @bookkeeping [:enriched_at, :enrichment_outcome, :enrichment_candidates, :enrichment_engine]
+  # What `reset/1` may clear on the recording itself. Only these two are written
+  # by enrichment and nothing else, so only these can be cleared unconditionally.
+  #
+  # It used to carry enrichment's four bookkeeping columns as well. Those are a
+  # row in `RecordingEnrichment` now, and `reset/1` deletes it — which is what
+  # "look at this again from scratch" always meant.
+  @always_cleared [:musicbrainz_recording_id, :musicbrainz_release_id]
 
   # A barcode comes from a *release*, so a non-null `musicbrainz_release_id` is
   # evidence enrichment wrote it — the nearest thing to provenance this schema
@@ -357,14 +349,20 @@ defmodule OnePlaylist.Library.Enrichment do
   the library.
   """
   # No input can falsify either, so both are verified by mutation. Dropping
-  # `record_attempt/2`'s "already has a value" test fires
-  # `nothing_was_overwritten`; dropping its `Map.put(:enriched_at, …)` fires
+  # `write/2`'s "already has a value" test fires `nothing_was_overwritten`;
+  # dropping `stamp/2`'s call to `record_attempt_row/2` fires
   # `attempt_recorded`. The second is what stops `due/1` from re-offering a
   # recording MusicBrainz cannot identify, every night, forever.
+  #
+  # `attempt_recorded` reads the association rather than a column since §6's
+  # split, and asserts the attempt is *this* run's: a loaded association proves
+  # `stamp/2` put it there, because nothing on the read path preloads it.
   @post whenever(
           {:ok, enriched} <- result,
           nothing_was_overwritten: only_filled_gaps?(recording, enriched),
-          attempt_recorded: is_struct(enriched.enriched_at, DateTime)
+          attempt_recorded:
+            is_struct(enriched.enrichment, RecordingEnrichment) and
+              is_struct(enriched.enrichment.attempted_at, DateTime)
         )
   @spec enrich(Recording.t()) :: {:ok, Recording.t()} | {:error, term()}
   def enrich(%Recording{} = recording) do
@@ -446,8 +444,8 @@ defmodule OnePlaylist.Library.Enrichment do
   So correcting is a separate, explicit operation rather than a thing enrichment
   decides to do. It clears only what enrichment itself writes; the title, the
   artists and the origin are the user's or their source's and are never touched.
-  `enriched_at` goes too, which is what puts the recording back in front of
-  `due/1`.
+  The attempt row goes too — deleted, not blanked — which is what puts the
+  recording back in front of `due/1`.
 
   Written for the release-selection defect described in the moduledoc — eight
   tracks of one album resolved to three releases — and kept because "look at
@@ -495,6 +493,16 @@ defmodule OnePlaylist.Library.Enrichment do
       Recording
       |> where([r], r.id in ^recording_ids)
       |> Repo.update_all(set: Enum.map(@always_cleared, &{&1, nil}))
+
+    # And the attempt goes entirely. Since §6's split this is what puts a
+    # recording back in front of `due/1` — there is no timestamp left to null,
+    # and "never asked" is now the absence of a row. Deleting rather than
+    # blanking is also the more honest record: a reset did not make an attempt
+    # that found nothing, it unmade the attempt.
+    {_deleted, _returned} =
+      RecordingEnrichment
+      |> where([e], e.recording_id in ^recording_ids)
+      |> Repo.delete_all()
 
     count
   end
@@ -550,15 +558,20 @@ defmodule OnePlaylist.Library.Enrichment do
     cutoff = DateTime.add(DateTime.utc_now(), -@stale_after_days * 24 * 3600, :second)
     current = engine()
 
+    # A left join, so "never asked" is the absence of a row rather than a null
+    # column — which is what §6's split made it. The three conditions are
+    # unchanged; only where they read from is.
     Recording
+    |> join(:left, [r], e in RecordingEnrichment, on: e.recording_id == r.id)
     |> where(
-      [r],
-      is_nil(r.enriched_at) or r.enriched_at < ^cutoff or
+      [r, e],
+      is_nil(e.attempted_at) or e.attempted_at < ^cutoff or
         (is_nil(r.musicbrainz_recording_id) and
-           (is_nil(r.enrichment_engine) or r.enrichment_engine != ^current))
+           (is_nil(e.engine) or e.engine != ^current))
     )
-    |> order_by([r], asc_nulls_first: r.enriched_at)
+    |> order_by([_r, e], asc_nulls_first: e.attempted_at)
     |> limit(^limit)
+    |> select([r], r)
     |> Repo.all()
   end
 
@@ -831,7 +844,7 @@ defmodule OnePlaylist.Library.Enrichment do
   # what a reader most wants told apart. See the migration for
   # `enrichment_outcome`.
   defp outcome(%{outcome: name, candidates: count}) do
-    %{enrichment_outcome: name, enrichment_candidates: count}
+    %{outcome: name, candidates: count}
   end
 
   defp by_release(%Recording{album: album} = recording, title, credit)
@@ -1185,16 +1198,30 @@ defmodule OnePlaylist.Library.Enrichment do
     disputed
   end
 
+  # Two writes now, because there are two subjects: what was learned about the
+  # music, and what this attempt did. `Map.split/2` is what separates them, and
+  # the keys cannot collide — `fillable/0` names no `:outcome` or `:candidates`.
   defp record_attempt(recording, learned) do
-    stamped =
-      learned
-      |> Map.put(:enriched_at, DateTime.utc_now())
-      |> Map.put(:enrichment_engine, engine())
+    {attempt, facts} = learned |> Map.new() |> Map.split([:outcome, :candidates])
 
     recording
-    |> write(stamped)
+    |> write(facts)
+    |> stamp(attempt)
     |> announce()
   end
+
+  # The attempt is attached to the struct that is returned, rather than left to
+  # be read back. That keeps `attempt_recorded` a pure check on a value the
+  # caller already holds, and it means a caller sees this run's outcome instead
+  # of the previous one still sitting on a stale association.
+  defp stamp({:ok, %Recording{} = enriched}, attempt) do
+    case record_attempt_row(enriched, attempt) do
+      {:ok, row} -> {:ok, %Recording{enriched | enrichment: row}}
+      {:error, _changeset} = error -> error
+    end
+  end
+
+  defp stamp(other, _attempt), do: other
 
   # Every *completed* attempt, whether or not anything was learned. A screen
   # counting what is left has to hear about the ones that found nothing too, or
@@ -1215,17 +1242,42 @@ defmodule OnePlaylist.Library.Enrichment do
 
   defp announce(result), do: result
 
+  # Fills gaps and never corrects, unconditionally. It used to need an exception
+  # list — `@bookkeeping` was overwritten on every attempt "because last time's
+  # reason is not this time's" — and moving those four columns into
+  # `RecordingEnrichment` retired it. The rule the moduledoc states is now the
+  # rule this performs, with nothing carved out of it.
   defp write(recording, learned) do
     attrs =
       learned
       |> Enum.reject(fn {field, value} ->
-        value in [nil, "", []] or
-          (field not in @bookkeeping and not is_nil(Map.fetch!(recording, field)))
+        value in [nil, "", []] or not is_nil(Map.fetch!(recording, field))
       end)
       |> Map.new()
 
     recording
     |> Recording.changeset(attrs)
     |> Repo.update()
+  end
+
+  # The attempt itself, always overwritten: last time's reason is not this
+  # time's. Separate from `write/2` because it is a different kind of claim
+  # about a different subject — see `docs/reference/domain.md` §6.
+  defp record_attempt_row(%Recording{} = recording, learned) do
+    attrs =
+      learned
+      |> Map.take([:outcome, :candidates])
+      |> Map.merge(%{
+        recording_id: recording.id,
+        attempted_at: DateTime.utc_now(),
+        engine: engine()
+      })
+
+    %RecordingEnrichment{}
+    |> RecordingEnrichment.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace, [:attempted_at, :outcome, :candidates, :engine]},
+      conflict_target: [:recording_id]
+    )
   end
 end

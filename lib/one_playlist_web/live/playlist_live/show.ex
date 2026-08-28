@@ -206,6 +206,7 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
   alias OnePlaylist.Library.Enrichment
   alias OnePlaylist.Library.PlaylistItem
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.Library.RecordingEnrichment
   alias OnePlaylist.Matching.Normalize
 
   # Proven by mutation: replacing `fetch_playlist/2`'s scoped read with a bare
@@ -259,16 +260,13 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
         # threw all four away — a corrected album reverted the moment enrichment
         # landed, and came back on the next page load.
         track: PlaylistItem.with_recording(entry.track, recording),
-        enriched?: not is_nil(recording.enriched_at),
+        # Through `Library.musicbrainz/1` rather than rebuilt here. It was
+        # restated field for field, which is the shape that let the identity
+        # spine lose Spotify silently — two lists that must agree and nothing
+        # making them.
+        enriched?: not is_nil(RecordingEnrichment.of(recording)),
         recording: Library.recording_details(recording),
-        musicbrainz: %{
-          recording_id: recording.musicbrainz_recording_id,
-          release_id: recording.musicbrainz_release_id,
-          looked_up_at: recording.enriched_at,
-          outcome: recording.enrichment_outcome,
-          candidates: recording.enrichment_candidates,
-          isrc_disputed: recording.isrc_disputed
-        }
+        musicbrainz: Library.musicbrainz(recording)
     }
   end
 

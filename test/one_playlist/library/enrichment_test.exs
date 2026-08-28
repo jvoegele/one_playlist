@@ -208,7 +208,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       # And the dispute survives the identification, which is why it is a column
       # of its own — `enrichment_outcome` now reads `:identified`.
       assert enriched.isrc_disputed
-      assert enriched.enrichment_outcome == :identified
+      assert enriched.enrichment.outcome == :identified
 
       # The code itself is kept. It is what the source said, and `enrich/1` does
       # not overwrite the source.
@@ -414,7 +414,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       assert {:error, error} = Enrichment.enrich(recording)
       assert Errata.reason(error) == :search_unavailable
-      assert is_nil(Repo.get(Recording, recording.id).enriched_at)
+      assert is_nil(attempt(recording))
     end
   end
 
@@ -622,7 +622,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert enriched.artwork_url ==
                "https://coverartarchive.org/release-group/#{@group}/front-250"
 
-      assert enriched.enriched_at
+      assert enriched.enrichment.attempted_at
     end
 
     test "never searches, because an identifier does not need arguing for" do
@@ -705,7 +705,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       refreshed = Repo.get!(Recording, stored.id)
 
-      refute refreshed.enriched_at, "so it will be offered again"
+      refute attempt(refreshed), "so it will be offered again"
       assert refreshed.album == "Vitalogy", "and what was learned is still kept"
       assert refreshed.musicbrainz_recording_id == @mbid
     end
@@ -717,7 +717,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
 
-      assert enriched.enriched_at
+      assert enriched.enrichment.attempted_at
       refute enriched.artwork_url
     end
 
@@ -753,7 +753,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       # nothing about the title — so `enrichment_outcome` records whatever *that*
       # concluded, and `isrc_disputed` is what survives it.
       assert enriched.isrc_disputed
-      assert enriched.enrichment_outcome in [:declined, :no_candidates]
+      assert enriched.enrichment.outcome in [:declined, :no_candidates]
     end
 
     test "a title spelled differently is still believed" do
@@ -953,7 +953,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       refute enriched.musicbrainz_recording_id
       refute enriched.isrc
-      assert enriched.enriched_at, "declining is still an answer, and must be remembered"
+
+      assert enriched.enrichment.attempted_at,
+             "declining is still an answer, and must be remembered"
     end
 
     test "accepts a candidate the album corroborates" do
@@ -1016,9 +1018,9 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       {:ok, enriched} = Enrichment.enrich(recording(%{isrc: unique_isrc()}))
 
-      assert enriched.enriched_at
+      assert enriched.enrichment.attempted_at
       refute enriched.musicbrainz_recording_id
-      assert enriched.enrichment_outcome == :no_candidates
+      assert enriched.enrichment.outcome == :no_candidates
     end
 
     test "a search that could not be made is not an absence" do
@@ -1038,7 +1040,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       assert {:error, error} = Enrichment.enrich(stored)
       assert Errata.reason(error) == :search_unavailable
       assert Errata.retryable?(error)
-      refute Repo.get!(Recording, stored.id).enriched_at
+      refute attempt(stored)
     end
 
     test "says how many candidates it declined" do
@@ -1049,8 +1051,8 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc, album: "Nowhere"}))
 
-      assert enriched.enrichment_outcome == :declined
-      assert enriched.enrichment_candidates == 1
+      assert enriched.enrichment.outcome == :declined
+      assert enriched.enrichment.candidates == 1
     end
 
     test "does not remember an outage, because it says nothing about the recording" do
@@ -1066,7 +1068,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       assert {:error, _reason} = Enrichment.enrich(stored)
 
-      assert %Recording{enriched_at: nil} = Repo.get!(Recording, stored.id)
+      assert is_nil(attempt(stored))
     end
   end
 
@@ -1168,7 +1170,7 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
       refreshed = Repo.get!(Recording, enriched.id)
 
-      refute refreshed.enriched_at
+      refute attempt(refreshed)
       refute refreshed.musicbrainz_recording_id
       refute refreshed.musicbrainz_release_id
     end
@@ -1234,22 +1236,15 @@ defmodule OnePlaylist.Library.EnrichmentTest do
 
   describe "due/1" do
     test "offers the never-enriched before the merely stale" do
-      # Recordings belong to nobody, so there is no user to scope this to and
-      # the dev rows sharing the `postgres` database would otherwise fill the
-      # answer. Settling them inside the sandbox is the scoping — it is rolled
-      # back with the rest of the test.
-      Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])
+      # See `settle_existing_enrichment/0`: recordings belong to nobody, so the
+      # dev rows sharing this database have to be settled rather than scoped
+      # away.
+      settle_existing_enrichment()
 
       stale = DateTime.add(DateTime.utc_now(), -60 * 24 * 3600, :second)
 
-      fresh =
-        recording(%{
-          title: "fresh",
-          enriched_at: DateTime.utc_now(),
-          enrichment_engine: Enrichment.engine()
-        })
-
-      old = recording(%{title: "old", enriched_at: stale, enrichment_engine: Enrichment.engine()})
+      fresh = %{title: "fresh"} |> recording() |> attempted()
+      old = %{title: "old"} |> recording() |> attempted(%{attempted_at: stale})
       never = recording(%{title: "never"})
 
       # The sweep enqueues an Oban job per row on a queue of one at a request a
@@ -1274,15 +1269,12 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       # The gap this closes. In one working day the matching rules changed five
       # times, and each change left every earlier decline stale with nothing to
       # say so — the sweep would have reached them in thirty days, or never.
-      Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])
+      settle_existing_enrichment()
 
       under_old_rules =
-        recording(%{
-          title: "decided long ago",
-          enriched_at: DateTime.utc_now(),
-          enrichment_outcome: :declined,
-          enrichment_engine: "an engine that no longer exists"
-        })
+        %{title: "decided long ago"}
+        |> recording()
+        |> attempted(%{outcome: :declined, engine: "an engine that no longer exists"})
 
       assert under_old_rules.id in Enum.map(Enrichment.due(50), & &1.id)
     end
@@ -1291,16 +1283,15 @@ defmodule OnePlaylist.Library.EnrichmentTest do
       # Enrichment fills gaps and never overwrites, so running it again over an
       # identified recording spends a request to change nothing. Re-deciding a
       # settled identity means discarding it first, which is `reset/1`.
-      Repo.update_all(Recording, set: [enriched_at: DateTime.utc_now()])
+      settle_existing_enrichment()
 
       already_identified =
-        recording(%{
+        %{
           title: "settled",
-          enriched_at: DateTime.utc_now(),
-          musicbrainz_recording_id: "aaaaaaaa-1111-2222-3333-444444444444",
-          enrichment_outcome: :identified,
-          enrichment_engine: "an engine that no longer exists"
-        })
+          musicbrainz_recording_id: "aaaaaaaa-1111-2222-3333-444444444444"
+        }
+        |> recording()
+        |> attempted(%{outcome: :identified, engine: "an engine that no longer exists"})
 
       refute already_identified.id in Enum.map(Enrichment.due(50), & &1.id)
     end

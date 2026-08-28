@@ -27,6 +27,7 @@ defmodule OnePlaylist.Library.Recording do
 
   import Ecto.Changeset
 
+  alias OnePlaylist.Library.RecordingEnrichment
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.Music.Track
 
@@ -61,42 +62,31 @@ defmodule OnePlaylist.Library.Recording do
     field :origin_provider, :string
     field :origin_provider_id, :string
 
-    # When MusicBrainz was last asked about this recording, whether or not it
-    # had anything to say. `nil` means never asked, which is what
-    # `OnePlaylist.Library.Enrichment.due/1` looks for — an unanswerable
-    # recording must not be re-asked about nightly forever.
-    field :enriched_at, :utc_datetime_usec
-
-    # Why enrichment did not identify this recording, and how much it had to
-    # work with. Bookkeeping rather than a fact about the music — see the
-    # migration and `OnePlaylist.Library.Enrichment`.
-    field :enrichment_outcome, Ecto.Enum,
-      values: [:identified, :no_candidates, :declined, :unnameable, :identifier_disagreed]
+    # How enrichment got on is **not** here. `docs/reference/domain.md` §6: this
+    # row is ownerless and says what the music is, and our pipeline's bookkeeping
+    # is a different kind of claim with a different lifetime. It lives in
+    # `OnePlaylist.Library.RecordingEnrichment`, one row per recording, and no
+    # row at all means never asked.
+    has_one :enrichment, RecordingEnrichment
 
     # This recording's ISRC names different music, caught by `enrich/1`'s
-    # agreement check. Kept apart from `enrichment_outcome` because a disputed
-    # code survives a later identification — the recording can be identified by
-    # *name* while its ISRC stays wrong, and the outcome column would have
-    # forgotten that.
+    # agreement check. Stays **here** rather than moving to
+    # `RecordingEnrichment` with the rest of enrichment's record, and that is
+    # the line §6 draws: an outcome is one attempt's answer and the next attempt
+    # replaces it, while a disputed code is a durable claim about the code — the
+    # recording can be identified by *name* later while its ISRC stays wrong, and
+    # an attempt row would have forgotten that.
     #
     # Read by `OnePlaylist.Library.Identities`, which refuses to anchor a
     # cross-service identity on a code already caught naming something else.
     field :isrc_disputed, :boolean, default: false
-
-    field :enrichment_candidates, :integer
-
-    # A fingerprint of the engine that decided this recording's outcome, so a
-    # decline made under older rules can be offered back. See the migration and
-    # `OnePlaylist.Library.Enrichment.engine/0`.
-    field :enrichment_engine, :string
 
     timestamps(type: :utc_datetime_usec)
   end
 
   @fields ~w(isrc musicbrainz_recording_id musicbrainz_release_id title artists album album_upc track_number
              volume_number version duration_seconds explicit artwork_url
-             origin_provider origin_provider_id enriched_at enrichment_outcome
-             enrichment_candidates enrichment_engine)a
+             origin_provider origin_provider_id)a
 
   @doc """
   Builds a recording from a track that arrived from anywhere.
