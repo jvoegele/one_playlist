@@ -184,11 +184,14 @@ defmodule OnePlaylist.Transfers do
   a track is somewhere it is not. An extra track nobody asked for is visible,
   recoverable and honest; a lying report is none of those. A failed removal is
   therefore reported to the user rather than rolled back.
+
+  ## The limit of what can be promised here
+
+  `already_added?` is the one thing worth asserting and it cannot be asserted:
+  whether the destination accepted the write is a fact about a remote service,
+  not about this function. What *can* be stated, and is, is that this never
+  invents an outcome for a track the caller did not name.
   """
-  # `already_added?` is the one thing worth asserting here and it cannot be
-  # asserted: whether the destination accepted the write is a fact about a
-  # remote service. What *can* be stated is that this function never invents an
-  # outcome for a track the caller did not name.
   @pre position_is_real: is_integer(position) and position >= 0
   @spec override(Session.t(), Transfer.t(), non_neg_integer(), map()) ::
           {:ok, Transfer.t()} | {:ok, Transfer.t(), :not_removed} | {:error, term()}
@@ -414,25 +417,29 @@ defmodule OnePlaylist.Transfers do
   and the other thirty-nine still land. Atomic to create, independent to run.
 
   Answers `{:ok, transfers}` in the order the playlists were given.
+
+  ## What the contract below guarantees you
+
+  **One transfer per playlist you selected, and one batch.** The failure it
+  guards is silent: a batch that queues fewer transfers than were selected
+  leaves playlists behind with nothing to say so. `Enum.uniq_by/2` on the way in
+  is the plausible source — a picker that hands the same id twice would
+  otherwise queue it twice, and a dedupe that reached too far would drop a
+  playlist that only *looked* like another.
+
+  `one_batch` is the other half. Two batch ids among the members means the
+  grouping this function exists for is already wrong, and `/transfers` would draw
+  them as two unrelated groups rather than one.
+
+  `every_playlist_got_a_transfer` checks the **shape** as well as the count,
+  because the first version checked only the count and a mutation walked through
+  it: building the multi from `Enum.take(playlists, 1)` while still mapping the
+  result over every playlist leaves a `nil` where the second transfer should be,
+  and a `nil` satisfies a length check perfectly.
   """
-  # The conservation law, and the failure it guards is silent: a batch that
-  # queues fewer transfers than the user selected leaves playlists behind with
-  # nothing to say so. `Enum.uniq_by/2` on the way in is the plausible source —
-  # a picker that hands the same id twice would otherwise queue it twice, and a
-  # dedupe that reached too far would drop a playlist that only *looked* like
-  # another.
-  #
-  # `one_batch` is the other half: two batch ids among the members means the
-  # grouping this exists for is already wrong, and `/transfers` would draw them
-  # as two unrelated groups.
-  #
-  # `every_playlist_got_a_transfer` checks the **shape** as well as the count,
-  # and the first version did not — which a mutation caught. Building the multi
-  # from `Enum.take(playlists, 1)` while still mapping the result over every
-  # playlist leaves a `nil` where the second transfer should be, and a `nil`
-  # satisfies a length check perfectly. It is also what makes the two assertions
-  # below total: they are only reached when this one held, since Bond fails fast
-  # in order.
+  # Order is load-bearing. Bond fails fast, so the two assertions after
+  # `every_playlist_got_a_transfer` are only reached once it has held — which is
+  # what makes them total rather than partial.
   #
   # Proven by mutation: `Enum.take(playlists, 1)` fires the first, and generating
   # the id per transfer rather than per batch fires `one_batch`.
@@ -518,12 +525,14 @@ defmodule OnePlaylist.Transfers do
   `:partial` exists because "38 of 40" has no honest single badge. Calling it
   completed hides two playlists that are not there; calling it failed hides
   thirty-eight that are.
+
+  ## What the contract below guarantees you
+
+  **Every transfer appears in exactly one row.** The failure it guards is a batch
+  that swallows a transfer: forty playlists queued, thirty-nine rows on screen,
+  and the missing one reachable only by URL. A grouping bug is invisible
+  precisely because the thing it loses is the thing you would have looked for.
   """
-  # Conservation, and the failure it guards is a batch that swallows a transfer:
-  # forty playlists queued, thirty-nine rows on screen, and the missing one
-  # reachable only by URL. A grouping bug is invisible precisely because the
-  # thing it loses is the thing you would have looked for.
-  #
   # Multiset over ids rather than a count, for the reason
   # `docs/reference/contracts.md` gives about uniqueness: a count alone is
   # satisfied by a duplicate replacing a drop.
@@ -622,12 +631,15 @@ defmodule OnePlaylist.Transfers do
   destination and writes what is missing, so a transfer that died halfway adds
   the remainder and nothing else. The status goes back to `:pending` and the
   error is cleared, so the screen stops showing a failure that is being retried.
+
+  ## What the contract below guarantees you
+
+  **Only the failed members are re-queued.** Re-running a completed one is not a
+  wrong number on a screen: it is a full run's worth of a rate-limited provider's
+  quota spent to learn nothing, and forty of them if the filter is dropped.
   """
-  # `only_the_failed_ones` is the law with teeth, and it is stated over the
-  # *input* rather than the result: `result` is a count, and a count cannot say
-  # which rows were touched. Re-queueing a completed member is not a wrong
-  # number on a screen, it is a full run's worth of a rate-limited provider's
-  # quota spent to learn nothing — forty of them if the filter is dropped.
+  # Stated over the *input* rather than the result, and that is not an oversight:
+  # `result` is a count, and a count cannot say which rows were touched.
   #
   # Proven by mutation: removing the `status == :failed` filter fires it on a
   # batch with anything completed in it.
@@ -656,12 +668,14 @@ defmodule OnePlaylist.Transfers do
 
   This is what any request carrying a user should call. `fetch_unscoped/1` is
   for callers that genuinely have no user.
+
+  ## What the contract below guarantees you
+
+  **The transfer you get back is yours.** Stated as a specification rather than
+  left implicit in a `where` clause, and it is not a restatement of the query:
+  `Repo.get_by/2` would satisfy the *type* while returning anybody's row if the
+  `user_id` key were dropped in a refactor. This is the assertion that notices.
   """
-  # The security property, stated as a specification rather than left implicit
-  # in a `where` clause. It is not a restatement of the query: `Repo.get_by/2`
-  # would satisfy the *type* while returning anybody's row if the `user_id` key
-  # were dropped in a refactor, and this is the assertion that notices.
-  #
   # Written because it was violated — see `OnePlaylist.Repo`, and the regression
   # test.
   @post whenever({:ok, transfer} <- result, belongs_to_the_caller: transfer.user_id == user_id)
@@ -718,16 +732,20 @@ defmodule OnePlaylist.Transfers do
 
   The Storage delete is therefore best effort, and its result is deliberately
   discarded.
+
+  ## Scoping, and what the contract below guarantees you
+
+  This runs **privileged** rather than under `Repo.as_user/3`, because
+  `authenticated` holds only `select` on `transfers` — the grants say a user
+  reads their transfers and the application writes them. The scoping is
+  therefore `fetch/2`'s, which is where it belongs: nothing here can address a
+  row `fetch/2` would not return.
+
+  **`:ok` means the transfer is actually gone.** The postcondition re-asks rather
+  than trusting the return, which is the point: `:ok` is a claim about the
+  database, and a rewrite to `delete_all` with a wrong `where` would satisfy the
+  type while removing nothing. One extra query, on a rare operation.
   """
-  # Runs privileged rather than under `Repo.as_user/3`, because `authenticated`
-  # holds only `select` on `transfers` — the grants say a user reads their
-  # transfers and the application writes them. The scoping is `fetch/2`'s, which
-  # is where it belongs: nothing here can address a row `fetch/2` would not
-  # return.
-  # Re-asks rather than trusting the return, which is the point: `:ok` from this
-  # function is a claim about the database, and a rewrite to `delete_all` with a
-  # wrong `where` would satisfy the type while removing nothing. One extra query
-  # on a rare operation.
   @post whenever(:ok <- result, the_transfer_is_gone: fetch(user_id, id) == :error)
   @spec delete(Session.t(), Ecto.UUID.t()) :: :ok | :error
   def delete(%Session{user_id: user_id} = session, id) do
@@ -916,11 +934,14 @@ defmodule OnePlaylist.Transfers do
   and nothing else holds the two in step. A fold that miscounts shows "8/10
   matched" above a report with nine matched rows: neither number is obviously the
   wrong one, and nothing raises.
+
+  ## What the contract below requires of you
+
+  **The report and the counters must already agree.** Strictly stronger than
+  `Runner.run/1`'s `reported_every_track`, which counts rows and stops — ten rows
+  against ten tracks satisfies that even when seven are unmatched and the counter
+  says three. Cheaper, too: both values are in hand, so it needs no query.
   """
-  # Strictly stronger than `Runner.run/1`'s `reported_every_track`, which counts
-  # rows and stops — ten rows against ten tracks passes that even when seven are
-  # unmatched and the counter says three. Cheaper, too: both values are in hand
-  # and it needs no query.
   @pre report_agrees_with_counters: TransferItem.tally(items) == Transfer.tally(counted)
   @spec record_run(Transfer.t(), Transfer.t(), [map()]) ::
           {:ok, Transfer.t()} | {:error, term()}

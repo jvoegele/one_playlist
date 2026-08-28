@@ -129,6 +129,40 @@ The lesson generalises: when a test's name states a distinction, check that the 
 *exhibits* the distinction. Capturing real data protects against imagined shapes, not against
 unexercised ones.
 
+### Where the rationale goes, and the house heading for it
+
+Bond appends its generated `#### Preconditions` / `#### Postconditions` sections
+to a function's `@doc`, so prose written there renders **directly above the
+assertion it justifies, in the documentation callers read**. The same words in a
+`#` comment reach only whoever opens the file.
+
+Measured on 2026-08-28: 147 of 245 contract sites in `lib/` carried a `#` comment
+longer than two lines — 983 lines of reasoning in the wrong channel. The pass
+correcting that uses one heading, so the sections are recognisable across
+modules:
+
+    ## What the contract below guarantees you      # for @post
+    ## What the contract below requires of you     # for @pre
+
+followed by a bold one-line statement of the law in plain terms, then the
+reasoning. `transfers.ex` went from 71 comment lines across 9 sites to 24 across
+5 this way.
+
+**What stays a comment**, per the usage rules — what the assertion cannot say
+about itself and a caller does not need, in one or two lines:
+
+  * **a proof record** — "proven by mutation: `Enum.take(playlists, 1)` fires
+    the first";
+  * **a formulation that looks like a mistake and is not** — "stated over the
+    *input* rather than the result: `result` is a count, and a count cannot say
+    which rows were touched";
+  * **a bound that came from a measurement**, or a deliberate suppression;
+  * **an ordering note** — Bond fails fast, so an assertion after another is only
+    reached once that one held, which is what makes it total.
+
+The test is who needs it. A caller relying on the guarantee needs the reasoning;
+only a maintainer editing the assertion needs the proof record.
+
 ### Reading the coverage table: one label, several rows
 
 A label appears once per **function** that carries it, not once per module.
