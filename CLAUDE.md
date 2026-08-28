@@ -477,6 +477,7 @@ coverage.
 | `mix coveralls.html` | Test coverage report. |
 | `mix docs` | ExDoc, including the `docs/reference/` material as extras. |
 | `mix test.rls` | pgTAP tests for the RLS policies themselves, run inside Postgres. Needs the Docker stack up, so it is outside `precommit`. |
+| `mix contracts.audit` | Which public functions carry a Bond contract and which carry none — the one thing `Bond.Coverage` structurally cannot report, since its table only lists assertions that *ran*. `--verbose` names them; `--min N` exits non-zero below N%, for a ratchet. Reporting only, deliberately outside `precommit`. |
 
 **First run on a fresh checkout:** `mix dialyzer --plt` builds the PLT (~30s, one-off). It is
 stored under `priv/plts/`, which is gitignored — kept out of `_build` so `mix clean` or an env
