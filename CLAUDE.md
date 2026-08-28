@@ -654,8 +654,10 @@ is exactly the case the button was built for.
 `library_recordings` conflates — identity, release context, and enrichment bookkeeping in one
 row — the latent `(album_upc, track_number)` flaw that switches on when album transfer is built,
 and the decision to **wait for album transfer before making a release first-class**, on the same
-"generalise from the second example, not the first" grounds as the OAuth extraction. Splitting
-enrichment state out is the one change it endorses doing now.
+"generalise from the second example, not the first" grounds as the OAuth extraction. The one
+change it endorsed doing now — splitting enrichment's bookkeeping into
+`recording_enrichments` — is **done**; `isrc_disputed` deliberately stayed on the recording, and
+§6 says why.
 
 **Where this is going.** `docs/reference/domain.md` §5 defines the direction: One Playlist as a
 *place* playlists live, not only a pipe between services — an editable, enriched library that is

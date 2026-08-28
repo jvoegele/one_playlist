@@ -2579,11 +2579,23 @@ claim, with three different authorities and three different lifetimes, in twenty
 | --- | --- | --- | --- |
 | **Identity** — what music is this | `isrc`, `musicbrainz_recording_id`, `title`, `artists`, `version`, `duration_seconds`, `explicit` | the world | near-immutable |
 | **Release context** — where it appears | `album`, `album_upc`, `track_number`, `volume_number`, `artwork_url`, `musicbrainz_release_id` | *one particular release*, of many | revised as we learn |
-| **Process state** — how we tried to find out | `enriched_at`, `enrichment_outcome`, `enrichment_candidates`, `enrichment_engine`, `isrc_disputed` | this application's pipeline | churns |
+| **Process state** — how we tried to find out | `enriched_at`, `enrichment_outcome`, `enrichment_candidates`, `enrichment_engine` | this application's pipeline | churns |
 
-Five of the twenty-three are pipeline bookkeeping, living on a row whose own moduledoc says it
-"is a fact about a piece of music… the same answer for every user". They are the reason a
-recording's `updated_at` moves when nothing about the music has changed.
+Four of the twenty-three were pipeline bookkeeping, living on a row whose own moduledoc says it
+"is a fact about a piece of music… the same answer for every user". They were the reason a
+recording's `updated_at` moved when nothing about the music had changed.
+
+> #### Corrected on building it: `isrc_disputed` is not process state {: .info}
+>
+> This table first listed it in the third row, and that was wrong. A disputed code is a durable
+> claim about the **ISRC** — read by `Identities` when it refuses to anchor on one — and it has
+> to outlive an attempt that later succeeds by name. Surviving the outcome column's amnesia is
+> the whole reason it is a column apart from `enrichment_outcome`, so moving it into a table of
+> attempts would have reintroduced exactly what it was created to prevent.
+>
+> The distinction generalises, which is why it is kept here and not only in the migration: **an
+> outcome is one attempt's answer and the next attempt replaces it; a dispute is a finding about
+> the data, and nothing supersedes it.** Four columns moved, not five.
 
 ### The missing entity is the appearance, not the recording
 
@@ -2678,12 +2690,27 @@ maintained by convention, which is the thing §5 decided against the last time i
 
 ### What is worth doing now, and what is not
 
-**Now: split the enrichment state out.** A `recording_enrichments` row takes five columns off a
-shared fact row, stops `updated_at` churning for things that are not facts about music, gives
-"look up again" a real history instead of a single overwritten outcome, and makes
-*fill gaps, never correct* easier to state as an invariant over a table that only holds gaps.
-Cheap, reversible, and it removes a third of the conflation without committing to any of the
-above.
+**Done: the enrichment state is split out.** `recording_enrichments`, one row per recording,
+carrying `attempted_at` — renamed on the way across, because the old `enriched_at` recorded when
+MusicBrainz was last *asked* and said so in its own comment.
+
+Two things it bought that were not in the argument for it, and are the reason to think the line
+was drawn in the right place:
+
+  * **`write/2` no longer needs an exception list.** Enrichment fills gaps and never corrects —
+    *except* `@bookkeeping`, overwritten on every attempt. With the bookkeeping in its own row the
+    carve-out is gone, and `nothing_was_overwritten` guards an unconditional rule.
+  * **`reset/1` says what it means.** It blanked six columns drawn from two lists; it now clears
+    the two identity fields and **deletes the attempt**. "Never asked" is the absence of a row,
+    which is why `due/1` is a left join.
+
+`RecordingEnrichment.of/1` raises on an unloaded association rather than answering `nil`, because
+a forgotten preload would read as "never looked up" for every row on a screen — a wrong answer
+shaped exactly like a right one.
+
+History is what this table could give that columns never could, and it is deliberately not built:
+the `unique_index` on `recording_id` is the only thing making it 1:1, so 1:N is one dropped index
+away when something needs it.
 
 **Deferred: the artist as an entity.** `artists` is `{:array, :string}` everywhere. The Roon
 album-artist problem — every track on a compilation credited to its subject, so *Throw Your Arms
