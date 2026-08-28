@@ -228,6 +228,52 @@ via `Tesla`, and `HTTPoison` with `:retry` middleware all default to retrying or
 make it a one-line addition. A sentence there would have cost nothing and saved
 this.
 
+## `bond` — coverage cannot distinguish "never failed" from "never evaluated"
+
+**What was hit.** `Bond.Coverage`'s `⚠ never failed` marker is the project's prompt to prove an
+assertion or delete it. It conflates two different states, and the difference decides which of
+those you should do.
+
+Assertions are evaluated in declaration order and the first failure raises, so the ones after it
+are not evaluated at all on that call. The coverage table shows this only as a *lower check
+count*, which nothing draws attention to. Measured on `Normalize.text/1` — four postconditions,
+with `String.downcase/1` removed:
+
+    case_folded                      checked 550   failed 120
+    only_letters_digits_and_spaces   checked 430   failed   0
+    single_spaced                    checked 430   failed   0
+    idempotent                       checked 430   failed   0
+
+The 120 inputs that failed the first assertion never reached the other three. Read without the
+check counts — which is how the table is read in practice, since the failure count is the
+column that carries the meaning — three sound assertions look decorative.
+
+**Why it mattered.** This is precisely the situation where the usage rules say *keep the
+contract*, and precisely the evidence that makes it look deletable. Working through this
+project's unproven assertions, it cost two wrong mutations and nearly a wrong conclusion about
+`idempotent`, which is a genuinely independent law: a shape-preserving implementation that
+reversed or truncated the string satisfies all three shape postconditions and is not a fixed
+point. Proving it needed a mutation the *earlier* assertions do not catch — an off-by-one in a
+slice — which is a non-obvious move to have to discover.
+
+**Suggested fix**, in increasing order of ambition:
+
+  * **Mark it in the table.** An assertion whose `checked` count is lower than a sibling's on the
+    same function was short-circuited; say so — `⚠ never failed (shadowed 120×)` — rather than
+    leaving it to arithmetic.
+  * **Say it in the usage rules.** The falsifiability table's "two guards independently
+    sufficient" row is the right home: add that declaration order decides which of them a
+    mutation can demonstrate, and that the fix is either mutating them together or finding a
+    defect the earlier ones miss.
+  * **A coverage-only evaluation mode.** When `coverage: true`, evaluate every assertion for
+    counting purposes and still raise on the first failure. That makes the table say what a
+    reader assumes it says. It costs the evaluation of assertions on a call that is already
+    failing, which is the cheapest possible moment to spend it.
+
+The short-circuit itself is right and should stay — a violated precondition should not go on to
+evaluate assertions against a state it has already declared invalid. This is about what the
+*report* can be read to mean.
+
 ## `bond` — `Bond.Coverage`'s ETS table dies with the first test that writes to it
 
 **Resolved in bond 1.15.0.** `install_reporter/0` now creates the table, so it is owned by the

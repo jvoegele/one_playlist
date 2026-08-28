@@ -129,6 +129,52 @@ The lesson generalises: when a test's name states a distinction, check that the 
 *exhibits* the distinction. Capturing real data protects against imagined shapes, not against
 unexercised ones.
 
+### Bond stops at the first failing assertion, which hides the ones after it
+
+Measured on 2026-08-28, and it changes how `⚠ never failed` should be read.
+
+`Normalize.text/1` carries four postconditions in this order: `case_folded`,
+`only_letters_digits_and_spaces`, `single_spaced`, `idempotent`. Removing
+`String.downcase/1` gives:
+
+| | checked | failed |
+| --- | --- | --- |
+| `case_folded` | 550 | **120** |
+| `only_letters_digits_and_spaces` | 430 | 0 |
+| `single_spaced` | 430 | 0 |
+| `idempotent` | 430 | 0 |
+
+The three declared *after* the failing one were not evaluated at all on those 120
+inputs — 550 minus 430. So an assertion can look unfalsifiable purely because a
+neighbour declared above it catches the same defect first.
+
+That is the falsifiability table's **"two guards independently sufficient by
+design"** row wearing a disguise, and its instruction — *mutate them together* —
+is exactly right. But there is a second way through, and it is better because it
+touches no contract: find a defect the earlier assertions **do not** catch.
+
+`idempotent` was proven that way. Every mutation that broke it also broke the
+shape assertions, because a "clean this to a canonical form" function has an
+output that is already in that form — so shape and idempotence coincide *for this
+implementation*. They do not coincide in the specification: a shape-preserving
+implementation that reversed the string, or truncated it, would satisfy all three
+shape laws and no longer be a fixed point. An **off-by-one in a slice** is the
+plausible version of that, and it fires `idempotent` 104 times while
+`case_folded` and `only_letters_digits_and_spaces` stay at zero.
+
+Two things to carry away:
+
+  * **Order matters to what a mutation can demonstrate.** When an assertion will
+    not fire, check whether an earlier one on the same function is catching your
+    mutation first — the coverage table shows it as a lower `checked` count.
+  * **"Shape implies this law" is the implementation view.** It was true of
+    `text/1` as written and false of `text/1` as specified, which is the whole
+    difference. `Music.Barcode` is the standing counter-example the other way:
+    there, a shape assertion genuinely did not imply idempotence.
+
+All ten of `Normalize`'s assertions are proven to fire, by ten mutations of the
+form above.
+
 ### A surviving mutation is a prompt for a second mutation, never a verdict
 
 The rule the three cases above imply, stated so it can be followed under pressure. **One mutation
