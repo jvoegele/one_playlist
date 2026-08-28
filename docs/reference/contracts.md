@@ -129,6 +129,32 @@ The lesson generalises: when a test's name states a distinction, check that the 
 *exhibits* the distinction. Capturing real data protects against imagined shapes, not against
 unexercised ones.
 
+### A surviving mutation is a prompt for a second mutation, never a verdict
+
+The rule the three cases above imply, stated so it can be followed under pressure. **One mutation
+that fails to fire is evidence about the mutation.** Write another before concluding anything
+about the contract, and do not reach the word "vacuous" from a single experiment.
+
+Two cases from 2026-08-28, both of which cost a wrong conclusion:
+
+  * A mutation aimed at `match/3` could not fire a postcondition living on `rank/3`. Aim at the
+    function the contract is *on*.
+  * `every_family_contains_its_key` on `Client.isrc_families/2` survived removing
+    `Enum.concat([isrc])` — because `families/2` **also** established it, by only ever
+    associating a code with a recording that lists it. That is the *accidental double guard* row
+    of the falsifiability table, and the prescribed fix is **delete the redundant guard, keep the
+    contract**. Done, and the payoff was immediate: reading `"isrc"` for `"isrcs"`, a
+    one-character typo, now fails the contract three times where before the append silently put
+    the key back. The redundant guard was not protecting the property — it was concealing a bug
+    in the thing that computes it.
+
+The second is the one to remember, because the wrong move was available and felt rigorous: the
+contract was deleted instead, on the grounds that the implementation made it true by
+construction. That is the **implementation view**, it is not one of the three valid reasons to
+decline, and this document's own §"the falsifiability table" already says so. A
+`PreToolUse` hook — `.claude/hooks/guard-bond-contracts.sh` — now asks before any edit lowers a
+file's contract count, because the rule alone had not been enough.
+
 ### The vacuity trap in property tests
 
 Property tests fail silently in the one direction that matters — by proving nothing.

@@ -510,6 +510,23 @@ Two layers sit beneath it, both installed by `mix usage_rules.sync` and both Bon
     contract should *say* rather than how to write it: mechanism versus meaning, the
     falsifiability check, and where a law belongs given who can be at fault.
 
+> #### Deleting a contract needs Jason's approval {: .warning}
+>
+> `.claude/hooks/guard-bond-contracts.sh` is a `PreToolUse` hook that **asks** before any edit
+> lowers the number of `@pre` / `@post` / `@invariant` attributes in an `.ex` or `.exs` file. It
+> matches `Bash` as well as `Edit` and `Write`, because contracts here are usually edited by
+> heredoc'd scripts.
+>
+> It exists because the rules were not enough. On 2026-08-28 the memory, the synced usage rules,
+> the skill and `contracts.md` all said the right thing and a sound contract was deleted anyway —
+> on the grounds that the implementation made it true by construction, which is the
+> **implementation view** and not one of the three valid reasons to decline. The error produces
+> confidence rather than doubt, so nothing prompts a re-read; the guard is therefore attached to
+> the *action* rather than to the topic.
+>
+> `⚠ never failed` has **four** answers and only one is "delete" — see the falsifiability table
+> in `docs/reference/contracts.md`. When a mutation survives, suspect the mutation.
+
 Two Bond gaps are recorded there as traps with workarounds: an `@invariant` exit check does
 not see a struct returned inside a tuple other than `{:ok, _}` (jvoegele/bond#131), and a
 `@pre`/`@post` written *after* its `@callback` attaches to the next one (jvoegele/bond#132).
