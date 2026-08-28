@@ -63,10 +63,40 @@ defmodule OnePlaylist.MixProject do
   # `docs/reference/contracts.md` stays authoritative for this project's house
   # style; these are the library-level layer beneath it, and much of Bond's was
   # distilled from that file in the first place.
+  #
+  # **Bond is split rather than inlined whole, and that is the second axis.**
+  #
+  # Naming a package bare pulls its sub-rules in with it, so `:bond` alone put
+  # all three blocks in `AGENTS.md` — and `bond:inheritance` plus `bond:testing`
+  # were 27.7 KB of a 113 KB file, a quarter of what every session in this repo
+  # loads before it reads a line of code. The two-entry form below keeps the main
+  # rules inlined, where they belong (they carry the traps that bite while
+  # writing *any* contract: `~>` precedence, quantifier generators that bind
+  # rather than filter, assertion purity), and leaves the other two as one-line
+  # markdown links into `deps/`, opened when a task turns out to be about
+  # inheritance or about testing contracts.
+  #
+  # `sub_rules: []` is what pins the first entry to the main file; `main: false`
+  # on the second is what stops it emitting a duplicate main block. `link:
+  # :markdown` rather than `link: :at` on purpose — an `@path` is an *import* in
+  # Claude Code, so `:at` would cost exactly what inlining costs while looking
+  # like it doesn't.
+  #
+  # The other four stay inlined: Phoenix ships no main file, only the five
+  # sub-rules, and the three first-party libraries ship a main file and nothing
+  # else, so neither has a split to make. See `guides/ai-coding-agents.md` in
+  # Bond for the measured comparison of all three shapes.
   defp usage_rules do
     [
       file: "AGENTS.md",
-      usage_rules: [:bond, :errata, :external_service, :wait_for_it, :phoenix],
+      usage_rules: [
+        {:bond, sub_rules: []},
+        {:bond, sub_rules: :all, main: false, link: :markdown},
+        :errata,
+        :external_service,
+        :wait_for_it,
+        :phoenix
+      ],
       skills: [
         location: ".claude/skills",
         package_skills: [:bond]
