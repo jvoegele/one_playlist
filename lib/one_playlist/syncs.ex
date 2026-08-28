@@ -66,12 +66,14 @@ defmodule OnePlaylist.Syncs do
 
   @doc """
   A user's syncs, most recently made first.
+
+  ## What the contract below guarantees you
+
+  **Every sync returned is yours.** The same scoping law every user-owned list
+  here carries, and this one decides what the application does on a schedule with
+  somebody's credentials — so a foreign row reaching it is a schedule the wrong
+  person can pause, or point somewhere else.
   """
-  # The same scoping law every user-owned list here carries. This one decides
-  # what the application does on a schedule with somebody's credentials, so a
-  # foreign row reaching it is a schedule the wrong person can pause or point
-  # somewhere else.
-  #
   # Two guards, and measurement says each is sufficient alone: dropping the
   # `where` and leaving `as_user/3` in place still returns only this user's
   # rows, because the RLS policy is doing exactly what it was written to do.
@@ -140,16 +142,19 @@ defmodule OnePlaylist.Syncs do
   Unscoped by user on purpose: this is the sweeper's query and it runs as the
   application rather than as anybody. Oldest first so a backlog drains in the
   order it accumulated rather than starving whoever is unluckiest.
+
+  ## What the contract below guarantees you
+
+  **No more rows than you asked for, and every one of them actually due.** The
+  sweeper enqueues a transfer per row, and a transfer is a rate-limited
+  conversation with somebody's provider — so a bug here is not a wrong number on
+  a screen, it is every sync in the table firing at once. `limit` is the caller's
+  bound and the first law says it was honoured.
+
+  `all_are_due` is the half with teeth: a sweeper that picked up disabled or
+  not-yet-due syncs would run schedules nobody asked for, on a cadence nobody
+  chose.
   """
-  # The sweeper enqueues a transfer per row, and a transfer is a rate-limited
-  # conversation with somebody's provider — so a bug here is not a wrong number
-  # on a screen, it is every sync in the table firing at once. `limit` is the
-  # caller's bound and this says it was honoured.
-  #
-  # `all_are_due` is the other half and the one with teeth: a sweeper that
-  # picked up disabled or not-yet-due syncs would run schedules nobody asked
-  # for, on a cadence nobody chose.
-  #
   # Both proven by mutation: dropping `limit(^limit)` fires the first, and
   # dropping `s.enabled` from the `where` fires the second.
   @post no_more_than_asked_for: length(result) <= limit
@@ -173,25 +178,26 @@ defmodule OnePlaylist.Syncs do
   Answers `{:ok, transfer}`, or `{:error, reason}` with the sync already moved
   forward: a sync whose transfer could not be queued has still had its turn, and
   trying again immediately would only fail again.
+
+  ## Overlap, and what the contract below guarantees you
+
+  Moving `next_run_at` forward **before** queueing is the overlap guard. Without
+  it, a sweep every five minutes against a sync whose transfer takes ten would
+  start a second run on top of the first; both would resolve the same playlist
+  against the same destination, the diff would keep them from duplicating tracks,
+  and each would spend a full run's provider quota to discover that.
+
+  That law is **not** the contract below and cannot be — checking it means reading
+  the row back, and an assertion that touches the database is neither pure nor
+  cheap. `syncs_test.exs` asserts the schedule moved; the contract asserts what
+  can be seen from here.
+
+  **And what can be seen from here is that the transfer belongs to this sync.** A
+  sync queueing a transfer for a *different* playlist, or for another user, is the
+  worst thing this module could do: it would run on a schedule, unattended,
+  writing somebody else's music into somebody's library, and the report would look
+  ordinary.
   """
-  # `moved_forward` is the overlap guard, stated where it can be checked. Without
-  # it a sweep every five minutes against a sync whose transfer takes ten would
-  # start a second run on top of the first, and both would resolve the same
-  # playlist against the same destination — the diff would keep them from
-  # duplicating tracks, and they would each spend a full run's provider quota to
-  # discover that.
-  #
-  # That law is **not** the contract below, and cannot be: checking it means
-  # reading the row back, and an assertion that touches the database is neither
-  # pure nor cheap — Bond's rule, and the same reason `Providers.disconnect/2`
-  # keeps its blast-radius law in a test. `syncs_test.exs` asserts the schedule
-  # moved; this asserts what can be seen from here.
-  #
-  # And what can be seen from here is worth seeing. A sync queueing a transfer
-  # for a *different* playlist, or for another user, is the worst thing this
-  # module could do — it would run on a schedule, unattended, writing somebody
-  # else's music into somebody's library, and the report would look ordinary.
-  #
   # Proven by mutation: taking any field from a different sync fires it.
   @post whenever(
           {:ok, transfer} <- result,
@@ -227,10 +233,15 @@ defmodule OnePlaylist.Syncs do
   **once**: the first run creates the playlist and pins it, and a later run
   reporting a different id is a bug rather than a change of mind — see the
   migration.
+
+  ## What the contract below guarantees you
+
+  **The first run's destination wins, for ever.** The pin is what stops a weekly
+  sync leaving fifty-two playlists behind, and it is a write that must never be
+  repeated.
   """
-  # The pin is what stops a weekly sync leaving fifty-two playlists behind, and
-  # it is a write that must never be repeated. Stated as "the first one wins"
-  # rather than "it is not nil", because the second is satisfied by overwriting.
+  # Stated as "the first one wins" rather than "it is not nil", because the
+  # second is satisfied by overwriting.
   #
   # Proven by mutation: removing the `is_nil` clause from the head lets a later
   # run overwrite the pin, and this fires the moment the ids differ.

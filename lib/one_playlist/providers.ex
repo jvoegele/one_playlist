@@ -174,12 +174,16 @@ defmodule OnePlaylist.Providers do
   replaces the tokens rather than failing or creating a second row. A successful
   connect always clears `status`, `last_error` and `consecutive_failures` — the
   user has just proved the authorization works, so any earlier failure is stale.
+
+  ## What the contract below guarantees you
+
+  **A reconnect actually replaces what it claims to.** The bug these guard is an
+  upsert whose `:replace` list drifts out of step with the schema, silently
+  keeping a stale value. They cannot catch a *missing* field — the round-trip
+  test in `providers_test.exs` is what does that — but they catch the identity
+  and lifecycle fields going wrong, which is where a mistake would be least
+  visible.
   """
-  # An upsert whose `:replace` list drifts out of step with the schema is the
-  # bug these guard: a reconnect that silently keeps a stale value. These cannot
-  # catch a *missing* field (see the round-trip test in providers_test.exs), but
-  # they do catch the identity and lifecycle fields going wrong, which is where
-  # a mistake would be least visible.
   @post whenever(
           {:ok, connection} <- result,
           belongs_to_requester: connection.user_id == user_id,
@@ -360,11 +364,15 @@ defmodule OnePlaylist.Providers do
   Replaces the tokens on a connection after a successful refresh.
 
   Clears the failure counters for the same reason `connect/3` does.
+
+  ## What the contract below guarantees you
+
+  **A successful refresh leaves no failure state behind.**
+  `connections_due_for_refresh/2` only considers `:active` connections, so a
+  success that failed to clear it would quietly remove this connection from the
+  refresh schedule for ever — it would keep working until the token expired, then
+  die, with nothing in the logs to say why.
   """
-  # `connections_due_for_refresh/2` only considers `:active` connections, so a
-  # success that failed to clear the failure state would quietly remove this
-  # connection from the refresh schedule forever — it would keep working until
-  # the token expired, then die, with nothing in the logs to say why.
   @post whenever(
           {:ok, refreshed} <- result,
           refresh_clears_failure_state:
@@ -405,12 +413,15 @@ defmodule OnePlaylist.Providers do
   dead. A transient failure leaves the connection active and merely increments
   the counter, so a provider outage does not mass-disconnect every user — which
   would turn a ten-minute upstream blip into a re-authorization campaign.
+
+  ## What the contract below guarantees you
+
+  **The failure counter actually counts.** It is how "this connection keeps
+  failing" will eventually be noticed, and a rewrite that assigned rather than
+  incremented — `1` for `connection.consecutive_failures + 1` — would peg it at
+  one for ever and no threshold would ever trigger. Nothing would fail; the
+  signal would simply never arrive.
   """
-  # The counter is how "this connection keeps failing" will eventually be
-  # noticed. A rewrite that assigned rather than incremented — `1` for
-  # `connection.consecutive_failures + 1` — would peg it at one forever and no
-  # threshold would ever trigger. Nothing would fail; the signal would just
-  # never arrive.
   @post whenever(
           {:ok, failed} <- result,
           counter_advances_by_one:
@@ -501,13 +512,15 @@ defmodule OnePlaylist.Providers do
 
   This is the refresh scheduler's query. Only `:active` connections are
   considered — one already needing re-authorization cannot be fixed by us.
+
+  ## What the contract below guarantees you
+
+  **This query and `Connection.needs_refresh?/3` agree.** They are the same rule
+  written twice, once in SQL and once in Elixir, and nothing but the
+  postcondition keeps them in step. Drift is silent in both directions: too wide
+  and the scheduler burns provider quota refreshing tokens that were fine, too
+  narrow and connections quietly pass their expiry and die.
   """
-  # This query and `Connection.needs_refresh?/3` are the same rule written twice,
-  # once in SQL and once in Elixir. Nothing but this postcondition keeps them in
-  # step, and drift is silent in both directions: too wide and the scheduler
-  # burns provider quota refreshing tokens that were fine, too narrow and
-  # connections quietly pass their expiry and die.
-  #
   # `DateTime.utc_now/0` is read again here, marginally later than the query
   # used it, which can only make the predicate *more* likely to hold — so the
   # re-read cannot produce a false failure.
@@ -544,14 +557,16 @@ defmodule OnePlaylist.Providers do
   `record_failure/2`), so a caller that ignores the error still leaves a trail,
   and a dead grant is marked as needing re-authorization rather than being
   retried forever.
+
+  ## What the contract below guarantees you
+
+  **What comes back is fresh enough to use immediately.** That is what this
+  function is *for*, and it is not `refresh/1`'s promise: `refresh/1` exchanges a
+  token whether or not it needed exchanging, and this is the one that decides. A
+  caller takes the result straight to an adapter, so a connection still inside the
+  refresh window is a request about to 401 — and the caller has no way to tell,
+  because asking that question is exactly what it delegated here.
   """
-  # What this function is *for*, and not `refresh/1`'s promise: `refresh/1`
-  # exchanges a token whether or not it needed exchanging, and this is the one
-  # that decides. A caller takes what comes back straight to an adapter, so a
-  # connection still inside the refresh window is a request about to 401 — and
-  # the caller has no way to tell, because asking again is exactly what it
-  # delegated here.
-  #
   # Stated against the same skew the body used rather than the default, so a
   # caller passing a wider window is judged by the window it asked for.
   #
@@ -583,13 +598,16 @@ defmodule OnePlaylist.Providers do
 
   Refreshes unconditionally; `ensure_fresh/2` is the one that decides whether it
   is needed.
+
+  ## What the contract below guarantees you
+
+  **A refresh never leaves the connection without a refresh token.** A provider
+  need not return a new one, and TIDAL usually does not; a rewrite that trusted
+  the response would set it to nil, and the connection would work perfectly until
+  the next expiry and then be unrecoverable without the user reconnecting. Slow,
+  silent, and affecting every user at once — which is why the body carries a
+  `|| connection.refresh_token` fallback and this law says so.
   """
-  # The law the `|| connection.refresh_token` fallback in the body exists to
-  # uphold. A provider need not return a new refresh token, and TIDAL usually
-  # does not; a rewrite that trusted the response would set it to nil, and the
-  # connection would work perfectly until the next expiry and then be
-  # unrecoverable without the user reconnecting. Slow, silent, and affecting
-  # every user at once.
   @post whenever(
           {:ok, refreshed} <- result,
           refresh_token_is_never_lost:

@@ -208,12 +208,15 @@ defmodule OnePlaylist.Providers.Adapter do
   Implementations should use the cheapest lookup that can answer. Where a
   provider offers an ISRC filter, that is one request returning exact
   candidates, and it is both cheaper and better than a text search.
+
+  ## What the contract below requires of you
+
+  **A track worth searching for.** One with neither an identifier nor a title
+  cannot return anything useful, and the cost of finding that out is a request
+  against a provider quota — 100 units of a 10,000/day budget on YouTube.
+  Preconditions stay enabled in production precisely so a caller's bug is named
+  at the boundary instead of quietly spending someone's daily allowance.
   """
-  # Searching for a track with neither an identifier nor a title cannot return
-  # anything useful, and the cost of finding that out is a request against a
-  # provider quota — 100 units of a 10,000/day budget on YouTube. Preconditions
-  # stay enabled in production precisely so a caller's bug is named at the
-  # boundary instead of quietly spending someone's daily allowance.
   @pre searchable: OnePlaylist.Matching.searchable?(track)
   @post whenever({:ok, candidates} <- result),
     # An adapter that labelled results with another provider's name would poison
@@ -233,11 +236,15 @@ defmodule OnePlaylist.Providers.Adapter do
 
   Returns the created playlist so the caller has its `provider_id`; there is
   nothing to add tracks to otherwise.
+
+  ## What the contract below guarantees you
+
+  **The playlist you get back can actually be addressed.** One that cannot is
+  worse than a failed creation: the transfer proceeds, adds tracks to nothing,
+  and reports success. The provider is the only thing that can mint that id, so
+  this is the boundary at which its absence must stop being someone else's
+  problem.
   """
-  # A created playlist that cannot be addressed is worse than a failed creation:
-  # the transfer proceeds, adds tracks to nothing, and reports success. The
-  # provider is the only thing that can mint that id, so this is the boundary at
-  # which its absence must stop being someone else's problem.
   @post whenever({:ok, playlist} <- result),
     addressable: is_binary(playlist.provider_id) and playlist.provider_id != "",
     from_this_provider: playlist.provider == provider()
@@ -252,12 +259,15 @@ defmodule OnePlaylist.Providers.Adapter do
   already held before this transfer began. See `playlist_track_ids/3`.
 
   Returns how many were added, which is what a transfer report counts.
+
+  ## What the contract below guarantees you
+
+  **Conservation**, at the one point in the application where being wrong writes
+  to somebody's music library. A provider reporting that it added more than it
+  was given would inflate every report built on it, and the inflation would be
+  invisible: the numbers would agree with each other and disagree with the
+  playlist.
   """
-  # Conservation, at the one point in the application where being wrong writes
-  # to somebody's music library. A provider that reported adding more than it
-  # was given would inflate every report built on it, and the inflation would be
-  # invisible — the numbers would simply agree with each other and disagree with
-  # the playlist.
   @pre something_to_add: is_list(tracks)
   @post whenever({:ok, added} <- result),
     never_more_than_offered: added <= length(tracks),

@@ -62,16 +62,18 @@ defmodule OnePlaylist.Providers.OAuthFlow do
   Answers a configuration error rather than a URL when the provider's
   credentials are absent, so a missing secret is reported as what it is instead
   of surfacing as a redirect with a blank `client_id`.
+
+  ## What the contract below guarantees you
+
+  **The CSRF laws, stated once for every provider rather than once per provider.**
+
+  Both are invisible in the happy path, which is what makes them contracts rather
+  than tests. A URL built without `state` completes the whole round trip and looks
+  correct, while accepting an authorization code from anybody — the victim's
+  account silently ends up connected to the attacker's music service, which for
+  this application means the attacker's playlists become readable and writable by
+  somebody else's scheduled syncs.
   """
-  # The CSRF laws, stated once for every provider rather than once per provider.
-  #
-  # Both are invisible in the happy path, which is what makes them contracts. A
-  # URL built without `state` completes the whole round trip and looks correct,
-  # while accepting an authorization code from anybody — the victim's account
-  # silently ends up connected to the attacker's music service, which for this
-  # application means the attacker's playlists become readable and writable by
-  # somebody else's scheduled syncs.
-  #
   # 32 bytes of `:crypto.strong_rand_bytes/1` is 43 base64url characters, so the
   # bound is expressed as the encoded length a reader can count in a URL.
   #
@@ -105,19 +107,21 @@ defmodule OnePlaylist.Providers.OAuthFlow do
   to the flow rather than to the controller: TIDAL answers a JSON:API resource
   whose identity is under `attributes`, Spotify a flat object, and a controller
   that knew the difference would be a controller with two providers in it.
+
+  ## What the contract below guarantees you
+
+  Two laws, and each names a failure that is silent rather than loud.
+
+  **`identifies_the_account`**, because `provider_user_id` is the account's
+  identity and `to_string(nil)` is `""` — a flow that read the wrong key would
+  give every connection for that provider the same blank id, and
+  `Providers.connect/3` would happily reconnect one user's account over another's.
+
+  **`carries_the_tokens`**, because this callback both *uses* an access token and
+  *returns* one, which is exactly the shape that lets a refactor return the wrong
+  one. The connect would succeed and store a credential belonging to a different
+  exchange.
   """
-  # Two laws, and each names a failure that is silent rather than loud.
-  #
-  # `identifies_the_account` because `provider_user_id` is the account's identity
-  # and `to_string(nil)` is `""` — a flow that read the wrong key would give
-  # every connection for that provider the same blank id, and
-  # `Providers.connect/3` would happily reconnect one user's account over
-  # another's.
-  #
-  # `carries_the_tokens` because this callback both *uses* an access token and
-  # *returns* one, which is exactly the shape that lets a refactor return the
-  # wrong one — the connect would succeed and store a credential that belongs to
-  # a different exchange.
   @post whenever(
           {:ok, attrs} <- result,
           identifies_the_account:

@@ -47,17 +47,19 @@ defmodule OnePlaylist.Providers.Tidal.OAuth do
   The two CSRF contracts on `c:OnePlaylist.Providers.OAuthFlow.authorization_url/1`
   are inherited; the PKCE ones below are this flow's own, because no other
   provider here has a verifier to get wrong.
+
+  ## What the contract below guarantees you
+
+  **What travels to TIDAL is the *hash* of the secret we keep, never the secret
+  itself.** PKCE's entire security value rests on that one relationship. Send the
+  verifier as the challenge and the flow still works end to end — the exchange
+  succeeds, the tests pass, nothing looks wrong — while the protection PKCE
+  exists to provide is simply gone. That is exactly the class of bug a
+  postcondition is for: silent, security-relevant, and invisible in the happy
+  path.
+
+  The length bound is RFC 7636 §4.1, which a provider may or may not enforce.
   """
-  # PKCE's entire security value rests on one relationship: what travels to
-  # TIDAL must be the *hash* of the secret we keep, never the secret itself.
-  # Send the verifier as the challenge and the flow still works end to end — the
-  # exchange succeeds, tests pass, nothing looks wrong — while the protection
-  # PKCE exists to provide is gone. That is precisely the class of bug a
-  # postcondition is for: silent, security-relevant, and invisible in the
-  # happy path.
-  #
-  # The length bound is RFC 7636 §4.1, which a provider may or may not enforce.
-  #
   # `@post_strengthen` rather than `@post`, and Bond is right to insist: an
   # implementation adding a plain postcondition to an inherited one would demand
   # more of *callers* than the behaviour promises, which is the Liskov violation
