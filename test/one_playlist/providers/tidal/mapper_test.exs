@@ -132,6 +132,61 @@ defmodule OnePlaylist.Providers.Tidal.MapperTest do
     end
   end
 
+  describe "item_references/1" do
+    # Reached only incidentally before this — five checks in a whole suite run,
+    # all of them through `TransfersTest` — which is thin cover for the function
+    # whose output travels straight into a TIDAL delete body.
+    @references %{
+      "data" => [
+        %{"id" => "55130631", "type" => "tracks", "meta" => %{"itemId" => "item-a"}},
+        %{"id" => "55130632", "type" => "tracks", "meta" => %{"itemId" => "item-b"}}
+      ]
+    }
+
+    test "pairs each track id with that entry's own item id, in order" do
+      assert Mapper.item_references(@references) ==
+               [{"55130631", "item-a"}, {"55130632", "item-b"}]
+    end
+
+    test "a track added twice yields two references with different item ids" do
+      # The reason `item_ids/1` is not enough: removing one occurrence of a
+      # duplicate needs the entry, and only `meta.itemId` names it.
+      twice = %{
+        "data" => [
+          %{"id" => "55130631", "type" => "tracks", "meta" => %{"itemId" => "item-a"}},
+          %{"id" => "55130631", "type" => "tracks", "meta" => %{"itemId" => "item-c"}}
+        ]
+      }
+
+      assert Mapper.item_references(twice) ==
+               [{"55130631", "item-a"}, {"55130631", "item-c"}]
+    end
+
+    test "an entry missing either half is dropped, not returned with a nil" do
+      # Both halves go into a delete body, and `to_string(nil)` is `""` — for
+      # which TIDAL answers the same unhelpful 400 as for an absent field. The
+      # failure would then read "the provider refused" rather than "we sent
+      # nonsense".
+      partial = %{
+        "data" => [
+          %{"id" => "55130631", "type" => "tracks", "meta" => %{}},
+          %{"id" => "55130632", "type" => "tracks"},
+          %{"type" => "tracks", "meta" => %{"itemId" => "item-orphan"}},
+          %{"id" => "", "type" => "tracks", "meta" => %{"itemId" => "item-blank"}},
+          %{"id" => "55130633", "type" => "tracks", "meta" => %{"itemId" => ""}},
+          %{"id" => "55130634", "type" => "tracks", "meta" => %{"itemId" => "item-d"}}
+        ]
+      }
+
+      assert Mapper.item_references(partial) == [{"55130634", "item-d"}]
+    end
+
+    test "an empty or unexpected document is a value, not a crash" do
+      assert Mapper.item_references(%{}) == []
+      assert Mapper.item_references(%{"data" => []}) == []
+    end
+  end
+
   describe "contracts" do
     test "a negative duration is rejected rather than returned" do
       # Regression: these parsed to -5 and -86_401 before the contract existed.
