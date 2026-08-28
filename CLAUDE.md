@@ -650,6 +650,13 @@ The orphaned *Neil Young — Powderfinger [Rust Never Sleeps]* in the Pearl Jam 
 longer needs hand-removal — open that transfer's report and use **Replace** on the row, which
 is exactly the case the button was built for.
 
+**Before proposing a schema change, read `docs/reference/domain.md` §6.** It records what
+`library_recordings` conflates — identity, release context, and enrichment bookkeeping in one
+row — the latent `(album_upc, track_number)` flaw that switches on when album transfer is built,
+and the decision to **wait for album transfer before making a release first-class**, on the same
+"generalise from the second example, not the first" grounds as the OAuth extraction. Splitting
+enrichment state out is the one change it endorses doing now.
+
 **Where this is going.** `docs/reference/domain.md` §5 defines the direction: One Playlist as a
 *place* playlists live, not only a pipe between services — an editable, enriched library that is
 itself a transfer source and destination, and that holds the cross-service identity of a
@@ -739,7 +746,7 @@ INVALID_RESOURCE_ID` that names neither scopes nor the parameter.
 | `AGENTS.md` | Phoenix/Elixir/LiveView coding conventions (generated; authoritative for code style) |
 | `docs/reference/jv-libraries.md` | Deep reference for `external_service`, `errata`, `bond`, `wait_for_it` |
 | `docs/reference/supabase.md` | Supabase platform reference oriented to Elixir/Phoenix |
-| `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits, and (§5) where the product is going |
+| `docs/reference/domain.md` | Soundiiz/TuneMyMusic feature analysis, track matching, platform API limits, (§5) where the product is going, and (§6) the schema's missing layer and why it is deliberately still missing |
 | `docs/reference/contracts.md` | **House style for Bond contracts** — read before adding or changing one |
 | `docs/library-feedback.md` | Running log of friction found while dogfooding the four libraries |
 | `docs/supabase-sdk-issues.md` | Defects found in the Supabase Elixir SDK, with offline reproductions and upstream status |

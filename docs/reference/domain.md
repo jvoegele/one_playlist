@@ -2543,3 +2543,179 @@ bar in ways worth naming before building:
     needs a conflict answer, and "last writer wins" quietly loses somebody's edit. Soundiiz
     sidesteps this by making sync one-directional (§1); doing better is possible and should be a
     deliberate decision rather than an accident.
+
+---
+
+## 6. The shape of the data, and the layer that is not there yet
+
+§5 records what was built and why. This section records a discomfort with the result that is
+worth writing down before somebody acts on it — including, at the end, the argument for **not**
+acting on most of it yet.
+
+It began as a suspicion that `library_recordings` "straddles the line between catalogue-focused
+and user-library-focused". Half of that is already answered, and the half that is left is a
+sharper problem than the phrasing suggests.
+
+### The straddle is not ownership
+
+That part is settled, and the settlement holds. RLS says so directly: `library_recordings` and
+`recording_identities` carry a `recordings are public metadata` policy, while `library_playlists`
+and `library_playlist_items` carry the `auth.uid()` shape. *The recording store is global; the
+playlists are per user* states the rule and the item/recording split enforces it. Nothing about
+who holds what leaks into the shared row.
+
+There is a naming problem sitting on top of it, which is probably where the feeling comes from:
+three tables share a `library_` prefix, **two of them user-owned and one belonging to nobody**.
+The prefix asserts a grouping the policies contradict. `recordings` / `recording_identities` /
+`releases` on one side and `library_playlists` / `library_playlist_items` on the other would let
+the names carry the boundary that matters.
+
+### Three kinds of fact in one row
+
+What `library_recordings` actually conflates is not owner with non-owner. It is three kinds of
+claim, with three different authorities and three different lifetimes, in twenty-three columns:
+
+| Kind | Columns | Authority | Lifetime |
+| --- | --- | --- | --- |
+| **Identity** — what music is this | `isrc`, `musicbrainz_recording_id`, `title`, `artists`, `version`, `duration_seconds`, `explicit` | the world | near-immutable |
+| **Release context** — where it appears | `album`, `album_upc`, `track_number`, `volume_number`, `artwork_url`, `musicbrainz_release_id` | *one particular release*, of many | revised as we learn |
+| **Process state** — how we tried to find out | `enriched_at`, `enrichment_outcome`, `enrichment_candidates`, `enrichment_engine`, `isrc_disputed` | this application's pipeline | churns |
+
+Five of the twenty-three are pipeline bookkeeping, living on a row whose own moduledoc says it
+"is a fact about a piece of music… the same answer for every user". They are the reason a
+recording's `updated_at` moves when nothing about the music has changed.
+
+### The missing entity is the appearance, not the recording
+
+A recording appears on many releases. The schema comment on `musicbrainz_release_id` says so —
+*"A recording appears on many, and they disagree"* — and the row then stores one release's answer
+as columns anyway. That is a many-to-one flattened to one, and the bill for it has already been
+paid twice.
+
+*A recording has many releases, and they disagree* is the first payment: `List.first(releases)`
+gave a per-track answer where a user sees a per-album fact. `OnePlaylist.Library.Albums` is the
+second, and it is the more telling one — **an entire module, with its own contract, whose job is
+to reconcile a disagreement the schema permits**. It settles an album on the release that covers
+most of it, because no per-recording rule can reach an answer that is a property of the album.
+That is a normalisation defect solved by a reconciliation pass.
+
+The data is already there. `musicbrainz_releases` holds the title, the group, the barcode, the
+secondary types and the full track list; it is simply framed as a *cache of an external fact*
+rather than as the entity that owns album context.
+
+Current state of the library, for a baseline to measure any change against: 661 recordings,
+646 identified, 4 with a disputed ISRC; 496 distinct `(album, first artist)` groups, of which
+**none** now spans more than one `musicbrainz_release_id` and **five** carry two barcodes — the
+deliberate provider-versus-MusicBrainz keeps.
+
+### `(album_upc, track_number)` is a coordinate nobody asserted
+
+The sharpest consequence, and the one that is invisible until it is stated.
+
+`Matching.Strategy.UpcPosition` — rung 2 of the ladder — matches on the **pair**: same normalised
+barcode, same position, duration not contradicting. The pair means something only if both halves
+describe the same release.
+
+Nothing guarantees they do. `album_upc` is rewritten by enrichment and by `Albums.adopt/2`, whose
+`@writable` is exactly `[:musicbrainz_release_id, :album_upc]`. `track_number` and `volume_number`
+are written **only** by `Recording.from_track/1`, from whichever provider first supplied them, and
+are never revisited by anything. So a recording can come to assert *track 7 of barcode X* where no
+source ever said that, and rung 2 will match a stranger on it with a score of `1.0`.
+
+Measured before believing it, and the honest answer is that it is **latent, not live**: of 661
+recordings, 6 carry a track number at all and **0** carry both a track number and a barcode. There
+is no wrong answer in this library today.
+
+What matters is *when* it stops being latent. Reading an **album** — a Soundiiz-parity target
+(§1) that is not built — is precisely the operation that populates track numbers in bulk. The
+flaw switches on at the moment the roadmap reaches it.
+
+The cheap guard, worth taking before then and much easier to write now than to retrofit: either
+clear `track_number` and `volume_number` when a barcode is adopted from a different release, or
+have `UpcPosition` require that both halves came from the same one. A `Bond` precondition states
+it well, since a silent wrong answer here is worse than a crash.
+
+### Provenance, one level down
+
+*A recording has many releases* already ends by naming this and declining to solve it: a UPC a
+provider supplied is never overwritten, "that is a provenance problem, and the answer to it is a
+provenance model rather than a wider licence to rewrite."
+
+The observation to add is that **this project has already solved this problem once, at a
+different boundary, and the answer was a table**. §5 on the playlist item:
+
+> Editing would have needed per-field provenance. Telling "the user set this" from "TIDAL set
+> this" was going to be a column per field. It is two tables instead.
+
+That was user versus catalogue. The same question now sits *inside* the catalogue layer, between
+a provider and MusicBrainz, and it is currently answered by hand-maintained rules rather than by
+shape: `Albums.@writable`, `Albums.@bookkeeping`, `Enrichment.@cleared_with_a_release`, the
+never-overwrite-a-provider-UPC rule, and — the clearest tell — the artwork comment that reads
+*"the URL says who wrote it"*. That is provenance smuggled into a value, because there is no
+column for it. Five albums holding two barcodes is what it looks like from the outside.
+
+Each of those rules is individually well-argued. Collectively they are a provenance model being
+maintained by convention, which is the thing §5 decided against the last time it came up.
+
+> #### Rejected for now: building the release entity {: .info}
+>
+> The obvious move is to make a release first-class and give a recording an *appearance* on one,
+> rather than a copy of one release's columns. It would retire `Albums`-as-repair, store cover
+> art once per album instead of once per track, put `track_number` where it is actually true, and
+> give album transfer somewhere to live.
+>
+> It should still wait, and the argument is this project's own, from the OAuth extraction two
+> days earlier: *"Extracted after the second flow rather than before, and that mattered:
+> generalising from TIDAL alone would have produced an abstraction shaped like PKCE."*
+>
+> There is exactly **one** consumer of album context today — enrichment. Album transfer is the
+> second, and it is the one that will settle whether this needs a full `recording_appearances`
+> join table or merely a `release_id` that owns the album columns. Designing it now means
+> designing from a single example, which is the mistake the OAuth commit exists to record.
+>
+> Revisit when album transfer is actually being built, not before. The guard in
+> *`(album_upc, track_number)`* above is what keeps the interval safe.
+
+### What is worth doing now, and what is not
+
+**Now: split the enrichment state out.** A `recording_enrichments` row takes five columns off a
+shared fact row, stops `updated_at` churning for things that are not facts about music, gives
+"look up again" a real history instead of a single overwritten outcome, and makes
+*fill gaps, never correct* easier to state as an invariant over a table that only holds gaps.
+Cheap, reversible, and it removes a third of the conflation without committing to any of the
+above.
+
+**Deferred: the artist as an entity.** `artists` is `{:array, :string}` everywhere. The Roon
+album-artist problem — every track on a compilation credited to its subject, so *Throw Your Arms
+Around Me* cannot be found from the credit it arrived with — is an artist-credit problem, and the
+reason correcting it is miserable is that there is no *thing* to correct once. An entity is the
+real answer; a bulk "set the credit for these rows" action is the cheap one. The matching engine
+deals in credit strings throughout, so this is a large lift, and album transfer should land
+first regardless.
+
+**Not a problem: `origin_provider` / `origin_provider_id`, but not what its comment claims
+either.** It is written by `from_track/1` and read by nothing. The comment says it is "worth
+knowing when two services disagree about a title"; no code consults it to do that.
+`recording_identities` is the general version of the same idea and holds 615 rows. Before
+deleting it, note the wrinkle: `origin_provider` covers `file` (164 rows) and `library` (5),
+which identities structurally cannot hold, since they require a canonical-ISRC anchor and a
+provider with global ids.
+
+### What is right and should not move
+
+Worth stating plainly, because the answer to "is the schema wrong?" is mostly no, and a future
+session reading the list above should not conclude otherwise:
+
+  * the ownerless recording store with per-user membership, and RLS enforcing it per table with
+    explicit grants and revokes;
+  * a playlist item owning a **full copy** of its own account of the track rather than an
+    overlay — which is what makes unlinking possible at all;
+  * `recording_id` nullable, with `LEFT JOIN` reads and three distinct states, so a reader that
+    forgets fails loudly;
+  * the identity spine anchored on a canonical ISRC **or not recorded at all**, which makes the
+    duplicate risk structurally impossible rather than merely unlikely;
+  * `musicbrainz_releases` never expiring, because a release fetched by its own id cannot be a
+    negative result.
+
+None of those is what prompted the question, and none of them should be disturbed by answering
+it.
