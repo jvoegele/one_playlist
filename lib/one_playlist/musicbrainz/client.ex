@@ -137,19 +137,24 @@ defmodule OnePlaylist.MusicBrainz.Client do
   A caller must never read an absence as "MusicBrainz does not know this code" —
   see `OnePlaylist.MusicBrainz.prefetch_isrcs/2`, which writes positives only.
   """
-  # `isrc_family/2`'s `contains_the_key` is **not** restated here, and the reason
-  # is worth the line: it cannot fail. `families/2` associates a code with a
-  # recording only by finding that code in the recording's own array, so
-  # membership holds by construction rather than by vigilance, and an assertion
-  # no mutation can break is decoration.
+  # Two laws on different dimensions, and neither implies the other: one is about
+  # the **content** of each family, the other about the **keys** of the map.
   #
-  # The law that *can* be broken is the other direction. Every key returned must
-  # be one that was asked for — drop the filter in `families/2` and a recording's
-  # other codes become keys of their own, which `prefetch_isrcs/2` would then
-  # write to the cache as facts nobody requested and no caller would ever check.
+  # `every_family_contains_its_key` is `isrc_family/2`'s law, owed by this
+  # function for the same reason — `Matching.Strategy.IsrcFamily` compares
+  # candidate ISRCs against the family, and one missing its own key fails to
+  # match the very track it was looked up for. That the current `families/2`
+  # happens to establish it by construction describes how this is built today,
+  # not what it promises.
+  #
+  # `answers_only_what_was_asked` is the other direction: drop the filter and a
+  # recording's other codes become keys of their own, which `prefetch_isrcs/2`
+  # would write to the cache as facts nobody requested.
   @pre normalized_isrcs: Enum.all?(isrcs, &(&1 == Isrc.normalize(&1)))
   @post whenever(
           {:ok, families} <- result,
+          every_family_contains_its_key:
+            Enum.all?(families, fn {isrc, %{isrcs: isrcs}} -> isrc in isrcs end),
           answers_only_what_was_asked:
             Enum.all?(families, fn {isrc, _family} -> isrc in isrcs end)
         )
@@ -209,10 +214,17 @@ defmodule OnePlaylist.MusicBrainz.Client do
     |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
     # Only where the batch names exactly one recording. See the moduledoc.
     |> Enum.filter(fn {_isrc, recordings} -> match?([_only], recordings) end)
-    |> Map.new(fn {isrc, [recording]} -> {isrc, one_family(recording, isrc)} end)
+    |> Map.new(fn {isrc, [recording]} -> {isrc, one_family(recording)} end)
   end
 
-  defp one_family(recording, isrc) do
+  # This does not take the code it is being asked about, and that is the point.
+  # `family/2` appends it — a **second** guarantee of
+  # `every_family_contains_its_key`, since `families/2` already associates a code
+  # only with a recording that lists it. A property guarded twice by accident is
+  # one no single edit can falsify, so the law looked enforced and was not:
+  # reading `"isrc"` for `"isrcs"` here produced an empty family and the append
+  # quietly put the key back. One guard, and the contract watches it.
+  defp one_family(recording) do
     %{
       recording_mbid: recording["id"],
       isrcs:
@@ -220,7 +232,6 @@ defmodule OnePlaylist.MusicBrainz.Client do
         |> Map.get("isrcs", [])
         |> Enum.map(&Isrc.normalize/1)
         |> Enum.reject(&is_nil/1)
-        |> Enum.concat([isrc])
         |> Enum.uniq()
         |> Enum.sort()
     }
