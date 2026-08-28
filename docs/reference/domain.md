@@ -2105,6 +2105,50 @@ Two lessons, both general:
     `dev/probes/repair_release_choice.exs`, where the argument for its safety is written down
     because it does not generalise.
 
+### A veto measured, not argued: `release_tags`
+
+`Signals.discriminating_tags/2` reads `:live`, `:remix` and `:demo` off a candidate's release
+**group** secondary types and feeds them to the veto. Live was measured when it was added. Remix
+and demo were not — they rested on unit tests, because the enrichment corpus predated them and a
+replay cannot score a signal its capture does not carry.
+
+Re-harvested on 2026-08-28, it does. 3,682 candidates across 255 cases now carry 1,462 `live`,
+49 `remix` and 39 `demo`, and 202 cases have at least one tagged candidate.
+
+**The comparison is within one corpus, not across two.** A re-harvest changes the candidates as
+well as the tags, so a before/after across captures would conflate them. `replay_enrichment.exs`
+therefore grew a `tags withheld` row: the identical ladder over the identical candidates with
+every tag stripped.
+
+| | correct | equiv | unver | missed | **WRONG** |
+| --- | --- | --- | --- | --- | --- |
+| the ladder as it stands | 149 | 30 | 32 | 23 | **0** |
+| tags withheld | 147 | 31 | 32 | 23 | **1** |
+
+So the tags are worth **+2 correct and −1 wrong, at no cost in misses at all** — and this is the
+first time any corpus here has scored zero wrong.
+
+Two things that measurement settled which argument had not.
+
+**The gain is the predicted mechanism, on a track nobody chose.** The rule was written from two
+errors this corpus produced — *Call Me Maybe (Dark Intensity)* and *Angel (Angel Dust)* — remixes
+whose parenthetical `Normalize.title/1` strips, leaving the release group's `Remix` type as the
+only surviving trace. The case the control hands back is **De La Soul, *Jenifa Taught Me
+(Derwin's Revenge)*** on *3 Feet High and Rising*: the identical failure, on a track the rule was
+not fitted to. A rule that only ever catches its own founding examples has not been shown to
+generalise; this one has.
+
+**The feared cost did not appear.** `conflict?/2` is strict set equality over a union across
+*every* release a recording appears on, so a studio recording that also appears on a remix album
+picks up `:remix` and is vetoed against a studio source. That is a real over-veto risk and the
+reason to measure rather than reason: with remix and demo added, misses are **23 either way**.
+Not one match was lost.
+
+One case moved between two non-error buckets — *Killing In The Name* on the *XX* anniversary
+edition went `equivalent` → `unverified`, because a different candidate won and it states no
+length. Worth recording, because a bucket change that is not an error is exactly the kind of
+movement that gets read as a regression by someone scanning the table.
+
 ### An ISRC MusicBrainz has never seen, and why `:high` was not enough
 
 Found by looking at a playlist. *Throw Your Arms Around Me* from *Crucible* was reported as

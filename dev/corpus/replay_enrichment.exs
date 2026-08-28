@@ -84,6 +84,32 @@
 # which overstates them. The number to read is therefore an upper bound on its
 # cost and an exact count of its gain.
 #
+# ## The control row
+#
+# `release_tags` — `:live`, `:remix`, `:demo`, read off a candidate's release
+# **group** secondary types — feed the discriminating veto, which is the only
+# thing standing between a studio recording and a remix of it whose parenthetical
+# `Normalize.title/1` has just stripped.
+#
+# `tags withheld` runs the identical ladder over the identical candidates with
+# every tag removed, so the difference between it and `+ release-first` is what
+# the tags did — isolated from the capture, which is the only way to read a
+# re-harvested corpus at all.
+#
+# Read **both** directions of that difference, because a veto has both:
+#
+#   * **the cost** is in `missed` — a tag that disagrees refuses a match, and
+#     every label here is a should-match case, so a veto can only lose them;
+#   * **the gain** is in `WRONG`, and it is visible here rather than only in the
+#     unit tests, because the rule was *derived from this corpus*. Its two
+#     genuine errors were *Call Me Maybe (Dark Intensity)* and *Angel (Angel
+#     Dust)*, and both are remixes whose parenthetical `Normalize.title/1`
+#     strips — leaving the release group's `Remix` type as the only surviving
+#     trace. Withholding tags should hand them back.
+#
+# The one thing this cannot pose is a false positive against music the corpus
+# does not contain; `test/one_playlist/matching/signals_test.exs` carries those.
+#
 # ## Two rejected rules, kept as rows
 #
 # Both were proposed here with confidence and both are refused by this corpus,
@@ -110,7 +136,7 @@ alias OnePlaylist.Music.Track
 
 cases = "dev/corpus/enrichment_cases.json" |> File.read!() |> Jason.decode!()
 
-to_track = fn map, provider ->
+to_track = fn map, provider, tags? ->
   %Track{
     provider: provider,
     provider_id: map["provider_id"] || "source",
@@ -123,8 +149,12 @@ to_track = fn map, provider ->
     # generalisation still carries it, and reading both keeps an older capture
     # scoreable rather than silently scoring it wrong.
     release_tags:
-      Enum.map(map["release_tags"] || [], &String.to_existing_atom/1) ++
-        if(map["live_release?"], do: [:live], else: []),
+      if tags? do
+        Enum.map(map["release_tags"] || [], &String.to_existing_atom/1) ++
+          if(map["live_release?"], do: [:live], else: [])
+      else
+        []
+      end,
     duration_seconds: map["duration_seconds"],
     isrc: map["isrc"],
     album_upc: map["album_upc"],
@@ -135,11 +165,11 @@ end
 # `by_name/1`'s own order: the release-qualified search first, because naming the
 # release is worth more than any other term the query can carry, then the broad
 # one. A decline on the narrow question falls through rather than ending it.
-decide = fn case_, threshold ->
-  source = to_track.(case_, :library)
+decide = fn case_, threshold, tags? ->
+  source = to_track.(case_, :library, tags?)
 
   attempt = fn candidates ->
-    tracks = Enum.map(candidates || [], &to_track.(&1, :musicbrainz))
+    tracks = Enum.map(candidates || [], &to_track.(&1, :musicbrainz, tags?))
 
     case tracks do
       [] -> :none
@@ -210,8 +240,8 @@ release_first = fn case_ ->
 end
 
 # The whole ladder as it stands: the text rungs, then the release rung.
-decide_with_release = fn case_, threshold ->
-  case decide.(case_, threshold) do
+decide_with_release = fn case_, threshold, tags? ->
+  case decide.(case_, threshold, tags?) do
     :declined -> release_first.(case_)
     chose -> chose
   end
@@ -311,10 +341,10 @@ textually_exact = fn source, candidates ->
 end
 
 decide_textual = fn case_, _threshold ->
-  source = to_track.(case_, :library)
+  source = to_track.(case_, :library, true)
 
-  narrow = Enum.map(case_["qualified_candidates"] || [], &to_track.(&1, :musicbrainz))
-  broad = Enum.map(case_["broad_candidates"] || [], &to_track.(&1, :musicbrainz))
+  narrow = Enum.map(case_["qualified_candidates"] || [], &to_track.(&1, :musicbrainz, true))
+  broad = Enum.map(case_["broad_candidates"] || [], &to_track.(&1, :musicbrainz, true))
 
   case textually_exact.(source, narrow) do
     {:chose, _} = found -> found
@@ -330,11 +360,22 @@ enrichment text path — #{length(labelled)} labelled, #{length(unlabelled)} unl
 the current rule is threshold #{ceiling}, the text band's ceiling
 """)
 
+# The threshold sweep asks the text rungs only, so a threshold's cost is not
+# hidden by a later rung recovering from it.
+text_only = fn case_, threshold -> decide.(case_, threshold, true) end
+
+# The whole ladder, which is what the engine actually does.
+full = fn case_, threshold -> decide_with_release.(case_, threshold, true) end
+
+# The same ladder with every release tag withheld — the control. See the header.
+untagged = fn case_, threshold -> decide_with_release.(case_, threshold, false) end
+
 rows =
-  Enum.map([ceiling, 0.97, 0.96, 0.95, 0.93, 0.90], &{"threshold #{:erlang.float_to_binary(&1, decimals: 2)}", score.(&1, decide)}) ++
+  Enum.map([ceiling, 0.97, 0.96, 0.95, 0.93, 0.90], &{"threshold #{:erlang.float_to_binary(&1, decimals: 2)}", score.(&1, text_only)}) ++
     [
       {"textually exact", score.(ceiling, decide_textual)},
-      {"+ release-first", score.(ceiling, decide_with_release)}
+      {"+ release-first", score.(ceiling, full)},
+      {"tags withheld", score.(ceiling, untagged)}
     ]
 
 Enum.each(rows, fn {name, row} ->
