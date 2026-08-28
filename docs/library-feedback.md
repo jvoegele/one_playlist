@@ -230,6 +230,18 @@ this.
 
 ## `bond` — nothing reports the contracts that are *not* there
 
+> #### Resolved in bond 1.19.0 {: .info}
+>
+> Shipped as `mix bond.audit`, reading a `__bond_contracted__/0` reflection emitted by the
+> compiler. The local `mix contracts.audit` prototype is deleted; the published task reports the
+> same 40% here and covers more — 481 public functions to the parser's 336, and 196 callbacks to
+> 102, because it reads `@behaviour` attributes rather than `@impl`.
+>
+> The usage rules synced with it now say **"`mix bond.audit` measures this, so do not estimate
+> it"**, which closes the loop this entry opened: the number was previously unobservable, so
+> every judgement about contract density was an impression.
+
+
 **What was hit.** `Bond.Coverage` reports assertions that **ran**. That makes it a report about
 contracts which exist: a function nobody contracted appears nowhere in it, and neither does the
 module it lives in. So the library ships a good answer to "are my contracts firing?" and no answer

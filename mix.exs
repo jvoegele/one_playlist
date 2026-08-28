@@ -387,7 +387,7 @@ defmodule OnePlaylist.MixProject do
       {:nebulex_local, "~> 3.0"},
       {:external_service, "~> 3.2"},
       {:errata, "~> 1.9"},
-      {:bond, "~> 1.18"},
+      {:bond, "~> 1.19"},
       {:wait_for_it, "~> 2.5"},
 
       # Property-based testing. Not just for our own properties: it is what
