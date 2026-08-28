@@ -163,6 +163,25 @@ about itself and a caller does not need, in one or two lines:
 The test is who needs it. A caller relying on the guarantee needs the reasoning;
 only a maintainer editing the assertion needs the proof record.
 
+**The sweep stopped deliberately, and the remainder is not a backlog.** Six
+modules were converted — the domain contexts and the security-relevant flows,
+where the reasoning was both longest and most worth publishing. What is left is
+482 lines across 45 modules, roughly ten each, and two things make finishing it
+poor value:
+
+  * **Only 93 of the 147 long-comment sites have a `@doc` to move into.** The
+    other 44 sit on private functions and LiveView callbacks, where there is no
+    published documentation to move anything *to* and the comment is already in
+    the right place. `transfer_live/show.ex` and `connection_live/index.ex` are
+    entirely of that kind.
+  * **"Has a `@doc` above it" is structural possibility, not editorial
+    judgment.** `transfers.ex` still counts 21 such lines, and every one of them
+    is a proof record or a formulation note that belongs where it is.
+
+So the rule applies **to contracts as they are written or changed**, not as a
+periodic sweep. A module with `#` comments above its assertions is not thereby
+wrong; convert it when you are editing it anyway.
+
 ### Reading the coverage table: one label, several rows
 
 A label appears once per **function** that carries it, not once per module.
