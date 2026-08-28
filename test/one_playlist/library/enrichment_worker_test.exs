@@ -11,11 +11,34 @@ defmodule OnePlaylist.Library.EnrichmentWorkerTest do
   use OnePlaylist.DataCase, async: false
   use Oban.Testing, repo: OnePlaylist.Repo, prefix: "oban"
 
+  import Req.Test, only: [set_req_test_from_context: 1]
+
   alias OnePlaylist.Library
   alias OnePlaylist.Library.EnrichmentSweeper
   alias OnePlaylist.Library.EnrichmentWorker
   alias OnePlaylist.Library.Recording
+  alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.Music.Track
+
+  setup :set_req_test_from_context
+
+  # The sweep warms the ISRC cache for the whole batch before enqueueing, so
+  # `perform/1` makes a **network call**. Without this stub it makes a real one:
+  # `due/1` reads the whole table, dev rows included, and any change to the
+  # engine fingerprint re-offers every past failure — each with a real ISRC.
+  # Found when swapping a dependency changed that fingerprint and this test hit
+  # MusicBrainz at one request a second until ExUnit timed it out at sixty.
+  #
+  # An empty `recordings` list is the honest stub: the sweep must enqueue on what
+  # `due/1` returned, whatever the prefetch managed to learn.
+  setup do
+    Application.put_env(:one_playlist, :musicbrainz_req_options, plug: {Req.Test, Client})
+    on_exit(fn -> Application.delete_env(:one_playlist, :musicbrainz_req_options) end)
+
+    Req.Test.stub(Client, fn conn -> Req.Test.json(conn, %{"recordings" => []}) end)
+
+    :ok
+  end
 
   # `ZZ` is an unassigned ISRC country code, so a fixture cannot collide with
   # music somebody imported into the dev database this shares. See
