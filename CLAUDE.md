@@ -694,6 +694,15 @@ backlog below is the road to it, not a separate list.
     the hard part — Roon says "Hunters & Collectors" and finding out the track is Eddie
     Vedder and Neil Finn used to mean leaving the application.
 
+    Backfilled across the library on 2026-08-28: **644 recordings carry a catalogue
+    credit; 610 agree, 32 genuinely disagree, 2 differ only by ordering.** Reading the 32
+    is what justifies *offered rather than applied* — the catalogue is **not** uniformly
+    better. It improves *All Along the Watchtower* (Jimi Hendrix → The Jimi Hendrix
+    Experience), *Because the Night* (Patti Smith → Patti Smith Group) and the Roon case
+    itself (Hunters & Collectors → Eddie Vedder, Neil Finn); and it is **worse** on *So
+    What*, where the source names the whole quintet and MusicBrainz says only Miles Davis.
+    Automatic adoption would have destroyed data on several of them.
+
     Still open, and now narrower: a **bulk** version of that click for a whole album, and
     the same offer for the recording's title, album and version. Neither has a
     demonstrated case yet.

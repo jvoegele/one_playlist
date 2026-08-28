@@ -465,6 +465,59 @@ ISRCs at all**, because they come from tagging rather than from a catalogue; the
 library can be rebuilt without them (`--no-isrc`) precisely so the text and fuzzy rungs can be
 measured carrying the whole match.
 
+### One request a second is the budget; asking fewer times is the only lever
+
+MusicBrainz allows one request per second, and no amount of engineering changes that. What can
+change is how many times this application needs to ask. Three things were found by counting
+rather than by guessing.
+
+**The recording lookup was never cached.** `family/2`, `works/3` and `release/2` all read through
+the two-tier cache; `Client.recording/1` went to the network from `Enrichment.describe/3` on every
+attempt, so a recording identified in January was fetched again in February to learn nothing.
+`musicbrainz_recordings` closes it, on the same argument the release cache makes: **a lookup by
+MBID cannot be a negative**, because every id passed to it came from MusicBrainz in the first
+place.
+
+**The identifier path can be batched, and the win is large.** The recording index supports `isrc:`
+as an exact field and ORs, so many codes fit in one query. Measured live: **50 ISRCs asked in one
+request, 49 resolved.** A five-hundred-track import spends eight minutes on ISRC lookups today.
+
+**Two things stop that being a 50× win, and both are worth more than the speed.**
+
+*A batch miss is not an absence.* One of the fifty was missing from the search and present at
+`/isrc/{isrc}` — the search index is not the database and can lag it. Writing that as a negative
+would survive thirty days of `prune_musicbrainz_isrc_lookups`, turning a moment's lag into a month
+of wrong answers. So `prefetch_isrcs/2` writes **positives only**, and a code it cannot settle is
+left with no row at all for the authoritative lookup to answer later.
+
+*An ambiguous code is a matching decision, not a caching one.* An ISRC can name several recordings
+— a single and an album track registered separately — and `isrc_family/2` breaks that tie by
+taking MusicBrainz's **first**. A search is ordered by relevance across the whole query rather than
+per code, so its first need not be that first. Choosing differently would change which recording
+the identifier path identifies, and in this project a matching change is measured against the
+corpora, never slipped in beside a performance one. Of fifty real codes: **32 unambiguous, 17
+ambiguous, 1 absent** — so the batch settles about two thirds and the rest cost exactly what they
+cost today. Verified on a sample of the unambiguous, `/isrc/{isrc}` agrees on both the recording
+and the family, 5 of 5.
+
+**Where the batching lives matters as much as that it exists.** It is a *prefetch*, in
+`EnrichmentSweeper`, which is the one place holding five hundred recordings at once. Nothing reads
+its result to decide anything: the workers go on calling `recording_mbid/1` exactly as before and
+find the answer already there. No code that reasons about a recording had to learn that batching
+happened.
+
+#### What was considered and not done
+
+**A local MusicBrainz mirror** — `musicbrainz-docker` — removes the rate limit entirely, and is
+a Postgres database whose schema is worth reading for its own sake. It is the right answer once
+the request budget actually blocks the product; it is a second source of truth to keep current
+through replication packets, which is a real operational commitment for a constraint that
+currently binds backfills and corpus harvests rather than users.
+
+**Asking for more per call** is free where the response already carries it, and that is how the
+Roon credit problem was solved — see the next section. `inc=` is worth re-reading whenever a new
+field is wanted, before a new request is added.
+
 ### The album artist in the track artist column, and who is allowed to fix it
 
 Roon's CSV export writes the **album artist** into the track artist column. On an album by one

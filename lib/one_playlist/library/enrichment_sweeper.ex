@@ -49,6 +49,7 @@ defmodule OnePlaylist.Library.EnrichmentSweeper do
 
   alias OnePlaylist.Library.Enrichment
   alias OnePlaylist.Library.EnrichmentWorker
+  alias OnePlaylist.MusicBrainz
 
   require Logger
 
@@ -58,9 +59,25 @@ defmodule OnePlaylist.Library.EnrichmentSweeper do
   def perform(%Oban.Job{}) do
     due = Enrichment.due(@batch)
 
+    # Warm the ISRC cache for the whole sweep before any job runs. Each job then
+    # finds its identifier answer already there, and nothing about the job had to
+    # change — the batching lives here, at the one place that holds five hundred
+    # recordings at once, rather than inside a worker that only ever sees one.
+    #
+    # `prefetch_isrcs/2` writes positives and never an absence, so a code it
+    # cannot settle simply costs what it costs today. See that function.
+    prefetched =
+      due
+      |> Enum.map(& &1.isrc)
+      |> MusicBrainz.prefetch_isrcs()
+
     Enum.each(due, &EnrichmentWorker.enqueue(&1.id))
 
-    Logger.info("queued #{length(due)} recording(s) for enrichment")
+    Logger.info(
+      "queued #{length(due)} recording(s) for enrichment; " <>
+        "isrc prefetch learned #{prefetched.learned} of #{prefetched.asked} " <>
+        "in #{prefetched.requests} request(s)"
+    )
 
     :ok
   end

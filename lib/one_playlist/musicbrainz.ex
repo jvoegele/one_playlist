@@ -36,6 +36,8 @@ defmodule OnePlaylist.MusicBrainz do
 
   use Bond
 
+  import Ecto.Query, only: [where: 3, select: 3]
+
   alias OnePlaylist.Cache
   alias OnePlaylist.Errors
   alias OnePlaylist.Music.Isrc
@@ -52,6 +54,11 @@ defmodule OnePlaylist.MusicBrainz do
   # living forever in memory. A positive that lapses costs one Postgres read,
   # not one MusicBrainz request, which is the point of having L2 at all.
   @l1_ttl :timer.hours(24)
+
+  # Fifty codes per search. Measured: 50 asked returns 72 recordings, comfortably
+  # inside the request's `limit: 100`, and a query of fifty `isrc:` terms is well
+  # short of any URL limit.
+  @chunk 50
 
   @doc """
   Every ISRC naming the same recording as this one, or `[]` if unknown.
@@ -309,6 +316,97 @@ defmodule OnePlaylist.MusicBrainz do
         "length_ms" => track["length"] || get_in(track, ["recording", "length"])
       }
     end)
+  end
+
+  @doc """
+  Learns as many of these ISRCs as one search can answer, and remembers them.
+
+  A prefetch, not a lookup. Nothing reads its return value to decide anything —
+  callers go on calling `family/2` and `recording_mbid/1` exactly as before, and
+  find the answers already there. That is the whole design: the batching lives at
+  the edge, and no code that reasons about a recording had to learn about it.
+
+  `@chunk` codes per request, and only those not already known. The identifier
+  path costs one request per track today; a five-hundred-track import spends
+  eight minutes on it, and this reduces that to the codes a batch could not
+  settle.
+
+  ## Positives only, and never an absence
+
+  The rule this function exists to enforce. The search index is not the database
+  and can lag it — measured, one of fifty was absent from the search and present
+  at `/isrc/{isrc}` — and an ISRC carried by several recordings is deliberately
+  withheld by `Client.isrc_families/2` because choosing among them is a matching
+  decision. Both arrive here as "no answer", and neither is evidence that
+  MusicBrainz does not know the code.
+
+  So a code this cannot settle is **left with no row at all**, and the ordinary
+  single lookup answers it later, authoritatively. Writing a negative here would
+  turn a lagging index into a month of wrong answers, since
+  `prune_musicbrainz_isrc_lookups` keeps a negative for thirty days.
+
+  Answers a summary of what it did, for a log and for tests.
+  """
+  @spec prefetch_isrcs([String.t() | nil], keyword()) :: %{
+          asked: non_neg_integer(),
+          already_known: non_neg_integer(),
+          learned: non_neg_integer(),
+          unsettled: non_neg_integer(),
+          requests: non_neg_integer()
+        }
+  def prefetch_isrcs(isrcs, opts \\ []) do
+    canonical =
+      isrcs
+      |> Enum.map(&Isrc.normalize/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    unknown = canonical -- known(canonical)
+    chunks = Enum.chunk_every(unknown, @chunk)
+    learned = Enum.reduce(chunks, 0, fn chunk, total -> total + learn(chunk, opts) end)
+
+    %{
+      asked: length(canonical),
+      already_known: length(canonical) - length(unknown),
+      learned: learned,
+      unsettled: length(unknown) - learned,
+      requests: length(chunks)
+    }
+  end
+
+  defp known([]), do: []
+
+  defp known(isrcs) do
+    IsrcLookup
+    |> where([l], l.isrc in ^isrcs)
+    |> select([l], l.isrc)
+    |> Repo.all()
+  end
+
+  defp learn(chunk, opts) do
+    case Client.isrc_families(chunk, opts) do
+      {:ok, families} ->
+        Enum.each(families, fn {isrc, family} ->
+          remember(isrc, family)
+          # Into the per-node tier too, under the key `lookup/2` reads, so the
+          # job that follows this sweep does not go back to Postgres for a fact
+          # this process just learned.
+          Cache.put({:musicbrainz_isrc, isrc}, family, ttl: @l1_ttl)
+        end)
+
+        map_size(families)
+
+      {:error, reason} ->
+        # Nothing is written, which is the same rule `ask/2` states: a failure is
+        # about MusicBrainz being unreachable rather than about any of these
+        # codes. The individual lookups will ask again.
+        Logger.warning(
+          "musicbrainz batch isrc lookup failed for #{length(chunk)} codes: " <>
+            Errors.describe(reason)
+        )
+
+        0
+    end
   end
 
   @spec prune_negatives(String.t()) :: non_neg_integer()

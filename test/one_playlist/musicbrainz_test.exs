@@ -8,6 +8,7 @@ defmodule OnePlaylist.MusicBrainzTest do
   """
 
   use OnePlaylist.DataCase, async: false
+  use Bond.Test
 
   import Req.Test, only: [set_req_test_from_context: 1]
 
@@ -117,6 +118,126 @@ defmodule OnePlaylist.MusicBrainzTest do
 
       assert MusicBrainz.family("not-an-isrc") == []
       assert MusicBrainz.family(nil) == []
+    end
+  end
+
+  describe "prefetch_isrcs/2" do
+    # A batch search answers with *recordings*, each carrying its own codes —
+    # not a map keyed by what was asked. Resolving that back is the work.
+    defp stub_batch(recordings, calls \\ nil) do
+      Req.Test.stub(Client, fn conn ->
+        if calls, do: Agent.update(calls, &[conn.query_string | &1])
+        Req.Test.json(conn, %{"recordings" => recordings})
+      end)
+    end
+
+    test "settles a whole list in one request, and remembers it in both tiers" do
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+
+      stub_batch(
+        [
+          %{"id" => @recording, "title" => "Setting Forth", "isrcs" => [@roon, @tidal]},
+          %{"id" => "b0000000-0000-0000-0000-000000000002", "isrcs" => ["GBAYE0601489"]}
+        ],
+        calls
+      )
+
+      summary = MusicBrainz.prefetch_isrcs([@roon, "GBAYE0601489"])
+
+      assert summary == %{asked: 2, already_known: 0, learned: 2, unsettled: 0, requests: 1}
+
+      # And the ordinary readers now answer without asking anything at all,
+      # which is the entire point: nothing downstream knows a batch happened.
+      assert MusicBrainz.recording_mbid(@roon) == @recording
+      assert @tidal in MusicBrainz.family(@roon)
+
+      assert length(Agent.get(calls, & &1)) == 1, "the readers must not have asked again"
+
+      # L2 alone, which is what the job running after the sweep sees on another
+      # node.
+      {:ok, _cleared} = Cache.delete_all()
+      assert MusicBrainz.recording_mbid(@roon) == @recording
+      assert length(Agent.get(calls, & &1)) == 1
+    end
+
+    test "withholds an ISRC that names more than one recording" do
+      # `isrc_family/2` breaks that tie with MusicBrainz's *first* recording, and
+      # a search is ordered by relevance across the whole query rather than per
+      # code — so choosing here would change which recording the identifier path
+      # identifies. That is a matching change, and matching changes are measured
+      # against the corpora rather than slipped in beside a performance one.
+      stub_batch([
+        %{"id" => "b0000000-0000-0000-0000-00000000000a", "isrcs" => [@roon]},
+        %{"id" => "b0000000-0000-0000-0000-00000000000b", "isrcs" => [@roon]}
+      ])
+
+      assert %{learned: 0, unsettled: 1} = MusicBrainz.prefetch_isrcs([@roon])
+
+      refute Repo.get(IsrcLookup, @roon),
+             "an ambiguous code is left for the authoritative single lookup"
+    end
+
+    test "never writes an absence, because a search index is not the database" do
+      # Measured against the live service: one of fifty codes was missing from
+      # the search and present at `/isrc/{isrc}`. A negative here would survive
+      # thirty days of `prune_musicbrainz_isrc_lookups`, turning a lagging index
+      # into a month of wrong answers.
+      stub_batch([])
+
+      assert %{learned: 0, unsettled: 1} = MusicBrainz.prefetch_isrcs([@roon])
+
+      refute Repo.get(IsrcLookup, @roon), "not found by a batch is not 'not found'"
+    end
+
+    test "asks only about codes it does not already hold" do
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_batch([%{"id" => @recording, "isrcs" => [@roon, @tidal]}], calls)
+
+      assert %{learned: 1, requests: 1} = MusicBrainz.prefetch_isrcs([@roon])
+      assert %{already_known: 1, requests: 0} = MusicBrainz.prefetch_isrcs([@roon])
+
+      assert length(Agent.get(calls, & &1)) == 1
+    end
+
+    test "normalises and de-duplicates before asking" do
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_batch([%{"id" => @recording, "isrcs" => [@roon]}], calls)
+
+      # The same fact three ways. `Client.isrc_families/2` has a precondition
+      # that every code is canonical, so this also proves the caller upholds it.
+      assert %{asked: 1, requests: 1} =
+               MusicBrainz.prefetch_isrcs([@roon, String.downcase(@roon), "usjy5-070-0001"])
+
+      assert length(Agent.get(calls, & &1)) == 1
+    end
+
+    test "writes nothing when MusicBrainz cannot be reached" do
+      Req.Test.stub(Client, fn conn -> Plug.Conn.send_resp(conn, 503, "") end)
+
+      assert %{learned: 0, unsettled: 1} = MusicBrainz.prefetch_isrcs([@roon])
+      refute Repo.get(IsrcLookup, @roon), "an outage is not a fact about a code"
+    end
+
+    test "refuses a batch carrying an uncanonical code" do
+      # The cache-key rule as much as a correctness one, and it matters more in a
+      # batch than singly: MusicBrainz is case-sensitive here, so one bad code in
+      # fifty would silently cost that code its answer while the other
+      # forty-nine looked fine. `prefetch_isrcs/2` normalises before calling,
+      # which is what this precondition is holding it to.
+      stub_batch([])
+
+      assert_precondition_violation(
+        Client.isrc_families([@roon, String.downcase(@tidal)]),
+        label: :normalized_isrcs
+      )
+    end
+
+    test "asks about nothing when given nothing" do
+      {:ok, calls} = Agent.start_link(fn -> [] end)
+      stub_batch([], calls)
+
+      assert %{asked: 0, requests: 0} = MusicBrainz.prefetch_isrcs([nil, "", "not-an-isrc"])
+      assert Agent.get(calls, & &1) == []
     end
   end
 

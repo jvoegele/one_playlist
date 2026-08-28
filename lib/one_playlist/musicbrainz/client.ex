@@ -106,6 +106,127 @@ defmodule OnePlaylist.MusicBrainz.Client do
   end
 
   @doc """
+  The same question as `isrc_family/2`, asked about many ISRCs in one request.
+
+  MusicBrainz allows one request a second, and the identifier path asks it once
+  per track. A 500-track import therefore spends eight minutes establishing what
+  a single search could answer: the recording index supports `isrc:` as an exact
+  field and ORs, so fifty codes fit in one query. Measured against the live
+  service — 50 asked, 49 resolved, one request.
+
+  ## It answers only where the batch is unambiguous, and that is not timidity
+
+  An ISRC can name several recordings — a single and an album track registered
+  separately. `isrc_family/2` resolves that by taking MusicBrainz's **first**
+  recording, and a search is ordered by relevance across the whole query rather
+  than per code, so the first here need not be the first there. Choosing
+  differently would change which recording the identifier path identifies, and
+  in this project a matching change is measured against the corpora rather than
+  slipped in beside a performance one.
+
+  So an ISRC carried by two or more of the returned recordings is **left out**,
+  and its caller falls through to the authoritative single lookup. Measured on
+  fifty real codes: 32 unambiguous, 17 ambiguous, 1 absent. Verified on a sample
+  of the unambiguous, `/isrc/{isrc}` agrees on both the recording and the family,
+  5 of 5.
+
+  ## A missing answer is not a negative
+
+  The search index is not the database and can lag it: one of the fifty was
+  absent here and present at `/isrc/{isrc}`. So this reports only what it found.
+  A caller must never read an absence as "MusicBrainz does not know this code" —
+  see `OnePlaylist.MusicBrainz.prefetch_isrcs/2`, which writes positives only.
+  """
+  # `isrc_family/2`'s `contains_the_key` is **not** restated here, and the reason
+  # is worth the line: it cannot fail. `families/2` associates a code with a
+  # recording only by finding that code in the recording's own array, so
+  # membership holds by construction rather than by vigilance, and an assertion
+  # no mutation can break is decoration.
+  #
+  # The law that *can* be broken is the other direction. Every key returned must
+  # be one that was asked for — drop the filter in `families/2` and a recording's
+  # other codes become keys of their own, which `prefetch_isrcs/2` would then
+  # write to the cache as facts nobody requested and no caller would ever check.
+  @pre normalized_isrcs: Enum.all?(isrcs, &(&1 == Isrc.normalize(&1)))
+  @post whenever(
+          {:ok, families} <- result,
+          answers_only_what_was_asked:
+            Enum.all?(families, fn {isrc, _family} -> isrc in isrcs end)
+        )
+  @spec isrc_families([String.t()], keyword()) ::
+          {:ok, %{String.t() => family()}} | {:error, Exception.t()}
+  def isrc_families(isrcs, opts \\ [])
+
+  def isrc_families([], _opts), do: {:ok, %{}}
+
+  def isrc_families(isrcs, opts) do
+    Service.call(fn -> batch_request(isrcs, opts) end)
+  end
+
+  defp batch_request(isrcs, opts) do
+    [
+      base_url: @base_url,
+      url: "/recording",
+      params: [
+        query: Enum.map_join(isrcs, " OR ", &"isrc:#{&1}"),
+        fmt: "json",
+        # Comfortably above what fifty codes return — 72 was the measured worst
+        # case. Truncation would cost coverage and never correctness, since
+        # nothing here is written as an absence.
+        limit: 100
+      ],
+      headers: [{"user-agent", user_agent()}],
+      receive_timeout: Keyword.get(opts, :receive_timeout, 15_000),
+      # `ExternalService` owns retrying — see `request/2`.
+      retry: false
+    ]
+    |> Keyword.merge(Application.get_env(:one_playlist, :musicbrainz_req_options, []))
+    |> Req.new()
+    |> Req.get()
+    |> handle_batch(isrcs)
+  end
+
+  defp handle_batch({:ok, %{status: 200, body: body}}, isrcs), do: {:ok, families(body, isrcs)}
+
+  defp handle_batch({:ok, %{status: status}}, isrcs) do
+    Logger.warning("musicbrainz returned #{status} for a batch of #{length(isrcs)} isrcs")
+    {:error, %RuntimeError{message: "musicbrainz returned #{status}"}}
+  end
+
+  defp handle_batch({:error, _reason}, _isrcs), do: :retry
+
+  defp families(body, asked) do
+    wanted = MapSet.new(asked)
+
+    body
+    |> Map.get("recordings", [])
+    |> Enum.flat_map(fn recording ->
+      recording
+      |> Map.get("isrcs", [])
+      |> Enum.filter(&MapSet.member?(wanted, &1))
+      |> Enum.map(&{&1, recording})
+    end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    # Only where the batch names exactly one recording. See the moduledoc.
+    |> Enum.filter(fn {_isrc, recordings} -> match?([_only], recordings) end)
+    |> Map.new(fn {isrc, [recording]} -> {isrc, one_family(recording, isrc)} end)
+  end
+
+  defp one_family(recording, isrc) do
+    %{
+      recording_mbid: recording["id"],
+      isrcs:
+        recording
+        |> Map.get("isrcs", [])
+        |> Enum.map(&Isrc.normalize/1)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.concat([isrc])
+        |> Enum.uniq()
+        |> Enum.sort()
+    }
+  end
+
+  @doc """
   Titles of the works MusicBrainz thinks a query names.
 
   Returned as *titles* rather than parsed numbers because that is where the
