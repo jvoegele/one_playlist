@@ -15,6 +15,7 @@ defmodule OnePlaylist.MusicBrainzTest do
   alias OnePlaylist.MusicBrainz
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
+  alias OnePlaylist.MusicBrainz.Recording
   alias OnePlaylist.MusicBrainz.WorkLookup
 
   # The real pair, from the transfer that motivated all of this: Roon's 2007
@@ -29,6 +30,7 @@ defmodule OnePlaylist.MusicBrainzTest do
     {:ok, _cleared} = Cache.delete_all()
     Repo.delete_all(IsrcLookup)
     Repo.delete_all(WorkLookup)
+    Repo.delete_all(Recording)
 
     Application.put_env(:one_playlist, :musicbrainz_req_options, plug: {Req.Test, Client})
     on_exit(fn -> Application.delete_env(:one_playlist, :musicbrainz_req_options) end)
@@ -115,6 +117,100 @@ defmodule OnePlaylist.MusicBrainzTest do
 
       assert MusicBrainz.family("not-an-isrc") == []
       assert MusicBrainz.family(nil) == []
+    end
+  end
+
+  describe "recording/2" do
+    defp stub_recording(calls \\ nil, status \\ 200) do
+      Req.Test.stub(Client, fn conn ->
+        if calls, do: Agent.update(calls, &(&1 + 1))
+
+        if status == 200 do
+          Req.Test.json(conn, %{
+            "id" => @recording,
+            "title" => "Setting Forth",
+            "length" => 187_000,
+            "isrcs" => [@roon, @tidal],
+            "artist-credit" => [%{"name" => "Eddie Vedder"}],
+            "releases" => [%{"id" => "r-1", "title" => "Into the Wild"}]
+          })
+        else
+          Plug.Conn.send_resp(conn, status, ~s({"error":"boom"}))
+        end
+      end)
+    end
+
+    test "asks once, then remembers — in both tiers" do
+      # The gap this closed. `family/2`, `works/3` and `release/2` all read
+      # through the cache; the recording lookup went to the network on every
+      # single `Enrichment.describe/3`, so a recording identified in January was
+      # fetched again in February to learn nothing.
+      {:ok, calls} = Agent.start_link(fn -> 0 end)
+      stub_recording(calls)
+
+      assert {:ok, %{"title" => "Setting Forth"}} = MusicBrainz.recording(@recording)
+      assert {:ok, %{"title" => "Setting Forth"}} = MusicBrainz.recording(@recording)
+
+      assert Agent.get(calls, & &1) == 1, "the second call should not reach MusicBrainz"
+
+      # And with the per-node tier gone, which is what a deploy looks like.
+      {:ok, _cleared} = Cache.delete_all()
+
+      assert {:ok, %{"title" => "Setting Forth"}} = MusicBrainz.recording(@recording)
+      assert Agent.get(calls, & &1) == 1, "L2 should have answered"
+    end
+
+    test "keeps the whole document, because `choose_release/2` reads all of it" do
+      # The reason this is not a table of promoted columns alone. A recording's
+      # `releases` array — with each release's group, barcode and title nested
+      # inside it — is what picks which release describes the recording, and
+      # `inc=work-rels` carries relationships nothing has a shape for yet.
+      stub_recording()
+
+      assert {:ok, document} = MusicBrainz.recording(@recording)
+      assert [%{"id" => "r-1", "title" => "Into the Wild"}] = document["releases"]
+
+      assert %Recording{} = row = Repo.get(Recording, @recording)
+      assert row.document["releases"] == document["releases"]
+    end
+
+    test "promotes what something already reads" do
+      # Queryable as catalogue rather than as a blob — the half of "world
+      # knowledge should be first class" that costs nothing.
+      stub_recording()
+      {:ok, _document} = MusicBrainz.recording(@recording)
+
+      assert %Recording{
+               title: "Setting Forth",
+               length_ms: 187_000,
+               artist_credit: "Eddie Vedder"
+             } = row = Repo.get(Recording, @recording)
+
+      assert @roon in row.isrcs and @tidal in row.isrcs
+    end
+
+    test "propagates a failure instead of remembering it as an answer" do
+      # Where this deliberately differs from `release/2`, which swallows. A
+      # release that cannot be fetched costs a barcode; a recording that cannot
+      # be fetched is the entire answer, and `Enrichment.describe/3` has to tell
+      # "MusicBrainz is down" from "MusicBrainz has nothing" — an outage written
+      # down as a completed attempt is a recording never asked about again.
+      {:ok, calls} = Agent.start_link(fn -> 0 end)
+      stub_recording(calls, 500)
+
+      assert {:error, _reason} = MusicBrainz.recording(@recording)
+      refute Repo.get(Recording, @recording), "a failure is not a fact"
+
+      assert {:error, _again} = MusicBrainz.recording(@recording)
+      assert Agent.get(calls, & &1) > 1, "and it is asked again next time"
+    end
+
+    test "answers nothing for a blank id without asking" do
+      {:ok, calls} = Agent.start_link(fn -> 0 end)
+      stub_recording(calls)
+
+      assert MusicBrainz.recording(nil) == {:ok, nil}
+      assert Agent.get(calls, & &1) == 0
     end
   end
 

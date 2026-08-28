@@ -1006,7 +1006,11 @@ defmodule OnePlaylist.Library.Enrichment do
   end
 
   defp describe(recording, mbid, how) do
-    case Client.recording(mbid) do
+    # Through `MusicBrainz.recording/2` rather than the client, so a recording
+    # already looked up costs nothing — see that function and the migration
+    # `create_musicbrainz_recordings`. Every id reaching here came from
+    # MusicBrainz, so this is a lookup that can be kept for ever.
+    case MusicBrainz.recording(mbid) do
       {:ok, nil} ->
         record_attempt(recording, outcome(%{outcome: :no_candidates, candidates: 0}))
 

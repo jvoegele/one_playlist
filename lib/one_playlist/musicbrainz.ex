@@ -41,6 +41,7 @@ defmodule OnePlaylist.MusicBrainz do
   alias OnePlaylist.Music.Isrc
   alias OnePlaylist.MusicBrainz.Client
   alias OnePlaylist.MusicBrainz.IsrcLookup
+  alias OnePlaylist.MusicBrainz.Recording
   alias OnePlaylist.MusicBrainz.Release
   alias OnePlaylist.MusicBrainz.WorkLookup
   alias OnePlaylist.Repo
@@ -168,6 +169,78 @@ defmodule OnePlaylist.MusicBrainz do
   end
 
   def release(_mbid, _opts), do: nil
+
+  @doc """
+  What MusicBrainz says about a recording, by its own id.
+
+  Answers the lookup **document**, exactly as `OnePlaylist.MusicBrainz.Client`
+  would — so callers read `details["releases"]` and `details["title"]` the way
+  they always have, and the cache is an implementation detail rather than a new
+  shape to learn.
+
+  Two tiers, like `release/2`: `OnePlaylist.Cache` per node, over a Postgres row
+  that survives a deploy. A lookup by MBID cannot be a negative — every id here
+  came from MusicBrainz in the first place — so a `nil` is passed back without
+  being remembered, and nothing about this table ever expires.
+
+  Before this existed, `Enrichment.describe/3` called the network on **every**
+  attempt. Re-enrichment paid for it, so did every corpus harvest, and so did a
+  646-request backfill that was re-asking questions already answered.
+  """
+  @spec recording(String.t() | nil, keyword()) :: {:ok, map() | nil} | {:error, term()}
+  def recording(mbid, opts \\ [])
+
+  def recording(mbid, opts) when is_binary(mbid) do
+    # Passed straight back: `read_through/3` answers `{:ok, _} | {:error, _}`,
+    # which is already this function's contract. `release/2` collapses an error
+    # to `nil` because a caller there can do nothing with it; here the caller
+    # must be able to tell an outage from an absence.
+    Cache.read_through({:musicbrainz_recording, mbid}, fn -> resolve_recording(mbid, opts) end,
+      ttl: @l1_ttl
+    )
+  end
+
+  def recording(_mbid, _opts), do: {:ok, nil}
+
+  defp resolve_recording(mbid, opts) do
+    case Repo.get(Recording, mbid) do
+      %Recording{document: document} -> {:ok, document}
+      nil -> ask_recording(mbid, opts)
+    end
+  end
+
+  # An error is **propagated, not swallowed**, which is where this differs from
+  # `ask_release/2`. A release that cannot be fetched costs a barcode and a
+  # cover; a recording that cannot be fetched is the whole answer, and
+  # `describe/3` has to be able to tell "MusicBrainz is down" from "MusicBrainz
+  # has nothing" — an outage recorded as a completed attempt is a recording
+  # never asked about again.
+  defp ask_recording(mbid, opts) do
+    case Client.recording(mbid, opts) do
+      {:ok, nil} -> {:ok, nil}
+      {:ok, document} -> {:ok, remember_recording(mbid, document)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp remember_recording(mbid, document) do
+    row = %Recording{
+      mbid: mbid,
+      title: document["title"],
+      length_ms: document["length"],
+      isrcs: Map.get(document, "isrcs", []),
+      artist_credit: document |> Client.artist_credit() |> Enum.join(", "),
+      document: document,
+      looked_up_at: DateTime.utc_now()
+    }
+
+    # `on_conflict: :nothing`, for the race `remember_release/2` documents: two
+    # callers resolving one recording concurrently produce one row, and neither
+    # of them fails.
+    Repo.insert(row, on_conflict: :nothing, conflict_target: :mbid)
+
+    document
+  end
 
   defp resolve_release(mbid, opts) do
     case Repo.get(Release, mbid) do

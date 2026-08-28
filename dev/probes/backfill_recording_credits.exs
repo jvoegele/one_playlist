@@ -33,6 +33,7 @@ import Ecto.Query
 
 alias OnePlaylist.Library.Recording
 alias OnePlaylist.Matching.Normalize
+alias OnePlaylist.MusicBrainz
 alias OnePlaylist.MusicBrainz.Client
 alias OnePlaylist.Repo
 
@@ -65,7 +66,10 @@ results =
   |> Enum.map(fn {recording, index} ->
     if rem(index, 25) == 0, do: IO.puts(:stderr, "  #{index}/#{length(pending)}…")
 
-    case Client.recording(recording.musicbrainz_recording_id) do
+    # Through `MusicBrainz.recording/2`, so the answers this spends a request on
+    # are *kept*. The first run of this probe predated that cache and threw 646
+    # lookups away; a second run now costs nothing.
+    case MusicBrainz.recording(recording.musicbrainz_recording_id) do
       {:ok, %{} = details} ->
         theirs = Client.artist_credit(details)
 
