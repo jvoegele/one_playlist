@@ -302,7 +302,7 @@ defmodule OnePlaylist.Library.Enrichment do
   # It used to carry enrichment's four bookkeeping columns as well. Those are a
   # row in `RecordingEnrichment` now, and `reset/1` deletes it — which is what
   # "look at this again from scratch" always meant.
-  @always_cleared [:musicbrainz_recording_id, :musicbrainz_release_id]
+  @always_cleared [:musicbrainz_recording_id, :musicbrainz_release_id, :musicbrainz_artists]
 
   # A barcode comes from a *release*, so a non-null `musicbrainz_release_id` is
   # evidence enrichment wrote it — the nearest thing to provenance this schema
@@ -581,7 +581,15 @@ defmodule OnePlaylist.Library.Enrichment do
   # columns like `origin_provider` describe where the row came from rather than
   # what the music is.
   defp fillable,
-    do: [:isrc, :musicbrainz_recording_id, :album, :album_upc, :duration_seconds, :artwork_url]
+    do: [
+      :isrc,
+      :musicbrainz_recording_id,
+      :musicbrainz_artists,
+      :album,
+      :album_upc,
+      :duration_seconds,
+      :artwork_url
+    ]
 
   # An identifier answers directly; a name has to be argued for. The ISRC path
   # costs nothing beyond what matching already caches, which is why it is tried
@@ -1067,6 +1075,11 @@ defmodule OnePlaylist.Library.Enrichment do
     fields = %{
       musicbrainz_recording_id: mbid,
       musicbrainz_release_id: release["id"],
+      # The catalogue's credit, beside the source's rather than over it. Free:
+      # `Client.recording/1` already sends `inc=artist-credits`, and this was
+      # being parsed away. See the migration for the Roon album-artist problem
+      # it exists for.
+      musicbrainz_artists: Client.artist_credit(details),
       isrc: details |> Map.get("isrcs", []) |> List.first() |> Isrc.normalize(),
       album: release["title"],
       album_upc: release["barcode"],

@@ -1160,6 +1160,67 @@ defmodule OnePlaylist.Library.EnrichmentTest do
     end
   end
 
+  describe "the catalogue's credit, beside the source's" do
+    test "fills what MusicBrainz credits the recording to, and leaves the source alone" do
+      # The Roon problem. Its CSV export writes the **album artist** into the
+      # track artist column, so every track on a tribute album arrives credited
+      # to its subject: *Crucible: The Songs of Hunters & Collectors* is twelve
+      # different performers filed under "Hunters & Collectors", and *Throw Your
+      # Arms Around Me* is really Eddie Vedder and Neil Finn.
+      #
+      # Both claims are kept. Overwriting `artists` would be a correction, and
+      # enrichment fills gaps; `docs/reference/domain.md` §6 wants the two
+      # answers distinguishable anyway, which is the whole point of a second
+      # column.
+      stub_musicbrainz(%{
+        lookup: %{
+          lookup_body()
+          | "artist-credit" => [
+              %{"name" => "Eddie Vedder", "joinphrase" => " & "},
+              %{"name" => "Neil Finn"}
+            ]
+        }
+      })
+
+      stub_cover_art(:none)
+
+      smeared = recording(%{isrc: @isrc, artists: ["Hunters & Collectors"]})
+
+      assert {:ok, enriched} = Enrichment.enrich(smeared)
+
+      assert enriched.musicbrainz_artists == ["Eddie Vedder", "Neil Finn"],
+             "the joinphrase is presentation; the names are what everything compares"
+
+      assert enriched.artists == ["Hunters & Collectors"],
+             "the source's claim is not overwritten, only answered"
+    end
+
+    test "an unasked recording credits nobody, rather than crediting an empty list" do
+      # The trap this column was one character away from. `write/2` decides a
+      # field is already answered with `not is_nil/1`, so a schema
+      # `default: []` would make `musicbrainz_artists` look filled from the
+      # moment the row existed and it would never be written at all — a column
+      # that silently stays empty for ever, which no test asserting a *filled*
+      # value would catch on its own.
+      #
+      # `nil` is "never asked". `[]` would be "asked, and credited to nobody".
+      assert is_nil(recording(%{isrc: @isrc}).musicbrainz_artists)
+    end
+
+    test "is cleared by reset/1, because enrichment wrote it" do
+      stub_musicbrainz()
+      stub_cover_art(:none)
+
+      {:ok, enriched} = Enrichment.enrich(recording(%{isrc: @isrc}))
+      assert enriched.musicbrainz_artists == ["Pearl Jam"]
+
+      assert Enrichment.reset([enriched.id]) == 1
+
+      refute Repo.get!(Recording, enriched.id).musicbrainz_artists,
+             "a value enrichment wrote is a value 'look at this again' discards"
+    end
+  end
+
   describe "reset/1" do
     test "puts a recording back in front of due/1" do
       stub_musicbrainz()

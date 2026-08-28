@@ -390,6 +390,33 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
 
   def handle_event("cancel_edit", _params, socket), do: {:noreply, assign(socket, :editing, nil)}
 
+  # Offered, never applied on its own. The credit belongs to the **item** — §5
+  # makes it the owner of every word the playlist shows — so a catalogue that
+  # disagrees is evidence for a person, not a licence to rewrite what they
+  # imported. What this removes is the research, which is the part that was
+  # actually hard: Roon says "Hunters & Collectors" and finding out that the
+  # track is Eddie Vedder and Neil Finn used to mean leaving the application.
+  def handle_event("adopt_credit", %{"entry" => entry_id}, socket) do
+    with %{musicbrainz: %{artists: [_first | _rest] = artists}} <-
+           Enum.find(socket.assigns.entries, &(&1.id == entry_id)),
+         :ok <-
+           Library.update_item(
+             socket.assigns.current_user_id,
+             socket.assigns.playlist.id,
+             entry_id,
+             %{artists: artists}
+           ) do
+      {:noreply,
+       socket
+       |> load_entries()
+       # The same reason `save_track` reloads them: the words changed, so what
+       # the library would offer for this row changed with them.
+       |> load_candidates(entry_id, MapSet.member?(socket.assigns.expanded, entry_id))}
+    else
+      _nothing_to_adopt -> {:noreply, socket}
+    end
+  end
+
   def handle_event("save_track", %{"entry" => entry_id} = params, socket) do
     attrs = %{
       title: params["title"],
@@ -916,6 +943,19 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
           value={@entry.track.duration_seconds && duration(@entry.track.duration_seconds)}
         />
 
+        <dt :if={credit_differs?(@entry)} class="opacity-60">Credited to</dt>
+        <dd :if={credit_differs?(@entry)}>
+          <span class="font-sans">{Enum.join(@entry.musicbrainz.artists, ", ")}</span>
+          <span class="opacity-60 text-xs ml-1">at MusicBrainz</span>
+          <button
+            phx-click="adopt_credit"
+            phx-value-entry={@entry.id}
+            class="btn btn-ghost btn-xs ml-2"
+          >
+            Use this credit
+          </button>
+        </dd>
+
         <dt class="opacity-60">Linked to</dt>
         <dd>
           <span :if={@entry.linked?} title={@entry.recording.id}>
@@ -1161,6 +1201,15 @@ defmodule OnePlaylistWeb.PlaylistLive.Show do
      Normalize.album(entry.track.album || "")} !=
       {norm(entry.recording.title), credit(entry.recording.artists),
        Normalize.album(entry.recording.album || "")}
+  end
+
+  # Only where the catalogue has actually answered *and* disagrees. Compared on
+  # normalised names rather than the raw strings, so "Pearl Jam" and "PEARL JAM"
+  # do not offer somebody a correction that corrects nothing.
+  defp credit_differs?(%{musicbrainz: %{artists: []}}), do: false
+
+  defp credit_differs?(entry) do
+    credit(entry.musicbrainz.artists) != credit(entry.track.artists)
   end
 
   defp norm(value), do: Normalize.text(value || "")

@@ -247,6 +247,7 @@ defmodule OnePlaylist.Library do
       looked_up_at: nil,
       outcome: nil,
       candidates: nil,
+      artists: [],
       isrc_disputed: false
     }
   end
@@ -260,6 +261,10 @@ defmodule OnePlaylist.Library do
       looked_up_at: attempt && attempt.attempted_at,
       outcome: attempt && attempt.outcome,
       candidates: attempt && attempt.candidates,
+      # What the catalogue credits it to, which is not always what the source
+      # said — see the migration `add_musicbrainz_artists_to_recordings` for the
+      # Roon album-artist problem this answers. `nil` means never asked.
+      artists: recording.musicbrainz_artists || [],
       # Durable in a way the outcome is not: enrichment now sets the code aside
       # and asks by name instead, so a recording with a wrong ISRC can end up
       # `:identified` while its code is still wrong.

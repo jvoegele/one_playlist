@@ -383,7 +383,7 @@ defmodule OnePlaylist.MusicBrainz.Client do
       provider: :musicbrainz,
       provider_id: recording["id"],
       title: recording["title"],
-      artists: recording |> Map.get("artist-credit", []) |> Enum.map(& &1["name"]),
+      artists: artist_credit(recording),
       album: release["title"],
       # Every album the recording is on, not just whichever release the search
       # listed first. MusicBrainz returns the whole list — verified, four for
@@ -408,6 +408,26 @@ defmodule OnePlaylist.MusicBrainz.Client do
       duration_seconds: recording["length"] && div(recording["length"], 1000),
       isrc: recording |> Map.get("isrcs", []) |> List.first()
     }
+  end
+
+  @doc """
+  The names a MusicBrainz artist credit is made of, in order.
+
+  A credit is a list of parts, each a name and a `joinphrase` — "Eddie Vedder",
+  " & ", "Neil Finn". Only the names are kept, because that is the shape
+  `artists` has everywhere in this application and the only thing
+  `OnePlaylist.Matching.Signals` compares. The joinphrase is presentation.
+
+  Public because `OnePlaylist.Library.Enrichment` reads the same field off a
+  *recording lookup* rather than a search hit, and one parser for one JSON shape
+  is the point.
+  """
+  @spec artist_credit(map()) :: [String.t()]
+  def artist_credit(document) do
+    document
+    |> Map.get("artist-credit", [])
+    |> Enum.map(& &1["name"])
+    |> Enum.reject(&(is_nil(&1) or &1 == ""))
   end
 
   defp title_variants(recording, releases) do

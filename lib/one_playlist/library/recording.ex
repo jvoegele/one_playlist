@@ -44,6 +44,21 @@ defmodule OnePlaylist.Library.Recording do
     # `OnePlaylist.Library.Enrichment` for how one is chosen.
     field :musicbrainz_release_id, Ecto.UUID
 
+    # What the **catalogue** credits this recording to, kept beside `artists`,
+    # which is what its source said. Two claims about one recording rather than
+    # one overwritten — see the migration, and `docs/reference/domain.md` §6 on
+    # the provenance model this is the first field of.
+    #
+    # Roon writes the album artist into the track artist column, so a tribute
+    # album arrives with twelve tracks credited to its subject. This is where the
+    # real answer lives once MusicBrainz has been asked.
+    # **No `default: []`**, deliberately, and this is load-bearing rather than a
+    # style choice. `Enrichment.write/2` decides a field is already answered with
+    # `not is_nil/1`, so a default of `[]` would make this look filled from the
+    # moment the row was created and it would never be written at all. `nil` is
+    # "never asked"; `[]` is "asked, and the catalogue credits it to nobody".
+    field :musicbrainz_artists, {:array, :string}
+
     field :title, :string
     field :artists, {:array, :string}, default: []
     field :album, :string
@@ -84,8 +99,8 @@ defmodule OnePlaylist.Library.Recording do
     timestamps(type: :utc_datetime_usec)
   end
 
-  @fields ~w(isrc musicbrainz_recording_id musicbrainz_release_id title artists album album_upc track_number
-             volume_number version duration_seconds explicit artwork_url
+  @fields ~w(isrc musicbrainz_recording_id musicbrainz_release_id musicbrainz_artists title artists
+             album album_upc track_number volume_number version duration_seconds explicit artwork_url
              origin_provider origin_provider_id)a
 
   @doc """

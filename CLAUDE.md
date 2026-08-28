@@ -672,22 +672,31 @@ backlog below is the road to it, not a separate list.
     exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
     magic-link iteration painful until raised in `supabase/config.toml`.
 
-  * **Editing a recording's own metadata.** Roon's CSV export writes the **album
-    artist** into the track artist column, so every track on a compilation or tribute
-    album is credited to its subject: *Crucible*'s twelve different performers all
-    arrive as "Hunters & Collectors", and *Throw Your Arms Around Me* — actually Neil
-    Finn & Eddie Vedder — cannot be found at MusicBrainz from that credit. No enrichment
-    fixes this, because a search is only as good as the credit it is given.
+  * ~~**Editing a recording's own metadata**, for the Roon album-artist problem.~~
+    **Largely answered 2026-08-28, and the answer was not the one this said.**
 
-    The fix is to let a user correct title, artists, album and version in the app. That
-    raises a design question worth answering before building: the editor works one row
-    at a time, and correcting a whole album's credits one row at a time is miserable.
-    Options are an inline edit on the expanded row, a table view over the playlist, or
-    a bulk "set the artist for these rows" action; a table is the obvious shape and the
-    worst one for the *reordering* the same screen has to support. It also needs an
-    answer to what an edit means for enrichment — a corrected field must be re-enriched
-    and must not be overwritten, which is what `Enrichment.reset/1` and the
-    fill-gaps-never-correct rule are already built around.
+    This proposed an artist entity, or a bulk credit editor. Measurement rejected both.
+    An entity does not help: every smeared track needs a *different* correct credit —
+    *Crucible* is twelve performers, not one rename — so the decisions are per row
+    either way and an entity only changes typing into picking. And the problem is far
+    smaller than it read: of 15 unidentified recordings **none** is a credit smear, and
+    across 3,103 Roon rows and 757 albums the keyword scan finds one confirmed case.
+
+    What actually fixed it: **MusicBrainz already tells us, and we were parsing it
+    away.** `Client.recording/1` sends `inc=artist-credits`, `Enrichment.learned/3`
+    holds the whole response, and the credit went in the bin. It is now kept in
+    `library_recordings.musicbrainz_artists` — *beside* `artists`, never over it, since
+    the source's claim is not ours to discard — and it costs no extra request.
+
+    The playlist row shows **Credited to … at MusicBrainz** where it disagrees with the
+    item, with *Use this credit*. Offered rather than applied: §5 makes the **item** the
+    owner of every word the playlist shows. What is removed is the *research*, which was
+    the hard part — Roon says "Hunters & Collectors" and finding out the track is Eddie
+    Vedder and Neil Finn used to mean leaving the application.
+
+    Still open, and now narrower: a **bulk** version of that click for a whole album, and
+    the same offer for the recording's title, album and version. Neither has a
+    demonstrated case yet.
 
   * **Adding a track to a library playlist by hand.** L2 covers rename, delete,
     remove and reorder; *adding* needs something to add **from**, which is a

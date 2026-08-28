@@ -465,6 +465,69 @@ ISRCs at all**, because they come from tagging rather than from a catalogue; the
 library can be rebuilt without them (`--no-isrc`) precisely so the text and fuzzy rungs can be
 measured carrying the whole match.
 
+### The album artist in the track artist column, and who is allowed to fix it
+
+Roon's CSV export writes the **album artist** into the track artist column. On an album by one
+artist that is invisible and harmless. On a compilation or a tribute it is destructive:
+*Crucible: The Songs of Hunters & Collectors* is twelve different performers, and all twelve
+arrive credited to "Hunters & Collectors". *Throw Your Arms Around Me* is Eddie Vedder and Neil
+Finn, and cannot be found at MusicBrainz from the credit it came with.
+
+This sat in the backlog for weeks as "editing a recording's own metadata", proposing an **artist
+entity** or a bulk credit editor. Both were wrong, and the reasons are worth keeping because the
+same reasoning applies to the next entity somebody proposes.
+
+**An entity does not help here.** Entities pay when one wrong name maps to one right name across
+many rows — "Beatles" → "The Beatles". This is the opposite shape: every smeared track needs a
+*different* correct credit, so the decisions are per row either way, and an entity turns typing a
+name into picking one while adding twelve artist rows that have to exist first. The work is in
+knowing the answer, not in recording it.
+
+**And the problem is far smaller than its description.** Of the library's 15 unidentified
+recordings, **none** is a credit smear — they are compilations MusicBrainz does not hold, Roon's
+invented *Pearl Jam - Non-Album Tracks* bucket, and two bootleg improvisations, every one of them
+correctly credited. Across 3,103 rows and 757 albums in the Roon exports, a scan for
+single-credit compilation-shaped albums returns 14, of which most are true (*Songs Of Leonard
+Cohen* really is Leonard Cohen's). One confirmed case.
+
+#### The answer was already in the response, and was being parsed away
+
+`Client.recording/1` sends `inc=artist-credits+releases+release-groups+isrcs+work-rels`, and
+`Enrichment.learned/3` holds the entire response. The per-track credit was there the whole time
+and went in the bin. It is now kept, at **no extra request**, in
+`library_recordings.musicbrainz_artists`.
+
+The release *track list* would answer this too — `musicbrainz_releases.tracks` could carry a
+credit per track, and a live probe confirms MusicBrainz supplies it. That half is deliberately
+**not built**: it is only needed for a recording that is *unidentified*, and no such case exists
+here. Building it would be generalising from zero examples, which is worse than generalising from
+one.
+
+#### Beside, never over — and offered, never applied
+
+Two rules decide where the answer may be written, and they are not the same rule.
+
+**On the recording**: `musicbrainz_artists` is a second column rather than a better value in
+`artists`. Enrichment fills gaps and does not correct, and the source's claim is not ours to
+discard merely because we now have a better one. Two claims about one recording, distinguishable,
+is also exactly the provenance model §6 says the schema lacks — arriving one field at a time, for
+the field where the disagreement is known to be real.
+
+**On the item**: nothing is written at all without a click. §5 makes the *item* the owner of
+every word the playlist shows, so a catalogue that disagrees is evidence for a person rather than
+a licence to rewrite what they imported. The row says **Credited to Eddie Vedder, Neil Finn — at
+MusicBrainz** and offers *Use this credit*.
+
+That division is the whole design. What was hard was never applying the correction — the edit
+modal has existed since L3 — it was *finding out what the correction is*, which meant leaving the
+application. The offer removes the research and leaves the decision where it belongs.
+
+One trap, recorded because it cost a bug that would have shipped silently: the column must **not**
+default to `[]`. `Enrichment.write/2` decides a field is already answered with `not is_nil/1`, so
+a default of `[]` makes it look filled from the moment the row exists and it is never written at
+all. `nil` is "never asked"; `[]` is "asked, and credited to nobody". A test asserting the filled
+value catches it; a test asserting only that the feature works would not.
+
 ### Playlist files — what a real exporter actually writes
 
 Learned from two Roon exports of the same 58-track playlist, 2026-08-23. Both are committed in

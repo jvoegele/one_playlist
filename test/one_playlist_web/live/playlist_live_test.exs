@@ -747,6 +747,70 @@ defmodule OnePlaylistWeb.PlaylistLiveTest do
       assert html =~ ~s(title="#{entry.track.provider_id}")
     end
 
+    test "offers the catalogue's credit when it disagrees, and adopts it on a click", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # The Roon album-artist problem end to end. The item arrives credited to
+      # the album's subject; MusicBrainz knows the track is by somebody else;
+      # the row says so and one click puts it right.
+      #
+      # Adopted onto the **item**, never applied on its own: §5 makes the item
+      # the owner of every word the playlist shows, so a catalogue that
+      # disagrees is evidence for a person rather than a licence to rewrite.
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      Library.update_item(user_id, playlist.id, entry.id, %{artists: ["Hunters & Collectors"]})
+
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      |> Ecto.Changeset.change(musicbrainz_artists: ["Eddie Vedder", "Neil Finn"])
+      |> Repo.update!()
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      html =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      assert html =~ "Credited to"
+      assert html =~ "Eddie Vedder, Neil Finn"
+
+      view
+      |> element(~s{button[phx-click="adopt_credit"][phx-value-entry="#{entry.id}"]})
+      |> render_click()
+
+      [adopted | _rest] = Library.entries(user_id, playlist.id)
+      assert adopted.track.artists == ["Eddie Vedder", "Neil Finn"]
+    end
+
+    test "says nothing when the catalogue agrees with the item", %{
+      conn: conn,
+      user_id: user_id,
+      playlist: playlist
+    } do
+      # A control worth having: an offer that appears when there is nothing to
+      # correct is worse than no offer, because a person learns to ignore it.
+      [entry | _rest] = Library.entries(user_id, playlist.id)
+
+      Recording
+      |> Repo.get!(entry.track.provider_id)
+      # Same credit, different case — normalised comparison, so this is agreement.
+      |> Ecto.Changeset.change(musicbrainz_artists: ["PEARL JAM"])
+      |> Repo.update!()
+
+      {:ok, view, _html} = live(conn, ~p"/playlists/#{playlist.id}")
+
+      html =
+        view
+        |> element(~s{button[phx-click="toggle_detail"][phx-value-entry="#{entry.id}"]})
+        |> render_click()
+
+      refute html =~ "Credited to"
+    end
+
     test "flags a recording that disagrees with the item", %{
       conn: conn,
       user_id: user_id,
