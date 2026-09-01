@@ -45,6 +45,63 @@ Everything not marked otherwise has been re-checked against these versions and s
 
 ---
 
+## Where these stand, as of 2026-09-01
+
+Swept again. Only **`external_service` had moved — 3.2.0 → 3.2.3**; errata 1.9.0, bond 1.19.0 and
+wait_for_it 2.5.0 were already the latest releases. All three new external_service versions are
+documentation and dependency maintenance, so every entry above still stands as written, with one
+wording update (the rate-limiter log entry now reads *still open as of 3.2.3*) and one new entry
+immediately below.
+
+---
+
+## `usage_rules` — a synced block disagreed with this project's own reference, and the synced one was wrong
+
+**Found:** 2026-09-01, upgrading external_service 3.2.0 → 3.2.3. **Resolved upstream in
+external_service 3.2.1**, independently and before this was noticed here — so this is filed as a
+process finding about `mix usage_rules.sync`, not as a defect report against the library.
+
+`AGENTS.md` carried this, synced verbatim from external_service 3.2.0's `usage-rules.md`:
+
+> ### Circuit-breaker `:tolerate` counts failed *attempts*, not failed calls
+>
+> Retries melt the breaker too, so a call with `max_attempts: 5` can contribute five melts on
+> its own. `tolerate ≈ failing calls × max_attempts` is the arithmetic to have in mind.
+
+That is the pre-3.0 semantics, and it is false of the version it shipped with. Meanwhile
+`docs/reference/jv-libraries.md` — hand-written here, from reading the 3.0 changelog — said the
+opposite and said it correctly: *a call melts the breaker once, when its retrying gives up*. So
+for a week this repository contained two documents making contradictory claims about the same
+option, one of them generated and one of them right, and **the generated one was the wrong one**.
+
+Nothing caught it. That is the point worth recording:
+
+  * A synced block *looks* more authoritative than a hand-written note — it is machine-produced,
+    it is versioned with the dependency, and `CLAUDE.md` tells a fresh session that
+    `AGENTS.md` is where to look for each library's traps. Its being generated is exactly why
+    nobody re-reads it.
+  * `mix usage_rules.sync` has no notion of a claim, only of a block, so it cannot flag that a
+    re-sync **reversed** the meaning of a section. The diff shown at sync time is the only
+    signal, and it is easy to approve as boilerplate churn. Reading this one is what surfaced it.
+  * The cost was bounded here only by luck: no service in this project sizes `:tolerate` off the
+    bad arithmetic, because they were configured against the correct reference. A project with
+    *only* the synced rules would have sized every breaker roughly `max_attempts` times too
+    large and never opened one.
+
+CLAUDE.md already anticipates the general case — *"where the three overlap they should agree …
+if they ever disagree, the divergence is worth a line in `docs/library-feedback.md`"*. This is
+the first time that has actually happened, and the lesson is narrower than the rule: the
+divergence is only visible **at sync time**, in the diff, so a re-sync's diff is worth reading
+for reversed claims rather than skimmed for formatting.
+
+**Suggested for `usage_rules`:** nothing actionable in the tool — detecting a semantic reversal
+in prose is not its job. The realistic mitigation is on the library side, and external_service
+has already taken it: 3.2.1 was a deliberate documentation-accuracy pass that ran the library
+against every worked example rather than re-deriving the claims by hand, and it caught this
+alongside a dozen other drifted numbers. That is the practice worth copying into the other three.
+
+---
+
 ## `external_service` — `Test.Coverage` found 141 seconds of a stubbed test suite asleep
 
 **Found:** 2026-08-25, within minutes of installing it. A positive, and the most
@@ -1525,7 +1582,7 @@ comment in the source — which is what this project does, and which the coverag
 
 ## `external_service` — the pacing log says "Rate limit exceeded", which is not what happened
 
-**Still open as of 3.2.0** — re-checked in `lib/external_service/rate_limiter.ex`, the wording is
+**Still open as of 3.2.3** — re-checked in `lib/external_service/rate_limiter.ex`, the wording is
 unchanged. Recorded rather than re-discovered.
 
 Small, and worth reporting precisely because the behaviour is right and only the *description*

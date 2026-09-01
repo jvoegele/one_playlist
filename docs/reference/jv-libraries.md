@@ -104,6 +104,15 @@ float), `:retry_on` (predicate on result), `:retry_exceptions` (module list **or
   when its retrying gives up. `:fuse` tolerates `:tolerate` melts and opens on the next, so
   `tolerate: 10` opens on the **11th** failing call. `circuit_breaker: [melt: :per_attempt]`
   restores pre-3.0 behaviour.
+- **Do not reach for `:per_attempt` without reading what it costs** (documented as advisory
+  guidance in the Circuit Breakers guide as of 3.2.3). Its two genuine uses are reacting to
+  attempt-level failure faster, and being the only way to retry without bound — `max_attempts:
+  :infinity` never melts under `:per_call`, since the call never gives up, so `start/2` rejects
+  that combination unless an `:expiry` bounds it. The cost is that **a single call can trip its
+  own breaker**: `tolerate: 3, melt: :per_attempt` with `max_attempts: 8` opens on the 4th
+  attempt and sheds the remaining four as `CircuitBreakerOpen`. Leaving `:within` at `:auto`
+  prevents the historical sizing trap; hand-setting it reopens it. No service in this project
+  sets `:melt`.
 - A call that fails some attempts then **succeeds** melts nothing.
 - `tolerate: :infinity` installs **no breaker at all** — holds no state. This is the correct
   setting for tests (state cannot leak between them). Cannot combine with `:fault_injection`.

@@ -39,17 +39,17 @@ be depended on **by path** during development so improvements flow both ways.
 
 | Library | Local path | Where it belongs in this app |
 | --- | --- | --- |
-| [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.2.0) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
+| [`external_service`](https://hexdocs.pm/external_service) | `../external_service` (3.2.3) | **Every** outbound call to Spotify / Apple Music / YouTube / Tidal / Plex. One service module per provider. |
 | [`errata`](https://hexdocs.pm/errata) | `../errata` (1.9.0) | Every error the domain can produce. `TrackNotMatched`, `ProviderUnavailable`, `TokenExpired`, `PlaylistTooLarge`, … |
-| [`bond`](https://hexdocs.pm/bond) | `../bond` (1.17.0) | Contracts on the matching engine and the transfer state machine — the places where a silent wrong answer is worse than a crash. |
+| [`bond`](https://hexdocs.pm/bond) | `../bond` (1.19.0) | Contracts on the matching engine and the transfer state machine — the places where a silent wrong answer is worse than a crash. |
 | [`wait_for_it`](https://hexdocs.pm/wait_for_it) | `../wait_for_it` (2.5.0) | `Transfers.await/2` waits on an Oban-run transfer with `case_wait`. Deeper use still ahead: scheduled sync, and polling providers with genuinely async jobs. |
 
 ```elixir
 # mix.exs — the working configuration
-{:external_service, "3.0.0-rc.4"},   # exact: `~>` does not match a pre-release
-{:errata, "~> 1.7"},
-{:bond, "~> 1.17"},                  # 1.15.0 or later: earlier cannot compile
-{:wait_for_it, "~> 2.4"}             # an @invariant on an Ecto.Schema
+{:external_service, "~> 3.2"},
+{:errata, "~> 1.9"},
+{:bond, "~> 1.19"},                  # 1.15.0 or later: earlier cannot compile
+{:wait_for_it, "~> 2.5"}             # an @invariant on an Ecto.Schema
 ```
 
 Verified against Elixir 1.20.3 / OTP 29: all four compile and interoperate. `external_service`
@@ -71,6 +71,22 @@ Swept to the current releases on 2026-08-25. Three things changed for this proje
     semantics; it now delegates to `Errata.root_error/1` behind an
     `Errata.is_error/1` guard, which fixed a live bug — a chain ending in a foreign exception
     used to discard the Errata error above it that carried the `:reason` both callers read.
+
+Swept again on 2026-09-01. Only **`external_service` had moved: 3.2.0 → 3.2.3**; `errata` 1.9.0,
+`bond` 1.19.0 and `wait_for_it` 2.5.0 were already the latest releases. All three new versions
+are documentation and dependency maintenance — **nothing about a guarded call changes**, and this
+project needed no code change. Two of them are worth knowing about anyway:
+
+  * **3.2.1 corrected `:tolerate` throughout the guides to count failed *calls*, not attempts.**
+    `docs/reference/jv-libraries.md` and `Tidal.Service`'s moduledoc already said this correctly,
+    so re-syncing `AGENTS.md` brought the generated block into line with what this project had
+    worked out for itself rather than teaching it anything. 3.2.1 also widened
+    `t:ExternalService.error/0` to include `ServiceSaturated.t()`, which `call/3` could already
+    return — dialyzer is clean either way.
+  * **3.2.3 fixed the "melt and retry go together" admonition and added advisory guidance on
+    `:melt`.** The cost of `:per_attempt` is now documented and is recorded below in
+    `docs/reference/jv-libraries.md`: a single call can trip its own breaker. No service here
+    sets `:melt`, so all six run on the `:per_call` default.
 
 Dogfooding includes **reporting friction back**. If an API is awkward, note it in
 `docs/library-feedback.md` — that feedback is a deliverable of this project, not a distraction

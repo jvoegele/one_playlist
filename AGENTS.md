@@ -888,7 +888,7 @@ for member <- Errata.errors(error), do: Logger.warning(Exception.message(member)
 <!-- errata-end -->
 <!-- external_service-start -->
 ## external_service usage
-_Elixir library for safely using any external service or API using automatic retry with rate limiting and circuit breakers. Calls to external services can be synchronous, asynchronous background tasks, or multiple calls can be made in parallel for MapReduce style processing._
+_Elixir library for safely using any external service or API using automatic retry, circuit breakers, rate limiting, and a concurrency limit. Calls to external services can be synchronous, asynchronous background tasks, or multiple calls can be made in parallel for MapReduce style processing._
 
 # ExternalService usage rules
 
@@ -900,7 +900,7 @@ apply on every call.
 
 ```elixir
 # mix.exs
-{:external_service, "~> 3.1"}
+{:external_service, "~> 3.2"}
 ```
 
 ```elixir
@@ -914,7 +914,7 @@ Define a module per service, configure it declaratively, and **start it under a 
 defmodule MyApp.Stripe do
   use ExternalService,
     retry: [max_attempts: 5, backoff: :exponential, base: 100, cap: 2_000, jitter: true],
-    circuit_breaker: [tolerate: 5, within: :timer.seconds(30), reset: :timer.seconds(5)],
+    circuit_breaker: [tolerate: 5, reset: :timer.seconds(5)],
     rate_limit: [limit: 100, per: :timer.seconds(1), wait: :timer.seconds(1)]
 
   def charge(params) do
@@ -969,8 +969,9 @@ end
 ### Your HTTP client's own retries multiply against these
 
 If the client you call inside `call/1` retries on its own, the two compound: `max_attempts: 3`
-around a client doing 3 retries is up to 9 requests, with two independent backoff schedules
-interleaved, and the breaker melting on a count you did not choose.
+around a client that retries 3 times per attempt (1 initial + 3 retries = 4 requests) is up to
+12 requests, with two independent backoff schedules interleaved, and the breaker melting on a
+count you did not choose.
 
 `Req` is the common case — it retries by default (`retry: :safe_transient`, which covers **GET
 and HEAD only**, so a POST behaves differently from a GET under the same configuration). Turn the
@@ -991,23 +992,32 @@ dependency. For a service that is briefly overloaded, raise `:base`, not the att
 retry: [max_attempts: 5, base: 100, cap: 2_000, backoff: :exponential, jitter: true]
 ```
 
-`max_attempts: :infinity` retries forever, and **the circuit breaker does not reliably stop it**.
+`max_attempts: :infinity` retries forever. Pair it with an `:expiry` — under the default breaker
+`:melt` setting a call that never gives up never melts, so `start/2` **rejects** the combination
+without one. Even with an `:expiry`, **the circuit breaker does not reliably stop the retrying**
+before that budget runs out.
 
-### Circuit-breaker `:tolerate` counts failed *attempts*, not failed calls
+### Circuit-breaker `:tolerate` counts failed *calls*, not failed attempts
 
-Retries melt the breaker too, so a call with `max_attempts: 5` can contribute five melts on its
-own. `tolerate ≈ failing calls × max_attempts` is the arithmetic to have in mind.
+A call melts the breaker once, when its retrying gives up — however many attempts it made along
+the way. `tolerate: N` means N failing calls, whatever `:max_attempts` is; raising
+`:max_attempts` does not spend the breaker's budget faster. (A service can opt back into the old
+per-attempt melting with `circuit_breaker: [melt: :per_attempt]`, but that is not the default.)
 
-And the window has to be wide enough to *contain* those melts. If one call's retry schedule
-spans 7.5 s and you need 6 calls to open the breaker, the melts spread over ~37.5 s — so a
-`within: 30_000` breaker **never opens**, silently, with nothing raising and no log line.
+The window still has to be wide enough to *contain* those calls. A failing call can take up to
+its own retry window to give up — 1.5 s here — so `:tolerate + 1` of those have to fit inside
+`:within`. If 6 calls are needed to open the breaker and each can take 1.5 s, the melts can spread
+over up to ~9 s — so a hand-set `within: 5_000` breaker might **never open** for a caller making
+these calls one after another (concurrent callers still can). Leaving `:within` unset lets it
+default to `:auto`, which sizes it from the retry options for you — and `ConfigCheck` (below)
+catches the hand-set case at compile time and at start, so this does not fail silently either way.
 
 Do not hand-tune this. Ask the library:
 
 ```elixir
 IO.puts ExternalService.explain(MyApp.Stripe)          # what will this configuration do?
 ExternalService.simulate(MyApp.Stripe, :always_failing) # does the breaker actually open?
-#=> %Simulation{opens_after: 4, worst_call: 1500, attempts: 20, ...}
+#=> %Simulation{opens_after: 6, worst_call: 1500, attempts: 30, ...}
 ExternalService.RetryOptions.window(base: 100, max_attempts: 5)  #=> 1500
 ```
 
@@ -1037,7 +1047,7 @@ misconfiguration.
 
 | Error | Melts breaker? | Retried? |
 | --- | --- | --- |
-| `%ExternalService.RetriesExhausted{}` | the attempts did | — |
+| `%ExternalService.RetriesExhausted{}` | **yes**, once, when the retrying gave up | — |
 | `%ExternalService.CircuitBreakerOpen{}` | n/a — it is already open | no |
 | `%ExternalService.RateLimited{}` (http_status 429) | **no** | **no** |
 | `%ExternalService.ServiceSaturated{}` (http_status 503) | **no** | **no** |
@@ -1075,6 +1085,9 @@ after 3 attempts" — which is true and rarely actionable. The failure a user ca
 about is the `:cause`:
 
 ```elixir
+# one level down — the retry reason, if it was an exception
+Errata.cause(error)
+
 # the deepest Errata error — has a code, a context and a classification to render or report
 Errata.root_error(error)
 
@@ -1086,8 +1099,9 @@ That turns "could not be completed after 3 attempts" into "connection refused", 
 library boundaries — `RetriesExhausted` wraps your error and neither knows about the other.
 
 Do not hand-roll a recursive unwrap loop, and do not reach for `Errata.root_cause/1`: it is
-deprecated because it returns an Errata error *or* a foreign value depending on how the chain
-ends, leaving the caller to work out which it got. See the [Using Errata](guides/errata.md) guide — an application's own Errata
+deprecated since errata 1.9.0 in favor of `root_error/1`, which always returns an Errata error
+rather than possibly a foreign value, so a caller never has to check which it got. See the
+[Using Errata](guides/errata.md) guide — an application's own Errata
 errors can also drive retries via `:retry_on` and `retryable?/1`, which puts the retry decision
 in the error type rather than in a branch on the shape of what came back.
 
