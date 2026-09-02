@@ -12,6 +12,8 @@
       email={@email}
       error_message={@error_message}
       configured?={@configured?}
+      magic_link_action={~p"/sign-in/magic-link"}
+      google_action={~p"/sign-in/google"}
     >
       <:footer>
         No account yet? <.link navigate={~p"/sign-up"} class="link link-primary">Create one</.link>.

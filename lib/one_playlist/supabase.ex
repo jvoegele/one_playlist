@@ -51,6 +51,11 @@ defmodule OnePlaylist.Supabase do
   `config/runtime.exs`.
   """
 
+  @typedoc """
+  Which flow GoTrue's redirect-based sign-ins should use. See `client/1`.
+  """
+  @type flow_type :: :implicit | :pkce
+
   @doc """
   A client for calls made with the application's own publishable key.
 
@@ -58,19 +63,53 @@ defmodule OnePlaylist.Supabase do
   fresh-checkout case at the sign-in form instead of crashing a request.
   Distinguishing "not configured" from "configured and failing" matters: they
   are different problems with different fixes.
+
+  ## `flow_type`
+
+  The SDK reads `client.auth.flow_type` to decide whether a redirect-based
+  sign-in — OAuth, magic link, sign-up confirmation, password recovery — should
+  attach a PKCE challenge. The default here is the SDK's own, `:implicit`, and
+  **only `OnePlaylist.Accounts.begin_google_sign_in/1` asks for `:pkce`**.
+
+  That narrowness is deliberate and not a default worth relaxing. In 1.0.0 the
+  SDK generates a verifier for every PKCE flow but returns it from
+  `sign_in_with_oauth/2` alone; `sign_in_with_otp/2`, `sign_up/2` and
+  `reset_password_for_email/3` discard it (see `docs/supabase-sdk-issues.md`).
+  A magic link or confirmation email sent through a `:pkce` client would
+  therefore carry a code nobody can exchange, and the user would be locked out
+  by a link that looks correct. Setting `:pkce` on the shared client would break
+  sign-up confirmation the day it is switched on in production.
   """
-  @spec client() :: {:ok, Supabase.Client.t()} | {:error, :not_configured}
-  def client do
+  @spec client(flow_type: flow_type()) ::
+          {:ok, Supabase.Client.t()} | {:error, :not_configured}
+  def client(opts \\ []) do
     config = Application.get_env(:one_playlist, __MODULE__, [])
     base_url = config[:base_url]
     api_key = config[:api_key]
+    flow_type = Keyword.get(opts, :flow_type, :implicit)
 
     if present?(base_url) and present?(api_key) do
-      Supabase.init_client(base_url, api_key, %{})
+      with {:ok, client} <- Supabase.init_client(base_url, api_key, %{}) do
+        {:ok, put_flow_type(client, flow_type)}
+      end
     else
       {:error, :not_configured}
     end
   end
+
+  # Set after the fact rather than passed to `init_client/3`, because the SDK's
+  # typespec for its options cannot be satisfied: `Supabase.Client.options()`
+  # declares `auth` as a map with every one of six keys *required* and
+  # `flow_type` as a `String.t()`, while the runtime casts a partial map and
+  # the documented call is `auth: [flow_type: :pkce]`. Passing either form
+  # makes Dialyzer collapse this function to `{:error, _}` and flag every
+  # caller's `{:ok, _}` branch as unreachable — 45 findings from one line.
+  # See docs/supabase-sdk-issues.md. `struct!/2` is typed loosely enough that
+  # the atom survives the `Supabase.Client.t()` in this module's own spec.
+  defp put_flow_type(client, :implicit), do: client
+
+  defp put_flow_type(client, flow_type),
+    do: %{client | auth: struct!(client.auth, flow_type: flow_type)}
 
   @doc """
   A client that acts as a specific signed-in user.

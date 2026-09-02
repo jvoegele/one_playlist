@@ -1,0 +1,25 @@
+<!--
+  The email GoTrue sends to a *new* address while email confirmation is on:
+  a password sign-up, or a magic link asked for by somebody with no account
+  yet. With confirmations off — this local stack — GoTrue auto-confirms and
+  sends magic_link.html instead, so this file is exercised only when
+  enable_confirmations is switched on. See magic_link.html for why the link
+  points at this application rather than at GoTrue, and for the production note.
+
+  type=email rather than type=signup: GoTrue's "email" verification decides
+  for itself whether the token confirms a new account or signs an existing one
+  in, so one callback handles both templates without knowing which it got.
+-->
+<h2>Welcome to One Playlist</h2>
+
+<p>
+  <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">
+    Click here to confirm your email and sign in
+  </a>
+</p>
+
+<p>Or enter this code where you signed up:</p>
+
+<p style="font-size: 1.5em; letter-spacing: 0.2em; font-family: monospace;"><strong>{{ .Token }}</strong></p>
+
+<p>The link and the code work once, and for an hour. If you did not sign up, you can ignore this email.</p>

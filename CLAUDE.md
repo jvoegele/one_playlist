@@ -182,9 +182,13 @@ better code.
 - **Phoenix 1.8 + LiveView 1.2** app, DaisyUI/Tailwind v4, Bandit, Req (per `AGENTS.md`).
 - **Supabase-hosted Postgres**, reached by **Ecto over a direct connection** (or Supavisor
   session mode on IPv4-only hosts). Only use the transaction pooler with `prepare: :unnamed`.
-- **Supabase Auth** for sign-in, including Spotify/Google OAuth — chosen over
-  `mix phx.gen.auth` because it delivers goals 2 and 3 at once. Email + password is built;
-  magic link and Google OAuth are next, and all three feed one session spine.
+- **Supabase Auth** for sign-in — chosen over `mix phx.gen.auth` because it delivers goals 2
+  and 3 at once. **Three ways in, one session spine**: email + password, a magic link (a
+  `token_hash` link *and* a six-digit code in one email — deliberately not PKCE, see
+  `docs/reference/supabase.md` §4), and Google. Every one ends in
+  `UserAuth.log_in_user/2` with the same `Accounts.Session`. Google here is an *account*
+  identity, not a YouTube connection: GoTrue drops provider tokens, so a music service is
+  always this application's own `OAuthFlow`.
   The `supabase_auth` SDK is used for the **GoTrue API calls only**: the session, the plug and
   the `on_mount` stay in `OnePlaylistWeb.UserAuth`, because that is the layer that will have
   to inject JWT claims into Postgres for RLS. `current_scope` is a shim over our own session
@@ -478,6 +482,14 @@ remain the right answer in production.
 Redirect URIs must be registered on the provider's application **byte for byte** — a mismatch
 fails at the authorize step with an error that does not say which part disagreed.
 
+**Sign in with Google is the one credential that does not go in `dev_local.exs`.** GoTrue does
+that OAuth, not this application, so the client id and secret are container environment: copy
+`supabase/.env.example` to **`supabase/.env`** (gitignored) and restart the stack. The redirect
+URI to register at Google is GoTrue's, `http://127.0.0.1:54321/auth/v1/callback`. Without it
+the button still renders and ends at Google's `invalid_client` page — the CLI passes an unset
+`env(...)` through as a literal string, silently. The sign-in **email templates** are also
+Supabase configuration, in `supabase/templates/`, and hot-reload without a restart.
+
 ## Tooling
 
 `mix precommit` is the gate; it runs everything below plus the tests, ordered cheapest-first.
@@ -584,7 +596,7 @@ A fresh session should read this before proposing what to build.
 
 | | |
 | --- | --- |
-| Accounts | **Supabase Auth**: email + password sign-up, sign-in, sign-out, with session renewal and local ES256 verification of the JWT |
+| Accounts | **Supabase Auth**: email + password sign-up, sign-in, sign-out, with session renewal and local ES256 verification of the JWT. **Magic link** since 2026-09-02 — one email carries a `token_hash` link that works from any device *and* a six-digit code for the phone-to-laptop case, both finishing at `/auth/callback` or `/sign-in/code`; a new address is signed up by the same email. Verified end to end against local GoTrue through Mailpit, in the `:supabase`-tagged tests. **Google** is wired through the same callback with a PKCE verifier in the session, proven as far as a Google client id allows: URL and verifier correct, exchange refused for a bogus code, verifier spent on every exit (a postcondition, proven by mutation). It has **not** been driven through Google itself — that needs an OAuth client in `supabase/.env` |
 | Providers | **TIDAL** (OAuth + PKCE, encrypted tokens, refresh) and **any Subsonic server** (Navidrome) |
 | Matching | The full ladder — ISRC, UPC+position, text, fuzzy — with a version veto, a duration conflict that makes the text rung decline, and a confidence threshold |
 | Transfers | Oban pipeline: idempotent (snapshot-and-diff), resumable, per-track report, writes verified after the fact |
@@ -701,10 +713,17 @@ backlog below is the road to it, not a separate list.
 
 **Not built yet**, roughly in value order:
 
-  * **Magic link, then Google OAuth.** Both are ways of obtaining a GoTrue session and feed the
-    same spine that email+password already proved. Magic link adds the `/auth/callback` code
-    exchange; Google reuses it. Note GoTrue's local `email_sent = 2` per hour, which makes
-    magic-link iteration painful until raised in `supabase/config.toml`.
+  * ~~**Magic link, then Google OAuth.**~~ **Built 2026-09-02** — see the Accounts row.
+    Two things this item predicted turned out wrong, and are worth keeping. The magic link is
+    **not** a `/auth/callback` *code exchange*: the SDK's PKCE magic link discards its own
+    verifier (`docs/supabase-sdk-issues.md`), and PKCE fails whenever the link is opened in a
+    different browser, which for email is the normal case. It is GoTrue's `token_hash` flow,
+    verified server-side, and only Google exchanges a code. And the local `email_sent = 2`
+    limit does not exist: the CLI hands GoTrue 360000 when mail goes to Mailpit.
+
+    Still owed: **driving Google through Google**. Everything up to the redirect is tested; the
+    return leg is proven only against a code GoTrue never issued. Needs a Google Cloud OAuth
+    client in `supabase/.env` — `supabase/.env.example` says how.
 
   * ~~**Editing a recording's own metadata**, for the Roon album-artist problem.~~
     **Largely answered 2026-08-28, and the answer was not the one this said.**

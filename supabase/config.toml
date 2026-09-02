@@ -201,6 +201,8 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
+# Read literally: with local mail going to Mailpit the CLI hands GoTrue 360000 instead,
+# so this is a production setting and raising it here changes nothing (verified 2026-09-02).
 email_sent = 2
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
@@ -252,6 +254,18 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# Both sign-in emails link to this application's /auth/callback with a token
+# hash, instead of to GoTrue's /verify — see the comment at the top of each
+# template for why. Local only: a hosted project's templates are set in the
+# dashboard, and these files are what to paste there.
+[auth.email.template.magic_link]
+subject = "Sign in to One Playlist"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm your One Playlist account"
+content_path = "./supabase/templates/confirmation.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
@@ -338,6 +352,24 @@ url = ""
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
+
+# Sign in with Google, for *accounts* — not a YouTube Music connection, which
+# would be this application's own OAuthFlow (see OnePlaylist.Accounts.begin_google_sign_in/1).
+#
+# Enabled, with both values read from `supabase/.env` (gitignored — copy
+# `.env.example`) or the shell. A fresh checkout with neither still starts:
+# the CLI passes an unset `env(...)` through as a literal, GoTrue treats it as
+# a client id, and a click on the button ends at Google's `invalid_client`
+# page rather than anywhere in this application. Every other way of signing in
+# is unaffected. Judged a better trade than making every checkout edit this
+# file. Redirect URI to register at Google: `http://127.0.0.1:54321/auth/v1/callback`.
+# See docs/reference/supabase.md §4.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# Required locally: Google's nonce check fails against the CLI's stack.
+skip_nonce_check = true
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.

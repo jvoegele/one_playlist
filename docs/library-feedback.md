@@ -55,6 +55,33 @@ immediately below.
 
 ---
 
+## `wait_for_it` — `match_wait` made a real end-to-end email test a three-liner
+
+**Found:** 2026-09-02, building magic-link sign-in. **Not a defect** — recorded because goal 1
+asks for the positives too.
+
+The `:supabase`-tagged tests drive a real magic link: ask GoTrue to send it, read the email out
+of Mailpit's API, pull the `token_hash` out of the link, verify it, get a session. The one
+awkward step is the middle one — `send_magic_link/1` returns when GoTrue has *accepted* the send,
+not when Mailpit has indexed the message, so the search can come back empty for a few hundred
+milliseconds.
+
+```elixir
+{:ok, %{"ID" => id}} =
+  WaitForIt.match_wait({:ok, %{"ID" => _}}, latest_mail_to(email), timeout: 10_000)
+```
+
+That is the whole of the synchronisation. Two things worth saying about it. The pattern
+**binds** — `id` comes out of the wait rather than needing a second lookup — which is the
+`=`-counterpart rule from the usage rules doing exactly what it promises. And the failure mode
+is right: on timeout it raises `MatchError` with the last value, which for an empty inbox is
+`:none`, so a test that fails says *no mail arrived* rather than timing out inside a `receive`.
+
+No friction to report. The one thing a first-time reader might trip on — that the forms are
+macros and need a `require` — is the first line of the usage rules.
+
+---
+
 ## `usage_rules` — a synced block disagreed with this project's own reference, and the synced one was wrong
 
 **Found:** 2026-09-01, upgrading external_service 3.2.0 → 3.2.3. **Resolved upstream in

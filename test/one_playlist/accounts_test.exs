@@ -45,6 +45,8 @@ defmodule OnePlaylist.AccountsTest do
   alias OnePlaylist.Accounts
   alias OnePlaylist.Accounts.Session
 
+  require WaitForIt
+
   @moduletag :supabase
 
   setup do
@@ -189,6 +191,124 @@ defmodule OnePlaylist.AccountsTest do
       assert :ok = Accounts.sign_out(stale)
     end
   end
+
+  describe "magic links" do
+    # Each of these sends a real email, against `email_sent` per hour in
+    # supabase/config.toml — raised to 30 locally for this reason. Two are
+    # sent per run, to different addresses.
+
+    test "the emailed link signs the address in, from any browser", %{email: email} do
+      # Nothing is held in a cookie between the request and the click: the
+      # token hash is verified against GoTrue. So the test needs no conn, and
+      # neither does a person opening the email on a different device.
+      assert :ok = Accounts.send_magic_link(email)
+
+      %{token_hash: token_hash} = sign_in_email(email)
+
+      assert {:ok, %Session{} = session} = Accounts.verify_magic_link(token_hash)
+      assert session.email == email
+      assert Session.well_formed?(session)
+
+      # A magic link to an unknown address is also how somebody signs up.
+      %{rows: [[count]]} =
+        Ecto.Adapters.SQL.query!(
+          OnePlaylist.Repo,
+          "select count(*) from auth.users where id = $1",
+          [Ecto.UUID.dump!(session.user_id)]
+        )
+
+      assert count == 1
+
+      # Single use. A second click — or a forwarded email — gets nothing.
+      assert {:error, error} = Accounts.verify_magic_link(token_hash)
+      assert error.reason == :link_expired
+    end
+
+    test "the six-digit code from the same email signs the address in too", %{email: email} do
+      assert :ok = Accounts.send_magic_link(email)
+
+      %{code: code} = sign_in_email(email)
+
+      assert {:ok, %Session{} = session} = Accounts.verify_email_code(email, code)
+      assert session.email == email
+    end
+
+    test "a hash GoTrue never issued is the same failure as a stale one" do
+      assert {:error, error} = Accounts.verify_magic_link("not-a-token-hash")
+      assert error.__struct__ == Accounts.SignInFailed
+      assert error.reason == :link_expired
+    end
+
+    test "a code for an address with no pending attempt fails without saying why", %{
+      email: email
+    } do
+      # Distinguishing "no such attempt" from "wrong digits" would confirm to a
+      # guesser which addresses have a live one.
+      assert {:error, error} = Accounts.verify_email_code(email, "000000")
+      assert error.reason == :link_expired
+    end
+  end
+
+  describe "Google sign-in" do
+    test "begin_google_sign_in/1 hands back a GoTrue URL and the verifier to finish it with" do
+      # No network: the SDK builds the URL. So this is hermetic in everything
+      # but needing a configured base URL, which is why it lives with the
+      # tagged tests rather than the controller's.
+      callback = "http://localhost:4000/auth/callback"
+
+      assert {:ok, %{url: url, code_verifier: verifier}} = Accounts.begin_google_sign_in(callback)
+
+      %URI{path: path, query: query} = URI.parse(url)
+      assert String.ends_with?(path, "/auth/v1/authorize")
+
+      params = URI.decode_query(query)
+      assert params["provider"] == "google"
+      assert params["redirect_to"] == callback
+      assert params["code_challenge_method"] == "s256"
+
+      # The pair actually corresponds — a verifier that did not hash to the
+      # challenge in the URL would fail at the exchange, silently, later.
+      assert params["code_challenge"] == Supabase.Auth.PKCE.generate_challenge(verifier)
+    end
+
+    test "exchange_code/2 refuses a code GoTrue never issued" do
+      assert {:error, error} = Accounts.exchange_code("not-a-code", "not-a-verifier")
+      assert error.__struct__ == Accounts.SignInFailed
+      assert error.reason == :link_expired
+    end
+  end
+
+  # Reads the sign-in email GoTrue sent to `email` out of Mailpit, which the
+  # local stack routes all mail to (`supabase status` prints `MAILPIT_URL`).
+  # Returns the token hash from the link and the six-digit code from the body.
+  #
+  # `match_wait` because delivery is asynchronous from the request that caused
+  # it: `send_magic_link/1` returns when GoTrue has accepted the send, not when
+  # Mailpit has indexed the message.
+  defp sign_in_email(email) do
+    {:ok, %{"ID" => id}} =
+      WaitForIt.match_wait({:ok, %{"ID" => _}}, latest_mail_to(email), timeout: 10_000)
+
+    %{"HTML" => html} = mailpit!("/api/v1/message/#{id}").body
+
+    [_, token_hash] = Regex.run(~r/token_hash=([^&"]+)/, html)
+    [_, code] = Regex.run(~r/<strong>(\d{6})<\/strong>/, html)
+
+    %{token_hash: token_hash, code: code}
+  end
+
+  defp latest_mail_to(email) do
+    case mailpit!("/api/v1/search", params: [query: ~s(to:"#{email}")]).body do
+      %{"messages" => [message | _]} -> {:ok, message}
+      _nothing_yet -> :none
+    end
+  end
+
+  defp mailpit!(path, opts \\ []) do
+    Req.get!(Keyword.merge([base_url: mailpit_url(), url: path], opts))
+  end
+
+  defp mailpit_url, do: System.get_env("MAILPIT_URL", "http://127.0.0.1:54324")
 
   # Unique across runs, not merely within one — see the note above.
   defp unique_email do

@@ -26,15 +26,28 @@ defmodule OnePlaylistWeb.Router do
 
     get "/", PageController, :home
     delete "/sign-out", SessionController, :delete
+
+    # Where every emailed sign-in link and every Google redirect lands. Two
+    # things about its placement are deliberate. It is declared **before**
+    # `/auth/:provider` below, because routes match in order and that segment
+    # would otherwise swallow it as a provider named "callback". And it is
+    # outside `redirect_if_authenticated`: a signed-in person clicking a sign-in
+    # link should get the account the link names, not be bounced away from it.
+    # It is also in GoTrue's redirect allowlist — `additional_redirect_urls` in
+    # supabase/config.toml — which is why the path is this one and not another.
+    get "/auth/callback", SessionController, :callback
   end
 
-  # The two pages a signed-in user has no business seeing. `redirect_if_authenticated`
+  # The pages a signed-in user has no business seeing. `redirect_if_authenticated`
   # sends them on rather than offering a password field they do not need.
   scope "/", OnePlaylistWeb do
     pipe_through [:browser, :redirect_if_authenticated]
 
     get "/sign-in", SessionController, :new
     post "/sign-in", SessionController, :create
+    post "/sign-in/magic-link", SessionController, :send_magic_link
+    post "/sign-in/code", SessionController, :verify_code
+    post "/sign-in/google", SessionController, :google
     get "/sign-up", RegistrationController, :new
     post "/sign-up", RegistrationController, :create
   end

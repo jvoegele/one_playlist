@@ -141,6 +141,115 @@ of the time.
 
 ---
 
+## `supabase_auth` — a PKCE magic link discards its own verifier, and never sends the challenge
+
+**Version:** 1.0.0 · **Found:** 2026-09-02 · **Filed:** not yet
+
+`Supabase.Auth.sign_in_with_otp/2` on a client whose `auth.flow_type` is `:pkce` cannot
+produce a magic link anybody can finish. Two independent defects, either of which is enough:
+
+```elixir
+# lib/supabase/auth/user_handler.ex
+def sign_in_with_otp(%Client{} = client, %SignInWithOTP{} = signin) when client.auth.flow_type == :pkce do
+  {_verifier, challenge, method} = generate_pkce()        # <- the verifier is dropped here
+  with {:ok, body} <- SignInRequest.create(signin, challenge, method) do
+    ...
+    |> then(fn {:ok, _resp} -> :ok end)                    # <- and the caller gets a bare :ok
+```
+
+The function's return is `:ok`. The verifier — the one secret the whole flow depends on —
+exists for the duration of the call and is never handed to the caller, so when GoTrue later
+redirects back with `?code=…` there is nothing to give `exchange_code_for_session/4`.
+
+The second defect means GoTrue never learns there *was* a challenge:
+
+```elixir
+# lib/supabase/auth/schemas/sign_in_with_otp.ex
+|> Map.merge(%{code_challange: code_challenge, code_challenge_method: code_method})
+#              ^^^^^^^^^^^^^^ misspelt
+
+# lib/supabase/auth/schemas/sign_in_request.ex — the 3-arity `create/3` for OTP
+|> cast(attrs, [:email, :phone, :data, :create_user, :redirect_to, :channel])
+#              neither :code_challenge nor :code_challenge_method is cast
+```
+
+So the request body GoTrue receives is identical to the implicit-flow one. The same shape
+appears in `sign_up/2`, `sign_in_with_sso/2` and `reset_password_for_email/3`, each of which
+calls `generate_pkce/0` and binds the verifier to `_verifier`. Only `sign_in_with_oauth/2`
+(`get_data_for_provider/2`) returns it, and it does so correctly.
+
+Reproduced with no network — the return type says it all:
+
+```elixir
+{:ok, client} = Supabase.init_client("http://127.0.0.1:54321", "any-key", %{auth: %{flow_type: :pkce}})
+{:ok, signin} = Supabase.Auth.Schemas.SignInWithOTP.parse(%{email: "a@b.test"})
+{:ok, body} = Supabase.Auth.Schemas.SignInRequest.create(signin, "challenge", "s256")
+Map.has_key?(body, :code_challenge)  # true — the field exists on the struct
+body.code_challenge                  # nil  — it was never cast
+```
+
+**Suggested fix:** return `{:ok, %{code_verifier: verifier}}` from the PKCE clause (a breaking
+change to a return that is currently `:ok`, so probably behind the flow type), fix the spelling,
+and add both fields to the cast list. A test that asserts on the outgoing body would have caught
+all three.
+
+**Impact here:** none in the end, and for a reason worth recording. The application's magic link
+does not use PKCE at all — it uses GoTrue's `token_hash` flow, which is what Supabase documents
+for server-rendered applications and which works from a different browser than the one that
+asked for the link. That was the right design before the defect was found. But the defect is
+what makes `OnePlaylist.Supabase.client/1` default to `:implicit` and hand out a `:pkce` client
+only to `begin_google_sign_in/1`: a shared `:pkce` client would send every sign-up confirmation
+email as a code nobody can exchange. See that function's documentation.
+
+---
+
+## `supabase_potion` — `init_client/3`'s options typespec rejects the documented call
+
+**Version:** 0.8.0 · **Found:** 2026-09-02 · **Filed:** not yet
+
+The docstring for `Supabase.init_client/3` shows:
+
+```elixir
+Supabase.init_client(url, key, auth: [flow_type: :pkce])
+```
+
+The `@spec` says `options :: Supabase.Client.options()`, which is
+
+```elixir
+@type options :: %{optional(:auth) => Supabase.Client.Auth.params(), ...}   # a map, fine
+@type params  :: %{auto_refresh_token: boolean(), debug: boolean(), detect_session_in_url: boolean(),
+                   flow_type: String.t(), persist_session: boolean(), storage_key: String.t()}
+```
+
+Every key of `params` is **required** — there is no `optional(...)` — and `flow_type` is a
+`String.t()`, where the schema field is `Ecto.Enum` over `~w[implicit pkce magicLink]a` and the
+documented value is an atom. So the documented keyword list breaks the contract twice over, a
+map with just `flow_type` breaks it once, and there is no value a caller wanting only to set
+the flow type can pass that Dialyzer accepts. The runtime is fine with all of them: it calls
+`Map.new/1` and runs the map through the changeset.
+
+Reproduced with no network:
+
+```elixir
+# in any module with a @spec that Dialyzer checks
+Supabase.init_client("http://127.0.0.1:54321", "key", auth: [flow_type: :pkce])
+# lib/…: The function call will not succeed. … breaks the contract … options: Supabase.Client.options()
+```
+
+**What it costs.** Dialyzer's success typing for the calling function collapses to the error
+branch, and every caller's `{:ok, _}` pattern is then reported as one that "can never match".
+In this application that was **45 findings** across `Accounts`, `Storage`, `Imports`, `Exports`
+and two controllers, from a single argument.
+
+**Suggested fix:** make every key in `Auth.params()` (and the sibling `Db`/`Global`/`Storage`
+params) `optional(...)`, type `flow_type` as `:implicit | :pkce | :magicLink`, and either widen
+`options` to accept a keyword list or change the docstring to pass a map.
+
+**Impact here:** `OnePlaylist.Supabase.client/1` builds the client with `%{}` and sets the flow
+type on the struct afterwards, which is a workaround and is commented as one.
+
+---
+
 ## Things that are not bugs, and are not filed
 
 Kept here so the list above stays credible. Each is recorded in `docs/reference/supabase.md`

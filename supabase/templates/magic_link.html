@@ -1,0 +1,29 @@
+<!--
+  The sign-in email. With enable_confirmations = false (this local stack) it
+  goes to every address, new or known; with confirmations on, a new address
+  gets confirmation.html instead. Keep the two saying the same thing, because
+  the person cannot tell which one they were sent.
+
+  The link goes to this application, not to GoTrue's /verify endpoint: the
+  default {{ .ConfirmationURL }} finishes the sign-in at GoTrue and hands the
+  tokens back in a URL *fragment*, which a server never sees. Carrying the
+  token hash to /auth/callback lets OnePlaylist.Accounts.verify_magic_link/1
+  finish it server-side, from whichever browser the link is opened in.
+
+  Wired up locally by [auth.email.template.magic_link] in config.toml. In
+  production, paste it into Authentication -> Email Templates in the
+  dashboard; config.toml does not reach a hosted project's templates.
+-->
+<h2>Sign in to One Playlist</h2>
+
+<p>
+  <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">
+    Click here to sign in
+  </a>
+</p>
+
+<p>Or enter this code where you asked for it:</p>
+
+<p style="font-size: 1.5em; letter-spacing: 0.2em; font-family: monospace;"><strong>{{ .Token }}</strong></p>
+
+<p>The link and the code work once, and for an hour. If you did not ask to sign in, you can ignore this email.</p>

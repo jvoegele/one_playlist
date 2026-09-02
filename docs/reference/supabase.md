@@ -222,6 +222,107 @@ on — the likely production setting — it returns the user and a `nil` session
 is not signed in until the link is clicked. Handle both, or development quietly diverges from
 production on the one flow every user takes.
 
+### Magic links from a server: use `token_hash`, not PKCE (built 2026-09-02)
+
+Supabase's JavaScript clients default to a **PKCE** magic link: a challenge goes with the
+request, the email links to GoTrue's `/verify`, and GoTrue redirects back with `?code=` that only
+the browser holding the verifier can exchange. Two things are wrong with that for this
+application, and both are worth knowing before designing around the platform.
+
+  * **It fails when the link is opened anywhere but the requesting browser** — the phone, a
+    different profile, a mail client that opens its own webview. For email that is the common
+    case, not the edge. The error is `bad_code_verifier` / `flow_state_not_found`, and it looks
+    like a bug in your callback.
+  * **`supabase_auth` 1.0.0 cannot do it anyway.** `sign_in_with_otp/2` on a `:pkce` client
+    generates a verifier, never returns it, and never puts the challenge in the request body.
+    See `docs/supabase-sdk-issues.md`. Only `sign_in_with_oauth/2` returns a verifier.
+
+What works, and what `OnePlaylist.Accounts.send_magic_link/1` does, is the flow Supabase
+documents for server-side rendering:
+
+1. Ask for the OTP with no challenge (`sign_in_with_otp(client, %{email: email})` on the
+   default `:implicit` client). GoTrue mints a token and sends the template.
+2. **The template links to your application**, carrying the hash:
+   `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email`. Not
+   `{{ .ConfirmationURL }}`, which finishes at GoTrue and hands the tokens back in a URL
+   *fragment* the server never sees. The same template can show `{{ .Token }}`, the six-digit
+   code, for the person reading on one device and signing in on another.
+3. The callback calls `verify_otp(client, %{token_hash: hash, type: :email})` and gets a
+   session. Nothing was held in a cookie, so any browser can finish it.
+
+Three details that cost time:
+
+  * **`type=email` covers both templates, and you need both.** Which one GoTrue sends for a
+    magic link depends on `enable_confirmations`. Off (the CLI default, and this project's local
+    setting) it auto-confirms a new address and sends **`magic_link`** to known and unknown
+    addresses alike — every email in Mailpit from the 2026-09-02 build says so. On, the likely
+    production setting, a new address is created unconfirmed and gets the **`confirmation`**
+    template, the same email a password sign-up gets. Verifying with `type: :email` lets GoTrue
+    decide for itself whether the token confirms a new account or signs an existing one in, so
+    one callback serves both, and both templates here (`supabase/templates/`) carry the same
+    link and code. A bonus: password sign-up confirmation lands on the same callback. The
+    confirmation-template path is therefore **untested locally** until confirmations are
+    switched on for a run.
+  * **A wrong six-digit code and an expired one are both `otp_expired`**, 403. There is no way
+    to tell them apart, and no reason to want to at the form.
+  * **Templates are local-only configuration.** `[auth.email.template.<name>] content_path` in
+    `config.toml` is served to GoTrue through Kong (`GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=
+    http://supabase_kong_…:8088/email/magic_link.html`) with reloading on, so edits apply
+    without a restart. A hosted project's templates live in the dashboard and must be pasted
+    there by hand; `config.toml` does not reach them.
+
+And one that is **not** a problem, contrary to what `CLAUDE.md` said until today: the local
+`email_sent = 2` rate limit. The CLI passes GoTrue `GOTRUE_RATE_LIMIT_EMAIL_SENT=360000` when
+mail is going to Mailpit — the setting is documented as "requires `auth.email.smtp`" and is read
+literally. Magic-link iteration locally is unlimited.
+
+### Sign in with Google — GoTrue does the OAuth, and PKCE is the CSRF defence
+
+`sign_in_with_oauth(client, %{provider: :google, options: %{redirect_to: callback}})` on a
+**`:pkce`** client answers `%{url: …, code_verifier: …}` with no network call: the URL is
+GoTrue's `/authorize`, carrying the challenge. Store the verifier in the session, redirect,
+and on `?code=` call `exchange_code_for_session(client, code, verifier)`. There is no `state`
+parameter to compare: an authorization code planted in a victim's browser cannot be exchanged
+without the verifier only the attacker's session holds, so PKCE does the job `state` does in
+the provider-connection flows. The callback must delete the verifier on every exit —
+`OnePlaylistWeb.SessionController.callback/2` carries a postcondition saying so.
+
+Because the verifier lives in a cookie, the browser must land back on the **same host** it
+started from. Locally that means browsing at `http://localhost:4000`, the endpoint's configured
+`url`, which is where `url(conn, ~p"/auth/callback")` sends GoTrue.
+
+**This is an account sign-in, not a music-service connection.** GoTrue receives Google's tokens,
+shows them once in the session, and neither stores nor refreshes them (the constraint at the
+top of this section). YouTube Music, if built, is an `OnePlaylist.Providers.OAuthFlow` like
+Spotify's — for exactly the reason Supabase's Spotify provider was rejected for that job.
+
+Local setup:
+
+1. Google Cloud Console → APIs & Services → Credentials → OAuth client, type *Web application*.
+   Authorised redirect URI **`http://127.0.0.1:54321/auth/v1/callback`** — GoTrue's callback,
+   not this application's. Google refuses `localhost` for the same reason Spotify does.
+2. `[auth.external.google]` in `config.toml` is committed `enabled = true` with both values as
+   `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` / `env(…_SECRET)` and
+   `skip_nonce_check = true`, which the local stack needs.
+3. Put both values in **`supabase/.env`** (gitignored; `supabase/.env.example` is the template)
+   and `supabase stop && supabase start`. Provider configuration is container environment, so
+   this one does need a restart.
+
+**How `env()` resolves — measured, since the config reference does not say.** The CLI reads
+`env(NAME)` from the process environment *and* from `supabase/.env`, and both were confirmed in
+one restart by putting the client id in the shell and the secret in the file: GoTrue received
+each. Precedence between the two was not tested. An **unset** name is passed through as the
+literal string `env(NAME)`, with no warning.
+
+**What happens without credentials.** The CLI passes an unresolved `env(X)` through
+**as a literal string**, silently — GoTrue starts with `GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID=env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)`,
+considers the provider configured, and redirects to Google with that as the client id. The
+person sees Google's `Error 401: invalid_client`, not GoTrue's `provider_disabled` and not this
+application's "not enabled on this server". Verified 2026-09-02. Everything else on the sign-in
+page keeps working, so this is a rough edge for a developer without a Google client rather than
+a fault, and enabling the provider in the committed file was judged worth it over asking every
+checkout to edit `config.toml`.
+
 ### Storage: `Supabase.Storage.File.list/3` cannot be called at all
 
 Every call raises before reaching the network, so listing is unavailable and this project does

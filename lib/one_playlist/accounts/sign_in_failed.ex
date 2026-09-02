@@ -18,6 +18,12 @@ defmodule OnePlaylist.Accounts.SignInFailed do
   The reasons that *are* separated are the ones a user can act on differently:
   an unconfirmed email needs the mail resending, a weak password needs a
   different password, and rate limiting needs waiting.
+
+  `:link_expired` is coarse for the same reason `:invalid_credentials` is. It
+  covers a magic link that has expired, one already used, a six-digit code that
+  is wrong, and an OAuth exchange whose flow state GoTrue no longer holds —
+  GoTrue itself answers a wrong code and an expired one with the same
+  `otp_expired`, and every one of them has the same remedy: start again.
   """
 
   use Errata.Error,
@@ -29,7 +35,8 @@ defmodule OnePlaylist.Accounts.SignInFailed do
       :weak_password,
       :rate_limited,
       :signups_disabled,
-      :already_registered
+      :already_registered,
+      :link_expired
     ],
     code: "SIGN_IN_FAILED"
 

@@ -12,6 +12,8 @@
       email={@email}
       error_message={@error_message}
       configured?={@configured?}
+      magic_link_action={~p"/sign-in/magic-link"}
+      google_action={~p"/sign-in/google"}
     >
       <:footer>
         Already have an account? <.link navigate={~p"/sign-in"} class="link link-primary">Sign in</.link>.

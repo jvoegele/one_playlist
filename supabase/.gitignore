@@ -6,3 +6,6 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Local env(...) values for config.toml — Google OAuth client. See .env.example.
+.env

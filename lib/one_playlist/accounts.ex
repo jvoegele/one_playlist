@@ -46,6 +46,18 @@ defmodule OnePlaylist.Accounts do
   @typedoc "Either a live session, or an account awaiting email confirmation."
   @type sign_up_result :: {:ok, Session.t()} | {:ok, :confirmation_required}
 
+  @typedoc """
+  A redirect-based sign-in, begun and not yet finished.
+
+  `url` is where to send the browser. `code_verifier` is the PKCE secret whose
+  hash went along in that URL; it must be kept — in the session cookie — until
+  the browser comes back, and handed to `exchange_code/2`. Nothing else can
+  finish the flow, which is what makes the verifier the CSRF defence as well:
+  an authorization code planted in a victim's browser is useless without the
+  verifier that only the attacker's session holds.
+  """
+  @type sign_in_start :: %{url: String.t(), code_verifier: String.t()}
+
   @doc """
   Signs a user in with an email address and a password.
 
@@ -93,6 +105,182 @@ defmodule OnePlaylist.Accounts do
         {:error, error} ->
           {:error, classify(error, :sign_up)}
       end
+    end
+  end
+
+  @doc """
+  Emails a sign-in link and a six-digit code to an address.
+
+  The email is sent by GoTrue from the project's templates —
+  `supabase/templates/` locally, and the same files pasted into the dashboard in
+  production. It carries **two credentials for one attempt**:
+
+    * a link to `{{ .SiteURL }}/auth/callback` with `token_hash={{ .TokenHash }}`,
+      which `verify_magic_link/1` finishes. The hash is verified server-side
+      against GoTrue, so the link works from any browser or device — the one
+      that asked for it or another — because nothing about the attempt is held
+      in a cookie.
+    * `{{ .Token }}`, the six-digit code the same template shows, which
+      `verify_email_code/2` finishes. For the person reading the email on a
+      phone and signing in on a laptop, where even a device-independent link is
+      the wrong shape.
+
+  **Which template GoTrue picks depends on the project, not only the address.**
+  Locally, with `enable_confirmations = false`, every magic link — to a known
+  address or a brand-new one — goes out as `magic_link` (observed 2026-09-02).
+  With confirmations *on*, the production setting, a new address is created
+  unconfirmed and gets the `confirmation` template instead, the same email a
+  password sign-up gets. Both templates here carry the same link and code, so
+  the difference is invisible to the person and to `callback/2` — and a
+  password sign-up's confirmation email lands on the same callback and signs
+  the person in.
+
+  ## Deliberately not PKCE
+
+  Supabase's client libraries default to a PKCE magic link: the challenge goes
+  with the request, the email links to GoTrue, and GoTrue redirects back with a
+  `code` that only the browser holding the verifier can exchange. Two reasons not
+  to here. It fails in exactly the case above — the link opened anywhere other
+  than the browser that requested it — and that is the *common* case for email,
+  not the edge. And the SDK cannot do it anyway: in 1.0.0 `sign_in_with_otp/2`
+  generates a verifier, never returns it, and never puts the challenge in the
+  request body either. See `docs/supabase-sdk-issues.md`.
+
+  So this is the flow Supabase documents for server-rendered applications, and
+  the client is the default `:implicit` one — which sends no challenge and is
+  harmless, since no `code` ever comes back to be exchanged.
+
+  Also how somebody **signs up** without a password: GoTrue creates the account
+  on the first link, because `should_create_user` defaults to true.
+
+  No `redirect_to` is sent. The templates build the link from `{{ .SiteURL }}`,
+  which is per-environment configuration GoTrue already holds, so there is
+  nothing for a request to add — and a link that does not depend on the request
+  is one a *confirmation* email, which no request of ours shapes, can carry too.
+  """
+  # A filter, like `sign_in/2`: the address is typed by a person and a bad one
+  # comes back as an error the form renders.
+  @spec send_magic_link(String.t()) :: :ok | {:error, Errata.Error.t()}
+  def send_magic_link(email) when is_binary(email) do
+    with {:ok, client} <- client() do
+      case Supabase.Auth.sign_in_with_otp(client, %{email: email}) do
+        :ok -> :ok
+        # The SDK's phone branch, which an email request never takes. Matched so
+        # the function's answer is total rather than a `CaseClauseError` if the
+        # SDK ever changes what an email send returns.
+        {:ok, _message_id} -> :ok
+        {:error, error} -> {:error, classify(error, :magic_link)}
+      end
+    end
+  end
+
+  @doc """
+  Finishes a magic link: exchanges the `token_hash` from the emailed link for a
+  session.
+
+  Single use and time-limited (`otp_expiry`, an hour locally). A second click
+  answers `:link_expired`, which is also what a forged or truncated hash
+  answers — GoTrue does not distinguish them, and neither does this.
+  """
+  @spec verify_magic_link(String.t()) :: {:ok, Session.t()} | {:error, Errata.Error.t()}
+  def verify_magic_link(token_hash) when is_binary(token_hash) do
+    with {:ok, client} <- client() do
+      client
+      |> Supabase.Auth.verify_otp(%{token_hash: token_hash, type: :email})
+      |> handle_session_result(:magic_link)
+    end
+  end
+
+  @doc """
+  Finishes a magic link the other way: the six-digit code from the same email,
+  typed in beside the address it was sent to.
+
+  A wrong code and an expired one are both `:link_expired`. That is GoTrue's
+  answer — `otp_expired` for either — and it is the right one to pass on: the
+  code is six digits, and a form that distinguished "wrong" from "expired" would
+  be confirming to a guesser that the address has a live attempt.
+  """
+  @spec verify_email_code(String.t(), String.t()) ::
+          {:ok, Session.t()} | {:error, Errata.Error.t()}
+  def verify_email_code(email, code) when is_binary(email) and is_binary(code) do
+    with {:ok, client} <- client() do
+      client
+      |> Supabase.Auth.verify_otp(%{email: email, token: String.trim(code), type: :email})
+      |> handle_session_result(:email_code)
+    end
+  end
+
+  @doc """
+  Begins a Google sign-in, through Supabase Auth.
+
+  No network call: the SDK builds GoTrue's `/authorize` URL and a PKCE pair, and
+  the browser does the rest. GoTrue sends the user to Google, takes Google's
+  answer at *its* callback, and redirects to `callback_url` with a `code` that
+  `exchange_code/2` turns into a session — provided the caller kept the
+  `code_verifier`.
+
+  ## What this is, and is not
+
+  A way of obtaining a **GoTrue session**, exactly as email and password are.
+  It is not a music-service connection: GoTrue receives Google's access token,
+  shows it once in the session response, and neither stores nor refreshes it
+  (`docs/reference/supabase.md` §4). YouTube Music, if it is ever built, will be
+  an `OnePlaylist.Providers.OAuthFlow` like Spotify's, with tokens this
+  application holds and renews itself — the same reason Supabase's own Spotify
+  provider was rejected for that job.
+
+  This is the one place a `:pkce` client is asked for; `OnePlaylist.Supabase.client/1`
+  says why the shared one is not.
+  """
+  # Both halves of the pair are asserted because both fail *later* and
+  # silently at the point of creation: a blank verifier is stored in the cookie
+  # without complaint and the exchange answers `bad_code_verifier` a minute
+  # later, and a URL without the challenge starts an implicit-flow sign-in whose
+  # tokens come back in a fragment the server never sees — the user completes
+  # Google's consent screen and lands on the callback with nothing.
+  #
+  # No input falsifies any of these from outside: `callback_url` reaches none.
+  # Proven by mutation instead — blanking the verifier fires `verifier_present`,
+  # stripping the challenge from the URL fires `challenge_travels`, and asking
+  # for `:github` fires `names_google`.
+  @post whenever(
+          {:ok, start} <- result,
+          verifier_present: is_binary(start.code_verifier) and start.code_verifier != "",
+          challenge_travels: String.contains?(start.url, "code_challenge="),
+          names_google: String.contains?(start.url, "provider=google")
+        )
+  @spec begin_google_sign_in(String.t()) :: {:ok, sign_in_start()} | {:error, Errata.Error.t()}
+  def begin_google_sign_in(callback_url) when is_binary(callback_url) do
+    with {:ok, client} <- client(flow_type: :pkce) do
+      credentials = %{provider: :google, options: %{redirect_to: callback_url}}
+
+      case Supabase.Auth.sign_in_with_oauth(client, credentials) do
+        {:ok, %{url: url, code_verifier: verifier}} ->
+          {:ok, %{url: url, code_verifier: verifier}}
+
+        other ->
+          # A parse failure on a literal `:google`, or a client the SDK decided
+          # was not PKCE after all. Neither is the user's doing.
+          Logger.error("could not begin a Google sign-in: #{inspect(other)}")
+          {:error, AuthUnavailable.new(reason: :unexpected_response)}
+      end
+    end
+  end
+
+  @doc """
+  Finishes a redirect-based sign-in: the `code` GoTrue sent the browser back
+  with, and the verifier kept from `begin_google_sign_in/1`.
+
+  `:link_expired` covers the code being spent, the flow state having aged out,
+  and the verifier not matching — which is what a CSRF attempt looks like from
+  here, and is refused for the same reason it is refused everywhere else.
+  """
+  @spec exchange_code(String.t(), String.t()) :: {:ok, Session.t()} | {:error, Errata.Error.t()}
+  def exchange_code(code, code_verifier) when is_binary(code) and is_binary(code_verifier) do
+    with {:ok, client} <- client() do
+      client
+      |> Supabase.Auth.exchange_code_for_session(code, code_verifier)
+      |> handle_session_result(:exchange)
     end
   end
 
@@ -223,8 +411,8 @@ defmodule OnePlaylist.Accounts do
   # A single place to fail when the stack is not configured, so every public
   # function above reports `:not_configured` rather than raising an Agent
   # `:noproc` from wherever it happened to call first.
-  defp client do
-    case OnePlaylist.Supabase.client() do
+  defp client(opts \\ []) do
+    case OnePlaylist.Supabase.client(opts) do
       {:ok, client} ->
         {:ok, client}
 
@@ -240,10 +428,12 @@ defmodule OnePlaylist.Accounts do
     end
   end
 
-  defp handle_session_result({:ok, %Supabase.Auth.Session{} = session}),
+  defp handle_session_result(result, context \\ :sign_in)
+
+  defp handle_session_result({:ok, %Supabase.Auth.Session{} = session}, _context),
     do: {:ok, Session.from_gotrue(session)}
 
-  defp handle_session_result({:error, error}), do: {:error, classify(error, :sign_in)}
+  defp handle_session_result({:error, error}, context), do: {:error, classify(error, context)}
 
   # Turns the SDK's status-class error into one the UI can act on, in two tiers.
   #
@@ -287,6 +477,33 @@ defmodule OnePlaylist.Accounts do
 
   defp from_gotrue_code("over_email_send_rate_limit", _error),
     do: SignInFailed.new(reason: :rate_limited)
+
+  # One remedy for all four — start again — so one reason. `otp_expired` is
+  # GoTrue's answer to a wrong six-digit code as well as a stale one; the three
+  # flow-state codes are the PKCE exchange's ways of saying the same thing, and
+  # `bad_code_verifier` is also what a CSRF attempt looks like from here.
+  defp from_gotrue_code(code, _error)
+       when code in ~w(otp_expired bad_code_verifier flow_state_not_found flow_state_expired),
+       do:
+         SignInFailed.new(
+           reason: :link_expired,
+           message: "that link or code has expired or was already used — request a new one"
+         )
+
+  # The project has the method switched off. Configuration, not the user, and
+  # named as such so a missing Google client id does not read as "wrong password".
+  defp from_gotrue_code(code, _error)
+       when code in ~w(provider_disabled email_provider_disabled otp_disabled),
+       do:
+         AuthUnavailable.new(
+           reason: :method_disabled,
+           message: "that way of signing in is not enabled on this server"
+         )
+
+  # GoTrue's own words are the useful ones here — "Unable to validate email
+  # address: invalid format" — and they name nothing sensitive.
+  defp from_gotrue_code(code, error) when code in ~w(validation_failed email_address_invalid),
+    do: SignInFailed.new(reason: :invalid_credentials, message: error_message(error))
 
   defp from_gotrue_code(_unrecognised, _error), do: nil
 
