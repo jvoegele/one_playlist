@@ -51,6 +51,7 @@ source of truth for what the port must reproduce.
 | Hosting | **Vercel + a hosted Supabase project** | The canonical pairing. Which Supabase org is **undecided** (see §17); plan for local first, hosted as its own milestone. |
 | Scope | **Core product first, matching ladder included** | Auth, provider connections, library, transfers with per-track reports, scheduled sync, CSV import/export, the four-rung ladder measured against the existing corpora. Enrichment, classical, artwork and the identity spine are later phases. |
 | Providers | **TIDAL, Subsonic/Navidrome, Spotify, YouTube Music**, plus the library | In that order. YouTube Music is new (never built in Elixir). |
+| Provider OAuth | **Hybrid**: Spotify and YouTube as Supabase Auth linked identities; TIDAL and Subsonic as the app's own flows; tokens in Vault and refresh ours either way | Auth's providers hand tokens over once and never refresh them, so refresh is ours regardless — but the first leg is a slice of Auth worth knowing. TIDAL is not an Auth provider, so an own flow exists anyway. §8 has the guardrails. |
 | Data | **Corpora + replay scripts; Jason's library; Jason's playlists** | Corpora are language-neutral JSON — port the replays *first* so parity is a number. The library is 654 MusicBrainz-enriched recordings that would take weeks to rebuild. |
 | Realtime | **Broadcast from Database, Realtime Authorization, Presence, and Postgres Changes once for contrast** | Jason's team. Transfer progress is the first use. |
 | Repository | **`github.com/jvoegele/one-playlist`, public** | Public from day one, which makes §16's rule about local data a hard rule. |
@@ -188,6 +189,7 @@ when it first appears (§15).
 | Postgres + RLS | Every table; policies with explicit `TO` roles; `(select auth.uid())` | Same — carried over | 1 |
 | pgTAP (`supabase test db`) | RLS tests, ported from `supabase/tests/` | Same | 1 |
 | Auth: email+password, magic link (`token_hash` + six-digit code), Google | Accounts | Same; in TS via `@supabase/ssr` and the UI Library auth block | 1 |
+| Auth: OAuth providers as linked identities (`linkIdentity`, `unlinkIdentity`, `getUserIdentities`, manual linking, scopes, `provider_token` handover) | Connecting Spotify and YouTube Music | The Elixir app's own Spotify flow | 2, 8 |
 | Auth: anonymous sign-in *(optional)* | "Try a CSV import before creating an account", then link identity | New | 6 |
 | Data API (PostgREST) via `supabase-js` | All user-facing reads and writes | Ecto + `Repo.as_user/3` | 1 |
 | Postgres functions (`rpc`) | Reorder playlist entries, create batch transfers, "run failed again" — anything that was a transaction | Ecto.Multi | 3, 5 |
@@ -313,29 +315,84 @@ and is for development only.** Custom SMTP (Resend is the usual choice) is a pre
 magic links on the hosted project, and the templates must be pasted into the dashboard —
 `config.toml` templates do not reach a hosted project.
 
-### Provider OAuth — this application's own flows, not Supabase Auth's providers
+### Provider connections — a hybrid, decided 2026-09-12
 
-Unchanged decision, and worth restating because it *looks* like a missed dogfooding
-opportunity: Supabase Auth's Spotify/Google providers hand over `provider_token` once and never
-refresh it, which is fatal for a *scheduled* transfer. Sign-in with Google is an account
-identity; connecting YouTube Music is an OAuth flow this app runs itself. (`CLAUDE.md` § "Hard
-constraints", last bullet.)
+Two of the four providers connect through **Supabase Auth's own OAuth providers, as linked
+identities**; the other two through **flows this application runs itself**. Both paths end in
+the same `provider_connections` row with tokens in Vault, and the same Edge Function refreshes
+them. The only thing that differs is *how the tokens arrived*, and the code should be shaped so
+that is the only place the difference shows.
 
-Shape per provider (`docs/reference/domain.md` §3 has every quirk):
+| Provider | Path | Why |
+| --- | --- | --- |
+| Spotify | **Supabase Auth**, `linkIdentity({ provider: 'spotify' })` | Supported by Auth; exercises identities, scopes and provider-token handover |
+| YouTube Music | **Supabase Auth**, `linkIdentity({ provider: 'google' })` with YouTube scopes | Same; also the same Google client as sign-in |
+| TIDAL | **Own flow** — public client + PKCE | Not a Supabase Auth provider |
+| Subsonic / Navidrome | **Own flow** — server URL + credentials, no OAuth | No OAuth at all |
 
-| Provider | Client type | Kept between legs | Removal model | Notes |
-| --- | --- | --- | --- | --- |
-| TIDAL | public + PKCE | verifier | needs track id **and** `meta.itemId` | redirect URI on `localhost` is fine |
-| Spotify | confidential | nothing | by URI, `snapshot_id` makes a removal silently no-op | redirect URI **must be `127.0.0.1`**; `/playlists/{id}/items` not `/tracks`; Development Mode: 5 users, own playlists only |
-| Subsonic | token auth, no OAuth | — | by zero-based index | HTTP 200 on failure; ISRC is an array |
-| YouTube Music | confidential (Google) | nothing | by `playlistItem.id` | 10,000 units/day; `playlistItems.insert` = 50, `search.list` = 100 → ~200 adds/day |
+**Why a hybrid and not one or the other.** Goal 1 says prefer the Supabase-native way and say
+so. The Elixir project rejected Auth's providers outright because Supabase hands over
+`provider_token` once and never refreshes it — which is true, and is why the *refresh* stays
+ours either way — but that is an argument about the second leg, not the first. The first leg
+(consent, callback, exchange) is a real slice of Auth worth knowing firsthand: identities,
+manual linking, scopes, and the handover itself. TIDAL forces an own flow to exist regardless,
+so the hybrid costs one abstraction, not two systems. The cons are real and are listed as
+guardrails below rather than as reasons not to.
 
-Implementation:
+Provider quirks (`docs/reference/domain.md` §3 has every one):
+
+| Provider | Client type | Removal model | Notes |
+| --- | --- | --- | --- |
+| TIDAL | public + PKCE | needs track id **and** `meta.itemId` | redirect URI on `localhost` is fine |
+| Spotify | confidential (held by Supabase) | by URI; `snapshot_id` makes a removal silently no-op | Supabase's callback URI at Spotify: `http://127.0.0.1:54321/auth/v1/callback` locally, `https://<ref>.supabase.co/auth/v1/callback` hosted — **`127.0.0.1`, never `localhost`**; `/playlists/{id}/items` not `/tracks`; Development Mode: 5 users, own playlists only |
+| Subsonic | token auth | by zero-based index | HTTP 200 on failure; ISRC is an array |
+| YouTube Music | confidential (Google, held by Supabase) | by `playlistItem.id` | 10,000 units/day; `playlistItems.insert` = 50, `search.list` = 100 → ~200 adds/day |
+
+**The Supabase Auth path — implementation and guardrails**
+
+  * Enable manual linking (`[auth] enable_manual_linking = true` locally; the dashboard toggle
+    hosted). Connect with **`linkIdentity`, never `signInWithOAuth`**, from a signed-in page:
+    `signInWithOAuth` while signed in silently signs into a *different* account when the
+    provider email differs. Wrap the call so the wrong one cannot be reached from the connect
+    button.
+  * Scopes and params: Spotify `playlist-read-private playlist-read-collaborative
+    playlist-modify-public playlist-modify-private user-library-read`; Google
+    `https://www.googleapis.com/auth/youtube` with `queryParams: { access_type: 'offline',
+    prompt: 'consent' }` — **without both, Google returns no refresh token** and the connection
+    dies in an hour.
+  * **Capture on the server, immediately.** The callback is the app's `/auth/callback` route
+    handler: `exchangeCodeForSession(code)` returns a session whose `provider_token` and
+    `provider_refresh_token` exist *only in that response*. Write them to Vault and create the
+    `provider_connections` row in the same request, before redirecting. If that write fails,
+    tell the user to connect again; there is no second chance at the tokens.
+  * **The client secret lives in two places**: the Supabase Auth provider config (to run the
+    exchange) and the `token-refresh` Edge Function's secrets (to refresh — Spotify and Google
+    both require it). Accept it; note it in the commit.
+  * **One identity per provider per user.** A household with two Spotify accounts cannot
+    connect both through this path. Accepted: Spotify is a five-user personal feature and
+    YouTube is quota-bound to personal use. Subsonic keeps N-per-user through the own flow, so
+    the `provider_connections` model must not assume one row per provider.
+  * **Disconnect = `unlinkIdentity` + delete the row + delete the Vault secrets**, in that
+    order, and refuse to unlink a user's last identity (Auth refuses too, with a worse
+    message). A user who *signed up* with Google and connected YouTube through the same
+    identity cannot disconnect YouTube without another identity on the account — surface that
+    rather than failing.
+  * **Automatic identity linking** merges on a matching verified email. Fine for the intended
+    case; write a Playwright test for the surprising one (sign up by password with the Spotify
+    account's email, then connect Spotify) so its behaviour is known, not guessed.
+  * Identities are visible in the dashboard's user view; use that when debugging.
+
+**The own-flow path — TIDAL and Subsonic**
 
   * Route handlers `GET /connect/[provider]` and `GET /connect/[provider]/callback`. State and
-    verifier go in an **`oauth_flows` row** (id, user_id, provider, state, verifier, expires_at)
-    with the id in an httpOnly, `SameSite=Lax` cookie. Compare `state` in constant time. Delete
-    the row on every exit.
+    the PKCE verifier go in an **`oauth_flows` row** (id, user_id, provider, state, verifier,
+    expires_at) with the id in an httpOnly, `SameSite=Lax` cookie. Compare `state` in constant
+    time. Delete the row on every exit; prune stale rows nightly.
+  * Subsonic is a form: server URL, username, password → the salted token, verified with a
+    `ping` before the row is written.
+
+**Common to both paths**
+
   * **Tokens in Vault.** A `SECURITY DEFINER` function `store_connection_tokens(connection_id,
     access, refresh, expires_at)` calls `vault.create_secret` / `vault.update_secret` and writes
     the secret ids onto the connection; grant it to `authenticated` with a check that the
@@ -345,7 +402,10 @@ Implementation:
     commit: Vault over app-level encryption is goal 1 over familiarity.
   * **Refresh** is a `token-refresh` Edge Function: a pg_cron job every 5 minutes enqueues
     connections whose `expires_at` is within 10 minutes onto `pgmq` `token_refresh`; the
-    function drains it. Rotation semantics per provider are in domain.md §3.
+    function drains it, using each provider's own token endpoint. Supabase Auth plays no part
+    in refresh. Rotation semantics per provider are in domain.md §3.
+  * A `source` column on `provider_connections` — `'supabase_identity' | 'own_flow'` — so
+    disconnect knows whether an `unlinkIdentity` is owed.
   * Never log a token. `Result` errors carry a `context` object; put connection **ids** in it,
     never the connection.
 
@@ -548,6 +608,12 @@ Each is a throwaway branch with a written result in `docs/spikes.md`.
    subscribe* rather than silently receiving nothing.
 5. **`@supabase/ssr` magic link with `token_hash`** locally through Mailpit, including the
    six-digit code path.
+6. **`linkIdentity` provider-token capture**: link Spotify to a signed-in local user, confirm
+   `provider_token` and `provider_refresh_token` are present in the `exchangeCodeForSession`
+   result on the server and absent afterwards, and that the Spotify refresh token works
+   against Spotify's token endpoint with the app's own client secret. This decides whether
+   the hybrid in §8 holds; if the refresh token does not arrive, Spotify falls back to an own
+   flow and the plan says so.
 
 ---
 
@@ -560,13 +626,13 @@ table of the new repo's `CLAUDE.md` (create one; copy the *structure* of the Eli
 | --- | --- | --- | --- | --- |
 | 0 | Spikes | §14 answers in `docs/spikes.md` | pgmq, pg_net, Vault, Realtime, Edge runtime locally | All five written up |
 | 1 | Foundation | Repo, toolchain (§3), CI, translated schema (§7), auth three ways (§8), generated types, ported pgTAP | Postgres/RLS, Auth, `@supabase/ssr`, UI Library, CLI, pgTAP | pgTAP green; Playwright signs in by password, link and code |
-| 2 | Providers I | TIDAL + Subsonic adapters behind one interface (the Elixir `Providers.Adapter` callbacks: `whoami`, `streamPlaylists`, `streamTracks`, `searchTracks`, `createPlaylist`, `addTracks`, `removeTracks`, `playlistTrackIds`, `acceptTrack`, `capabilities`); OAuth route handlers; Vault tokens; `token-refresh` function | Vault, first Edge Function, pg_cron | Connect both locally; a refresh happens without the user |
+| 2 | Providers I | TIDAL + Subsonic adapters behind one interface (the Elixir `Providers.Adapter` callbacks: `whoami`, `streamPlaylists`, `streamTracks`, `searchTracks`, `createPlaylist`, `addTracks`, `removeTracks`, `playlistTrackIds`, `acceptTrack`, `capabilities`); own-flow route handlers; Vault tokens; `token-refresh` function; **the `linkIdentity` capture path built and tested with Spotify** even though its adapter is phase 8, so both arrival paths exist before transfers do | Vault, first Edge Function, pg_cron, Auth identities | Connect all three locally; a refresh happens without the user; disconnecting Spotify unlinks the identity |
 | 3 | Library | Recordings + playlists + items; `/playlists` and `/playlists/[id]` with reorder via `rpc`; Postgres Changes on `/connections` | Data API in anger, `rpc`, Postgres Changes | Import of Jason's library seed (§16) visible and editable |
 | 4 | Matching | `packages/core` ladder + Vitest replays | — | Corpus tables match §11 within tolerance; **0 wrong** on enrichment corpus |
 | 5 | Transfers | pgmq pipeline (§9), chunked worker, report, overrides, batch, Realtime report (§10) with authorization | Queues, Cron drains, Edge Functions, Broadcast from DB, Realtime Authorization | A TIDAL→Navidrome transfer whose report matches what landed; a killed worker resumes; a second run adds nothing |
 | 6 | Files | CSV import via Dropzone → Storage → transfer; CSV export via signed URL; pruning jobs | Storage, policies, signed URLs, pg_cron + Edge Function pruning | Round-trip property test on the CSV codec; storage pgTAP green |
 | 7 | Sync | Cadence, replace mode, `/syncs`, "run failed again" | pg_cron sweep in SQL | A weekly sync leaves one destination playlist, not fifty-two |
-| 8 | Providers II | Spotify (confidential, `127.0.0.1`, `/items`, non-track filtering, `Retry-After`), YouTube Music (quota-aware, `search.list` budgeted) | — | Spotify→library transfer of a real playlist; YouTube add within quota |
+| 8 | Providers II | Spotify adapter (`/items`, non-track filtering, `Retry-After`), YouTube Music via `linkIdentity` with Google (offline access + consent prompt, quota-aware, `search.list` budgeted) | Auth identities with a second provider on one account | Spotify→library transfer of a real playlist; YouTube add within quota; the "signed up by password with the Spotify email" linking case has a passing test |
 | 9 | Hosted | Vercel + hosted project, custom SMTP, templates pasted, Branching on PRs, Advisors clean, `db lint` clean | Branching, Advisors, Logs, Management API | Production sign-in by magic link from a phone |
 | 10 | Later | MusicBrainz enrichment queue; pgvector automatic embeddings for library search; identity spine; classical works; artwork; playlist sharing + Presence; anonymous sign-in for try-before-signup | pgvector, Presence, anonymous auth | Each its own row |
 
@@ -598,9 +664,12 @@ Caveats the agent must apply:
     script takes a `--owner <new user id>` argument and rewrites every `user_id` to Jason's
     account in the new project. `library_recordings` are ownerless and need no rewrite.
   * **Re-register redirect URIs, do not reuse them.** The TIDAL and Spotify developer apps are
-    the same; add the new app's URIs (`/connect/tidal/callback` etc., and whatever port
-    `next dev` uses) at each provider's dashboard alongside the old ones. Spotify's must be
-    `127.0.0.1`. The secrets in `dev_local.exs` go into `apps/web/.env.local`, never into git.
+    the same. TIDAL's new URI is the app's own (`/connect/tidal/callback`, on whatever port
+    `next dev` uses); Spotify's is now **Supabase Auth's callback** —
+    `http://127.0.0.1:54321/auth/v1/callback` locally — because Spotify connects through
+    `linkIdentity` (§8). The TIDAL secret goes into `apps/web/.env.local` and the refresh
+    function's secrets; the Spotify secret goes into `supabase/.env` for the Auth provider
+    **and** the refresh function's secrets. Never into git.
   * **Personal data on a work machine is Jason's call, and he made it** — but keep the bundle
     out of any synced or shared location, and out of the repo.
   * The corpora in `dev/corpus/*.json` (six files) are committed in the Elixir repo; copy them
