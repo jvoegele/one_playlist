@@ -2,6 +2,19 @@
 
 Guidance for Claude Code in this repository. Read this at the start of every session.
 
+> #### Frozen as a reference since 2026-09-12 {: .warning}
+>
+> Jason has started at Supabase, on the Realtime team, and the dogfooding goal has moved to a
+> **TypeScript port** — `github.com/jvoegele/one-playlist` — that uses the platform the way its
+> customers do. The plan for that port is **`docs/port-plan.md`**, and it is written to be
+> handed to a fresh agent on another machine.
+>
+> This repository takes **no new features**. It remains the source of truth for the matching
+> engine's *measured* behaviour (the corpora and their numbers), for the provider quirks in
+> `docs/reference/domain.md` §3, and for the Supabase lessons in `docs/reference/supabase.md`.
+> Fixes that keep the reference honest — a wrong number, a broken replay — are still welcome.
+> Goal 1 below (dogfooding the Elixir libraries) is complete here and does not carry over.
+
 `AGENTS.md` holds the coding conventions and is authoritative for *how to write code here*.
 This file holds *what we are building and why*.
 
@@ -823,3 +836,4 @@ INVALID_RESOURCE_ID` that names neither scopes nor the parameter.
 | `docs/reference/contracts.md` | **House style for Bond contracts** — read before adding or changing one |
 | `docs/library-feedback.md` | Running log of friction found while dogfooding the four libraries |
 | `docs/supabase-sdk-issues.md` | Defects found in the Supabase Elixir SDK, with offline reproductions and upstream status |
+| `docs/port-plan.md` | **The plan for the TypeScript port** — decisions, architecture, Supabase feature map, phases, data migration. Written for a fresh agent on another machine |
