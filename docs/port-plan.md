@@ -3,7 +3,8 @@
 **Audience:** a Claude Code agent starting the new repository from nothing, on a machine that
 does not have this one checked out. Read this whole file before writing code. Everything it
 cites lives in this repository, `github.com/jvoegele/one_playlist`, which is public; fetch the
-files by raw URL or clone it read-only.
+files by raw URL or clone it read-only. **The section "How to work with Jason" governs pace and
+review; it applies from the first command.**
 
 **Status of this document:** written 2026-09-12 from decisions Jason made that day. The
 decisions in §1 are settled; everything after them is the plan that follows from them, and is
@@ -57,6 +58,56 @@ source of truth for what the port must reproduce.
 | Repository | **`github.com/jvoegele/one-playlist`, public** | Public from day one, which makes §16's rule about local data a hard rule. |
 | TypeScript practice | **Prescriptive** | See §3. |
 | Elixir repo | **Frozen as reference** | Noted at the top of its `CLAUDE.md`. |
+
+---
+
+## How to work with Jason — read this before writing any code
+
+This section overrides any default working style. It exists because of how the Elixir project
+went: the agent did most of the driving, produced a large and well-tested codebase, and Jason
+ended up with **code he did not deeply understand**. For a project whose second goal is
+*learning* TypeScript and Supabase, that outcome is a failure even when the code is good.
+
+**Jason drives; the agent proposes, explains, and implements in small pieces he reviews.**
+
+  * **The unit of work is one reviewable change**: one concern, typically under ~200 lines of
+    diff, small enough to read in a few minutes. Before writing it, say in a few sentences
+    *what* it will do, *why* this way, and *which* TypeScript, Next.js or Supabase concepts it
+    introduces. After writing it, **stop**. Do not start the next piece.
+  * **Jason commits, not the agent.** Present the change, summarise it file by file with the
+    concepts it uses, and wait. He may edit it before committing. When work resumes, **re-read
+    the files from disk** rather than assuming they still match what was written — his edits
+    are part of the design, not noise to be reverted. Commit only when he says to; when he
+    does, the commit message still carries the reasoning, as in the Elixir repo's history.
+  * **Teach in the conversation, not only in comments.** Each time a new idiom appears — the
+    first Server Action, the first `createServerClient` with cookies, the first Zod schema,
+    the first `SECURITY DEFINER` function, the first `rpc` call, generics, discriminated
+    unions, `async` iteration — give a short explanation and, where one exists, a pointer to
+    the page worth reading. Assume deep Elixir knowledge: "this is what `with` would be" is
+    often the fastest explanation.
+  * **Offer the keyboard.** For load-bearing concepts, ask whether Jason wants to write it
+    himself with the agent reviewing: the first RLS policy, the first Route Handler, the
+    matching ladder's core loop, the first Edge Function, the Realtime subscription. Take yes
+    for an answer and review his version as seriously as he reviews the agent's.
+  * **No batch generation, no autonomous loops.** Do not produce a dozen files in one turn or
+    run several phases unattended. Scaffolding commands that generate a lot of code
+    (`create-next-app`, `shadcn add`, `supabase init`) are run with Jason's go-ahead and
+    followed by a walk through what they produced and what can be deleted.
+  * **Mechanical changes are the exception, and are labelled.** Lockfile updates, regenerated
+    `database.types.ts`, a migration written from a schema dump, a corpus copied in — these can
+    be large. Say "mechanical, skim" so Jason knows not to study them line by line.
+  * **Questions are work.** When Jason asks why something is written a certain way, that is
+    the project succeeding, not an interruption. Answer fully; if the honest answer is "it
+    would be simpler another way", say so and offer to change it.
+  * **Prefer clarity over cleverness in the code itself.** A learner's codebase should read
+    top to bottom. Avoid type-level gymnastics, deep generic helpers and heavy abstraction
+    until Jason asks for them; three similar lines beat one clever one for now.
+  * **Keep a running `docs/learning-log.md`** in the new repo: one line per concept
+    introduced, dated, with the file it first appeared in. Jason can turn it into study notes;
+    the agent can use it to avoid re-explaining and to notice what has not been covered.
+
+The plan's phases (§15) are the route; this section is the pace. A phase that takes twice as
+long and leaves Jason able to explain every file is the intended result.
 
 ---
 
@@ -710,6 +761,9 @@ The plan is complete without these; they gate specific phases.
 
 ## 18. Working agreements for the agent
 
+  * **Small reviewable changes, Jason commits, teach as you go** — the section "How to work
+    with Jason" above is the first agreement and overrides the rest when they conflict. Copy
+    it into the new repo's `CLAUDE.md` verbatim.
   * Start every session by reading the new repo's `CLAUDE.md`; create it in phase 1 from the
     Elixir one's structure (goals, constraints, architecture, local dev, status table, backlog).
   * **Measure matching changes against the corpora, never by argument.**
@@ -723,3 +777,19 @@ The plan is complete without these; they gate specific phases.
   * Prefer reading the Supabase docs page over remembering it; the platform moves monthly.
   * Keep phases small enough to commit daily. Report honestly what a phase did **not** exercise
     (the Elixir status table's "What that run did not exercise" paragraph is the model).
+
+---
+
+## 19. Kickoff prompt
+
+For Jason to paste into the first session on the work laptop:
+
+> Read https://raw.githubusercontent.com/jvoegele/one_playlist/main/docs/port-plan.md in full
+> before doing anything. It is the plan for a new TypeScript/Next.js/Supabase project,
+> `jvoegele/one-playlist`, porting an existing Elixir application. The decisions in §1 are
+> settled. The section "How to work with Jason" is how we work: one small reviewable change at
+> a time, explained before and after, and I commit — you stop and wait after each piece. Start
+> with §14 (spikes), in order, writing results to `docs/spikes.md`, then Phase 1 of §15. The
+> handoff bundle is at `~/Dropbox/one_playlist-handoff/`; secrets are in 1Password vault
+> `one-playlist` via the `op` CLI, never in the repo. Ask me the §17 questions only when a
+> phase needs them.
