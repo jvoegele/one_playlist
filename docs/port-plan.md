@@ -101,7 +101,7 @@ record why in the new repo's docs and change it once.
 
 | Concern | Choice | Notes |
 | --- | --- | --- |
-| Node | current LTS, pinned in `.tool-versions` via the asdf `nodejs` plugin | Jason already uses asdf. |
+| Node | current LTS, pinned in **`mise.toml`** (`[tools] node = "lts"` → then pin the resolved major, e.g. `"22"`); `pnpm` pinned there too via `pnpm = "latest"` or the `packageManager` field in `package.json` | Jason uses **mise** on the work laptop. `mise install` on a fresh clone sets everything up; `mise` also runs `.env`-style tasks if wanted, but keep secrets on `op` (see Secrets). |
 | Package manager | **pnpm**, with a `pnpm-workspace.yaml` | Workspaces are needed for the shared core package (§12). Commit `pnpm-lock.yaml`. |
 | Scaffold | `pnpm create next-app@latest` — TypeScript, App Router, Tailwind, `src/` dir, Turbopack | Then `npx shadcn@latest init`. |
 | UI | **shadcn/ui** + **Supabase UI Library** blocks | `npx shadcn@latest add @supabase/password-based-auth-nextjs` etc. The library also ships Social Auth, Dropzone (Storage uploads), Realtime Cursor, Realtime Avatar Stack (Presence), Realtime Chat, an Infinite Query hook and Current User Avatar. Verify the current list at `supabase.com/ui`. Use the blocks as *starting points* and edit them; they install as source. |
@@ -140,7 +140,7 @@ one-playlist/
     seed.sql
   corpora/                  the JSON corpora, copied from the Elixir repo's dev/corpus/
   docs/                     this plan's successor documents live here
-  .tool-versions
+  mise.toml
   pnpm-workspace.yaml
   biome.json
 ```
