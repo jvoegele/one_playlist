@@ -116,7 +116,7 @@ record why in the new repo's docs and change it once.
 | Edge Function tests | `deno test` inside `supabase/functions/`, plus integration tests that call `supabase functions serve` | |
 | E2E | **Playwright** against `supabase start` + `next dev`, reading sign-in email out of Mailpit's API (`http://127.0.0.1:54324/api/v1/search?query=to:"<addr>"`) — the Elixir suite already does this and it works | |
 | CI | GitHub Actions: `supabase start`, `supabase db lint`, `supabase test db`, `pnpm test`, `pnpm build`, Playwright | |
-| Env | `.env.local` (gitignored) for Next; `supabase/.env` (gitignored) for `env(...)` values in `config.toml`; `.env.example` for both, committed | Never a key in the repo, including the well-known local demo keys — keep the habit. |
+| Secrets | **1Password, vault `one-playlist`**, read through the `op` CLI. Commit `.env.tpl` files whose values are secret references — `op://one-playlist/tidal-developer-app/credential`, `op://one-playlist/spotify-developer-app/username` — and generate the gitignored real files with `op inject -i apps/web/.env.tpl -o apps/web/.env.local` and `op inject -i supabase/.env.tpl -o supabase/.env`, or skip the file entirely with `op run --env-file=apps/web/.env.tpl -- pnpm dev`. Edge Function secrets: `op read <ref> \| supabase secrets set NAME` | Jason has the same personal 1Password account on both machines, so this is the handoff channel for every secret from now on — provider apps today, the hosted project's keys and SMTP credentials later. Items: `tidal-developer-app`, `spotify-developer-app` (API Credential type: `username` = client id, `credential` = secret; notes carry each provider's redirect-URI rules). **Item titles must be slugs** — the reference grammar rejects parentheses, learned the hard way. Never a key in the repo, including the well-known local demo keys — keep the habit. |
 | Commits | Conventional-ish, but the body carries the *reasoning*, and **states any trade between the three goals** | The Elixir repo's history is the model: `git log` there. |
 
 Repository layout (a pnpm workspace so the pure core can be shared with Edge Functions — see
@@ -655,7 +655,7 @@ is read from it. Contents:
 | `library-schema.sql` | `pg_dump --schema-only` of the same seven tables — the *effective* Elixir schema, so the transform script has the column list without running Elixir | Phase 1 (§7), phase 3 |
 | `playlists/*.csv` | Seven Roon exports of Jason's playlists (one is 139 KB) | Phase 6: re-import through the new CSV importer |
 | `musicbrainz_corpus.json`, `match_rate_results.json` | The two files `dev/measure/replay.exs` reads; **also committed** in the Elixir repo, copied here for convenience | Phase 4 |
-| `dev_local.exs` | The Elixir app's local credentials: TIDAL and Spotify client id/secret and redirect URIs, local Supabase keys | Phase 2 and 8 — see caveats |
+| *(no credentials file)* | TIDAL and Spotify developer-app credentials live in **1Password, vault `one-playlist`** (§3), not in the bundle | Phase 2 and 8 — see caveats |
 
 Caveats the agent must apply:
 
@@ -667,9 +667,10 @@ Caveats the agent must apply:
     the same. TIDAL's new URI is the app's own (`/connect/tidal/callback`, on whatever port
     `next dev` uses); Spotify's is now **Supabase Auth's callback** —
     `http://127.0.0.1:54321/auth/v1/callback` locally — because Spotify connects through
-    `linkIdentity` (§8). The TIDAL secret goes into `apps/web/.env.local` and the refresh
-    function's secrets; the Spotify secret goes into `supabase/.env` for the Auth provider
-    **and** the refresh function's secrets. Never into git.
+    `linkIdentity` (§8). The TIDAL secret reaches `apps/web/.env.local` and the refresh
+    function's secrets; the Spotify secret reaches `supabase/.env` for the Auth provider
+    **and** the refresh function's secrets — all via `op inject` / `op read` from the
+    1Password items (§3). Never into git, never typed by hand.
   * **Personal data on a work machine is Jason's call, and he made it** — but keep the bundle
     out of any synced or shared location, and out of the repo.
   * The corpora in `dev/corpus/*.json` (six files) are committed in the Elixir repo; copy them
