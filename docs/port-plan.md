@@ -643,10 +643,11 @@ Phases 2 and 4 are independent and can be interleaved. Phase 5 depends on 2, 3 a
 ## 16. Data migration
 
 Everything that was gitignored in the Elixir repo, or lived only in its local Docker database,
-was exported on 2026-09-12 into a **handoff bundle** that Jason moves to the new machine by
-hand. **Ask Jason where he put it**; the plan assumes `~/one_playlist-handoff/`. It must never
-be committed, and its directory should be gitignored in the new repo before the first file
-is read from it. Contents:
+was exported on 2026-09-12 into a **handoff bundle** that syncs through Jason's personal
+Dropbox: **`~/Dropbox/one_playlist-handoff/`** on both machines (confirm the path with Jason if
+it is not there). It contains no secrets — those are in 1Password, §3 — only personal
+listening data and catalogue data. Read from it in place or copy it to a gitignored path; it
+must never be committed. Contents:
 
 | File | What it is | Used in |
 | --- | --- | --- |
@@ -671,8 +672,9 @@ Caveats the agent must apply:
     function's secrets; the Spotify secret reaches `supabase/.env` for the Auth provider
     **and** the refresh function's secrets — all via `op inject` / `op read` from the
     1Password items (§3). Never into git, never typed by hand.
-  * **Personal data on a work machine is Jason's call, and he made it** — but keep the bundle
-    out of any synced or shared location, and out of the repo.
+  * **Personal data on a work machine is Jason's call, and he made it.** His own Dropbox is
+    the agreed channel; do not copy the bundle into any *shared* folder, and never into the
+    repo.
   * The corpora in `dev/corpus/*.json` (six files) are committed in the Elixir repo; copy them
     from there into `corpora/`. They contain MusicBrainz and TIDAL catalogue data only.
   * Jason's TIDAL playlists need no export: they re-enter through a TIDAL transfer, which is a
