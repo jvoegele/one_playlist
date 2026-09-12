@@ -474,6 +474,7 @@ Port `packages/core` **first**, before any provider adapter, and port the replay
 | `enrichment_cases.json` | 255 (234 labelled) | 149 correct, 30 equivalent, 32 unverified, 23 missed, **0 wrong** — with the `tags withheld` control at 147/31/32/23/1 |
 | `album_cases.json` | 493 pairs | `Normalize.album` 79.5% vs 76.1% baseline (note the noise floor: duplicate release groups) |
 | `classical_cases.json` / `classical_sources.json` | 57 | 24 work + 13 text — later phase; and roughly half the corpus is pop, so the numbers are a floor |
+| `dev/experiments/hard_playlist.csv` + `hard_playlist_categories.json` | ~60 | A playlist *built to break the matcher*, each row tagged with the failure mode it targets (version in title, featured credits, reprises…). No pinned score; run it as a live transfer once providers exist and read the report by category |
 
 The replays become Vitest tests that print the same four-column table and **fail if any wrong
 count rises**. Correct/missed may differ slightly while normalizers converge; *wrong* may not.
@@ -575,21 +576,42 @@ Phases 2 and 4 are independent and can be interleaved. Phase 5 depends on 2, 3 a
 
 ## 16. Data migration
 
-  * **Corpora:** copy `dev/corpus/*.json` (six files) and the two files `dev/measure/replay.exs`
-    reads — `dev/measure/musicbrainz_corpus.json` (the 100 recordings) and
-    `dev/measure/match_rate_results.json` (the TIDAL candidates captured for each) — into
-    `corpora/`. Port the replay logic; the data is language-neutral.
-  * **Jason's library:** from the Elixir repo, with the local stack up:
-    `pg_dump "postgresql://postgres:postgres@127.0.0.1:54322/postgres" --data-only
-    --column-inserts -t library_recordings -t recording_enrichments -t musicbrainz_releases
-    -t library_playlists -t library_playlist_items > library-export.sql`. Write a small
-    transform script (TS, run once) that maps columns to the new schema, drops nothing, and
-    inserts through the service role. `recording_identities` too if the identity spine ships.
-    **Keep the export out of the new repo** — it is personal listening data; load it from a
-    gitignored path.
-  * **Playlists:** `dev/playlists/*.csv` (gitignored Roon exports) and Jason's TIDAL playlists
-    re-enter through the new CSV importer and a TIDAL transfer respectively — which is a test
-    of both.
+Everything that was gitignored in the Elixir repo, or lived only in its local Docker database,
+was exported on 2026-09-12 into a **handoff bundle** that Jason moves to the new machine by
+hand. **Ask Jason where he put it**; the plan assumes `~/one_playlist-handoff/`. It must never
+be committed, and its directory should be gitignored in the new repo before the first file
+is read from it. Contents:
+
+| File | What it is | Used in |
+| --- | --- | --- |
+| `README.md` | This table, plus the caveats below | — |
+| `library-export.sql` | `pg_dump --data-only --column-inserts` of `library_recordings` (661), `recording_enrichments` (661), `musicbrainz_releases` (705), `recording_identities` (615), `library_playlists` (7), `library_playlist_items` (815), `transfer_overrides` (1) | Phase 3 seed; phase 10 identity spine |
+| `library-schema.sql` | `pg_dump --schema-only` of the same seven tables — the *effective* Elixir schema, so the transform script has the column list without running Elixir | Phase 1 (§7), phase 3 |
+| `playlists/*.csv` | Seven Roon exports of Jason's playlists (one is 139 KB) | Phase 6: re-import through the new CSV importer |
+| `musicbrainz_corpus.json`, `match_rate_results.json` | The two files `dev/measure/replay.exs` reads; **also committed** in the Elixir repo, copied here for convenience | Phase 4 |
+| `dev_local.exs` | The Elixir app's local credentials: TIDAL and Spotify client id/secret and redirect URIs, local Supabase keys | Phase 2 and 8 — see caveats |
+
+Caveats the agent must apply:
+
+  * **User ids do not carry over.** `library_playlists.user_id`, `recording_identities` and
+    `transfer_overrides` reference `auth.users` rows in the *old* local project. The transform
+    script takes a `--owner <new user id>` argument and rewrites every `user_id` to Jason's
+    account in the new project. `library_recordings` are ownerless and need no rewrite.
+  * **Re-register redirect URIs, do not reuse them.** The TIDAL and Spotify developer apps are
+    the same; add the new app's URIs (`/connect/tidal/callback` etc., and whatever port
+    `next dev` uses) at each provider's dashboard alongside the old ones. Spotify's must be
+    `127.0.0.1`. The secrets in `dev_local.exs` go into `apps/web/.env.local`, never into git.
+  * **Personal data on a work machine is Jason's call, and he made it** — but keep the bundle
+    out of any synced or shared location, and out of the repo.
+  * The corpora in `dev/corpus/*.json` (six files) are committed in the Elixir repo; copy them
+    from there into `corpora/`. They contain MusicBrainz and TIDAL catalogue data only.
+  * Jason's TIDAL playlists need no export: they re-enter through a TIDAL transfer, which is a
+    test of the adapter.
+  * Not carried over, deliberately: the Navidrome `music/` and `data/` directories (synthetic
+    audio, regenerated by `dev/navidrome/generate_library.py`, which is committed), the local
+    Vault secrets (regenerable per environment), 592 `provider_connections` rows (almost all
+    test fixtures; the three real ones are re-created by connecting), and 21 transfers (the
+    reports are history, not data).
 
 **Hard rule, inherited from a near miss:** the Elixir repo's `dev/` looked gitignored and was
 not, and `git add -A` once swept real listening history into a public commit. In the new repo:
